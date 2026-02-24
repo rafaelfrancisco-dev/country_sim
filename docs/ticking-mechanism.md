@@ -35,10 +35,24 @@ pub trait Tickable {
 Simulation commands are processed by a dedicated worker thread that owns the authoritative `GameEngine`.
 
 Implications:
-- Daily and monthly writes remain totally ordered (single worker applies commands sequentially).
+- Daily and monthly writes remain totally ordered at command level (single worker applies commands sequentially).
 - Worker publishes a lightweight UI snapshot after each command.
 - UI thread enqueues commands and renders from the latest snapshot, so rendering and input stay responsive even while a tick is running.
 - No merge/reconciliation step is required between daily and monthly state.
+
+Inside a single `World::tick_day`, country updates now run in parallel by deterministic country chunks via `rayon`.
+
+## Parallelism and Determinism
+- `World` ticks countries in parallel using fixed chunk partitioning.
+- `Country` daily/monthly internals use deterministic staged pipelines:
+  - Parallel intent/decision phases over chunked entities.
+  - Sequential commit phases in stable index order when side effects touch shared state.
+- Money aggregates and payroll accumulation use cent-based deterministic reductions, then convert back to `f64`.
+- Randomness remains seed-derived from stable IDs/day/month values (no thread-local RNG).
+
+### Explicit Sequential Exceptions
+- Bank-dependent loan origination/repayment commits remain sequential where bank mutation ordering is business-significant.
+- Snapshot/history writes remain sequential after all country ticks complete.
 
 ## History Capture
 - Initial snapshot is captured at world creation.

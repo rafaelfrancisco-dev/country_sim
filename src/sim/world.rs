@@ -1,8 +1,10 @@
 use super::{country::Country, country::DAYS_PER_MONTH, person::Person, tickable::Tickable};
+use rayon::prelude::*;
 
 pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const HISTORY_LIMIT: usize = 120;
+const COUNTRY_CHUNK_SIZE: usize = 8;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DetailsView {
@@ -392,9 +394,13 @@ impl Tickable for World {
     fn tick_day(&mut self) {
         self.day = self.day.saturating_add(1);
 
-        for country in &mut self.countries {
-            country.tick_day();
-        }
+        self.countries
+            .par_chunks_mut(COUNTRY_CHUNK_SIZE)
+            .for_each(|chunk| {
+                for country in chunk {
+                    country.tick_day();
+                }
+            });
 
         if self.day % DAYS_PER_MONTH == 0 {
             self.capture_snapshot();
@@ -405,6 +411,8 @@ impl Tickable for World {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rayon::ThreadPoolBuilder;
+    use std::time::Instant;
 
     fn build_people(count: usize) -> Vec<Person> {
         (0..count)
@@ -417,6 +425,35 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    fn run_world_in_pool(
+        country_count: usize,
+        people_per_country: usize,
+        days: u64,
+        threads: usize,
+    ) -> World {
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .expect("thread pool should build");
+
+        pool.install(|| {
+            let countries = (0..country_count)
+                .map(|idx| {
+                    Country::new(
+                        (idx + 1) as u16,
+                        format!("C{idx}"),
+                        build_people(people_per_country),
+                    )
+                })
+                .collect::<Vec<_>>();
+            let mut world = World::new(countries);
+            for _ in 0..days {
+                world.tick_day();
+            }
+            world
+        })
     }
 
     #[test]
@@ -664,5 +701,50 @@ mod tests {
         assert_eq!(world.selected_country, 1);
         world.chart_prev_country();
         assert_eq!(world.selected_country, 0);
+    }
+
+    #[test]
+    fn world_tick_parallel_matches_single_thread_reference_small_world() {
+        let single_thread = run_world_in_pool(2, 25, 120, 1);
+        let multi_thread = run_world_in_pool(2, 25, 120, 4);
+        assert_eq!(single_thread, multi_thread);
+    }
+
+    #[test]
+    fn world_tick_parallel_matches_single_thread_reference_large_world() {
+        let single_thread = run_world_in_pool(8, 120, 90, 1);
+        let multi_thread = run_world_in_pool(8, 120, 90, 8);
+        assert_eq!(single_thread, multi_thread);
+    }
+
+    #[test]
+    fn history_capture_unchanged_at_month_boundaries_parallel_mode() {
+        let world_one_thread = run_world_in_pool(3, 30, DAYS_PER_MONTH * 3, 1);
+        let world_many_threads = run_world_in_pool(3, 30, DAYS_PER_MONTH * 3, 8);
+        assert_eq!(
+            world_one_thread.world_history,
+            world_many_threads.world_history
+        );
+        assert_eq!(
+            world_one_thread.country_history,
+            world_many_threads.country_history
+        );
+    }
+
+    #[test]
+    #[ignore = "manual performance harness"]
+    fn benchmark_tick_throughput_large_scenarios() {
+        let thread_counts = [1_usize, 2, 4, 8];
+        let scenarios = [(10, 100_000, 3_u64), (50, 200_000, 1_u64)];
+        for (countries, people_per_country, days) in scenarios {
+            for threads in thread_counts {
+                let start = Instant::now();
+                let _world = run_world_in_pool(countries, people_per_country, days, threads);
+                let elapsed = start.elapsed();
+                eprintln!(
+                    "scenario countries={countries} people_per_country={people_per_country} days={days} threads={threads} elapsed={elapsed:?}"
+                );
+            }
+        }
     }
 }
