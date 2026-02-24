@@ -6,7 +6,7 @@ use super::{
     job::{JobTypeId, job_is_eligible_for_habilitation},
     money::round_cents,
     params::SimulationParams,
-    person::{EducationTrack, EmploymentStatus, HabilitationLevel, Person},
+    person::{EmploymentStatus, HabilitationLevel, Person},
     tickable::Tickable,
 };
 
@@ -46,6 +46,7 @@ impl Country {
         Self::with_economy(id, name, people, companies, 0.0)
     }
 
+    #[cfg(test)]
     pub fn with_economy(
         id: u16,
         name: String,
@@ -580,7 +581,9 @@ fn roll_probability(seed: u64, probability: f64) -> bool {
 mod tests {
     use super::*;
     use crate::sim::{
-        company::build_default_companies, params::DemographicParams, person::DAYS_PER_YEAR,
+        company::build_default_companies,
+        params::DemographicParams,
+        person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus},
     };
 
     fn build_people(count: usize) -> Vec<Person> {

@@ -16,7 +16,6 @@ impl Simulation {
         area: Rect,
         setup: &SetupSnapshot,
     ) {
-
         let block = Block::default()
             .title(" Country Simulation Setup ")
             .borders(Borders::ALL)

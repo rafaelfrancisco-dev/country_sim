@@ -16,3 +16,4 @@ A toy app...
 - [Game context](docs/game-context.md)
 - [Running charts tab](docs/running-charts-tab.md)
 - [Money simulation requirements](docs/money-simulation-requirements.md)
+- [Demographics and labor model](docs/demographics-labor-model.md)

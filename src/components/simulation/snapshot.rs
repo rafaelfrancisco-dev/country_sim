@@ -120,7 +120,12 @@ impl UiSnapshot {
 
         let mut people_rows = Vec::new();
         if let Some(country) = selected_country {
-            for (row_idx, person) in world.selected_people_page().unwrap_or(&[]).iter().enumerate() {
+            for (row_idx, person) in world
+                .selected_people_page()
+                .unwrap_or(&[])
+                .iter()
+                .enumerate()
+            {
                 let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
                 let name = person_name_from_seed(name_seed);
                 let job_name = person
@@ -196,7 +201,9 @@ fn person_details_lines(world: &World) -> Vec<String> {
     };
 
     let Some(person) = world.selected_person_on_page() else {
-        return vec!["No person available for the current selection. Press [Esc] to return.".to_string()];
+        return vec![
+            "No person available for the current selection. Press [Esc] to return.".to_string(),
+        ];
     };
 
     let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
@@ -239,7 +246,10 @@ fn person_details_lines(world: &World) -> Vec<String> {
         format!("Last Tax Paid: {}", money(person.last_month_tax_paid)),
         format!("Last Net Pay: {}", money(person.last_month_net_pay)),
         format!("Last Spending: {}", money(person.last_month_spending)),
-        format!("Last Loan Payment: {}", money(person.last_month_loan_payment)),
+        format!(
+            "Last Loan Payment: {}",
+            money(person.last_month_loan_payment)
+        ),
         format!("Last New Loan: {}", money(person.last_month_new_loan)),
     ]
 }
@@ -272,7 +282,11 @@ fn country_details_lines(world: &World) -> Vec<String> {
             "Last Monthly Spending: {}",
             money(country.monthly_household_spending)
         ),
-        format!("People Page: {}/{}", world.people_page + 1, world.total_people_pages()),
+        format!(
+            "People Page: {}/{}",
+            world.people_page + 1,
+            world.total_people_pages()
+        ),
     ]
 }
 

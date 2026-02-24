@@ -9,7 +9,12 @@ use super::super::{Simulation, theme};
 use crate::components::simulation::snapshot::RunningSnapshot;
 
 impl Simulation {
-    pub(super) fn draw_person_details(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    pub(super) fn draw_person_details(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+    ) {
         let details = world
             .person_details_lines
             .iter()
@@ -31,7 +36,12 @@ impl Simulation {
         );
     }
 
-    pub(super) fn draw_country_details(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    pub(super) fn draw_country_details(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+    ) {
         let details = world
             .country_details_lines
             .iter()

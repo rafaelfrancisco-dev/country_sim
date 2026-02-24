@@ -80,6 +80,7 @@ pub struct Person {
 }
 
 impl Person {
+    #[cfg(test)]
     pub fn new(id: u32, job_type_id: JobTypeId, employer_company_id: u16, name_seed: u32) -> Self {
         Self::new_with_profile(
             id,

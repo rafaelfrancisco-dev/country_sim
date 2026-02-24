@@ -3,6 +3,7 @@ use super::Simulation;
 impl Simulation {
     pub(super) fn reconcile_monthly_processing(&mut self) {}
 
+    #[cfg(test)]
     pub(super) fn should_pause_daily_ticks_for_monthly_catchup(&self) -> bool {
         false
     }

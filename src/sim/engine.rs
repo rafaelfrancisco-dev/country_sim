@@ -73,6 +73,7 @@ impl GameEngine {
         &self.phase
     }
 
+    #[cfg(test)]
     pub fn setup(&self) -> Option<&SetupForm> {
         match &self.phase {
             GamePhase::Setup(setup) => Some(setup),
@@ -80,6 +81,7 @@ impl GameEngine {
         }
     }
 
+    #[cfg(test)]
     pub fn world(&self) -> Option<&World> {
         match &self.phase {
             GamePhase::Setup(_) => None,

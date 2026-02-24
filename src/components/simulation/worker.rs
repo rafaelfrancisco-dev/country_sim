@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::sync::mpsc;
 use std::{
     sync::{
         Arc, RwLock,
@@ -5,8 +7,6 @@ use std::{
     },
     thread,
 };
-#[cfg(test)]
-use std::sync::mpsc;
 
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
@@ -82,7 +82,11 @@ impl SimulationWorker {
     #[cfg(test)]
     pub(super) fn send_and_wait(&self, command: GameCommand) {
         let (ack_tx, ack_rx) = mpsc::channel();
-        if self.tx.send(WorkerMsg::ApplyAndAck(command, ack_tx)).is_ok() {
+        if self
+            .tx
+            .send(WorkerMsg::ApplyAndAck(command, ack_tx))
+            .is_ok()
+        {
             let _ = ack_rx.recv();
         }
     }

@@ -5,6 +5,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 > Money simulation requirements are documented in [money-simulation-requirements.md](money-simulation-requirements.md).
 >
+> Daily demographics and labor behavior are documented in [demographics-labor-model.md](demographics-labor-model.md).
+>
 > Running analytics tab behavior is documented in [running-charts-tab.md](running-charts-tab.md).
 >
 > Tick architecture is documented in [ticking-mechanism.md](ticking-mechanism.md).

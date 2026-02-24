@@ -301,6 +301,7 @@ impl World {
         self.select_next_country_row();
     }
 
+    #[cfg(test)]
     pub fn completed_month_boundaries(&self) -> u64 {
         self.day / DAYS_PER_MONTH
     }

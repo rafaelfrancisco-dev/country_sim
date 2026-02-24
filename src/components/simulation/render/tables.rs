@@ -31,34 +31,30 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = world
-            .country_rows
-            .iter()
-            .map(|country| {
-                let style = if country.is_selected && world.selection_focus == SelectionFocus::Country
-                {
-                    Style::default()
-                        .fg(theme::TEXT_PRIMARY)
-                        .bg(theme::HIGHLIGHT_BG)
-                        .add_modifier(Modifier::BOLD)
-                } else if country.is_even {
-                    Style::default().fg(theme::TEXT_PRIMARY)
-                } else {
-                    Style::default()
-                        .fg(theme::TEXT_PRIMARY)
-                        .bg(Color::Rgb(23, 31, 48))
-                };
+        let rows = world.country_rows.iter().map(|country| {
+            let style = if country.is_selected && world.selection_focus == SelectionFocus::Country {
+                Style::default()
+                    .fg(theme::TEXT_PRIMARY)
+                    .bg(theme::HIGHLIGHT_BG)
+                    .add_modifier(Modifier::BOLD)
+            } else if country.is_even {
+                Style::default().fg(theme::TEXT_PRIMARY)
+            } else {
+                Style::default()
+                    .fg(theme::TEXT_PRIMARY)
+                    .bg(Color::Rgb(23, 31, 48))
+            };
 
-                Row::new([
-                    Cell::from(country.name.clone()),
-                    Cell::from(country.population.clone()),
-                    Cell::from(country.household_cash.clone()),
-                    Cell::from(country.company_cash.clone()),
-                    Cell::from(country.treasury.clone()),
-                    Cell::from(country.loans.clone()),
-                ])
-                .style(style)
-            });
+            Row::new([
+                Cell::from(country.name.clone()),
+                Cell::from(country.population.clone()),
+                Cell::from(country.household_cash.clone()),
+                Cell::from(country.company_cash.clone()),
+                Cell::from(country.treasury.clone()),
+                Cell::from(country.loans.clone()),
+            ])
+            .style(style)
+        });
 
         let widths = [
             Constraint::Length(14),
@@ -87,12 +83,7 @@ impl Simulation {
         frame.render_widget(table, area);
     }
 
-    pub(super) fn draw_people_table(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        world: &RunningSnapshot,
-    ) {
+    pub(super) fn draw_people_table(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
         let header = Row::new([
             Cell::from("Citizen ID"),
             Cell::from("Name"),
