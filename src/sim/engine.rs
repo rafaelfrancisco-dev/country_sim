@@ -87,6 +87,13 @@ impl GameEngine {
         }
     }
 
+    pub fn world_mut(&mut self) -> Option<&mut World> {
+        match &mut self.phase {
+            GamePhase::Setup(_) => None,
+            GamePhase::Running(world) => Some(world),
+        }
+    }
+
     pub fn apply(&mut self, command: GameCommand) {
         match &mut self.phase {
             GamePhase::Setup(setup_form) => {

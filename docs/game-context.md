@@ -6,6 +6,8 @@ Country Sim is a terminal-based simulation game where each engine tick maps to o
 > Money simulation Phase 2 requirements are documented in [money-simulation-requirements.md](money-simulation-requirements.md).
 >
 > Running analytics tab behavior is documented in [running-charts-tab.md](running-charts-tab.md).
+>
+> Tick architecture and async monthly scheduling are documented in [ticking-mechanism.md](ticking-mechanism.md).
 
 Phase 1 delivers a foundational simulation slice:
 - countries and citizens (`Person`) as core entities

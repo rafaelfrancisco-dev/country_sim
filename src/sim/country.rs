@@ -297,10 +297,16 @@ impl Country {
 
 impl Tickable for Country {
     fn tick_day(&mut self) {
-        self.day = self.day.saturating_add(1);
+        self.tick_day_without_month();
         if self.day % DAYS_PER_MONTH == 0 {
             self.process_month();
         }
+    }
+}
+
+impl Country {
+    pub fn tick_day_without_month(&mut self) {
+        self.day = self.day.saturating_add(1);
     }
 }
 
