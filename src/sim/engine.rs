@@ -15,7 +15,7 @@ pub enum GamePhase {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GameCommand {
-    SetupEditDigit(u8),
+    SetupEditChar(char),
     SetupBackspace,
     SetupNextField,
     SetupPrevField,
@@ -103,7 +103,7 @@ impl GameEngine {
         command: GameCommand,
     ) -> Option<SetupValues> {
         match command {
-            GameCommand::SetupEditDigit(digit) => setup_form.edit_digit(digit),
+            GameCommand::SetupEditChar(input) => setup_form.edit_char(input),
             GameCommand::SetupBackspace => setup_form.backspace(),
             GameCommand::SetupNextField => setup_form.next_field(),
             GameCommand::SetupPrevField => setup_form.prev_field(),
@@ -137,9 +137,10 @@ impl GameEngine {
     }
 
     fn build_world(&self, values: SetupValues) -> World {
-        let population_per_country = values
-            .millions_per_country
-            .saturating_mul(self.citizens_per_million);
+        let population_per_country = (values.millions_per_country
+            * f64::from(self.citizens_per_million))
+        .round()
+        .clamp(0.0, f64::from(u32::MAX)) as u32;
 
         let config = GenerationConfig::with_defaults(
             values.country_count,
@@ -167,12 +168,12 @@ mod tests {
     }
 
     fn submit_setup(engine: &mut GameEngine, countries: &str, millions: &str) {
-        for digit in countries.bytes() {
-            engine.apply(GameCommand::SetupEditDigit(digit - b'0'));
+        for input in countries.chars() {
+            engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupNextField);
-        for digit in millions.bytes() {
-            engine.apply(GameCommand::SetupEditDigit(digit - b'0'));
+        for input in millions.chars() {
+            engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupSubmit);
     }

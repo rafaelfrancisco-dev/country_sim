@@ -12,10 +12,7 @@ use std::{
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tracing::warn;
 
-use super::{
-    snapshot::UiSnapshot,
-    ui_state::UiState,
-};
+use super::{snapshot::UiSnapshot, ui_state::UiState};
 use crate::sim::{GameCommand, GameEngine, UiCommand};
 
 #[derive(Debug)]
@@ -65,6 +62,17 @@ impl SimulationWorker {
                 match message {
                     WorkerMsg::Apply(command) => {
                         let is_tick = matches!(command, GameCommand::Tick);
+                        if matches!(command, GameCommand::SetupSubmit) {
+                            if let Some(loading_snapshot) =
+                                UiSnapshot::loading_setup_from_engine(&engine)
+                            {
+                                if let Ok(mut ui_snapshot) = snapshot.write() {
+                                    *ui_snapshot = loading_snapshot;
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
                         let outcome = engine.apply(command);
                         for warning in outcome.warnings {
                             warn!("simulation invariant warning: {warning}");
@@ -91,6 +99,17 @@ impl SimulationWorker {
                     #[cfg(test)]
                     WorkerMsg::ApplyAndAck(command, ack_tx) => {
                         let is_tick = matches!(command, GameCommand::Tick);
+                        if matches!(command, GameCommand::SetupSubmit) {
+                            if let Some(loading_snapshot) =
+                                UiSnapshot::loading_setup_from_engine(&engine)
+                            {
+                                if let Ok(mut ui_snapshot) = snapshot.write() {
+                                    *ui_snapshot = loading_snapshot;
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
                         let outcome = engine.apply(command);
                         for warning in outcome.warnings {
                             warn!("simulation invariant warning: {warning}");
@@ -156,12 +175,9 @@ mod tests {
     use crate::{components::simulation::snapshot::SnapshotPhase, sim::UiCommand};
 
     fn apply_setup(worker: &SimulationWorker) {
-        worker
-            .send_and_wait(GameCommand::SetupEditDigit(1));
-        worker
-            .send_and_wait(GameCommand::SetupNextField);
-        worker
-            .send_and_wait(GameCommand::SetupEditDigit(1));
+        worker.send_and_wait(GameCommand::SetupEditChar('1'));
+        worker.send_and_wait(GameCommand::SetupNextField);
+        worker.send_and_wait(GameCommand::SetupEditChar('1'));
         worker.send_and_wait(GameCommand::SetupSubmit);
     }
 

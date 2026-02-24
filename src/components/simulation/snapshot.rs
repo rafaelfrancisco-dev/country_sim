@@ -1,5 +1,7 @@
 use crate::{
-    components::simulation::ui_state::{ChartScope, DetailsView, RunningTab, SelectionFocus, UiState},
+    components::simulation::ui_state::{
+        ChartScope, DetailsView, RunningTab, SelectionFocus, UiState,
+    },
     sim::{
         GameEngine, GamePhase,
         job::job_by_id,
@@ -27,6 +29,7 @@ pub(super) struct SetupSnapshot {
     pub active_field: SetupField,
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
+    pub is_generating: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,18 +86,24 @@ pub(super) struct RunningSnapshot {
 impl UiSnapshot {
     pub(super) fn from_engine_and_ui(engine: &GameEngine, ui_state: &UiState) -> Self {
         let phase = match engine.phase() {
-            GamePhase::Setup(setup) => SnapshotPhase::Setup(SetupSnapshot {
-                country_count_input: setup.country_count_input.clone(),
-                millions_per_country_input: setup.millions_per_country_input.clone(),
-                active_field: setup.active_field,
-                validation_error: setup.validation_error.clone(),
-                memory_warning: setup.memory_warning.clone(),
-            }),
+            GamePhase::Setup(setup) => {
+                SnapshotPhase::Setup(SetupSnapshot::from_setup_form(setup, false))
+            }
             GamePhase::Running(world) => {
                 SnapshotPhase::Running(Self::running_from_world(world, ui_state))
             }
         };
         Self { phase }
+    }
+
+    pub(super) fn loading_setup_from_engine(engine: &GameEngine) -> Option<Self> {
+        let GamePhase::Setup(setup) = engine.phase() else {
+            return None;
+        };
+
+        Some(Self {
+            phase: SnapshotPhase::Setup(SetupSnapshot::from_setup_form(setup, true)),
+        })
     }
 
     fn running_from_world(world: &World, ui_state: &UiState) -> RunningSnapshot {
@@ -107,7 +116,8 @@ impl UiSnapshot {
             .unwrap_or_else(|| "N/A".to_string());
         let selected_country_month = selected_country.map_or(0, |country| country.month);
 
-        let country_page_start = ui.country_page() * crate::components::simulation::ui_state::COUNTRY_PAGE_SIZE;
+        let country_page_start =
+            ui.country_page() * crate::components::simulation::ui_state::COUNTRY_PAGE_SIZE;
         let country_rows = ui
             .selected_countries_page(world)
             .iter()
@@ -129,7 +139,12 @@ impl UiSnapshot {
 
         let mut people_rows = Vec::new();
         if let Some(country) = selected_country {
-            for (row_idx, person) in ui.selected_people_page(world).unwrap_or(&[]).iter().enumerate() {
+            for (row_idx, person) in ui
+                .selected_people_page(world)
+                .unwrap_or(&[])
+                .iter()
+                .enumerate()
+            {
                 let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
                 let name = person_name_from_seed(name_seed);
                 let job_name = person
@@ -206,6 +221,19 @@ impl UiSnapshot {
     }
 }
 
+impl SetupSnapshot {
+    fn from_setup_form(setup: &crate::sim::setup::SetupForm, is_generating: bool) -> Self {
+        Self {
+            country_count_input: setup.country_count_input.clone(),
+            millions_per_country_input: setup.millions_per_country_input.clone(),
+            active_field: setup.active_field,
+            validation_error: setup.validation_error.clone(),
+            memory_warning: setup.memory_warning.clone(),
+            is_generating,
+        }
+    }
+}
+
 fn person_details_lines(world: &World, ui: &UiState) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
@@ -257,7 +285,10 @@ fn person_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         format!("Last Tax Paid: {}", money(person.last_month_tax_paid)),
         format!("Last Net Pay: {}", money(person.last_month_net_pay)),
         format!("Last Spending: {}", money(person.last_month_spending)),
-        format!("Last Loan Payment: {}", money(person.last_month_loan_payment)),
+        format!(
+            "Last Loan Payment: {}",
+            money(person.last_month_loan_payment)
+        ),
         format!("Last New Loan: {}", money(person.last_month_new_loan)),
     ]
 }
@@ -290,7 +321,11 @@ fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             "Last Monthly Spending: {}",
             money(country.monthly_household_spending)
         ),
-        format!("People Page: {}/{}", ui.people_page + 1, ui.total_people_pages(world)),
+        format!(
+            "People Page: {}/{}",
+            ui.people_page + 1,
+            ui.total_people_pages(world)
+        ),
     ]
 }
 

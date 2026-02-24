@@ -2,8 +2,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use super::{RunningInputState, Simulation, SimulationCommand, ui_state::DetailsView};
 use crate::{
-    sim::{GameCommand, UiCommand},
     components::simulation::ui_state::{RunningTab, SelectionFocus},
+    sim::{GameCommand, UiCommand},
 };
 
 impl Simulation {
@@ -13,9 +13,9 @@ impl Simulation {
             KeyCode::BackTab => Some(SimulationCommand::Domain(GameCommand::SetupPrevField)),
             KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::SetupBackspace)),
             KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::SetupSubmit)),
-            KeyCode::Char(c) if c.is_ascii_digit() => Some(SimulationCommand::Domain(
-                GameCommand::SetupEditDigit(c as u8 - b'0'),
-            )),
+            KeyCode::Char(c) if c.is_ascii_digit() || c == '.' => {
+                Some(SimulationCommand::Domain(GameCommand::SetupEditChar(c)))
+            }
             _ => None,
         }
     }
@@ -90,12 +90,20 @@ impl Simulation {
             }
             KeyCode::Char(c) => match c.to_ascii_lowercase() {
                 'j' => match input_state.selection_focus {
-                    SelectionFocus::Country => Some(SimulationCommand::Ui(UiCommand::CountryPagePrev)),
-                    SelectionFocus::People => Some(SimulationCommand::Ui(UiCommand::PeoplePagePrev)),
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::CountryPagePrev))
+                    }
+                    SelectionFocus::People => {
+                        Some(SimulationCommand::Ui(UiCommand::PeoplePagePrev))
+                    }
                 },
                 'k' => match input_state.selection_focus {
-                    SelectionFocus::Country => Some(SimulationCommand::Ui(UiCommand::CountryPageNext)),
-                    SelectionFocus::People => Some(SimulationCommand::Ui(UiCommand::PeoplePageNext)),
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::CountryPageNext))
+                    }
+                    SelectionFocus::People => {
+                        Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
+                    }
                 },
                 _ => None,
             },
@@ -110,9 +118,9 @@ mod tests {
     use crate::components::simulation::snapshot::SnapshotPhase;
 
     fn setup_running_world(simulation: &mut Simulation) {
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupNextField);
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupSubmit);
     }
 

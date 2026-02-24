@@ -61,7 +61,10 @@ impl Country {
         if (self.money_supply_gap - gap).abs() > 0.01 {
             violations.push(InvariantViolation {
                 code: "money_gap_mismatch",
-                message: format!("money gap {} diverges from computed {}", self.money_supply_gap, gap),
+                message: format!(
+                    "money gap {} diverges from computed {}",
+                    self.money_supply_gap, gap
+                ),
             });
         }
 

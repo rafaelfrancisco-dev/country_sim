@@ -78,7 +78,10 @@ impl UiState {
         }
     }
 
-    pub fn selected_country<'a>(&self, world: &'a World) -> Option<&'a crate::sim::country::Country> {
+    pub fn selected_country<'a>(
+        &self,
+        world: &'a World,
+    ) -> Option<&'a crate::sim::country::Country> {
         world.countries.get(self.selected_country)
     }
 
@@ -135,11 +138,13 @@ impl UiState {
     }
 
     pub fn selected_people_page_len(&self, world: &World) -> usize {
-        self.selected_people_page(world).map_or(0, |page| page.len())
+        self.selected_people_page(world)
+            .map_or(0, |page| page.len())
     }
 
     pub fn selected_person_on_page<'a>(&self, world: &'a World) -> Option<&'a Person> {
-        self.selected_people_page(world)?.get(self.selected_person_row)
+        self.selected_people_page(world)?
+            .get(self.selected_person_row)
     }
 
     pub fn ensure_valid(&mut self, world: &World) {

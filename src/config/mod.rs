@@ -58,7 +58,8 @@ impl StdError for ConfigLoadError {}
 
 impl Config {
     pub fn new() -> Result<Self, ConfigLoadError> {
-        let default_config: Config = json5::from_str(CONFIG).map_err(ConfigLoadError::ParseDefaults)?;
+        let default_config: Config =
+            json5::from_str(CONFIG).map_err(ConfigLoadError::ParseDefaults)?;
         let data_dir = get_data_dir();
         let config_dir = get_config_dir();
 
@@ -107,7 +108,9 @@ impl Config {
         for (mode, default_bindings) in &default_config.keybindings.0 {
             let user_bindings = cfg.keybindings.0.entry(*mode).or_default();
             for (key, cmd) in default_bindings {
-                user_bindings.entry(key.clone()).or_insert_with(|| cmd.clone());
+                user_bindings
+                    .entry(key.clone())
+                    .or_insert_with(|| cmd.clone());
             }
         }
         for (mode, default_styles) in &default_config.styles.0 {
@@ -129,8 +132,8 @@ lazy_static::lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{action::Action, app::Mode};
     use crate::config::keys::parse_key_sequence;
+    use crate::{action::Action, app::Mode};
 
     #[test]
     fn test_config() {

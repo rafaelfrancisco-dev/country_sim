@@ -206,9 +206,9 @@ mod tests {
     use crate::{action::Action, components::Component};
 
     fn setup_running_world(simulation: &Simulation) {
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupNextField);
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupSubmit);
     }
 

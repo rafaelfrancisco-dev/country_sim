@@ -84,7 +84,10 @@ fn parse_color(s: &str) -> Option<Color> {
             .unwrap_or_default();
         Some(Color::Indexed(c))
     } else if s.contains("gray") {
-        let c = 232 + s.trim_start_matches("gray").parse::<u8>().unwrap_or_default();
+        let c = 232
+            + s.trim_start_matches("gray")
+                .parse::<u8>()
+                .unwrap_or_default();
         Some(Color::Indexed(c))
     } else if s.contains("rgb") {
         let red = (s.as_bytes()[3] as char).to_digit(10).unwrap_or_default() as u8;

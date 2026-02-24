@@ -17,9 +17,9 @@ mod tests {
     #[test]
     fn monthly_catchup_gate_is_disabled_for_synchronous_monthly_processing() {
         let simulation = Simulation::new();
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupNextField);
-        simulation.apply_command_and_wait(GameCommand::SetupEditDigit(1));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupSubmit);
 
         assert!(!simulation.should_pause_daily_ticks_for_monthly_catchup());

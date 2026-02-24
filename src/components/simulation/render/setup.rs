@@ -35,7 +35,7 @@ impl Simulation {
         .areas(inner);
 
         frame.render_widget(
-            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 1-20 million people per country.")
+            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 0.1-20.0 million people per country.")
                 .style(theme::primary_text())
                 .wrap(Wrap { trim: true }),
             intro,
@@ -126,10 +126,12 @@ impl Simulation {
             ));
         }
         if status_lines.is_empty() {
-            status_lines.push(Line::styled(
-                "Ready. Press Enter to generate world.",
-                theme::primary_text(),
-            ));
+            let default_status = if setup.is_generating {
+                "Generating world... please wait."
+            } else {
+                "Ready. Press Enter to generate world."
+            };
+            status_lines.push(Line::styled(default_status, theme::primary_text()));
         }
 
         frame.render_widget(
@@ -141,7 +143,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field, [0-9] edit, [Backspace] erase, [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field, [0-9/.] edit, [Backspace] erase, [Enter] start simulation",
             )
             .style(theme::muted_text()),
             help,
