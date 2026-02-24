@@ -35,6 +35,11 @@ pub enum GameCommand {
     OpenSelectedPersonDetails,
     OpenSelectedCountryDetails,
     CloseDetails,
+    NextTab,
+    PrevTab,
+    ToggleChartScope,
+    ChartPrevCountry,
+    ChartNextCountry,
     Tick,
 }
 
@@ -141,6 +146,11 @@ impl GameEngine {
             GameCommand::OpenSelectedPersonDetails => world.open_selected_person_details(),
             GameCommand::OpenSelectedCountryDetails => world.open_selected_country_details(),
             GameCommand::CloseDetails => world.close_details(),
+            GameCommand::NextTab => world.next_tab(),
+            GameCommand::PrevTab => world.prev_tab(),
+            GameCommand::ToggleChartScope => world.toggle_chart_scope(),
+            GameCommand::ChartPrevCountry => world.chart_prev_country(),
+            GameCommand::ChartNextCountry => world.chart_next_country(),
             _ => {}
         }
     }
@@ -306,6 +316,11 @@ mod tests {
         engine.apply(GameCommand::OpenSelectedPersonDetails);
         engine.apply(GameCommand::OpenSelectedCountryDetails);
         engine.apply(GameCommand::CloseDetails);
+        engine.apply(GameCommand::NextTab);
+        engine.apply(GameCommand::PrevTab);
+        engine.apply(GameCommand::ToggleChartScope);
+        engine.apply(GameCommand::ChartPrevCountry);
+        engine.apply(GameCommand::ChartNextCountry);
 
         assert_eq!(
             engine.setup().expect("setup should still exist"),
@@ -371,5 +386,29 @@ mod tests {
         assert_eq!(world.day, 3);
         assert_eq!(world.countries.len(), 1);
         assert_eq!(world.countries[0].people.len(), 5);
+    }
+
+    #[test]
+    fn tab_scope_and_chart_commands_mutate_running_world() {
+        let mut engine = GameEngine::default();
+        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1), country(2, "B", 1)]));
+
+        engine.apply(GameCommand::NextTab);
+        assert_eq!(
+            engine.world().expect("world exists").active_tab,
+            crate::sim::world::RunningTab::Charts
+        );
+
+        engine.apply(GameCommand::ToggleChartScope);
+        assert_eq!(
+            engine.world().expect("world exists").chart_scope,
+            crate::sim::world::ChartScope::WorldAggregate
+        );
+
+        engine.apply(GameCommand::ChartNextCountry);
+        assert_eq!(engine.world().expect("world exists").selected_country, 1);
+
+        engine.apply(GameCommand::ChartPrevCountry);
+        assert_eq!(engine.world().expect("world exists").selected_country, 0);
     }
 }

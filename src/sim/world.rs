@@ -1,7 +1,8 @@
-use super::{country::Country, person::Person, tickable::Tickable};
+use super::{country::Country, country::DAYS_PER_MONTH, person::Person, tickable::Tickable};
 
 pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
+pub const HISTORY_LIMIT: usize = 120;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DetailsView {
@@ -16,6 +17,27 @@ pub enum SelectionFocus {
     People,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum RunningTab {
+    Main,
+    Charts,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ChartScope {
+    SelectedCountry,
+    WorldAggregate,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct MetricPoint {
+    pub month: u64,
+    pub population: f64,
+    pub total_money_supply: f64,
+    pub created_money_outstanding: f64,
+    pub bank_reserve: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct World {
     pub day: u64,
@@ -26,11 +48,16 @@ pub struct World {
     pub selected_person_row: usize,
     pub details_view: DetailsView,
     pub selection_focus: SelectionFocus,
+    pub active_tab: RunningTab,
+    pub chart_scope: ChartScope,
+    pub world_history: Vec<MetricPoint>,
+    pub country_history: Vec<Vec<MetricPoint>>,
 }
 
 impl World {
     pub fn new(countries: Vec<Country>) -> Self {
-        Self {
+        let country_count = countries.len();
+        let mut world = Self {
             day: 0,
             countries,
             selected_country: 0,
@@ -39,7 +66,13 @@ impl World {
             selected_person_row: 0,
             details_view: DetailsView::List,
             selection_focus: SelectionFocus::Country,
-        }
+            active_tab: RunningTab::Main,
+            chart_scope: ChartScope::SelectedCountry,
+            world_history: Vec::with_capacity(HISTORY_LIMIT),
+            country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
+        };
+        world.capture_snapshot();
+        world
     }
 
     pub fn total_population(&self) -> usize {
@@ -242,6 +275,104 @@ impl World {
         self.details_view = DetailsView::List;
     }
 
+    pub fn next_tab(&mut self) {
+        self.active_tab = match self.active_tab {
+            RunningTab::Main => RunningTab::Charts,
+            RunningTab::Charts => RunningTab::Main,
+        };
+    }
+
+    pub fn prev_tab(&mut self) {
+        self.next_tab();
+    }
+
+    pub fn toggle_chart_scope(&mut self) {
+        self.chart_scope = match self.chart_scope {
+            ChartScope::SelectedCountry => ChartScope::WorldAggregate,
+            ChartScope::WorldAggregate => ChartScope::SelectedCountry,
+        };
+    }
+
+    pub fn chart_prev_country(&mut self) {
+        self.select_prev_country_row();
+    }
+
+    pub fn chart_next_country(&mut self) {
+        self.select_next_country_row();
+    }
+
+    fn capture_monthly_snapshot_if_due(&mut self) {
+        if self.day > 0 && self.day % DAYS_PER_MONTH == 0 {
+            self.capture_snapshot();
+        }
+    }
+
+    fn capture_snapshot(&mut self) {
+        for (idx, country) in self.countries.iter().enumerate() {
+            let point = Self::country_metric_point(country);
+            if let Some(history) = self.country_history.get_mut(idx) {
+                Self::push_metric_point(history, point);
+            }
+        }
+
+        let aggregate = self.aggregate_metric_point();
+        Self::push_metric_point(&mut self.world_history, aggregate);
+    }
+
+    fn aggregate_metric_point(&self) -> MetricPoint {
+        let month = self
+            .countries
+            .iter()
+            .map(|country| country.month)
+            .max()
+            .unwrap_or(0);
+        let population = self
+            .countries
+            .iter()
+            .map(|country| country.population() as f64)
+            .sum();
+        let total_money_supply = self
+            .countries
+            .iter()
+            .map(|country| country.total_money_supply)
+            .sum();
+        let created_money_outstanding = self
+            .countries
+            .iter()
+            .map(|country| country.bank.created_money_outstanding)
+            .sum();
+        let bank_reserve = self
+            .countries
+            .iter()
+            .map(|country| country.bank.reserve_balance)
+            .sum();
+
+        MetricPoint {
+            month,
+            population,
+            total_money_supply,
+            created_money_outstanding,
+            bank_reserve,
+        }
+    }
+
+    fn country_metric_point(country: &Country) -> MetricPoint {
+        MetricPoint {
+            month: country.month,
+            population: country.population() as f64,
+            total_money_supply: country.total_money_supply,
+            created_money_outstanding: country.bank.created_money_outstanding,
+            bank_reserve: country.bank.reserve_balance,
+        }
+    }
+
+    fn push_metric_point(history: &mut Vec<MetricPoint>, point: MetricPoint) {
+        history.push(point);
+        if history.len() > HISTORY_LIMIT {
+            history.remove(0);
+        }
+    }
+
     fn reset_people_navigation(&mut self) {
         self.people_page = 0;
         self.selected_person_row = 0;
@@ -265,6 +396,8 @@ impl Tickable for World {
         for country in &mut self.countries {
             country.tick_day();
         }
+
+        self.capture_monthly_snapshot_if_due();
     }
 }
 
@@ -432,5 +565,103 @@ mod tests {
 
         world.prev_country_page();
         assert_eq!(world.selected_country, 2);
+    }
+
+    #[test]
+    fn world_starts_with_tab_scope_and_initial_history() {
+        let world = World::new(vec![Country::new(1, "A".to_string(), build_people(2))]);
+
+        assert_eq!(world.active_tab, RunningTab::Main);
+        assert_eq!(world.chart_scope, ChartScope::SelectedCountry);
+        assert_eq!(world.world_history.len(), 1);
+        assert_eq!(world.country_history.len(), 1);
+        assert_eq!(world.country_history[0].len(), 1);
+        assert_eq!(world.world_history[0].month, 0);
+    }
+
+    #[test]
+    fn world_records_snapshots_only_on_month_boundaries() {
+        let mut world = World::new(vec![Country::new(1, "A".to_string(), build_people(2))]);
+
+        for _ in 0..(DAYS_PER_MONTH - 1) {
+            world.tick_day();
+        }
+        assert_eq!(world.world_history.len(), 1);
+
+        world.tick_day();
+        assert_eq!(world.world_history.len(), 2);
+        assert_eq!(world.world_history[1].month, 1);
+    }
+
+    #[test]
+    fn world_history_retains_only_latest_limit() {
+        let mut world = World::new(vec![Country::new(1, "A".to_string(), build_people(1))]);
+
+        for _ in 0..(DAYS_PER_MONTH * (HISTORY_LIMIT as u64 + 10)) {
+            world.tick_day();
+        }
+
+        assert_eq!(world.world_history.len(), HISTORY_LIMIT);
+        assert_eq!(world.country_history[0].len(), HISTORY_LIMIT);
+    }
+
+    #[test]
+    fn aggregate_history_matches_country_sums() {
+        let countries = vec![
+            Country::new(1, "A".to_string(), build_people(2)),
+            Country::new(2, "B".to_string(), build_people(3)),
+        ];
+        let world = World::new(countries);
+        let aggregate = world.world_history[0];
+        let country_sum = world.country_history.iter().map(|series| series[0]).fold(
+            MetricPoint {
+                month: 0,
+                population: 0.0,
+                total_money_supply: 0.0,
+                created_money_outstanding: 0.0,
+                bank_reserve: 0.0,
+            },
+            |acc, point| MetricPoint {
+                month: acc.month.max(point.month),
+                population: acc.population + point.population,
+                total_money_supply: acc.total_money_supply + point.total_money_supply,
+                created_money_outstanding: acc.created_money_outstanding
+                    + point.created_money_outstanding,
+                bank_reserve: acc.bank_reserve + point.bank_reserve,
+            },
+        );
+
+        assert_eq!(aggregate.month, country_sum.month);
+        assert!((aggregate.population - country_sum.population).abs() < f64::EPSILON);
+        assert!(
+            (aggregate.total_money_supply - country_sum.total_money_supply).abs() < f64::EPSILON
+        );
+        assert!(
+            (aggregate.created_money_outstanding - country_sum.created_money_outstanding).abs()
+                < f64::EPSILON
+        );
+        assert!((aggregate.bank_reserve - country_sum.bank_reserve).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn tab_scope_and_chart_country_commands_update_state() {
+        let countries = vec![
+            Country::new(1, "A".to_string(), build_people(1)),
+            Country::new(2, "B".to_string(), build_people(1)),
+        ];
+        let mut world = World::new(countries);
+
+        world.next_tab();
+        assert_eq!(world.active_tab, RunningTab::Charts);
+        world.prev_tab();
+        assert_eq!(world.active_tab, RunningTab::Main);
+
+        world.toggle_chart_scope();
+        assert_eq!(world.chart_scope, ChartScope::WorldAggregate);
+
+        world.chart_next_country();
+        assert_eq!(world.selected_country, 1);
+        world.chart_prev_country();
+        assert_eq!(world.selected_country, 0);
     }
 }

@@ -4,6 +4,8 @@
 Country Sim is a terminal-based simulation game where each engine tick maps to one in-game day.
 
 > Money simulation Phase 2 requirements are documented in [money-simulation-requirements.md](money-simulation-requirements.md).
+>
+> Running analytics tab behavior is documented in [running-charts-tab.md](running-charts-tab.md).
 
 Phase 1 delivers a foundational simulation slice:
 - countries and citizens (`Person`) as core entities
@@ -31,9 +33,13 @@ Out of scope for phase 1:
 - `avg_net_per_day`: average of `(income - expense)` over all citizens
 
 ### `World`
-- Fields: `day`, `countries`, `selected_country`, `paused`, `people_page`, `selected_person_row`, `details_view`, `selection_focus`
-- Tick behavior: increments `day`, ticks all countries
-- Country navigation wraps (`left/right`)
+- Fields:
+  - core navigation: `day`, `countries`, `selected_country`, `paused`, `people_page`, `selected_person_row`, `details_view`, `selection_focus`
+  - running tabs: `active_tab` (`Main`/`Charts`)
+  - chart scope: `chart_scope` (`SelectedCountry`/`WorldAggregate`)
+  - chart history: `world_history`, `country_history` (monthly snapshots, max 120 points)
+- Tick behavior: increments `day`, ticks all countries, and captures history at month boundaries (`day % 30 == 0`)
+- Country navigation is bounded (clamped)
 - People pagination is bounded (clamped)
 
 ## Startup Flow and Validation Rules
@@ -76,18 +82,29 @@ Header displays:
 - selected country
 - total citizens
 
-Main panels:
-- countries table: `Country`, `Population`, `Total Balance`, `Avg Net/Day`
-- people table (selected country page): `Citizen ID`, `Name`, `Income`, `Expense`, `Balance`
+Running tabs:
+- `Main`: countries + people lists and detail pages.
+- `Charts`: 2x2 chart dashboard for:
+  - population
+  - total money supply
+  - created money outstanding
+  - bank reserve
+- Scope on `Charts`: toggle between `SelectedCountry` and `WorldAggregate`.
+- History source for `Charts`: monthly snapshots, rolling 120 points.
 
 Controls:
+- `Tab` / `Shift+Tab`: switch `Main`/`Charts` tab
 - `Space`: pause/resume
 - `n`: step one day (paused only)
-- `Left`/`Right`: switch selection focus between countries and people
-- `Up`/`Down`: move selected row inside the focused list
-- `j`/`k`: page previous/next inside the focused list
-- `Enter`: open details for the focused selection (`Country` or `Person`)
-- `Esc`: close the active details page and return to list view
+- Main tab:
+  - `Left`/`Right`: switch selection focus between countries and people
+  - `Up`/`Down`: move selected row inside the focused list
+  - `j`/`k`: page previous/next inside the focused list
+  - `Enter`: open details for the focused selection (`Country` or `Person`)
+  - `Esc`: close active details and return to list view
+- Charts tab:
+  - `t`: toggle scope (`SelectedCountry`/`WorldAggregate`)
+  - `<` / `>`: previous/next selected country context
 - existing quit/suspend shortcuts remain active
 
 ### Person Details View
@@ -116,7 +133,9 @@ Game logic is testable without Ratatui or Crossterm dependencies.
 Coverage requirements:
 - `Person` tick behavior and expected-range stability
 - `Country` aggregate consistency after ticks
-- `World` day progression, country wrapping, people-page bounds
+- `World` day progression, country and people navigation bounds
+- chart history lifecycle (initial point, monthly capture, rolling retention cap)
+- tab/scope command behavior (`Main`/`Charts`, scope toggle, chart country cycle)
 - setup validation and deterministic error strings
 - memory warning threshold behavior (non-blocking)
 - generator count/range/determinism guarantees
@@ -130,4 +149,4 @@ Coverage requirements:
 - policy levers and government budgets
 - migration and demographic dynamics
 - save/load persistence and replay
-- analytics/graphs and richer drill-down views
+- richer drill-down analytics views
