@@ -1,7 +1,7 @@
 # Ticking Mechanism and `Tickable` Trait
 
 ## Purpose
-Describe how daily ticks and monthly processing are ordered in the current synchronous model.
+Describe how daily ticks and monthly processing are ordered in the current worker-backed model.
 
 ## Core Trait
 `src/sim/tickable.rs` defines:
@@ -32,11 +32,12 @@ pub trait Tickable {
 - Processed months are tracked per country as `country.month`.
 
 ## Execution Model
-Monthly processing is synchronous.
+Simulation commands are processed by a dedicated worker thread that owns the authoritative `GameEngine`.
 
 Implications:
-- Daily and monthly writes are totally ordered.
-- No async in-flight monthly task state.
+- Daily and monthly writes remain totally ordered (single worker applies commands sequentially).
+- Worker publishes a lightweight UI snapshot after each command.
+- UI thread enqueues commands and renders from the latest snapshot, so rendering and input stay responsive even while a tick is running.
 - No merge/reconciliation step is required between daily and monthly state.
 
 ## History Capture

@@ -130,27 +130,47 @@ impl App {
     }
 
     fn handle_actions(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
+        let mut saw_tick = false;
+        let mut saw_render = false;
+
         while let Ok(action) = self.action_rx.try_recv() {
-            if action != Action::Tick && action != Action::Render {
-                debug!("{action:?}");
-            }
             match action {
-                Action::Tick => {
-                    self.last_tick_key_events.drain(..);
-                }
-                Action::Quit => self.should_quit = true,
-                Action::Suspend => self.should_suspend = true,
-                Action::Resume => self.should_suspend = false,
-                Action::ClearScreen => tui.terminal.clear()?,
-                Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
-                Action::Render => self.render(tui)?,
-                _ => {}
+                Action::Tick => saw_tick = true,
+                Action::Render => saw_render = true,
+                other => self.apply_action(other, tui)?,
             }
-            for component in self.components.iter_mut() {
-                if let Some(action) = component.update(action.clone())? {
-                    self.action_tx.send(action)?
-                };
+        }
+
+        if saw_tick {
+            self.apply_action(Action::Tick, tui)?;
+        }
+        if saw_render {
+            self.apply_action(Action::Render, tui)?;
+        }
+        Ok(())
+    }
+
+    fn apply_action(&mut self, action: Action, tui: &mut Tui) -> color_eyre::Result<()> {
+        if action != Action::Tick && action != Action::Render {
+            debug!("{action:?}");
+        }
+        match action {
+            Action::Tick => {
+                self.last_tick_key_events.drain(..);
             }
+            Action::Quit => self.should_quit = true,
+            Action::Suspend => self.should_suspend = true,
+            Action::Resume => self.should_suspend = false,
+            Action::ClearScreen => tui.terminal.clear()?,
+            Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
+            Action::Render => self.render(tui)?,
+            _ => {}
+        }
+
+        for component in self.components.iter_mut() {
+            if let Some(next_action) = component.update(action.clone())? {
+                self.action_tx.send(next_action)?
+            };
         }
         Ok(())
     }

@@ -7,13 +7,15 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
+use crate::components::simulation::snapshot::SetupSnapshot;
 
 impl Simulation {
-    pub(in crate::components::simulation) fn draw_setup(&self, frame: &mut Frame, area: Rect) {
-        let setup = match self.engine.setup() {
-            Some(setup) => setup,
-            None => return,
-        };
+    pub(in crate::components::simulation) fn draw_setup(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        setup: &SetupSnapshot,
+    ) {
 
         let block = Block::default()
             .title(" Country Simulation Setup ")

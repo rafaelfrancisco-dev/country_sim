@@ -1,11 +1,11 @@
 # Running Charts Tab
 
 ## Overview
-The running simulation UI now has two tabs:
+The running simulation UI has two views:
 - `Main`: existing country/people navigation and details screens.
 - `Charts`: a dashboard with trend charts for core economy metrics.
 
-Tab switching uses `Tab` and `Shift+Tab`.
+View switching uses `Tab` and `Shift+Tab`. The active view is shown in the header; there is no dedicated "Running Tabs" panel.
 
 ## Goals
 - Keep the current simulation workflow intact in `Main`.
@@ -27,6 +27,8 @@ Global running controls (all tabs):
 - `<` / `>`: change selected-country context
 
 On `Charts`, list/details navigation keys are intentionally disabled.
+
+When input arrives during worker backpressure, repeated tab presses are collapsed to the latest intent before dispatch, avoiding delayed back-and-forth toggles.
 
 ## Charts and Metrics
 The `Charts` tab renders four charts in a 2x2 grid:

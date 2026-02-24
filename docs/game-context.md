@@ -40,7 +40,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ### `World`
 - Navigation state: `day`, `countries`, selected rows/pages, details mode.
-- Running tabs: `Main` and `Charts`.
+- Running views: `Main` and `Charts` (switched with `Tab` / `Shift+Tab`, no separate tabs panel).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
 

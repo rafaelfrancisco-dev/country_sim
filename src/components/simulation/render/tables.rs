@@ -6,14 +6,16 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::sim::{job::job_by_id, names::person_name_from_seed, world::SelectionFocus};
+use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::sim::world::SelectionFocus;
 
 impl Simulation {
-    pub(super) fn draw_countries_table(&self, frame: &mut Frame, area: Rect) {
-        let Some(world) = self.engine.world() else {
-            return;
-        };
-
+    pub(super) fn draw_countries_table(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+    ) {
         let header = Row::new([
             Cell::from("Country"),
             Cell::from("Population"),
@@ -29,21 +31,17 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let country_page_start = world.country_page() * crate::sim::world::COUNTRY_PAGE_SIZE;
         let rows = world
-            .selected_countries_page()
+            .country_rows
             .iter()
-            .enumerate()
-            .map(|(page_idx, country)| {
-                let idx = country_page_start + page_idx;
-                let style = if idx == world.selected_country
-                    && world.selection_focus == SelectionFocus::Country
+            .map(|country| {
+                let style = if country.is_selected && world.selection_focus == SelectionFocus::Country
                 {
                     Style::default()
                         .fg(theme::TEXT_PRIMARY)
                         .bg(theme::HIGHLIGHT_BG)
                         .add_modifier(Modifier::BOLD)
-                } else if idx % 2 == 0 {
+                } else if country.is_even {
                     Style::default().fg(theme::TEXT_PRIMARY)
                 } else {
                     Style::default()
@@ -53,11 +51,11 @@ impl Simulation {
 
                 Row::new([
                     Cell::from(country.name.clone()),
-                    Cell::from(country.population().to_string()),
-                    Cell::from(Self::money(country.household_cash_total)),
-                    Cell::from(Self::money(country.company_cash_total)),
-                    Cell::from(Self::money(country.treasury_balance)),
-                    Cell::from(Self::money(country.bank.created_money_outstanding)),
+                    Cell::from(country.population.clone()),
+                    Cell::from(country.household_cash.clone()),
+                    Cell::from(country.company_cash.clone()),
+                    Cell::from(country.treasury.clone()),
+                    Cell::from(country.loans.clone()),
                 ])
                 .style(style)
             });
@@ -89,11 +87,12 @@ impl Simulation {
         frame.render_widget(table, area);
     }
 
-    pub(super) fn draw_people_table(&self, frame: &mut Frame, area: Rect) {
-        let Some(world) = self.engine.world() else {
-            return;
-        };
-
+    pub(super) fn draw_people_table(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+    ) {
         let header = Row::new([
             Cell::from("Citizen ID"),
             Cell::from("Name"),
@@ -112,7 +111,7 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let Some(country) = world.selected_country() else {
+        if !world.has_selected_country {
             let placeholder = Paragraph::new("No countries generated yet.")
                 .style(theme::primary_text())
                 .block(
@@ -124,29 +123,15 @@ impl Simulation {
                 );
             frame.render_widget(placeholder, area);
             return;
-        };
+        }
 
-        let page_people = world.selected_people_page().unwrap_or(&[]);
-        let rows = page_people.iter().enumerate().map(|(row_idx, person)| {
-            let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
-            let name = person_name_from_seed(name_seed);
-            let job_name = person
-                .job_type_id()
-                .and_then(job_by_id)
-                .map_or("N/A".to_string(), |job| job.name.to_string());
-            let employment = if person.is_employed() {
-                format!("Employed ({job_name})")
-            } else {
-                "Unemployed".to_string()
-            };
-            let style = if row_idx == world.selected_person_row
-                && world.selection_focus == SelectionFocus::People
-            {
+        let rows = world.people_rows.iter().map(|person| {
+            let style = if person.is_selected && world.selection_focus == SelectionFocus::People {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
                     .bg(theme::HIGHLIGHT_BG)
                     .add_modifier(Modifier::BOLD)
-            } else if row_idx % 2 == 0 {
+            } else if person.is_even {
                 Style::default().fg(theme::TEXT_PRIMARY)
             } else {
                 Style::default()
@@ -154,24 +139,16 @@ impl Simulation {
                     .bg(Color::Rgb(23, 31, 48))
             };
 
-            let employer = person
-                .employer_company_id()
-                .and_then(|company_id| country.company_name(company_id))
-                .unwrap_or("N/A")
-                .to_string();
-
             Row::new([
-                Cell::from(person.id.to_string()),
-                Cell::from(name),
-                Cell::from(person.age_years().to_string()),
-                Cell::from(person.habilitation.label().to_string()),
-                Cell::from(employment),
-                Cell::from(employer),
-                Cell::from(Self::money(person.monthly_salary())),
-                Cell::from(Self::money(person.cash_balance)),
-                Cell::from(Self::money(
-                    person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance),
-                )),
+                Cell::from(person.citizen_id.clone()),
+                Cell::from(person.name.clone()),
+                Cell::from(person.age.clone()),
+                Cell::from(person.education.clone()),
+                Cell::from(person.employment.clone()),
+                Cell::from(person.employer.clone()),
+                Cell::from(person.salary.clone()),
+                Cell::from(person.cash.clone()),
+                Cell::from(person.loan.clone()),
             ])
             .style(style)
         });

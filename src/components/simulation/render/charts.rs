@@ -7,23 +7,18 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::sim::world::{ChartScope, MetricPoint, World};
+use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::sim::world::MetricPoint;
 
 impl Simulation {
-    pub(super) fn draw_charts_tab(&self, frame: &mut Frame, body: Rect) -> String {
-        let Some(world) = self.engine.world() else {
-            return String::new();
-        };
-
-        let scope_label = self.chart_scope_label(world);
-        let history: &[MetricPoint] = match world.chart_scope {
-            ChartScope::SelectedCountry => world
-                .country_history
-                .get(world.selected_country)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]),
-            ChartScope::WorldAggregate => world.world_history.as_slice(),
-        };
+    pub(super) fn draw_charts_tab(
+        &self,
+        frame: &mut Frame,
+        body: Rect,
+        world: &RunningSnapshot,
+    ) -> String {
+        let scope_label = world.chart_scope_label.as_str();
+        let history: &[MetricPoint] = world.chart_history.as_slice();
 
         if history.is_empty() {
             let placeholder = Paragraph::new(
@@ -84,19 +79,6 @@ impl Simulation {
         }
 
         "Controls: [Tab/Shift+Tab] switch tab  [t] toggle scope  [</>] cycle country  [Space] pause/resume  [n] step day (paused)  [q] quit".to_string()
-    }
-
-    fn chart_scope_label(&self, world: &World) -> String {
-        match world.chart_scope {
-            ChartScope::SelectedCountry => {
-                let country_name = world
-                    .selected_country()
-                    .map(|country| country.name.as_str())
-                    .unwrap_or("N/A");
-                format!("Selected: {country_name}")
-            }
-            ChartScope::WorldAggregate => "World Aggregate".to_string(),
-        }
     }
 
     fn draw_metric_chart<F>(

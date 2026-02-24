@@ -5,7 +5,7 @@
 A toy app...
 
 ## Recent UI Additions
-- Running-mode tabs (`Main` and `Charts`)
+- Running views (`Main` and `Charts`) switched via `Tab` / `Shift+Tab` (no dedicated tabs box)
 - Monthly trend charts for:
   - population
   - total money supply
