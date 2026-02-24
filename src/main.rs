@@ -10,6 +10,7 @@ mod components;
 mod config;
 mod errors;
 mod logging;
+mod sim;
 mod tui;
 
 #[tokio::main]
