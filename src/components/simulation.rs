@@ -11,7 +11,9 @@ use super::Component;
 use crate::{
     action::Action,
     sim::{
-        GameCommand, GameEngine, GamePhase, names::person_name_from_seed,
+        GameCommand, GameEngine, GamePhase,
+        job::job_by_id,
+        names::person_name_from_seed,
         world::{DetailsView, SelectionFocus},
     },
 };
@@ -24,6 +26,10 @@ pub struct Simulation {
 impl Simulation {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn money(amount: f64) -> String {
+        format!("{amount:.2}")
     }
 
     fn map_setup_key(&self, key: KeyEvent) -> Option<GameCommand> {
@@ -50,7 +56,8 @@ impl Simulation {
                 SelectionFocus::Country => Some(GameCommand::SelectPrevCountryRow),
                 SelectionFocus::People => Some(GameCommand::SelectPrevPersonRow),
             },
-            KeyCode::Down if world.details_view == DetailsView::List => match world.selection_focus {
+            KeyCode::Down if world.details_view == DetailsView::List => match world.selection_focus
+            {
                 SelectionFocus::Country => Some(GameCommand::SelectNextCountryRow),
                 SelectionFocus::People => Some(GameCommand::SelectNextPersonRow),
             },
@@ -212,9 +219,11 @@ impl Simulation {
             .unwrap_or("N/A");
 
         let run_state = if world.paused { "Paused" } else { "Running" };
+        let selected_country_month = world.selected_country().map_or(0, |country| country.month);
         let header_text = format!(
-            "Day: {} | State: {} | Selected Country: {} | Total Citizens: {}",
+            "Day: {} | Month: {} | State: {} | Selected Country: {} | Total Citizens: {}",
             world.day,
+            selected_country_month,
             run_state,
             selected_country_name,
             world.total_population()
@@ -259,8 +268,10 @@ impl Simulation {
         let header = Row::new([
             Cell::from("Country"),
             Cell::from("Population"),
-            Cell::from("Total Balance"),
-            Cell::from("Avg Net/Day"),
+            Cell::from("Households"),
+            Cell::from("Companies"),
+            Cell::from("Treasury"),
+            Cell::from("Loans"),
         ])
         .style(
             Style::default()
@@ -286,8 +297,10 @@ impl Simulation {
                 Row::new([
                     Cell::from(country.name.clone()),
                     Cell::from(country.population().to_string()),
-                    Cell::from(country.total_balance.to_string()),
-                    Cell::from(format!("{:.2}", country.avg_net_per_day)),
+                    Cell::from(Self::money(country.household_cash_total)),
+                    Cell::from(Self::money(country.company_cash_total)),
+                    Cell::from(Self::money(country.treasury_balance)),
+                    Cell::from(Self::money(country.bank.created_money_outstanding)),
                 ])
                 .style(style)
             });
@@ -296,6 +309,8 @@ impl Simulation {
             Constraint::Length(14),
             Constraint::Length(12),
             Constraint::Length(16),
+            Constraint::Length(16),
+            Constraint::Length(12),
             Constraint::Length(12),
         ];
 
@@ -315,9 +330,11 @@ impl Simulation {
         let header = Row::new([
             Cell::from("Citizen ID"),
             Cell::from("Name"),
-            Cell::from("Income"),
-            Cell::from("Expense"),
-            Cell::from("Balance"),
+            Cell::from("Job"),
+            Cell::from("Employer"),
+            Cell::from("Salary"),
+            Cell::from("Cash"),
+            Cell::from("Loan"),
         ])
         .style(
             Style::default()
@@ -349,18 +366,32 @@ impl Simulation {
             Row::new([
                 Cell::from(person.id.to_string()),
                 Cell::from(name),
-                Cell::from(person.income.to_string()),
-                Cell::from(person.expense.to_string()),
-                Cell::from(person.balance.to_string()),
+                Cell::from(
+                    job_by_id(person.job_type_id)
+                        .map_or("Unknown".to_string(), |job| job.name.to_string()),
+                ),
+                Cell::from(
+                    country
+                        .company_name(person.employer_company_id)
+                        .unwrap_or("N/A")
+                        .to_string(),
+                ),
+                Cell::from(Self::money(person.monthly_salary())),
+                Cell::from(Self::money(person.cash_balance)),
+                Cell::from(Self::money(
+                    person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance),
+                )),
             ])
             .style(style)
         });
 
         let widths = [
             Constraint::Length(10),
-            Constraint::Length(24),
-            Constraint::Length(8),
-            Constraint::Length(8),
+            Constraint::Length(20),
+            Constraint::Length(22),
+            Constraint::Length(16),
+            Constraint::Length(10),
+            Constraint::Length(10),
             Constraint::Length(10),
         ];
 
@@ -383,8 +414,11 @@ impl Simulation {
 
         let Some(country) = world.selected_country() else {
             frame.render_widget(
-                Paragraph::new("No country is currently selected.")
-                    .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+                Paragraph::new("No country is currently selected.").block(
+                    Block::default()
+                        .title(" Person Details ")
+                        .borders(Borders::ALL),
+                ),
                 area,
             );
             return;
@@ -392,9 +426,15 @@ impl Simulation {
 
         let Some(person) = world.selected_person_on_page() else {
             frame.render_widget(
-                Paragraph::new("No person available for the current selection. Press [Esc] to return.")
-                    .wrap(Wrap { trim: true })
-                    .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+                Paragraph::new(
+                    "No person available for the current selection. Press [Esc] to return.",
+                )
+                .wrap(Wrap { trim: true })
+                .block(
+                    Block::default()
+                        .title(" Person Details ")
+                        .borders(Borders::ALL),
+                ),
                 area,
             );
             return;
@@ -408,16 +448,61 @@ impl Simulation {
             Line::from(format!("Country: {}", country.name)),
             Line::from(format!("Day: {}", world.day)),
             Line::from(""),
-            Line::from(format!("Income: {}", person.income)),
-            Line::from(format!("Expense: {}", person.expense)),
-            Line::from(format!("Daily Net: {}", person.daily_net())),
-            Line::from(format!("Balance: {}", person.balance)),
+            Line::from(format!(
+                "Job: {}",
+                job_by_id(person.job_type_id).map_or("Unknown", |job| job.name)
+            )),
+            Line::from(format!(
+                "Employer: {}",
+                country
+                    .company_name(person.employer_company_id)
+                    .unwrap_or("N/A")
+            )),
+            Line::from(format!(
+                "Monthly Salary: {}",
+                Self::money(person.monthly_salary())
+            )),
+            Line::from(format!(
+                "Cash Balance: {}",
+                Self::money(person.cash_balance)
+            )),
+            Line::from(format!(
+                "Loan Debt: {}",
+                Self::money(person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
+            )),
+            Line::from(""),
+            Line::from(format!(
+                "Last Gross Pay: {}",
+                Self::money(person.last_month_gross_pay)
+            )),
+            Line::from(format!(
+                "Last Tax Paid: {}",
+                Self::money(person.last_month_tax_paid)
+            )),
+            Line::from(format!(
+                "Last Net Pay: {}",
+                Self::money(person.last_month_net_pay)
+            )),
+            Line::from(format!(
+                "Last Spending: {}",
+                Self::money(person.last_month_spending)
+            )),
+            Line::from(format!(
+                "Last Loan Payment: {}",
+                Self::money(person.last_month_loan_payment)
+            )),
+            Line::from(format!(
+                "Last New Loan: {}",
+                Self::money(person.last_month_new_loan)
+            )),
         ];
 
         frame.render_widget(
-            Paragraph::new(details)
-                .wrap(Wrap { trim: true })
-                .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+            Paragraph::new(details).wrap(Wrap { trim: true }).block(
+                Block::default()
+                    .title(" Person Details ")
+                    .borders(Borders::ALL),
+            ),
             area,
         );
     }
@@ -429,8 +514,11 @@ impl Simulation {
 
         let Some(country) = world.selected_country() else {
             frame.render_widget(
-                Paragraph::new("No country is currently selected.")
-                    .block(Block::default().title(" Country Details ").borders(Borders::ALL)),
+                Paragraph::new("No country is currently selected.").block(
+                    Block::default()
+                        .title(" Country Details ")
+                        .borders(Borders::ALL),
+                ),
                 area,
             );
             return;
@@ -440,10 +528,49 @@ impl Simulation {
             Line::from(format!("Name: {}", country.name)),
             Line::from(format!("Country ID: {}", country.id)),
             Line::from(format!("Day: {}", world.day)),
+            Line::from(format!("Month: {}", country.month)),
             Line::from(""),
             Line::from(format!("Population: {}", country.population())),
-            Line::from(format!("Total Balance: {}", country.total_balance)),
-            Line::from(format!("Avg Net/Day: {:.2}", country.avg_net_per_day)),
+            Line::from(format!(
+                "Household Cash: {}",
+                Self::money(country.household_cash_total)
+            )),
+            Line::from(format!(
+                "Company Cash: {}",
+                Self::money(country.company_cash_total)
+            )),
+            Line::from(format!(
+                "Treasury: {}",
+                Self::money(country.treasury_balance)
+            )),
+            Line::from(format!(
+                "Bank Reserve: {}",
+                Self::money(country.bank.reserve_balance)
+            )),
+            Line::from(format!(
+                "Loans Outstanding: {}",
+                Self::money(country.bank.created_money_outstanding)
+            )),
+            Line::from(format!(
+                "Money Supply: {}",
+                Self::money(country.total_money_supply)
+            )),
+            Line::from(format!(
+                "Expected Supply: {}",
+                Self::money(country.expected_money_supply)
+            )),
+            Line::from(format!(
+                "Supply Gap: {}",
+                Self::money(country.money_supply_gap)
+            )),
+            Line::from(format!(
+                "Last Monthly Tax: {}",
+                Self::money(country.monthly_tax_collected)
+            )),
+            Line::from(format!(
+                "Last Monthly Spending: {}",
+                Self::money(country.monthly_household_spending)
+            )),
             Line::from(format!(
                 "People Page: {}/{}",
                 world.people_page + 1,
@@ -452,9 +579,11 @@ impl Simulation {
         ];
 
         frame.render_widget(
-            Paragraph::new(details)
-                .wrap(Wrap { trim: true })
-                .block(Block::default().title(" Country Details ").borders(Borders::ALL)),
+            Paragraph::new(details).wrap(Wrap { trim: true }).block(
+                Block::default()
+                    .title(" Country Details ")
+                    .borders(Borders::ALL),
+            ),
             area,
         );
     }
@@ -504,7 +633,10 @@ mod tests {
         simulation.engine.apply(GameCommand::SetupEditDigit(1));
         simulation.engine.apply(GameCommand::SetupSubmit);
 
-        let world = simulation.engine.world().expect("running world should exist");
+        let world = simulation
+            .engine
+            .world()
+            .expect("running world should exist");
         assert_eq!(world.details_view, DetailsView::List);
         assert_eq!(world.selection_focus, SelectionFocus::Country);
 
@@ -535,7 +667,10 @@ mod tests {
             simulation.map_running_key(KeyEvent::from(KeyCode::Enter)),
             Some(GameCommand::OpenSelectedPersonDetails)
         );
-        assert_eq!(simulation.map_running_key(KeyEvent::from(KeyCode::Esc)), None);
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Esc)),
+            None
+        );
     }
 
     #[test]
@@ -545,7 +680,9 @@ mod tests {
         simulation.engine.apply(GameCommand::SetupNextField);
         simulation.engine.apply(GameCommand::SetupEditDigit(1));
         simulation.engine.apply(GameCommand::SetupSubmit);
-        simulation.engine.apply(GameCommand::OpenSelectedCountryDetails);
+        simulation
+            .engine
+            .apply(GameCommand::OpenSelectedCountryDetails);
 
         assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Esc)),

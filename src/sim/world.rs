@@ -274,7 +274,14 @@ mod tests {
 
     fn build_people(count: usize) -> Vec<Person> {
         (0..count)
-            .map(|idx| Person::new(idx as u32, 100, 60, idx as u32 + 10))
+            .map(|idx| {
+                Person::new(
+                    idx as u32,
+                    (idx % 10) as u8,
+                    (idx % 4) as u16,
+                    idx as u32 + 10,
+                )
+            })
             .collect()
     }
 
@@ -286,7 +293,8 @@ mod tests {
         world.tick_day();
 
         assert_eq!(world.day, 1);
-        assert_eq!(world.countries[0].people[0].balance, 40);
+        assert_eq!(world.countries[0].day, 1);
+        assert!((world.countries[0].people[0].cash_balance - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]

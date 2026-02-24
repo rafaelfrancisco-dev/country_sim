@@ -172,7 +172,7 @@ mod tests {
     };
 
     fn person(id: u32) -> Person {
-        Person::new(id, 100, 60, id + 1)
+        Person::new(id, (id % 10) as u8, (id % 4) as u16, id + 1)
     }
 
     fn country(id: u16, name: &str, people_count: usize) -> Country {
@@ -307,7 +307,10 @@ mod tests {
         engine.apply(GameCommand::OpenSelectedCountryDetails);
         engine.apply(GameCommand::CloseDetails);
 
-        assert_eq!(engine.setup().expect("setup should still exist"), &setup_before);
+        assert_eq!(
+            engine.setup().expect("setup should still exist"),
+            &setup_before
+        );
     }
 
     #[test]
@@ -333,9 +336,7 @@ mod tests {
         engine.apply(GameCommand::SelectNextCountryRow);
         let selected_before_page = engine.world().expect("world exists").selected_country;
         engine.apply(GameCommand::CountryPageNext);
-        assert!(
-            engine.world().expect("world exists").selected_country > selected_before_page
-        );
+        assert!(engine.world().expect("world exists").selected_country > selected_before_page);
     }
 
     #[test]

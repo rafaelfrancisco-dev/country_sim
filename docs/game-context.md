@@ -3,6 +3,8 @@
 ## Vision and Phase 1 Scope
 Country Sim is a terminal-based simulation game where each engine tick maps to one in-game day.
 
+> Money simulation Phase 2 requirements are documented in [money-simulation-requirements.md](money-simulation-requirements.md).
+
 Phase 1 delivers a foundational simulation slice:
 - countries and citizens (`Person`) as core entities
 - daily economy updates on every tick
