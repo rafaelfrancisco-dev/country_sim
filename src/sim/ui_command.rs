@@ -1,0 +1,21 @@
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum UiCommand {
+    FocusCountrySelection,
+    FocusPeopleSelection,
+    SelectPrevCountryRow,
+    SelectNextCountryRow,
+    SelectPrevPersonRow,
+    SelectNextPersonRow,
+    CountryPageNext,
+    CountryPagePrev,
+    PeoplePageNext,
+    PeoplePagePrev,
+    OpenSelectedPersonDetails,
+    OpenSelectedCountryDetails,
+    CloseDetails,
+    NextTab,
+    PrevTab,
+    ToggleChartScope,
+    ChartPrevCountry,
+    ChartNextCountry,
+}

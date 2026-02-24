@@ -2,7 +2,7 @@ use crossterm::event::KeyEvent;
 use ratatui::prelude::Rect;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use crate::{
     action::Action,
@@ -164,6 +164,7 @@ impl App {
             Action::ClearScreen => tui.terminal.clear()?,
             Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
             Action::Render => self.render(tui)?,
+            Action::Error(ref message) => error!("Application action error: {message}"),
             _ => {}
         }
 

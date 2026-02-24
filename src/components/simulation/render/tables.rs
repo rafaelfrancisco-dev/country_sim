@@ -7,7 +7,7 @@ use ratatui::{
 
 use super::super::{Simulation, theme};
 use crate::components::simulation::snapshot::RunningSnapshot;
-use crate::sim::world::SelectionFocus;
+use crate::components::simulation::ui_state::SelectionFocus;
 
 impl Simulation {
     pub(super) fn draw_countries_table(

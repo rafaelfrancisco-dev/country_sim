@@ -10,6 +10,8 @@ pub mod params;
 pub mod person;
 pub mod setup;
 pub mod tickable;
+pub mod ui_command;
 pub mod world;
 
 pub use engine::{GameCommand, GameEngine, GamePhase};
+pub use ui_command::UiCommand;

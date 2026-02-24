@@ -1,0 +1,35 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo test
+        run: cargo test --all-targets --all-features
+
+      - name: Cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Rust file size gate (max 500 lines)
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r file; do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 500 ]; then
+              echo "File exceeds 500 lines: $file ($lines)"
+              failed=1
+            fi
+          done < <(find src -type f -name '*.rs' | sort)
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi

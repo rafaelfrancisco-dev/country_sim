@@ -1,7 +1,6 @@
 use super::{
     bank::LoanAccount,
     job::{JobTypeId, salary_for_job},
-    tickable::Tickable,
 };
 
 pub const DAYS_PER_YEAR: u16 = 365;
@@ -215,10 +214,6 @@ impl Person {
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
     }
-}
-
-impl Tickable for Person {
-    fn tick_day(&mut self) {}
 }
 
 #[cfg(test)]

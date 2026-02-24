@@ -1,9 +1,12 @@
-use crate::sim::{
-    GameEngine, GamePhase,
-    job::job_by_id,
-    names::person_name_from_seed,
-    setup::SetupField,
-    world::{ChartScope, DetailsView, MetricPoint, RunningTab, SelectionFocus, World},
+use crate::{
+    components::simulation::ui_state::{ChartScope, DetailsView, RunningTab, SelectionFocus, UiState},
+    sim::{
+        GameEngine, GamePhase,
+        job::job_by_id,
+        names::person_name_from_seed,
+        setup::SetupField,
+        world::{MetricPoint, World},
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,10 +77,11 @@ pub(super) struct RunningSnapshot {
     pub country_details_lines: Vec<String>,
     pub chart_scope_label: String,
     pub chart_history: Vec<MetricPoint>,
+    pub invariant_warnings: Vec<String>,
 }
 
 impl UiSnapshot {
-    pub(super) fn from_engine(engine: &GameEngine) -> Self {
+    pub(super) fn from_engine_and_ui(engine: &GameEngine, ui_state: &UiState) -> Self {
         let phase = match engine.phase() {
             GamePhase::Setup(setup) => SnapshotPhase::Setup(SetupSnapshot {
                 country_count_input: setup.country_count_input.clone(),
@@ -86,21 +90,26 @@ impl UiSnapshot {
                 validation_error: setup.validation_error.clone(),
                 memory_warning: setup.memory_warning.clone(),
             }),
-            GamePhase::Running(world) => SnapshotPhase::Running(Self::running_from_world(world)),
+            GamePhase::Running(world) => {
+                SnapshotPhase::Running(Self::running_from_world(world, ui_state))
+            }
         };
         Self { phase }
     }
 
-    fn running_from_world(world: &World) -> RunningSnapshot {
-        let selected_country = world.selected_country();
+    fn running_from_world(world: &World, ui_state: &UiState) -> RunningSnapshot {
+        let mut ui = *ui_state;
+        ui.ensure_valid(world);
+
+        let selected_country = ui.selected_country(world);
         let selected_country_name = selected_country
             .map(|country| country.name.clone())
             .unwrap_or_else(|| "N/A".to_string());
         let selected_country_month = selected_country.map_or(0, |country| country.month);
 
-        let country_page_start = world.country_page() * crate::sim::world::COUNTRY_PAGE_SIZE;
-        let country_rows = world
-            .selected_countries_page()
+        let country_page_start = ui.country_page() * crate::components::simulation::ui_state::COUNTRY_PAGE_SIZE;
+        let country_rows = ui
+            .selected_countries_page(world)
             .iter()
             .enumerate()
             .map(|(page_idx, country)| {
@@ -112,20 +121,15 @@ impl UiSnapshot {
                     company_cash: money(country.company_cash_total),
                     treasury: money(country.treasury_balance),
                     loans: money(country.bank.created_money_outstanding),
-                    is_selected: idx == world.selected_country,
-                    is_even: idx % 2 == 0,
+                    is_selected: idx == ui.selected_country,
+                    is_even: idx.is_multiple_of(2),
                 }
             })
             .collect::<Vec<_>>();
 
         let mut people_rows = Vec::new();
         if let Some(country) = selected_country {
-            for (row_idx, person) in world
-                .selected_people_page()
-                .unwrap_or(&[])
-                .iter()
-                .enumerate()
-            {
+            for (row_idx, person) in ui.selected_people_page(world).unwrap_or(&[]).iter().enumerate() {
                 let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
                 let name = person_name_from_seed(name_seed);
                 let job_name = person
@@ -153,37 +157,43 @@ impl UiSnapshot {
                     salary: money(person.monthly_salary()),
                     cash: money(person.cash_balance),
                     loan: money(person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance)),
-                    is_selected: row_idx == world.selected_person_row,
-                    is_even: row_idx % 2 == 0,
+                    is_selected: row_idx == ui.selected_person_row,
+                    is_even: row_idx.is_multiple_of(2),
                 });
             }
         }
 
-        let person_details_lines = person_details_lines(world);
-        let country_details_lines = country_details_lines(world);
-        let chart_scope_label = chart_scope_label(world);
-        let chart_history = match world.chart_scope {
+        let person_details_lines = person_details_lines(world, &ui);
+        let country_details_lines = country_details_lines(world, &ui);
+        let chart_scope_label = chart_scope_label(world, &ui);
+        let chart_history = match ui.chart_scope {
             ChartScope::SelectedCountry => world
                 .country_history
-                .get(world.selected_country)
+                .get(ui.selected_country)
                 .cloned()
                 .unwrap_or_default(),
             ChartScope::WorldAggregate => world.world_history.clone(),
         };
 
+        let invariant_warnings = world
+            .validate_invariants()
+            .into_iter()
+            .map(|v| format!("{}: {}", v.code, v.message))
+            .collect();
+
         RunningSnapshot {
             day: world.day,
             selected_country_month,
             paused: world.paused,
-            active_tab: world.active_tab,
-            details_view: world.details_view,
-            selection_focus: world.selection_focus,
+            active_tab: ui.active_tab,
+            details_view: ui.details_view,
+            selection_focus: ui.selection_focus,
             selected_country_name,
             total_population: world.total_population().to_string(),
-            country_page: world.country_page(),
-            total_country_pages: world.total_country_pages(),
-            people_page: world.people_page,
-            total_people_pages: world.total_people_pages(),
+            country_page: ui.country_page(),
+            total_country_pages: ui.total_country_pages(world),
+            people_page: ui.people_page,
+            total_people_pages: ui.total_people_pages(world),
             country_rows,
             people_rows,
             has_selected_country: selected_country.is_some(),
@@ -191,16 +201,17 @@ impl UiSnapshot {
             country_details_lines,
             chart_scope_label,
             chart_history,
+            invariant_warnings,
         }
     }
 }
 
-fn person_details_lines(world: &World) -> Vec<String> {
-    let Some(country) = world.selected_country() else {
+fn person_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+    let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
 
-    let Some(person) = world.selected_person_on_page() else {
+    let Some(person) = ui.selected_person_on_page(world) else {
         return vec![
             "No person available for the current selection. Press [Esc] to return.".to_string(),
         ];
@@ -246,16 +257,13 @@ fn person_details_lines(world: &World) -> Vec<String> {
         format!("Last Tax Paid: {}", money(person.last_month_tax_paid)),
         format!("Last Net Pay: {}", money(person.last_month_net_pay)),
         format!("Last Spending: {}", money(person.last_month_spending)),
-        format!(
-            "Last Loan Payment: {}",
-            money(person.last_month_loan_payment)
-        ),
+        format!("Last Loan Payment: {}", money(person.last_month_loan_payment)),
         format!("Last New Loan: {}", money(person.last_month_new_loan)),
     ]
 }
 
-fn country_details_lines(world: &World) -> Vec<String> {
-    let Some(country) = world.selected_country() else {
+fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+    let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
 
@@ -282,19 +290,15 @@ fn country_details_lines(world: &World) -> Vec<String> {
             "Last Monthly Spending: {}",
             money(country.monthly_household_spending)
         ),
-        format!(
-            "People Page: {}/{}",
-            world.people_page + 1,
-            world.total_people_pages()
-        ),
+        format!("People Page: {}/{}", ui.people_page + 1, ui.total_people_pages(world)),
     ]
 }
 
-fn chart_scope_label(world: &World) -> String {
-    match world.chart_scope {
+fn chart_scope_label(world: &World, ui: &UiState) -> String {
+    match ui.chart_scope {
         ChartScope::SelectedCountry => {
-            let country_name = world
-                .selected_country()
+            let country_name = ui
+                .selected_country(world)
                 .map(|country| country.name.as_str())
                 .unwrap_or("N/A");
             format!("Selected: {country_name}")

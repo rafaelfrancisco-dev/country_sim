@@ -94,14 +94,11 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
 
             if person.can_seek_job()
                 && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
-            {
-                if let Some(job_type_id) =
+                && let Some(job_type_id) =
                     pick_weighted_job_id_for_habilitation(&mut rng, person.habilitation)
-                {
-                    let employer_company_id =
-                        pick_employer_for_job(job_type_id, &companies, &mut rng);
-                    person.set_employment(employer_company_id, job_type_id);
-                }
+            {
+                let employer_company_id = pick_employer_for_job(job_type_id, &companies, &mut rng);
+                person.set_employment(employer_company_id, job_type_id);
             }
 
             people.push(person);
@@ -196,7 +193,7 @@ fn pick_employer_for_job(
         }
 
         seen_matching = seen_matching.saturating_add(1);
-        if rng.next_u64() % seen_matching == 0 {
+        if rng.next_u64().is_multiple_of(seen_matching) {
             selected_company = Some(idx as u16);
         }
     }

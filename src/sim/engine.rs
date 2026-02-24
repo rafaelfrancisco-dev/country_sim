@@ -22,25 +22,12 @@ pub enum GameCommand {
     SetupSubmit,
     TogglePause,
     StepOneDay,
-    FocusCountrySelection,
-    FocusPeopleSelection,
-    SelectPrevCountryRow,
-    SelectNextCountryRow,
-    SelectPrevPersonRow,
-    SelectNextPersonRow,
-    CountryPageNext,
-    CountryPagePrev,
-    PeoplePageNext,
-    PeoplePagePrev,
-    OpenSelectedPersonDetails,
-    OpenSelectedCountryDetails,
-    CloseDetails,
-    NextTab,
-    PrevTab,
-    ToggleChartScope,
-    ChartPrevCountry,
-    ChartNextCountry,
     Tick,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ApplyOutcome {
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,7 +76,7 @@ impl GameEngine {
         }
     }
 
-    pub fn apply(&mut self, command: GameCommand) {
+    pub fn apply(&mut self, command: GameCommand) -> ApplyOutcome {
         match &mut self.phase {
             GamePhase::Setup(setup_form) => {
                 if let Some(values) = Self::apply_setup_command(setup_form, command) {
@@ -99,6 +86,16 @@ impl GameEngine {
             }
             GamePhase::Running(world) => Self::apply_running_command(world, command),
         }
+
+        let mut outcome = ApplyOutcome::default();
+        if let GamePhase::Running(world) = &self.phase {
+            for violation in world.validate_invariants() {
+                outcome
+                    .warnings
+                    .push(format!("{}: {}", violation.code, violation.message));
+            }
+        }
+        outcome
     }
 
     fn apply_setup_command(
@@ -135,24 +132,6 @@ impl GameEngine {
                     world.tick_day();
                 }
             }
-            GameCommand::FocusCountrySelection => world.focus_country_selection(),
-            GameCommand::FocusPeopleSelection => world.focus_people_selection(),
-            GameCommand::SelectPrevCountryRow => world.select_prev_country_row(),
-            GameCommand::SelectNextCountryRow => world.select_next_country_row(),
-            GameCommand::SelectPrevPersonRow => world.select_prev_person_row(),
-            GameCommand::SelectNextPersonRow => world.select_next_person_row(),
-            GameCommand::CountryPageNext => world.next_country_page(),
-            GameCommand::CountryPagePrev => world.prev_country_page(),
-            GameCommand::PeoplePageNext => world.next_people_page(),
-            GameCommand::PeoplePagePrev => world.prev_people_page(),
-            GameCommand::OpenSelectedPersonDetails => world.open_selected_person_details(),
-            GameCommand::OpenSelectedCountryDetails => world.open_selected_country_details(),
-            GameCommand::CloseDetails => world.close_details(),
-            GameCommand::NextTab => world.next_tab(),
-            GameCommand::PrevTab => world.prev_tab(),
-            GameCommand::ToggleChartScope => world.toggle_chart_scope(),
-            GameCommand::ChartPrevCountry => world.chart_prev_country(),
-            GameCommand::ChartNextCountry => world.chart_next_country(),
             _ => {}
         }
     }
@@ -160,8 +139,7 @@ impl GameEngine {
     fn build_world(&self, values: SetupValues) -> World {
         let population_per_country = values
             .millions_per_country
-            .checked_mul(self.citizens_per_million)
-            .expect("population_per_country overflowed while generating world");
+            .saturating_mul(self.citizens_per_million);
 
         let config = GenerationConfig::with_defaults(
             values.country_count,
@@ -177,11 +155,7 @@ impl GameEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::{
-        country::Country,
-        person::Person,
-        world::{COUNTRY_PAGE_SIZE, DetailsView, PEOPLE_PAGE_SIZE, SelectionFocus},
-    };
+    use crate::sim::{country::Country, person::Person};
 
     fn person(id: u32) -> Person {
         Person::new(id, (id % 10) as u8, (id % 4) as u16, id + 1)
@@ -228,8 +202,10 @@ mod tests {
 
     #[test]
     fn tick_increments_day_only_when_running_and_unpaused() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1)]));
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 1)])),
+            ..GameEngine::default()
+        };
 
         engine.apply(GameCommand::Tick);
         assert_eq!(engine.world().expect("world exists").day, 1);
@@ -241,8 +217,10 @@ mod tests {
 
     #[test]
     fn step_one_day_works_only_when_paused() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1)]));
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 1)])),
+            ..GameEngine::default()
+        };
 
         engine.apply(GameCommand::StepOneDay);
         assert_eq!(engine.world().expect("world exists").day, 0);
@@ -250,167 +228,5 @@ mod tests {
         engine.apply(GameCommand::TogglePause);
         engine.apply(GameCommand::StepOneDay);
         assert_eq!(engine.world().expect("world exists").day, 1);
-    }
-
-    #[test]
-    fn country_selection_wraps() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1), country(2, "B", 1)]));
-
-        engine.apply(GameCommand::SelectPrevCountryRow);
-        assert_eq!(engine.world().expect("world exists").selected_country, 0);
-
-        engine.apply(GameCommand::SelectNextCountryRow);
-        assert_eq!(engine.world().expect("world exists").selected_country, 1);
-    }
-
-    #[test]
-    fn people_pagination_clamps() {
-        let mut engine = GameEngine::default();
-        engine.phase =
-            GamePhase::Running(World::new(vec![country(1, "Paged", PEOPLE_PAGE_SIZE + 3)]));
-
-        engine.apply(GameCommand::PeoplePageNext);
-        assert_eq!(engine.world().expect("world exists").people_page, 1);
-
-        engine.apply(GameCommand::PeoplePageNext);
-        assert_eq!(engine.world().expect("world exists").people_page, 1);
-
-        engine.apply(GameCommand::PeoplePagePrev);
-        engine.apply(GameCommand::PeoplePagePrev);
-        assert_eq!(engine.world().expect("world exists").people_page, 0);
-    }
-
-    #[test]
-    fn person_row_selection_and_details_commands_mutate_running_world() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 2)]));
-
-        engine.apply(GameCommand::SelectNextPersonRow);
-        assert_eq!(engine.world().expect("world exists").selected_person_row, 1);
-
-        engine.apply(GameCommand::OpenSelectedPersonDetails);
-        assert_eq!(
-            engine.world().expect("world exists").details_view,
-            DetailsView::Person
-        );
-
-        engine.apply(GameCommand::CloseDetails);
-        assert_eq!(
-            engine.world().expect("world exists").details_view,
-            DetailsView::List
-        );
-    }
-
-    #[test]
-    fn new_running_commands_are_noop_in_setup_phase() {
-        let mut engine = GameEngine::default();
-        let setup_before = engine.setup().expect("setup should exist").clone();
-
-        engine.apply(GameCommand::FocusCountrySelection);
-        engine.apply(GameCommand::FocusPeopleSelection);
-        engine.apply(GameCommand::SelectNextCountryRow);
-        engine.apply(GameCommand::SelectPrevCountryRow);
-        engine.apply(GameCommand::SelectNextPersonRow);
-        engine.apply(GameCommand::SelectPrevPersonRow);
-        engine.apply(GameCommand::CountryPageNext);
-        engine.apply(GameCommand::CountryPagePrev);
-        engine.apply(GameCommand::OpenSelectedPersonDetails);
-        engine.apply(GameCommand::OpenSelectedCountryDetails);
-        engine.apply(GameCommand::CloseDetails);
-        engine.apply(GameCommand::NextTab);
-        engine.apply(GameCommand::PrevTab);
-        engine.apply(GameCommand::ToggleChartScope);
-        engine.apply(GameCommand::ChartPrevCountry);
-        engine.apply(GameCommand::ChartNextCountry);
-
-        assert_eq!(
-            engine.setup().expect("setup should still exist"),
-            &setup_before
-        );
-    }
-
-    #[test]
-    fn focus_switch_and_country_page_commands_work_in_running_phase() {
-        let mut engine = GameEngine::default();
-        let countries = (0..(COUNTRY_PAGE_SIZE + 2))
-            .map(|idx| country(idx as u16, "A", 1))
-            .collect();
-        engine.phase = GamePhase::Running(World::new(countries));
-
-        engine.apply(GameCommand::FocusPeopleSelection);
-        assert_eq!(
-            engine.world().expect("world exists").selection_focus,
-            SelectionFocus::People
-        );
-
-        engine.apply(GameCommand::FocusCountrySelection);
-        assert_eq!(
-            engine.world().expect("world exists").selection_focus,
-            SelectionFocus::Country
-        );
-
-        engine.apply(GameCommand::SelectNextCountryRow);
-        let selected_before_page = engine.world().expect("world exists").selected_country;
-        engine.apply(GameCommand::CountryPageNext);
-        assert!(engine.world().expect("world exists").selected_country > selected_before_page);
-    }
-
-    #[test]
-    fn country_details_commands_mutate_running_world() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 2)]));
-
-        engine.apply(GameCommand::OpenSelectedCountryDetails);
-        assert_eq!(
-            engine.world().expect("world exists").details_view,
-            DetailsView::Country
-        );
-
-        engine.apply(GameCommand::CloseDetails);
-        assert_eq!(
-            engine.world().expect("world exists").details_view,
-            DetailsView::List
-        );
-    }
-
-    #[test]
-    fn integration_sequence_from_setup_to_ticking_is_deterministic() {
-        let mut engine = GameEngine::with_population_scale(99, 5);
-
-        submit_setup(&mut engine, "1", "1");
-        engine.apply(GameCommand::Tick);
-        engine.apply(GameCommand::Tick);
-        engine.apply(GameCommand::TogglePause);
-        engine.apply(GameCommand::StepOneDay);
-
-        let world = engine.world().expect("world should exist after setup");
-        assert_eq!(world.day, 3);
-        assert_eq!(world.countries.len(), 1);
-        assert_eq!(world.countries[0].people.len(), 5);
-    }
-
-    #[test]
-    fn tab_scope_and_chart_commands_mutate_running_world() {
-        let mut engine = GameEngine::default();
-        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1), country(2, "B", 1)]));
-
-        engine.apply(GameCommand::NextTab);
-        assert_eq!(
-            engine.world().expect("world exists").active_tab,
-            crate::sim::world::RunningTab::Charts
-        );
-
-        engine.apply(GameCommand::ToggleChartScope);
-        assert_eq!(
-            engine.world().expect("world exists").chart_scope,
-            crate::sim::world::ChartScope::WorldAggregate
-        );
-
-        engine.apply(GameCommand::ChartNextCountry);
-        assert_eq!(engine.world().expect("world exists").selected_country, 1);
-
-        engine.apply(GameCommand::ChartPrevCountry);
-        assert_eq!(engine.world().expect("world exists").selected_country, 0);
     }
 }

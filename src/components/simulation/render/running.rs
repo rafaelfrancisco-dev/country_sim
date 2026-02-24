@@ -9,7 +9,7 @@ use ratatui::{
 use super::super::{Simulation, theme};
 use crate::{
     components::simulation::snapshot::RunningSnapshot,
-    sim::world::{DetailsView, RunningTab},
+    components::simulation::ui_state::{DetailsView, RunningTab},
 };
 
 impl Simulation {
@@ -67,10 +67,16 @@ impl Simulation {
         ]);
         frame.render_widget(Paragraph::new(header_line), header);
 
-        let footer_text = match world.active_tab {
+        let mut footer_text = match world.active_tab {
             RunningTab::Main => self.draw_main_tab(frame, body, world),
             RunningTab::Charts => self.draw_charts_tab(frame, body, world),
         };
+        if !world.invariant_warnings.is_empty() {
+            footer_text.push_str(&format!(
+                " | Invariant warnings: {}",
+                world.invariant_warnings.len()
+            ));
+        }
 
         frame.render_widget(
             Paragraph::new(footer_text)
