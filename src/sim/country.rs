@@ -1,10 +1,12 @@
 use super::{
     bank::{Bank, DEFAULT_MAX_DEBT_TO_INCOME},
-    company::{Company, DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies},
+    company::Company,
     money::round_cents,
     person::Person,
     tickable::Tickable,
 };
+#[cfg(test)]
+use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 
 pub const DAYS_PER_MONTH: u64 = 30;
 pub const TAX_BRACKET_1_MAX: f64 = 3_000.0;
@@ -31,6 +33,7 @@ pub struct Country {
 }
 
 impl Country {
+    #[cfg(test)]
     pub fn new(id: u16, name: String, people: Vec<Person>) -> Self {
         let companies = build_default_companies(&name, DEFAULT_COMPANIES_PER_COUNTRY);
         Self::with_economy(id, name, people, companies, 0.0)
