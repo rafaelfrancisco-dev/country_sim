@@ -22,10 +22,19 @@ pub enum GameCommand {
     SetupSubmit,
     TogglePause,
     StepOneDay,
-    SelectPrevCountry,
-    SelectNextCountry,
+    FocusCountrySelection,
+    FocusPeopleSelection,
+    SelectPrevCountryRow,
+    SelectNextCountryRow,
+    SelectPrevPersonRow,
+    SelectNextPersonRow,
+    CountryPageNext,
+    CountryPagePrev,
     PeoplePageNext,
     PeoplePagePrev,
+    OpenSelectedPersonDetails,
+    OpenSelectedCountryDetails,
+    CloseDetails,
     Tick,
 }
 
@@ -119,10 +128,19 @@ impl GameEngine {
                     world.tick_day();
                 }
             }
-            GameCommand::SelectPrevCountry => world.select_prev_country(),
-            GameCommand::SelectNextCountry => world.select_next_country(),
+            GameCommand::FocusCountrySelection => world.focus_country_selection(),
+            GameCommand::FocusPeopleSelection => world.focus_people_selection(),
+            GameCommand::SelectPrevCountryRow => world.select_prev_country_row(),
+            GameCommand::SelectNextCountryRow => world.select_next_country_row(),
+            GameCommand::SelectPrevPersonRow => world.select_prev_person_row(),
+            GameCommand::SelectNextPersonRow => world.select_next_person_row(),
+            GameCommand::CountryPageNext => world.next_country_page(),
+            GameCommand::CountryPagePrev => world.prev_country_page(),
             GameCommand::PeoplePageNext => world.next_people_page(),
             GameCommand::PeoplePagePrev => world.prev_people_page(),
+            GameCommand::OpenSelectedPersonDetails => world.open_selected_person_details(),
+            GameCommand::OpenSelectedCountryDetails => world.open_selected_country_details(),
+            GameCommand::CloseDetails => world.close_details(),
             _ => {}
         }
     }
@@ -147,7 +165,11 @@ impl GameEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::{country::Country, person::Person, world::PEOPLE_PAGE_SIZE};
+    use crate::sim::{
+        country::Country,
+        person::Person,
+        world::{COUNTRY_PAGE_SIZE, DetailsView, PEOPLE_PAGE_SIZE, SelectionFocus},
+    };
 
     fn person(id: u32) -> Person {
         Person::new(id, 100, 60, id + 1)
@@ -223,11 +245,11 @@ mod tests {
         let mut engine = GameEngine::default();
         engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 1), country(2, "B", 1)]));
 
-        engine.apply(GameCommand::SelectPrevCountry);
-        assert_eq!(engine.world().expect("world exists").selected_country, 1);
-
-        engine.apply(GameCommand::SelectNextCountry);
+        engine.apply(GameCommand::SelectPrevCountryRow);
         assert_eq!(engine.world().expect("world exists").selected_country, 0);
+
+        engine.apply(GameCommand::SelectNextCountryRow);
+        assert_eq!(engine.world().expect("world exists").selected_country, 1);
     }
 
     #[test]
@@ -245,6 +267,93 @@ mod tests {
         engine.apply(GameCommand::PeoplePagePrev);
         engine.apply(GameCommand::PeoplePagePrev);
         assert_eq!(engine.world().expect("world exists").people_page, 0);
+    }
+
+    #[test]
+    fn person_row_selection_and_details_commands_mutate_running_world() {
+        let mut engine = GameEngine::default();
+        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 2)]));
+
+        engine.apply(GameCommand::SelectNextPersonRow);
+        assert_eq!(engine.world().expect("world exists").selected_person_row, 1);
+
+        engine.apply(GameCommand::OpenSelectedPersonDetails);
+        assert_eq!(
+            engine.world().expect("world exists").details_view,
+            DetailsView::Person
+        );
+
+        engine.apply(GameCommand::CloseDetails);
+        assert_eq!(
+            engine.world().expect("world exists").details_view,
+            DetailsView::List
+        );
+    }
+
+    #[test]
+    fn new_running_commands_are_noop_in_setup_phase() {
+        let mut engine = GameEngine::default();
+        let setup_before = engine.setup().expect("setup should exist").clone();
+
+        engine.apply(GameCommand::FocusCountrySelection);
+        engine.apply(GameCommand::FocusPeopleSelection);
+        engine.apply(GameCommand::SelectNextCountryRow);
+        engine.apply(GameCommand::SelectPrevCountryRow);
+        engine.apply(GameCommand::SelectNextPersonRow);
+        engine.apply(GameCommand::SelectPrevPersonRow);
+        engine.apply(GameCommand::CountryPageNext);
+        engine.apply(GameCommand::CountryPagePrev);
+        engine.apply(GameCommand::OpenSelectedPersonDetails);
+        engine.apply(GameCommand::OpenSelectedCountryDetails);
+        engine.apply(GameCommand::CloseDetails);
+
+        assert_eq!(engine.setup().expect("setup should still exist"), &setup_before);
+    }
+
+    #[test]
+    fn focus_switch_and_country_page_commands_work_in_running_phase() {
+        let mut engine = GameEngine::default();
+        let countries = (0..(COUNTRY_PAGE_SIZE + 2))
+            .map(|idx| country(idx as u16, "A", 1))
+            .collect();
+        engine.phase = GamePhase::Running(World::new(countries));
+
+        engine.apply(GameCommand::FocusPeopleSelection);
+        assert_eq!(
+            engine.world().expect("world exists").selection_focus,
+            SelectionFocus::People
+        );
+
+        engine.apply(GameCommand::FocusCountrySelection);
+        assert_eq!(
+            engine.world().expect("world exists").selection_focus,
+            SelectionFocus::Country
+        );
+
+        engine.apply(GameCommand::SelectNextCountryRow);
+        let selected_before_page = engine.world().expect("world exists").selected_country;
+        engine.apply(GameCommand::CountryPageNext);
+        assert!(
+            engine.world().expect("world exists").selected_country > selected_before_page
+        );
+    }
+
+    #[test]
+    fn country_details_commands_mutate_running_world() {
+        let mut engine = GameEngine::default();
+        engine.phase = GamePhase::Running(World::new(vec![country(1, "A", 2)]));
+
+        engine.apply(GameCommand::OpenSelectedCountryDetails);
+        assert_eq!(
+            engine.world().expect("world exists").details_view,
+            DetailsView::Country
+        );
+
+        engine.apply(GameCommand::CloseDetails);
+        assert_eq!(
+            engine.world().expect("world exists").details_view,
+            DetailsView::List
+        );
     }
 
     #[test]

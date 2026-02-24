@@ -10,7 +10,10 @@ use ratatui::{
 use super::Component;
 use crate::{
     action::Action,
-    sim::{GameCommand, GameEngine, GamePhase, names::person_name_from_seed},
+    sim::{
+        GameCommand, GameEngine, GamePhase, names::person_name_from_seed,
+        world::{DetailsView, SelectionFocus},
+    },
 };
 
 #[derive(Debug, Default)]
@@ -37,14 +40,45 @@ impl Simulation {
     }
 
     fn map_running_key(&self, key: KeyEvent) -> Option<GameCommand> {
+        let world = self.engine.world()?;
+
         match key.code {
             KeyCode::Char(' ') => Some(GameCommand::TogglePause),
-            KeyCode::Left => Some(GameCommand::SelectPrevCountry),
-            KeyCode::Right => Some(GameCommand::SelectNextCountry),
+            KeyCode::Left => Some(GameCommand::FocusCountrySelection),
+            KeyCode::Right => Some(GameCommand::FocusPeopleSelection),
+            KeyCode::Up if world.details_view == DetailsView::List => match world.selection_focus {
+                SelectionFocus::Country => Some(GameCommand::SelectPrevCountryRow),
+                SelectionFocus::People => Some(GameCommand::SelectPrevPersonRow),
+            },
+            KeyCode::Down if world.details_view == DetailsView::List => match world.selection_focus {
+                SelectionFocus::Country => Some(GameCommand::SelectNextCountryRow),
+                SelectionFocus::People => Some(GameCommand::SelectNextPersonRow),
+            },
+            KeyCode::Enter
+                if world.details_view == DetailsView::List
+                    && world.selection_focus == SelectionFocus::People =>
+            {
+                Some(GameCommand::OpenSelectedPersonDetails)
+            }
+            KeyCode::Enter
+                if world.details_view == DetailsView::List
+                    && world.selection_focus == SelectionFocus::Country =>
+            {
+                Some(GameCommand::OpenSelectedCountryDetails)
+            }
+            KeyCode::Esc if world.details_view != DetailsView::List => {
+                Some(GameCommand::CloseDetails)
+            }
             KeyCode::Char(c) => match c.to_ascii_lowercase() {
                 'n' => Some(GameCommand::StepOneDay),
-                'j' => Some(GameCommand::PeoplePagePrev),
-                'k' => Some(GameCommand::PeoplePageNext),
+                'j' => match world.selection_focus {
+                    SelectionFocus::Country => Some(GameCommand::CountryPagePrev),
+                    SelectionFocus::People => Some(GameCommand::PeoplePagePrev),
+                },
+                'k' => match world.selection_focus {
+                    SelectionFocus::Country => Some(GameCommand::CountryPageNext),
+                    SelectionFocus::People => Some(GameCommand::PeoplePageNext),
+                },
                 _ => None,
             },
             _ => None,
@@ -187,18 +221,33 @@ impl Simulation {
         );
         frame.render_widget(Paragraph::new(header_text), header);
 
-        let [countries_area, people_area] =
-            Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
-                .areas(body);
+        let footer_text = match world.details_view {
+            DetailsView::List => {
+                let [countries_area, people_area] =
+                    Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
+                        .areas(body);
 
-        self.draw_countries_table(frame, countries_area);
-        self.draw_people_table(frame, people_area);
+                self.draw_countries_table(frame, countries_area);
+                self.draw_people_table(frame, people_area);
 
-        let footer_text = format!(
-            "Controls: [Space] pause/resume  [n] step day (paused)  [←/→] select country  [j/k] people page  [q] quit | Page {}/{}",
-            world.people_page + 1,
-            world.total_people_pages()
-        );
+                format!(
+                    "Controls: [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] details (focused row)  [q] quit | Country Page {}/{} | People Page {}/{}",
+                    world.country_page() + 1,
+                    world.total_country_pages(),
+                    world.people_page + 1,
+                    world.total_people_pages(),
+                )
+            }
+            DetailsView::Person => {
+                self.draw_person_details(frame, body);
+                "Controls: [Esc] back to people list  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+            }
+            DetailsView::Country => {
+                self.draw_country_details(frame, body);
+                "Controls: [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+            }
+        };
+
         frame.render_widget(Paragraph::new(footer_text), footer);
     }
 
@@ -219,21 +268,29 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = world.countries.iter().enumerate().map(|(idx, country)| {
-            let style = if idx == world.selected_country {
-                Style::default().add_modifier(Modifier::REVERSED)
-            } else {
-                Style::default()
-            };
+        let country_page_start = world.country_page() * crate::sim::world::COUNTRY_PAGE_SIZE;
+        let rows = world
+            .selected_countries_page()
+            .iter()
+            .enumerate()
+            .map(|(page_idx, country)| {
+                let idx = country_page_start + page_idx;
+                let style = if idx == world.selected_country
+                    && world.selection_focus == SelectionFocus::Country
+                {
+                    Style::default().add_modifier(Modifier::REVERSED)
+                } else {
+                    Style::default()
+                };
 
-            Row::new([
-                Cell::from(country.name.clone()),
-                Cell::from(country.population().to_string()),
-                Cell::from(country.total_balance.to_string()),
-                Cell::from(format!("{:.2}", country.avg_net_per_day)),
-            ])
-            .style(style)
-        });
+                Row::new([
+                    Cell::from(country.name.clone()),
+                    Cell::from(country.population().to_string()),
+                    Cell::from(country.total_balance.to_string()),
+                    Cell::from(format!("{:.2}", country.avg_net_per_day)),
+                ])
+                .style(style)
+            });
 
         let widths = [
             Constraint::Length(14),
@@ -276,9 +333,18 @@ impl Simulation {
         };
 
         let page_people = world.selected_people_page().unwrap_or(&[]);
-        let rows = page_people.iter().map(|person| {
+        let rows = page_people.iter().enumerate().map(|(row_idx, person)| {
             let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
             let name = person_name_from_seed(name_seed);
+            let style = if row_idx == world.selected_person_row
+                && world.selection_focus == SelectionFocus::People
+            {
+                Style::default()
+                    .add_modifier(Modifier::REVERSED)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
 
             Row::new([
                 Cell::from(person.id.to_string()),
@@ -287,6 +353,7 @@ impl Simulation {
                 Cell::from(person.expense.to_string()),
                 Cell::from(person.balance.to_string()),
             ])
+            .style(style)
         });
 
         let widths = [
@@ -307,6 +374,89 @@ impl Simulation {
             );
 
         frame.render_widget(table, area);
+    }
+
+    fn draw_person_details(&self, frame: &mut Frame, area: Rect) {
+        let Some(world) = self.engine.world() else {
+            return;
+        };
+
+        let Some(country) = world.selected_country() else {
+            frame.render_widget(
+                Paragraph::new("No country is currently selected.")
+                    .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+                area,
+            );
+            return;
+        };
+
+        let Some(person) = world.selected_person_on_page() else {
+            frame.render_widget(
+                Paragraph::new("No person available for the current selection. Press [Esc] to return.")
+                    .wrap(Wrap { trim: true })
+                    .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+                area,
+            );
+            return;
+        };
+
+        let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
+        let name = person_name_from_seed(name_seed);
+        let details = vec![
+            Line::from(format!("Name: {}", name)),
+            Line::from(format!("Citizen ID: {}", person.id)),
+            Line::from(format!("Country: {}", country.name)),
+            Line::from(format!("Day: {}", world.day)),
+            Line::from(""),
+            Line::from(format!("Income: {}", person.income)),
+            Line::from(format!("Expense: {}", person.expense)),
+            Line::from(format!("Daily Net: {}", person.daily_net())),
+            Line::from(format!("Balance: {}", person.balance)),
+        ];
+
+        frame.render_widget(
+            Paragraph::new(details)
+                .wrap(Wrap { trim: true })
+                .block(Block::default().title(" Person Details ").borders(Borders::ALL)),
+            area,
+        );
+    }
+
+    fn draw_country_details(&self, frame: &mut Frame, area: Rect) {
+        let Some(world) = self.engine.world() else {
+            return;
+        };
+
+        let Some(country) = world.selected_country() else {
+            frame.render_widget(
+                Paragraph::new("No country is currently selected.")
+                    .block(Block::default().title(" Country Details ").borders(Borders::ALL)),
+                area,
+            );
+            return;
+        };
+
+        let details = vec![
+            Line::from(format!("Name: {}", country.name)),
+            Line::from(format!("Country ID: {}", country.id)),
+            Line::from(format!("Day: {}", world.day)),
+            Line::from(""),
+            Line::from(format!("Population: {}", country.population())),
+            Line::from(format!("Total Balance: {}", country.total_balance)),
+            Line::from(format!("Avg Net/Day: {:.2}", country.avg_net_per_day)),
+            Line::from(format!(
+                "People Page: {}/{}",
+                world.people_page + 1,
+                world.total_people_pages()
+            )),
+        ];
+
+        frame.render_widget(
+            Paragraph::new(details)
+                .wrap(Wrap { trim: true })
+                .block(Block::default().title(" Country Details ").borders(Borders::ALL)),
+            area,
+        );
     }
 }
 
@@ -339,5 +489,71 @@ impl Component for Simulation {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn running_keymap_handles_row_navigation_and_details_commands() {
+        let mut simulation = Simulation::new();
+        simulation.engine.apply(GameCommand::SetupEditDigit(1));
+        simulation.engine.apply(GameCommand::SetupNextField);
+        simulation.engine.apply(GameCommand::SetupEditDigit(1));
+        simulation.engine.apply(GameCommand::SetupSubmit);
+
+        let world = simulation.engine.world().expect("running world should exist");
+        assert_eq!(world.details_view, DetailsView::List);
+        assert_eq!(world.selection_focus, SelectionFocus::Country);
+
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Up)),
+            Some(GameCommand::SelectPrevCountryRow)
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Down)),
+            Some(GameCommand::SelectNextCountryRow)
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('k'))),
+            Some(GameCommand::CountryPageNext)
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Enter)),
+            Some(GameCommand::OpenSelectedCountryDetails)
+        );
+
+        simulation.engine.apply(GameCommand::FocusPeopleSelection);
+        simulation.engine.apply(GameCommand::SelectNextPersonRow);
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('k'))),
+            Some(GameCommand::PeoplePageNext)
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Enter)),
+            Some(GameCommand::OpenSelectedPersonDetails)
+        );
+        assert_eq!(simulation.map_running_key(KeyEvent::from(KeyCode::Esc)), None);
+    }
+
+    #[test]
+    fn running_keymap_esc_is_only_active_in_details_view() {
+        let mut simulation = Simulation::new();
+        simulation.engine.apply(GameCommand::SetupEditDigit(1));
+        simulation.engine.apply(GameCommand::SetupNextField);
+        simulation.engine.apply(GameCommand::SetupEditDigit(1));
+        simulation.engine.apply(GameCommand::SetupSubmit);
+        simulation.engine.apply(GameCommand::OpenSelectedCountryDetails);
+
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Esc)),
+            Some(GameCommand::CloseDetails)
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Enter)),
+            None
+        );
     }
 }

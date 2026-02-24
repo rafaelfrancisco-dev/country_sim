@@ -29,7 +29,7 @@ Out of scope for phase 1:
 - `avg_net_per_day`: average of `(income - expense)` over all citizens
 
 ### `World`
-- Fields: `day`, `countries`, `selected_country`, `paused`, `people_page`
+- Fields: `day`, `countries`, `selected_country`, `paused`, `people_page`, `selected_person_row`, `details_view`, `selection_focus`
 - Tick behavior: increments `day`, ticks all countries
 - Country navigation wraps (`left/right`)
 - People pagination is bounded (clamped)
@@ -81,9 +81,26 @@ Main panels:
 Controls:
 - `Space`: pause/resume
 - `n`: step one day (paused only)
-- `Left`/`Right`: selected country
-- `j`/`k`: people page prev/next
+- `Left`/`Right`: switch selection focus between countries and people
+- `Up`/`Down`: move selected row inside the focused list
+- `j`/`k`: page previous/next inside the focused list
+- `Enter`: open details for the focused selection (`Country` or `Person`)
+- `Esc`: close the active details page and return to list view
 - existing quit/suspend shortcuts remain active
+
+### Person Details View
+- `Enter` from people list opens person details for the selected row.
+- Country and people selection are mutually exclusive via `selection_focus`; only one is actively selected at a time.
+- The details view is full-screen within the running layout.
+- Details include: `Citizen ID`, `Name`, `Income`, `Expense`, `Daily Net`, `Balance`, `Country`, and `Day`.
+- `Esc` closes details and returns to list view.
+- If no person is available for selection, details view is not opened.
+
+### Country Details View
+- `Enter` from country list opens country details for the selected country row.
+- The details view is full-screen within the running layout.
+- Details include: `Country ID`, `Name`, `Day`, `Population`, `Total Balance`, `Avg Net/Day`, and active people page.
+- `Esc` closes details and returns to list view.
 
 ## Performance and Memory Policy
 - per-country limit is capped by input validation (`<= 20 million`)
