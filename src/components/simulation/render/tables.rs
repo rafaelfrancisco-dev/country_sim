@@ -97,7 +97,9 @@ impl Simulation {
         let header = Row::new([
             Cell::from("Citizen ID"),
             Cell::from("Name"),
-            Cell::from("Job"),
+            Cell::from("Age"),
+            Cell::from("Education"),
+            Cell::from("Employment"),
             Cell::from("Employer"),
             Cell::from("Salary"),
             Cell::from("Cash"),
@@ -128,6 +130,15 @@ impl Simulation {
         let rows = page_people.iter().enumerate().map(|(row_idx, person)| {
             let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
             let name = person_name_from_seed(name_seed);
+            let job_name = person
+                .job_type_id()
+                .and_then(job_by_id)
+                .map_or("N/A".to_string(), |job| job.name.to_string());
+            let employment = if person.is_employed() {
+                format!("Employed ({job_name})")
+            } else {
+                "Unemployed".to_string()
+            };
             let style = if row_idx == world.selected_person_row
                 && world.selection_focus == SelectionFocus::People
             {
@@ -143,19 +154,19 @@ impl Simulation {
                     .bg(Color::Rgb(23, 31, 48))
             };
 
+            let employer = person
+                .employer_company_id()
+                .and_then(|company_id| country.company_name(company_id))
+                .unwrap_or("N/A")
+                .to_string();
+
             Row::new([
                 Cell::from(person.id.to_string()),
                 Cell::from(name),
-                Cell::from(
-                    job_by_id(person.job_type_id)
-                        .map_or("Unknown".to_string(), |job| job.name.to_string()),
-                ),
-                Cell::from(
-                    country
-                        .company_name(person.employer_company_id)
-                        .unwrap_or("N/A")
-                        .to_string(),
-                ),
+                Cell::from(person.age_years().to_string()),
+                Cell::from(person.habilitation.label().to_string()),
+                Cell::from(employment),
+                Cell::from(employer),
                 Cell::from(Self::money(person.monthly_salary())),
                 Cell::from(Self::money(person.cash_balance)),
                 Cell::from(Self::money(
@@ -167,7 +178,9 @@ impl Simulation {
 
         let widths = [
             Constraint::Length(10),
-            Constraint::Length(20),
+            Constraint::Length(18),
+            Constraint::Length(5),
+            Constraint::Length(15),
             Constraint::Length(22),
             Constraint::Length(16),
             Constraint::Length(10),

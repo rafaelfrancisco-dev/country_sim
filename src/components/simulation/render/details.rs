@@ -50,22 +50,35 @@ impl Simulation {
 
         let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
         let name = person_name_from_seed(name_seed);
+        let job_label = person
+            .job_type_id()
+            .and_then(job_by_id)
+            .map_or("Unemployed".to_string(), |job| job.name.to_string());
+        let employer_label = person
+            .employer_company_id()
+            .and_then(|company_id| country.company_name(company_id))
+            .unwrap_or("N/A")
+            .to_string();
+        let employment_label = if person.is_employed() {
+            "Employed"
+        } else {
+            "Unemployed"
+        };
         let details = vec![
             ratatui::text::Line::from(format!("Name: {}", name)),
             ratatui::text::Line::from(format!("Citizen ID: {}", person.id)),
             ratatui::text::Line::from(format!("Country: {}", country.name)),
             ratatui::text::Line::from(format!("Day: {}", world.day)),
+            ratatui::text::Line::from(format!("Age: {}", person.age_years())),
+            ratatui::text::Line::from(format!(
+                "Education Track: {}",
+                person.education_track.label()
+            )),
+            ratatui::text::Line::from(format!("Habilitation: {}", person.habilitation.label())),
             ratatui::text::Line::from(""),
-            ratatui::text::Line::from(format!(
-                "Job: {}",
-                job_by_id(person.job_type_id).map_or("Unknown", |job| job.name)
-            )),
-            ratatui::text::Line::from(format!(
-                "Employer: {}",
-                country
-                    .company_name(person.employer_company_id)
-                    .unwrap_or("N/A")
-            )),
+            ratatui::text::Line::from(format!("Employment: {}", employment_label)),
+            ratatui::text::Line::from(format!("Job: {}", job_label)),
+            ratatui::text::Line::from(format!("Employer: {}", employer_label)),
             ratatui::text::Line::from(format!(
                 "Monthly Salary: {}",
                 Self::money(person.monthly_salary())

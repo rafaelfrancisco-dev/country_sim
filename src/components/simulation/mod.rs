@@ -1,11 +1,10 @@
 use crossterm::event::KeyEvent;
 use ratatui::{Frame, layout::Rect};
-use tokio::sync::oneshot;
 
 use super::Component;
 use crate::{
     action::Action,
-    sim::{GameCommand, GameEngine, GamePhase, country::Country},
+    sim::{GameCommand, GameEngine, GamePhase},
 };
 
 mod input;
@@ -16,9 +15,6 @@ mod theme;
 #[derive(Debug, Default)]
 pub struct Simulation {
     engine: GameEngine,
-    monthly_tick_inflight: Option<oneshot::Receiver<Vec<Country>>>,
-    pending_monthly_ticks: u64,
-    observed_month_boundaries: u64,
 }
 
 impl Simulation {
@@ -39,11 +35,7 @@ impl Component for Simulation {
         };
 
         if let Some(command) = command {
-            let should_block_daily = matches!(command, GameCommand::StepOneDay)
-                && self.should_pause_daily_ticks_for_monthly_catchup();
-            if !should_block_daily {
-                self.engine.apply(command);
-            }
+            self.engine.apply(command);
             self.reconcile_monthly_processing();
         }
 
@@ -52,9 +44,7 @@ impl Component for Simulation {
 
     fn update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
         if matches!(action, Action::Tick) {
-            if !self.should_pause_daily_ticks_for_monthly_catchup() {
-                self.engine.apply(GameCommand::Tick);
-            }
+            self.engine.apply(GameCommand::Tick);
             self.reconcile_monthly_processing();
         } else if matches!(action, Action::Render) {
             self.reconcile_monthly_processing();

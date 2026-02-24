@@ -6,6 +6,7 @@ pub mod generator;
 pub mod job;
 pub mod money;
 pub mod names;
+pub mod params;
 pub mod person;
 pub mod setup;
 pub mod tickable;

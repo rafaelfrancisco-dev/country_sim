@@ -171,6 +171,17 @@ impl Bank {
             unpaid_amount: round_cents(scheduled_due - amount_paid),
         }
     }
+
+    pub fn write_off_loan(&mut self, loan: &mut Option<LoanAccount>) -> f64 {
+        let Some(account) = loan.take() else {
+            return 0.0;
+        };
+
+        let written_off = round_cents(account.created_principal_outstanding.max(0.0));
+        self.created_money_outstanding =
+            round_cents((self.created_money_outstanding - written_off).max(0.0));
+        written_off
+    }
 }
 
 pub fn payment_for(principal: f64, annual_rate: f64, term_months: u16) -> f64 {
@@ -260,5 +271,19 @@ mod tests {
 
         assert!(payment.unpaid_amount > 0.0);
         assert!(closing_debt > opening_debt);
+    }
+
+    #[test]
+    fn write_off_reduces_created_money() {
+        let mut bank = Bank::new();
+        let mut loan = None;
+        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, &mut loan);
+        let before = bank.created_money_outstanding;
+
+        let written_off = bank.write_off_loan(&mut loan);
+
+        assert!(written_off > 0.0);
+        assert!(loan.is_none());
+        assert!(bank.created_money_outstanding < before);
     }
 }

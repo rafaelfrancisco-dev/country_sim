@@ -305,19 +305,6 @@ impl World {
         self.day / DAYS_PER_MONTH
     }
 
-    pub fn apply_processed_month(&mut self, mut processed_countries: Vec<Country>) {
-        if processed_countries.len() != self.countries.len() {
-            return;
-        }
-
-        for (processed, current) in processed_countries.iter_mut().zip(&self.countries) {
-            processed.day = current.day;
-        }
-
-        self.countries = processed_countries;
-        self.capture_snapshot();
-    }
-
     fn capture_snapshot(&mut self) {
         for (idx, country) in self.countries.iter().enumerate() {
             let point = Self::country_metric_point(country);
@@ -405,7 +392,11 @@ impl Tickable for World {
         self.day = self.day.saturating_add(1);
 
         for country in &mut self.countries {
-            country.tick_day_without_month();
+            country.tick_day();
+        }
+
+        if self.day % DAYS_PER_MONTH == 0 {
+            self.capture_snapshot();
         }
     }
 }
@@ -589,14 +580,14 @@ mod tests {
     }
 
     #[test]
-    fn world_tick_advances_days_without_running_monthly_processing() {
+    fn world_tick_advances_days_and_processes_monthly_boundaries() {
         let mut world = World::new(vec![Country::new(1, "A".to_string(), build_people(2))]);
 
         for _ in 0..DAYS_PER_MONTH {
             world.tick_day();
         }
-        assert_eq!(world.world_history.len(), 1);
-        assert_eq!(world.countries[0].month, 0);
+        assert_eq!(world.world_history.len(), 2);
+        assert_eq!(world.countries[0].month, 1);
         assert_eq!(world.completed_month_boundaries(), 1);
     }
 
@@ -608,11 +599,6 @@ mod tests {
             for _ in 0..DAYS_PER_MONTH {
                 world.tick_day();
             }
-            let mut processed = world.countries.clone();
-            for country in &mut processed {
-                country.process_month();
-            }
-            world.apply_processed_month(processed);
         }
 
         assert_eq!(world.world_history.len(), HISTORY_LIMIT);

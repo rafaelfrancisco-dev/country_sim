@@ -4,7 +4,8 @@ use super::{
     job::{JobTypeId, common_job_types},
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
-    person::Person,
+    params::SimulationParams,
+    person::{EmploymentStatus, Person},
 };
 
 pub const DEFAULT_MONEY_PER_CITIZEN: f64 = 50_000.0;
@@ -16,6 +17,7 @@ pub struct GenerationConfig {
     pub money_per_citizen: f64,
     pub companies_per_country: u16,
     pub seed: u64,
+    pub sim_params: SimulationParams,
 }
 
 impl GenerationConfig {
@@ -26,6 +28,7 @@ impl GenerationConfig {
             money_per_citizen: DEFAULT_MONEY_PER_CITIZEN,
             companies_per_country: DEFAULT_COMPANIES_PER_COUNTRY,
             seed,
+            sim_params: SimulationParams::default(),
         }
     }
 }
@@ -51,6 +54,19 @@ impl DeterministicRng {
     fn next_u32(&mut self) -> u32 {
         self.next_u64() as u32
     }
+
+    fn next_f64(&mut self) -> f64 {
+        self.next_u64() as f64 / u64::MAX as f64
+    }
+
+    fn next_u16_inclusive(&mut self, min: u16, max: u16) -> u16 {
+        if max <= min {
+            return min;
+        }
+
+        let span = u32::from(max - min) + 1;
+        min + (self.next_u32() % span) as u16
+    }
 }
 
 pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
@@ -64,15 +80,31 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
 
         let mut people = Vec::with_capacity(config.population_per_country as usize);
         for person_id in 0..config.population_per_country {
-            let job_type_id = pick_weighted_job_id(&mut rng);
-            let employer_company_id = pick_employer_for_job(job_type_id, &companies, &mut rng);
+            let age_days = pick_initial_age_days(&mut rng);
+            let education_track = config.sim_params.education.pick_track(rng.next_f64());
             let name_seed = rng.next_u32();
-            people.push(Person::new(
+
+            let mut person = Person::new_with_profile(
                 person_id,
-                job_type_id,
-                employer_company_id,
+                EmploymentStatus::Unemployed,
                 name_seed,
-            ));
+                age_days,
+                education_track,
+            );
+
+            if person.can_seek_job()
+                && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
+            {
+                if let Some(job_type_id) =
+                    pick_weighted_job_id_for_habilitation(&mut rng, person.habilitation)
+                {
+                    let employer_company_id =
+                        pick_employer_for_job(job_type_id, &companies, &mut rng);
+                    person.set_employment(employer_company_id, job_type_id);
+                }
+            }
+
+            people.push(person);
         }
 
         let total_supply =
@@ -83,39 +115,68 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
         seed_balances_to_people(&mut people, household_supply);
         seed_balances_to_companies(&mut companies, company_supply);
 
-        countries.push(Country::with_economy(
+        countries.push(Country::with_economy_and_params(
             country_idx,
             country_name,
             people,
             companies,
             total_supply,
+            config.sim_params.clone(),
         ));
     }
 
     countries
 }
 
-fn pick_weighted_job_id(rng: &mut DeterministicRng) -> JobTypeId {
+fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
+    let roll = rng.next_f64();
+    let age_years = if roll < 0.25 {
+        rng.next_u16_inclusive(0, 14)
+    } else if roll < 0.41 {
+        rng.next_u16_inclusive(15, 24)
+    } else if roll < 0.82 {
+        rng.next_u16_inclusive(25, 54)
+    } else if roll < 0.92 {
+        rng.next_u16_inclusive(55, 64)
+    } else if roll < 0.97 {
+        rng.next_u16_inclusive(65, 74)
+    } else {
+        rng.next_u16_inclusive(75, 100)
+    };
+
+    let day_of_year = rng.next_u16_inclusive(0, 364);
+    age_years.saturating_mul(365).saturating_add(day_of_year)
+}
+
+fn pick_weighted_job_id_for_habilitation(
+    rng: &mut DeterministicRng,
+    habilitation: super::person::HabilitationLevel,
+) -> Option<JobTypeId> {
     let jobs = common_job_types();
-    let total_weight: u64 = jobs
+    let eligible_jobs = jobs
+        .iter()
+        .filter(|job| habilitation >= job.required_habilitation)
+        .collect::<Vec<_>>();
+
+    let total_weight: u64 = eligible_jobs
         .iter()
         .map(|job| u64::from(job.assignment_weight))
         .sum();
 
     if total_weight == 0 {
-        return 0;
+        return None;
     }
 
     let mut roll = rng.next_u64() % total_weight;
-    for job in jobs {
+    for job in eligible_jobs {
         let weight = u64::from(job.assignment_weight);
         if roll < weight {
-            return job.id;
+            return Some(job.id);
         }
         roll -= weight;
     }
 
-    jobs.last().map_or(0, |job| job.id)
+    jobs.last().map(|job| job.id)
 }
 
 fn pick_employer_for_job(
@@ -220,5 +281,17 @@ mod tests {
         let second = generate_countries(&cfg);
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn generation_creates_unemployed_population_slice() {
+        let countries = generate_countries(&GenerationConfig::with_defaults(1, 500, 11));
+        let unemployed = countries[0]
+            .people
+            .iter()
+            .filter(|person| !person.is_employed())
+            .count();
+
+        assert!(unemployed > 0);
     }
 }

@@ -1,0 +1,144 @@
+use super::person::EducationTrack;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct DemographicParams {
+    pub births_per_1000_per_year: f64,
+}
+
+impl Default for DemographicParams {
+    fn default() -> Self {
+        Self {
+            births_per_1000_per_year: 17.0,
+        }
+    }
+}
+
+impl DemographicParams {
+    pub fn births_per_person_per_day(&self) -> f64 {
+        self.births_per_1000_per_year.max(0.0) / 1000.0 / 365.0
+    }
+
+    pub fn annual_death_probability_for_age_years(&self, age_years: u8) -> f64 {
+        match age_years {
+            0 => 0.005,
+            1..=14 => 0.0002,
+            15..=24 => 0.0007,
+            25..=34 => 0.0013,
+            35..=44 => 0.0020,
+            45..=54 => 0.0045,
+            55..=64 => 0.0095,
+            65..=74 => 0.0220,
+            75..=84 => 0.0570,
+            85..=94 => 0.1400,
+            _ => 0.3000,
+        }
+    }
+
+    pub fn daily_death_probability_for_age_years(&self, age_years: u8) -> f64 {
+        let annual = self
+            .annual_death_probability_for_age_years(age_years)
+            .clamp(0.0, 1.0);
+        1.0 - (1.0 - annual).powf(1.0 / 365.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct EducationParams {
+    pub basic_only_share: f64,
+    pub high_school_share: f64,
+    pub bachelor_share: f64,
+    pub medical_doctor_share: f64,
+}
+
+impl Default for EducationParams {
+    fn default() -> Self {
+        Self {
+            basic_only_share: 0.38,
+            high_school_share: 0.37,
+            bachelor_share: 0.22,
+            medical_doctor_share: 0.03,
+        }
+    }
+}
+
+impl EducationParams {
+    pub fn pick_track(&self, roll: f64) -> EducationTrack {
+        let roll = roll.clamp(0.0, 1.0);
+        let threshold_basic = self.basic_only_share;
+        let threshold_high = threshold_basic + self.high_school_share;
+        let threshold_bachelor = threshold_high + self.bachelor_share;
+
+        if roll < threshold_basic {
+            EducationTrack::BasicOnly
+        } else if roll < threshold_high {
+            EducationTrack::HighSchool
+        } else if roll < threshold_bachelor {
+            EducationTrack::Bachelor
+        } else {
+            EducationTrack::MedicalDoctor
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LaborParams {
+    pub baseline_unemployment_rate: f64,
+    pub seek_base: f64,
+    pub seek_age_slope: f64,
+    pub seek_cash_pressure_scale: f64,
+    pub seek_cash_reference: f64,
+    pub seek_probability_cap: f64,
+}
+
+impl Default for LaborParams {
+    fn default() -> Self {
+        Self {
+            baseline_unemployment_rate: 0.06,
+            seek_base: 0.002,
+            seek_age_slope: 0.0002,
+            seek_cash_pressure_scale: 0.01,
+            seek_cash_reference: 3_000.0,
+            seek_probability_cap: 0.03,
+        }
+    }
+}
+
+impl LaborParams {
+    pub fn daily_seek_probability(&self, age_years: u8, cash_balance: f64) -> f64 {
+        let age_component = (i32::from(age_years) - 18).max(0) as f64 * self.seek_age_slope;
+        let cash_pressure = ((self.seek_cash_reference - cash_balance) / self.seek_cash_reference)
+            .clamp(0.0, 1.0)
+            * self.seek_cash_pressure_scale;
+
+        (self.seek_base + age_component + cash_pressure).min(self.seek_probability_cap)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct CompanyGrowthParams {
+    pub min_profitable_months: u8,
+    pub min_cash_reserve: f64,
+    pub payroll_reserve_multiplier: f64,
+    pub profit_per_opening: f64,
+    pub max_monthly_openings: u16,
+}
+
+impl Default for CompanyGrowthParams {
+    fn default() -> Self {
+        Self {
+            min_profitable_months: 3,
+            min_cash_reserve: 100_000.0,
+            payroll_reserve_multiplier: 1.5,
+            profit_per_opening: 50_000.0,
+            max_monthly_openings: 8,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SimulationParams {
+    pub demographic: DemographicParams,
+    pub education: EducationParams,
+    pub labor: LaborParams,
+    pub company_growth: CompanyGrowthParams,
+}
