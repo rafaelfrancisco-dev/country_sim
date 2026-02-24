@@ -82,7 +82,7 @@ Controls:
 - `Space`: pause/resume
 - `n`: step one day (paused only)
 - `Left`/`Right`: selected country
-- `j`/`k`: people page next/prev
+- `j`/`k`: people page prev/next
 - existing quit/suspend shortcuts remain active
 
 ## Performance and Memory Policy

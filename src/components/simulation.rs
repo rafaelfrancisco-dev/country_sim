@@ -43,8 +43,8 @@ impl Simulation {
             KeyCode::Right => Some(GameCommand::SelectNextCountry),
             KeyCode::Char(c) => match c.to_ascii_lowercase() {
                 'n' => Some(GameCommand::StepOneDay),
-                'j' => Some(GameCommand::PeoplePageNext),
-                'k' => Some(GameCommand::PeoplePagePrev),
+                'j' => Some(GameCommand::PeoplePagePrev),
+                'k' => Some(GameCommand::PeoplePageNext),
                 _ => None,
             },
             _ => None,
