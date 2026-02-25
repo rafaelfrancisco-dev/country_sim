@@ -25,7 +25,8 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let [intro, countries, millions, status, help] = Layout::vertical([
+        let [intro, countries, millions, seed, status, help] = Layout::vertical([
+            Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
@@ -59,6 +60,11 @@ impl Simulation {
             } else {
                 inactive_style
             };
+        let seed_style = if setup.active_field == crate::sim::setup::SetupField::GenerationSeed {
+            active_style
+        } else {
+            inactive_style
+        };
 
         let country_text = if setup.country_count_input.is_empty() {
             "<enter number>".to_string()
@@ -70,6 +76,11 @@ impl Simulation {
             "<enter number>".to_string()
         } else {
             setup.millions_per_country_input.clone()
+        };
+        let seed_text = if setup.generation_seed_input.is_empty() {
+            "<enter decimal or 0xhex>".to_string()
+        } else {
+            setup.generation_seed_input.clone()
         };
 
         frame.render_widget(
@@ -112,6 +123,25 @@ impl Simulation {
             millions,
         );
 
+        frame.render_widget(
+            Paragraph::new(seed_text)
+                .block(
+                    Block::default()
+                        .title(" Generation Seed ")
+                        .borders(Borders::ALL)
+                        .border_style(
+                            if setup.active_field == crate::sim::setup::SetupField::GenerationSeed {
+                                theme::active_border()
+                            } else {
+                                theme::neutral_border()
+                            },
+                        )
+                        .title_style(theme::primary_text()),
+                )
+                .style(seed_style),
+            seed,
+        );
+
         let mut status_lines = Vec::new();
         if let Some(error) = &setup.validation_error {
             status_lines.push(Line::styled(
@@ -143,7 +173,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field, [0-9/.] edit, [Backspace] erase, [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field, [0-9/.] edit numeric fields, [0-9/a-f/x/_] edit seed, [Backspace] erase, [Enter] start simulation",
             )
             .style(theme::muted_text()),
             help,

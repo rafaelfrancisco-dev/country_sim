@@ -62,7 +62,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ## UI Contract
 ### Setup
-- Input fields: `country_count` and `millions_per_country`
+- Input fields: `country_count`, `millions_per_country`, and `generation_seed`
 - Numeric validation with memory warning (non-blocking)
 
 ### Running

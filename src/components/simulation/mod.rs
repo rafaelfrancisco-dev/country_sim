@@ -7,7 +7,7 @@ use tracing::warn;
 use super::Component;
 use crate::{
     action::Action,
-    sim::{GameCommand, GameEngine, SimulationMode, UiCommand},
+    sim::{GameCommand, GameEngine, SimulationMode, UiCommand, engine::DEFAULT_GENERATION_SEED},
 };
 
 mod input;
@@ -49,13 +49,17 @@ pub struct Simulation {
 impl Default for Simulation {
     fn default() -> Self {
         let sim_mode = Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8()));
-        Self::with_runtime(0.0, sim_mode)
+        Self::with_runtime(0.0, sim_mode, DEFAULT_GENERATION_SEED)
     }
 }
 
 impl Simulation {
-    pub fn with_runtime(realtime_tick_rate: f64, sim_mode_state: Arc<AtomicU8>) -> Self {
-        let engine_state = GameEngine::default();
+    pub fn with_runtime(
+        realtime_tick_rate: f64,
+        sim_mode_state: Arc<AtomicU8>,
+        initial_generation_seed: u64,
+    ) -> Self {
+        let engine_state = GameEngine::new(initial_generation_seed);
         let ui_state = ui_state::UiState::default();
         let runtime_stats = snapshot::RuntimeStatsSnapshot::new(
             SimulationMode::from_atomic_u8(

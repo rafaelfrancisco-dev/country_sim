@@ -7,8 +7,8 @@ This document defines the daily population and labor simulation added on top of 
 Each `Country` day tick executes in this order:
 1. Increase age by one day for all people.
 2. Refresh habilitation based on age and education track.
-3. Apply age-based mortality.
-4. Apply births using expected-value carry.
+3. Apply age-based mortality (probabilistic draw).
+4. Apply births using a daily Poisson draw.
 5. Run daily job seeking and qualification-gated hiring.
 6. Recompute headcounts and money aggregates.
 
@@ -37,9 +37,9 @@ People carry:
 ## Demographic Rates
 ### Births
 - Annual crude rate: `17.0 births / 1000 population`
-- Daily expected births:
-  - `population * (17 / 1000 / 365) + birth_carry`
-- Integer births = floor(expected), remainder kept in `birth_carry`.
+- Daily expected rate:
+  - `lambda = population * (17 / 1000 / 365)`
+- Daily births sampled from `Poisson(lambda)`.
 
 ### Deaths
 Annual mortality by age (years):
@@ -57,6 +57,7 @@ Annual mortality by age (years):
 
 Converted to daily with:
 - `p_day = 1 - (1 - p_year)^(1/365)`
+- Each person rolls against `p_day` using runtime entropy each day.
 
 ## Labor Market
 ### Job Requirement Mapping

@@ -10,6 +10,7 @@ use super::super::{Simulation, theme};
 use crate::{
     components::simulation::snapshot::RunningSnapshot,
     components::simulation::ui_state::{DetailsView, RunningTab},
+    seed::format_generation_seed,
     sim::SimulationMode,
 };
 
@@ -94,6 +95,11 @@ impl Simulation {
             Span::styled(world.selected_country_name.as_str(), theme::primary_text()),
             Span::styled(" | Total Citizens: ", theme::muted_text()),
             Span::styled(world.total_population.as_str(), theme::primary_text()),
+            Span::styled(" | Seed: ", theme::muted_text()),
+            Span::styled(
+                format_generation_seed(world.generation_seed),
+                theme::primary_text(),
+            ),
         ]);
         frame.render_widget(Paragraph::new(header_line), header);
 

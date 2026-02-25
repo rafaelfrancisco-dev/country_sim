@@ -56,8 +56,10 @@ A toy app...
 - Run the game with flamegraph support: `./scripts/run-flamegraph.sh`
 - Pass game args through the script, for example: `./scripts/run-flamegraph.sh --tick-rate 8 --frame-rate 120`
 - Runtime controls:
+  - `--seed <decimal|0xhex>` world generation seed (optional)
   - `--sim-mode realtime|max-speed` (default: `realtime`)
   - `--fast-ui-hz <FLOAT>` (default: `2.0`, used in `max-speed` mode)
+  - `COUNTRY_SIM_SEED` env var is used when `--seed` is not provided
   - `m` toggles simulation mode at runtime from the running UI
 - The script enables debug symbols by default for useful function names (`profile=flamegraph`).
 - Disable symbols explicitly when needed: `FLAMEGRAPH_DEBUG_SYMBOLS=0 ./scripts/run-flamegraph.sh`

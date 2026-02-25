@@ -1,6 +1,7 @@
 use std::mem::size_of;
 
 use super::person::Person;
+use crate::seed::{format_generation_seed, parse_generation_seed};
 
 pub const MIN_COUNTRIES: u16 = 1;
 pub const MAX_COUNTRIES: u16 = 50;
@@ -8,17 +9,20 @@ pub const MIN_MILLIONS_PER_COUNTRY: f64 = 0.1;
 pub const MAX_MILLIONS_PER_COUNTRY: f64 = 20.0;
 pub const CITIZENS_PER_MILLION: u32 = 1_000_000;
 pub const MEMORY_WARNING_THRESHOLD_BYTES: u64 = (2.5 * 1024.0 * 1024.0 * 1024.0) as u64;
+const DEFAULT_SETUP_GENERATION_SEED: u64 = 0x5eed_c0de;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SetupField {
     CountryCount,
     MillionsPerCountry,
+    GenerationSeed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SetupForm {
     pub country_count_input: String,
     pub millions_per_country_input: String,
+    pub generation_seed_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
@@ -28,6 +32,7 @@ pub struct SetupForm {
 pub struct SetupValues {
     pub country_count: u16,
     pub millions_per_country: f64,
+    pub generation_seed: u64,
     pub estimated_person_bytes: u64,
 }
 
@@ -36,6 +41,7 @@ impl Default for SetupForm {
         Self {
             country_count_input: String::new(),
             millions_per_country_input: String::new(),
+            generation_seed_input: format_generation_seed(DEFAULT_SETUP_GENERATION_SEED),
             active_field: SetupField::CountryCount,
             validation_error: None,
             memory_warning: None,
@@ -44,6 +50,13 @@ impl Default for SetupForm {
 }
 
 impl SetupForm {
+    pub fn with_generation_seed(seed: u64) -> Self {
+        Self {
+            generation_seed_input: format_generation_seed(seed),
+            ..Self::default()
+        }
+    }
+
     pub fn edit_char(&mut self, input: char) {
         self.validation_error = None;
         match self.active_field {
@@ -57,6 +70,11 @@ impl SetupForm {
                 if input == '.' && !self.millions_per_country_input.contains('.') =>
             {
                 self.millions_per_country_input.push(input);
+            }
+            SetupField::GenerationSeed
+                if input.is_ascii_hexdigit() || matches!(input, 'x' | 'X' | '_') =>
+            {
+                self.generation_seed_input.push(input);
             }
             _ => return,
         }
@@ -72,6 +90,9 @@ impl SetupForm {
             SetupField::MillionsPerCountry => {
                 self.millions_per_country_input.pop();
             }
+            SetupField::GenerationSeed => {
+                self.generation_seed_input.pop();
+            }
         }
         self.refresh_memory_warning();
     }
@@ -79,12 +100,17 @@ impl SetupForm {
     pub fn next_field(&mut self) {
         self.active_field = match self.active_field {
             SetupField::CountryCount => SetupField::MillionsPerCountry,
-            SetupField::MillionsPerCountry => SetupField::CountryCount,
+            SetupField::MillionsPerCountry => SetupField::GenerationSeed,
+            SetupField::GenerationSeed => SetupField::CountryCount,
         };
     }
 
     pub fn prev_field(&mut self) {
-        self.next_field();
+        self.active_field = match self.active_field {
+            SetupField::CountryCount => SetupField::GenerationSeed,
+            SetupField::MillionsPerCountry => SetupField::CountryCount,
+            SetupField::GenerationSeed => SetupField::MillionsPerCountry,
+        };
     }
 
     pub fn validate(&mut self) -> Result<SetupValues, String> {
@@ -112,6 +138,9 @@ impl SetupForm {
             ));
         }
 
+        let generation_seed = parse_generation_seed(&self.generation_seed_input)
+            .ok_or_else(|| "Generation seed must be decimal or 0x-prefixed hex.".to_string())?;
+
         let estimated_person_bytes =
             estimate_person_storage_bytes(country_count, millions_per_country);
         self.memory_warning = build_memory_warning(estimated_person_bytes);
@@ -119,6 +148,7 @@ impl SetupForm {
         Ok(SetupValues {
             country_count,
             millions_per_country,
+            generation_seed,
             estimated_person_bytes,
         })
     }
@@ -201,6 +231,7 @@ mod tests {
 
         assert_eq!(values.country_count, 4);
         assert_eq!(values.millions_per_country, 2.5);
+        assert_eq!(values.generation_seed, DEFAULT_SETUP_GENERATION_SEED);
     }
 
     #[test]
@@ -267,6 +298,25 @@ mod tests {
 
         assert!(values.estimated_person_bytes > MEMORY_WARNING_THRESHOLD_BYTES);
         assert!(form.memory_warning.is_some());
+    }
+
+    #[test]
+    fn validate_rejects_invalid_generation_seed() {
+        let mut form = SetupForm {
+            country_count_input: "2".to_string(),
+            millions_per_country_input: "2".to_string(),
+            generation_seed_input: "invalid".to_string(),
+            ..SetupForm::default()
+        };
+
+        let error = form.validate().unwrap_err();
+        assert_eq!(error, "Generation seed must be decimal or 0x-prefixed hex.");
+    }
+
+    #[test]
+    fn with_generation_seed_prefills_setup_seed_input() {
+        let form = SetupForm::with_generation_seed(0xabc);
+        assert_eq!(form.generation_seed_input, "0x0000000000000abc");
     }
 
     #[test]

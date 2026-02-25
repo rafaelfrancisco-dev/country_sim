@@ -5,6 +5,7 @@ use crate::sim::{
     person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus},
 };
 use rayon::ThreadPoolBuilder;
+use std::collections::HashSet;
 
 fn build_people(count: usize) -> Vec<Person> {
     (0..count)
@@ -55,6 +56,50 @@ fn run_country_with_threads(days: u64, threads: usize) -> Country {
         }
         country
     })
+}
+
+fn run_death_sample(population: usize) -> u32 {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    let mut people = Vec::with_capacity(population);
+    for idx in 0..population as u32 {
+        let person = Person::new_with_profile(
+            idx,
+            EmploymentStatus::Unemployed,
+            idx + 10,
+            95 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        people.push(person);
+    }
+
+    let mut country = Country::with_economy(1, "A".to_string(), people, companies, 0.0);
+    let mut params = country.sim_params;
+    params.demographic.births_per_1000_per_year = 0.0;
+    country.sim_params = params;
+    country.tick_day_without_month();
+    country.last_day_deaths
+}
+
+fn run_birth_sample(population: usize, births_per_1000_per_year: f64) -> u32 {
+    let companies = build_default_companies("A", 1);
+    let mut people = Vec::with_capacity(population);
+    for idx in 0..population as u32 {
+        let person = Person::new_with_profile(
+            idx,
+            EmploymentStatus::Unemployed,
+            idx + 100,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        people.push(person);
+    }
+    let mut country = Country::with_economy(1, "A".to_string(), people, companies, 0.0);
+    let mut params = country.sim_params;
+    params.demographic.births_per_1000_per_year = births_per_1000_per_year;
+    country.sim_params = params;
+    country.tick_day_without_month();
+    country.last_day_births
 }
 
 #[test]
@@ -181,17 +226,36 @@ fn daily_deaths_remove_people_and_write_off_loans() {
 }
 
 #[test]
-fn country_daily_lifecycle_deterministic_across_thread_counts() {
-    let one_thread = run_country_with_threads(45, 1);
-    let many_threads = run_country_with_threads(45, 8);
-    assert_eq!(one_thread, many_threads);
+fn country_parallel_paths_keep_invariants_with_random_daily_events() {
+    let one_thread = run_country_with_threads(DAYS_PER_MONTH * 4, 1);
+    let many_threads = run_country_with_threads(DAYS_PER_MONTH * 4, 8);
+
+    assert_eq!(one_thread.day, many_threads.day);
+    assert_eq!(one_thread.month, many_threads.month);
+    assert!(one_thread.people.len() > 0);
+    assert!(many_threads.people.len() > 0);
+    assert!(one_thread.validate_money_invariants().is_empty());
+    assert!(many_threads.validate_money_invariants().is_empty());
 }
 
 #[test]
-fn country_monthly_processing_deterministic_across_thread_counts() {
-    let one_thread = run_country_with_threads(DAYS_PER_MONTH * 4, 1);
-    let many_threads = run_country_with_threads(DAYS_PER_MONTH * 4, 8);
-    assert_eq!(one_thread, many_threads);
+fn daily_deaths_use_runtime_entropy() {
+    let mut observed = HashSet::new();
+    for _ in 0..8 {
+        observed.insert(run_death_sample(50_000));
+    }
+
+    assert!(observed.len() > 1);
+}
+
+#[test]
+fn daily_births_use_poisson_sampling() {
+    let mut observed = HashSet::new();
+    for _ in 0..8 {
+        observed.insert(run_birth_sample(5_000, 20_000.0));
+    }
+
+    assert!(observed.len() > 1);
 }
 
 #[test]

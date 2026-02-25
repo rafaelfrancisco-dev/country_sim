@@ -28,6 +28,7 @@ pub(super) enum SnapshotPhase {
 pub(super) struct SetupSnapshot {
     pub country_count_input: String,
     pub millions_per_country_input: String,
+    pub generation_seed_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
@@ -80,6 +81,7 @@ pub(super) struct CompanyRowSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct RunningSnapshot {
     pub day: u64,
+    pub generation_seed: u64,
     pub selected_country_month: u64,
     pub paused: bool,
     pub active_tab: RunningTab,
@@ -297,6 +299,7 @@ impl UiSnapshot {
 
         RunningSnapshot {
             day: world.day,
+            generation_seed: world.generation_seed,
             selected_country_month,
             paused: world.paused,
             active_tab: ui.active_tab,
@@ -335,6 +338,7 @@ impl SetupSnapshot {
         Self {
             country_count_input: setup.country_count_input.clone(),
             millions_per_country_input: setup.millions_per_country_input.clone(),
+            generation_seed_input: setup.generation_seed_input.clone(),
             active_field: setup.active_field,
             validation_error: setup.validation_error.clone(),
             memory_warning: setup.memory_warning.clone(),

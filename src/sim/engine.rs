@@ -50,7 +50,7 @@ impl GameEngine {
 
     pub fn with_population_scale(generation_seed: u64, citizens_per_million: u32) -> Self {
         Self {
-            phase: GamePhase::Setup(SetupForm::default()),
+            phase: GamePhase::Setup(SetupForm::with_generation_seed(generation_seed)),
             generation_seed,
             citizens_per_million: citizens_per_million.max(1),
         }
@@ -145,11 +145,11 @@ impl GameEngine {
         let config = GenerationConfig::with_defaults(
             values.country_count,
             population_per_country,
-            self.generation_seed,
+            values.generation_seed,
         );
 
         let countries = generate_countries(&config);
-        World::new(countries)
+        World::new_with_generation_seed(countries, values.generation_seed)
     }
 }
 
@@ -173,6 +173,29 @@ mod tests {
         }
         engine.apply(GameCommand::SetupNextField);
         for input in millions.chars() {
+            engine.apply(GameCommand::SetupEditChar(input));
+        }
+        engine.apply(GameCommand::SetupSubmit);
+    }
+
+    fn submit_setup_with_seed(
+        engine: &mut GameEngine,
+        countries: &str,
+        millions: &str,
+        seed: &str,
+    ) {
+        for input in countries.chars() {
+            engine.apply(GameCommand::SetupEditChar(input));
+        }
+        engine.apply(GameCommand::SetupNextField);
+        for input in millions.chars() {
+            engine.apply(GameCommand::SetupEditChar(input));
+        }
+        engine.apply(GameCommand::SetupNextField);
+        for _ in 0..32 {
+            engine.apply(GameCommand::SetupBackspace);
+        }
+        for input in seed.chars() {
             engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupSubmit);
@@ -229,5 +252,14 @@ mod tests {
         engine.apply(GameCommand::TogglePause);
         engine.apply(GameCommand::StepOneDay);
         assert_eq!(engine.world().expect("world exists").day, 1);
+    }
+
+    #[test]
+    fn setup_seed_field_overrides_engine_default_seed() {
+        let mut engine = GameEngine::new(7);
+        submit_setup_with_seed(&mut engine, "1", "1", "0x123");
+
+        let world = engine.world().expect("world should exist");
+        assert_eq!(world.generation_seed, 0x123);
     }
 }

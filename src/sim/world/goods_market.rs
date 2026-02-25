@@ -2,13 +2,17 @@ use super::World;
 use crate::sim::{
     good::{GOODS_COUNT, GoodId, common_goods},
     money::{from_cents, round_cents, to_cents},
+    person::SUPERFICIAL_GOOD_SLOT_COUNT,
 };
+use rand::Rng;
 use rayon::prelude::*;
 use std::{cell::RefCell, sync::Arc};
 
 const ESSENTIAL_GOODS_COUNT: u8 = 4;
 const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
 const MAX_DYNAMIC_TARIFF_RATE: f64 = 0.75;
+const SUPERFICIAL_GOOD_START_ID: GoodId = 10;
+const SUPERFICIAL_GOOD_IDS: [GoodId; SUPERFICIAL_GOOD_SLOT_COUNT] = [10, 11, 12, 13, 14];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct SellerQuote {
@@ -151,7 +155,9 @@ impl RoundRobinScratch {
 impl World {
     pub(super) fn run_daily_goods_economy(&mut self) {
         self.produce_goods_daily();
+        self.consume_superficial_stock_daily();
         self.process_global_goods_market();
+        self.process_discretionary_superficial_purchases();
         for country in &mut self.countries {
             country.recompute_aggregates();
         }
@@ -219,6 +225,93 @@ impl World {
                 &quote_templates_by_buyer,
                 &mut scratch,
             );
+        }
+    }
+
+    fn consume_superficial_stock_daily(&mut self) {
+        for country in &mut self.countries {
+            for person in &mut country.people {
+                for (slot_idx, good_id) in SUPERFICIAL_GOOD_IDS.iter().copied().enumerate() {
+                    let daily_usage = (common_goods()[good_id as usize].monthly_demand_factor
+                        / 30.0)
+                        .max(0.0) as f32;
+                    if daily_usage <= 0.0 {
+                        continue;
+                    }
+
+                    person.superficial_stock_consumption_carry[slot_idx] += daily_usage;
+                    let consume_units =
+                        person.superficial_stock_consumption_carry[slot_idx].floor() as u16;
+                    if consume_units == 0 {
+                        continue;
+                    }
+
+                    person.superficial_stock_consumption_carry[slot_idx] -=
+                        f32::from(consume_units);
+                    person.superficial_stock_units[slot_idx] =
+                        person.superficial_stock_units[slot_idx].saturating_sub(consume_units);
+                }
+            }
+        }
+    }
+
+    fn process_discretionary_superficial_purchases(&mut self) {
+        if self.countries.is_empty() {
+            return;
+        }
+
+        let suppliers_by_good = self.build_suppliers_by_good();
+        let tariff_rates_by_good = self.tariff_rates_by_good_for_month();
+        let mut rng = rand::thread_rng();
+
+        for good_id in SUPERFICIAL_GOOD_IDS {
+            let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
+                good_id,
+                &suppliers_by_good[good_id as usize],
+                &tariff_rates_by_good,
+            );
+            let stock_slot = usize::from(good_id - SUPERFICIAL_GOOD_START_ID);
+
+            for buyer_country_idx in 0..self.countries.len() {
+                let person_count = self.countries[buyer_country_idx].people.len();
+                for person_idx in 0..person_count {
+                    let stock_units = self.countries[buyer_country_idx].people[person_idx]
+                        .superficial_stock_units[stock_slot];
+                    if stock_units > 0 {
+                        continue;
+                    }
+
+                    let Some(quote) =
+                        self.find_cheapest_supplier(&quote_templates_by_buyer, buyer_country_idx)
+                    else {
+                        continue;
+                    };
+                    if quote.landed_price_cents <= 0 {
+                        continue;
+                    }
+
+                    let cash_cents = self.person_cash_cents(buyer_country_idx, person_idx);
+                    if cash_cents < quote.landed_price_cents {
+                        continue;
+                    }
+
+                    let affordability_ratio = cash_cents as f64 / quote.landed_price_cents as f64;
+                    let probability = ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
+                    if probability <= 0.0 || !rng.gen_bool(probability) {
+                        continue;
+                    }
+
+                    self.execute_goods_purchase(buyer_country_idx, person_idx, quote);
+                    if let Some(person) = self
+                        .countries
+                        .get_mut(buyer_country_idx)
+                        .and_then(|country| country.people.get_mut(person_idx))
+                    {
+                        person.superficial_stock_units[stock_slot] =
+                            person.superficial_stock_units[stock_slot].saturating_add(1);
+                    }
+                }
+            }
         }
     }
 

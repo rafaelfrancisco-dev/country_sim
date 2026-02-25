@@ -1,7 +1,7 @@
 # Benchmarking Protocol
 
 ## Goal
-Provide one deterministic, repeatable benchmark path for before/after performance comparisons.
+Provide one canonical benchmark path for before/after performance comparisons.
 
 ## Standard Scenario
 - `seed=0x5eedc0de`
@@ -59,7 +59,8 @@ Planning runs in parallel, but apply is single-writer and always uses this deter
 
 ## Rollout Gates
 - Correctness gate:
-  - determinism/parity tests pass.
+  - invariants and accounting tests pass.
+  - generation is deterministic for the same seed at day 0.
 - Performance gate:
   - higher `ticks_per_sec` and lower goods-market flamegraph share versus baseline.
 - Regression gate:

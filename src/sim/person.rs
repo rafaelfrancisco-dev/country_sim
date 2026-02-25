@@ -4,6 +4,7 @@ use super::{
 };
 
 pub const DAYS_PER_YEAR: u16 = 365;
+pub const SUPERFICIAL_GOOD_SLOT_COUNT: usize = 5;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HabilitationLevel {
@@ -81,6 +82,8 @@ pub struct Person {
     pub last_month_unmet_needs_mask: u16,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
+    pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
+    pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
 }
 
 impl Person {
@@ -125,6 +128,8 @@ impl Person {
             last_month_unmet_needs_mask: 0,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
+            superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
+            superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
         };
         person.refresh_habilitation_from_age();
         person
@@ -262,6 +267,7 @@ mod tests {
         person.last_month_gross_pay = 10.0;
         person.last_month_tax_paid = 2.0;
         person.last_month_goods_spending = 33.0;
+        person.superficial_stock_units[0] = 3;
 
         person.reset_monthly_trackers();
 
@@ -269,6 +275,7 @@ mod tests {
         assert!((person.last_month_gross_pay - 0.0).abs() < f64::EPSILON);
         assert!((person.last_month_tax_paid - 0.0).abs() < f64::EPSILON);
         assert!((person.last_month_goods_spending - 0.0).abs() < f64::EPSILON);
+        assert_eq!(person.superficial_stock_units[0], 3);
     }
 
     #[test]

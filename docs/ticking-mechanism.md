@@ -53,7 +53,11 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
   - Phase A (parallel): build purchase intents from snapshot budgets/cash and quote templates.
   - Phase B (single-writer): apply intents in deterministic key order `(round, person_idx, country_rr_order)`.
 - Money aggregates and payroll accumulation use cent-based deterministic reductions, then convert back to `f64`.
-- Randomness remains seed-derived from stable IDs/day/month values (no thread-local RNG).
+- World generation remains deterministic for a fixed seed.
+- Runtime entropy is intentionally targeted to:
+  - daily deaths
+  - daily births (Poisson draw)
+  - discretionary superficial-good purchases when stock is empty and cash allows
 
 ### Explicit Sequential Exceptions
 - Bank-dependent loan origination/repayment commits remain sequential where bank mutation ordering is business-significant.

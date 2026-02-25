@@ -48,6 +48,7 @@ impl App {
         frame_rate: f64,
         sim_mode: SimulationMode,
         max_mode_frame_rate: f64,
+        initial_generation_seed: u64,
     ) -> color_eyre::Result<Self> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
         let sim_mode_state = Arc::new(AtomicU8::new(sim_mode.as_atomic_u8()));
@@ -55,7 +56,11 @@ impl App {
             tick_rate,
             frame_rate,
             components: vec![
-                Box::new(Simulation::with_runtime(tick_rate, sim_mode_state.clone())),
+                Box::new(Simulation::with_runtime(
+                    tick_rate,
+                    sim_mode_state.clone(),
+                    initial_generation_seed,
+                )),
                 Box::new(FpsCounter::default()),
             ],
             should_quit: false,

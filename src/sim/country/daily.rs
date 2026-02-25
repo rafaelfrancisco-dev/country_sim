@@ -1,4 +1,7 @@
 use super::*;
+use rand::{Rng, RngCore};
+use rand_distr::{Distribution, Poisson};
+
 impl Country {
     const MANUFACTURING_OPERATOR_JOB_ID: JobTypeId = 5;
 
@@ -24,8 +27,6 @@ impl Country {
 
     fn apply_daily_deaths(&mut self) {
         let demographic = self.sim_params.demographic;
-        let day = self.day;
-        let country_id = self.id;
         let cached_daily_death_probabilities: [f64; 101] = std::array::from_fn(|age_years| {
             demographic.daily_death_probability_for_age_years(age_years as u8)
         });
@@ -33,19 +34,13 @@ impl Country {
             .people
             .par_chunks(PEOPLE_CHUNK_SIZE)
             .map(|chunk| {
+                let mut rng = rand::thread_rng();
                 chunk
                     .iter()
                     .map(|person| {
                         let death_probability = cached_daily_death_probabilities
                             [usize::from(person.age_years().min(100))];
-                        let death_seed = hash64(
-                            (u64::from(country_id) << 48)
-                                ^ (day << 24)
-                                ^ u64::from(person.id)
-                                ^ u64::from(person.name_seed)
-                                ^ 0xdeca_fbadu64,
-                        );
-                        roll_probability(death_seed, death_probability)
+                        rng.gen_bool(death_probability.clamp(0.0, 1.0))
                     })
                     .collect::<Vec<_>>()
             })
@@ -85,32 +80,28 @@ impl Country {
 
     fn create_daily_births(&mut self) {
         let births_per_person_per_day = self.sim_params.demographic.births_per_person_per_day();
-        let expected_births =
-            self.people.len() as f64 * births_per_person_per_day + self.birth_carry;
-        let births = expected_births.floor() as u32;
-        self.birth_carry = expected_births - births as f64;
+        let lambda = (self.people.len() as f64 * births_per_person_per_day).max(0.0);
+        let births = Poisson::<f64>::new(lambda)
+            .ok()
+            .map(|distribution| distribution.sample(&mut rand::thread_rng()) as u32)
+            .unwrap_or(0);
 
         self.last_day_births = births;
         if births == 0 {
             return;
         }
 
-        for idx in 0..births {
-            let seed = hash64(
-                (u64::from(self.id) << 48)
-                    ^ (self.day << 24)
-                    ^ u64::from(self.next_person_id)
-                    ^ u64::from(idx),
-            );
+        let mut rng = rand::thread_rng();
+        for _ in 0..births {
             let education_track = self
                 .sim_params
                 .education
-                .pick_track(unit_interval(seed ^ 0x51ed_15ea_5eed));
+                .pick_track(rng.gen_range(0.0..1.0));
 
             let newborn = Person::new_with_profile(
                 self.next_person_id,
                 EmploymentStatus::Unemployed,
-                (seed >> 32) as u32,
+                rng.next_u32(),
                 0,
                 education_track,
             );
