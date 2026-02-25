@@ -178,8 +178,7 @@ impl Company {
             }
 
             let min_price = good.base_unit_cost * (1.0 + market.min_margin_rate);
-            let max_price = good.base_unit_cost * market.max_markup_multiple;
-            self.unit_price = round_cents(next_price.clamp(min_price, max_price));
+            self.unit_price = round_cents(next_price.max(min_price));
         }
 
         if self.sales_history.len() == 3 {
@@ -400,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn price_raise_is_clamped_to_max_markup() {
+    fn price_raise_has_no_upper_clamp() {
         let market = GoodsMarketParams::default();
         let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
         company.unit_price = 23.9;
@@ -409,6 +408,6 @@ mod tests {
 
         company.close_month(&market);
 
-        assert!((company.unit_price - 24.0).abs() < 0.01);
+        assert!((company.unit_price - 25.10).abs() < 0.01);
     }
 }

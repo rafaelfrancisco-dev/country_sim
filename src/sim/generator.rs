@@ -251,15 +251,9 @@ fn randomize_company_prices(
         };
 
         let min_price = good.base_unit_cost * (1.0 + sim_params.goods_market.min_margin_rate);
-        let max_price = good.base_unit_cost * sim_params.goods_market.max_markup_multiple;
-        if max_price <= min_price {
-            company.unit_price = round_cents(min_price);
-            continue;
-        }
-
         let price_factor = 0.85 + 0.30 * rng.next_f64();
         let candidate = company.unit_price * price_factor;
-        company.unit_price = round_cents(candidate.clamp(min_price, max_price));
+        company.unit_price = round_cents(candidate.max(min_price));
     }
 }
 
