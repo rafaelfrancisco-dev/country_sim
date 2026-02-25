@@ -176,6 +176,16 @@ impl World {
                     continue;
                 }
 
+                if let Some(&last_sold) = company.sold_units_history.last() {
+                    if last_sold > 0 {
+                        let months_of_inventory =
+                            company.inventory_units as f64 / last_sold as f64;
+                        if months_of_inventory > market.excess_inventory_months {
+                            continue;
+                        }
+                    }
+                }
+
                 company.production_effort_carry +=
                     company.manufacturing_employee_count as f64 * daily_effort_per_worker;
                 let produced = (company.production_effort_carry / good.effort_per_unit)
@@ -210,7 +220,10 @@ impl World {
         let tariff_rates_by_good = self.tariff_rates_by_good_for_month();
         let mut scratch = RoundRobinScratch::default();
 
-        for good in common_goods() {
+        for good in common_goods()
+            .iter()
+            .filter(|g| g.id < SUPERFICIAL_GOOD_START_ID)
+        {
             let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
                 good.id,
                 &suppliers_by_good[good.id as usize],

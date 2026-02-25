@@ -166,6 +166,17 @@ impl Company {
                 next_price *= 1.0 - market.price_cut_rate;
             }
 
+            let months_of_inventory = if self.last_month_units_sold > 0 {
+                self.inventory_units as f64 / self.last_month_units_sold as f64
+            } else if self.inventory_units > 0 {
+                f64::INFINITY
+            } else {
+                0.0
+            };
+            if months_of_inventory > market.excess_inventory_months {
+                next_price *= 1.0 - market.excess_inventory_cut_rate;
+            }
+
             let min_price = good.base_unit_cost * (1.0 + market.min_margin_rate);
             let max_price = good.base_unit_cost * market.max_markup_multiple;
             self.unit_price = round_cents(next_price.clamp(min_price, max_price));
@@ -376,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn price_cut_does_not_drop_below_min_margin_floor() {
+    fn price_cut_with_excess_inventory_clamps_to_at_cost_floor() {
         let market = GoodsMarketParams::default();
         let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
         company.unit_price = 6.3;
@@ -385,7 +396,7 @@ mod tests {
 
         company.close_month(&market);
 
-        assert!((company.unit_price - 6.3).abs() < 0.01);
+        assert!((company.unit_price - 6.0).abs() < 0.01);
     }
 
     #[test]

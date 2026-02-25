@@ -145,6 +145,8 @@ pub struct GoodsMarketParams {
     pub sell_through_raise_threshold: f64,
     pub sell_through_cut_threshold: f64,
     pub max_markup_multiple: f64,
+    pub excess_inventory_months: f64,
+    pub excess_inventory_cut_rate: f64,
 }
 
 impl Default for GoodsMarketParams {
@@ -152,12 +154,14 @@ impl Default for GoodsMarketParams {
         Self {
             tariff_rate: 0.15,
             worker_effort_per_month: 24.0,
-            min_margin_rate: 0.05,
+            min_margin_rate: 0.0,
             price_raise_rate: 0.05,
             price_cut_rate: 0.05,
             sell_through_raise_threshold: 0.90,
             sell_through_cut_threshold: 0.70,
             max_markup_multiple: 4.0,
+            excess_inventory_months: 2.0,
+            excess_inventory_cut_rate: 0.05,
         }
     }
 }

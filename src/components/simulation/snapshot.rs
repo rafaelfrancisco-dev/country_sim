@@ -68,9 +68,11 @@ pub(super) struct CompanyRowSnapshot {
     pub name: String,
     pub good: String,
     pub price: String,
+    pub avg_price: String,
     pub inventory: String,
     pub produced: String,
     pub sold: String,
+    pub total_sold: String,
     pub export_sold: String,
     pub domestic_export_split: String,
     pub sales: String,
@@ -260,14 +262,28 @@ impl UiSnapshot {
                     .map_or("Unknown", |good| good.name)
                     .to_string();
 
+                let avg_price = if company.price_history.is_empty() {
+                    money(company.unit_price)
+                } else {
+                    let avg = company.price_history.iter().sum::<f64>()
+                        / company.price_history.len() as f64;
+                    money(avg)
+                };
+
                 company_rows.push(CompanyRowSnapshot {
                     company_id: company.id.to_string(),
                     name: company.name.clone(),
                     good: good_name,
                     price: money(company.unit_price),
+                    avg_price,
                     inventory: company.inventory_units.to_string(),
                     produced: company.last_month_units_produced.to_string(),
                     sold: company.last_month_units_sold.to_string(),
+                    total_sold: company
+                        .sold_units_history
+                        .iter()
+                        .sum::<u32>()
+                        .to_string(),
                     export_sold: company.last_month_export_units_sold.to_string(),
                     domestic_export_split: format!(
                         "{}/{}",
