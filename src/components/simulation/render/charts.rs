@@ -24,13 +24,15 @@ impl Simulation {
             let placeholder = Paragraph::new(
                 "No history data yet. Advance the simulation by month to collect snapshots.",
             )
+            .style(theme::primary_text().bg(theme::PANEL_BG))
             .wrap(Wrap { trim: true })
             .block(
                 Block::default()
                     .title(" Charts ")
                     .borders(Borders::ALL)
                     .border_style(theme::neutral_border())
-                    .title_style(theme::primary_text()),
+                    .title_style(theme::primary_text())
+                    .style(Style::default().bg(theme::PANEL_BG)),
             );
             frame.render_widget(placeholder, body);
         } else {
@@ -94,13 +96,16 @@ impl Simulation {
     {
         if history.is_empty() {
             frame.render_widget(
-                Paragraph::new("No data.").block(
-                    Block::default()
-                        .title(format!(" {title} "))
-                        .borders(Borders::ALL)
-                        .border_style(theme::neutral_border())
-                        .title_style(theme::primary_text()),
-                ),
+                Paragraph::new("No data.")
+                    .style(theme::muted_text().bg(theme::PANEL_BG))
+                    .block(
+                        Block::default()
+                            .title(format!(" {title} "))
+                            .borders(Borders::ALL)
+                            .border_style(theme::neutral_border())
+                            .title_style(theme::primary_text())
+                            .style(Style::default().bg(theme::PANEL_BG)),
+                    ),
                 area,
             );
             return;
@@ -130,14 +135,15 @@ impl Simulation {
         let dataset = Dataset::default()
             .graph_type(GraphType::Line)
             .marker(symbols::Marker::Braille)
-            .style(Style::default().fg(color))
+            .style(Style::default().fg(color).bg(theme::PANEL_BG))
             .data(&points);
 
         let chart = Chart::new(vec![dataset])
+            .style(Style::default().bg(theme::PANEL_BG))
             .x_axis(
                 Axis::default()
                     .title("Month")
-                    .style(theme::muted_text())
+                    .style(theme::primary_text().bg(theme::PANEL_BG))
                     .bounds([x_min, x_max])
                     .labels(vec![
                         first_month.to_string(),
@@ -146,7 +152,7 @@ impl Simulation {
             )
             .y_axis(
                 Axis::default()
-                    .style(theme::muted_text())
+                    .style(theme::primary_text().bg(theme::PANEL_BG))
                     .bounds([y_min, y_max])
                     .labels(vec![Self::money(y_min), Self::money(y_max)]),
             )
@@ -155,7 +161,8 @@ impl Simulation {
                     .title(format!(" {title} "))
                     .borders(Borders::ALL)
                     .border_style(theme::neutral_border())
-                    .title_style(theme::primary_text()),
+                    .title_style(theme::primary_text())
+                    .style(Style::default().bg(theme::PANEL_BG)),
             );
 
         frame.render_widget(chart, area);

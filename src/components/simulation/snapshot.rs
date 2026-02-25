@@ -102,6 +102,10 @@ pub(super) struct RunningSnapshot {
     pub person_details_lines: Vec<String>,
     pub country_details_lines: Vec<String>,
     pub company_details_lines: Vec<String>,
+    pub company_sold_history: Vec<f64>,
+    pub company_employee_history: Vec<f64>,
+    pub company_price_history: Vec<f64>,
+    pub company_loan_payment_history: Vec<f64>,
     pub country_goods_summary_lines: Vec<String>,
     pub chart_scope_label: String,
     pub chart_history: Vec<MetricPoint>,
@@ -280,6 +284,13 @@ impl UiSnapshot {
         let person_details_lines = person_details_lines(world, &ui);
         let country_details_lines = country_details_lines(world, &ui);
         let company_details_lines = company_details_lines(world, &ui);
+        let (
+            company_sold_history,
+            company_employee_history,
+            company_price_history,
+            company_loan_payment_history,
+        ) =
+            selected_company_histories(world, &ui);
         let country_goods_summary_lines = country_goods_summary_lines(world, &ui);
         let chart_scope_label = chart_scope_label(world, &ui);
         let chart_history = match ui.chart_scope {
@@ -320,6 +331,10 @@ impl UiSnapshot {
             person_details_lines,
             country_details_lines,
             company_details_lines,
+            company_sold_history,
+            company_employee_history,
+            company_price_history,
+            company_loan_payment_history,
             country_goods_summary_lines,
             chart_scope_label,
             chart_history,
@@ -490,6 +505,12 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         format!("Company ID: {}", company.id),
         format!("Produced Good: {}", good_label),
         String::new(),
+        format!("Employees: {}", company.employee_count),
+        format!(
+            "Manufacturing Employees: {}",
+            company.manufacturing_employee_count
+        ),
+        format!("Open Positions: {}", company.open_positions.len()),
         format!("Unit Price: {}", money(company.unit_price)),
         format!("Inventory Units: {}", company.inventory_units),
         format!("MTD Produced Units: {}", company.last_month_units_produced),
@@ -509,12 +530,41 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             money(company.last_month_payroll_paid)
         ),
         format!("MTD Profit: {}", money(company.last_month_profit)),
+        format!(
+            "MTD Loan Payment: {}",
+            money(company.last_month_loan_payment)
+        ),
+        format!("MTD New Loan: {}", money(company.last_month_new_loan)),
         format!("Cash Balance: {}", money(company.cash_balance)),
         format!(
             "Loan Debt: {}",
             money(company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
         ),
     ]
+}
+
+fn selected_company_histories(
+    world: &World,
+    ui: &UiState,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+    let Some(company) = ui.selected_company_on_page(world) else {
+        return (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    };
+
+    (
+        company
+            .sold_units_history
+            .iter()
+            .map(|units| f64::from(*units))
+            .collect(),
+        company
+            .employee_count_history
+            .iter()
+            .map(|count| f64::from(*count))
+            .collect(),
+        company.price_history.clone(),
+        company.loan_payment_history.clone(),
+    )
 }
 
 fn country_goods_summary_lines(world: &World, ui: &UiState) -> Vec<String> {

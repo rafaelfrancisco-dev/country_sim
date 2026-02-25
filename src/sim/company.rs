@@ -7,6 +7,7 @@ use super::{
 };
 
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
+const COMPANY_HISTORY_WINDOW: usize = 12;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct JobOpening {
@@ -40,6 +41,10 @@ pub struct Company {
     pub last_month_domestic_units_sold: u32,
     pub last_month_sell_through: f64,
     pub sales_history: Vec<f64>,
+    pub sold_units_history: Vec<u32>,
+    pub employee_count_history: Vec<u32>,
+    pub price_history: Vec<f64>,
+    pub loan_payment_history: Vec<f64>,
     pub loan: Option<LoanAccount>,
 }
 
@@ -79,6 +84,10 @@ impl Company {
             last_month_domestic_units_sold: 0,
             last_month_sell_through: 0.0,
             sales_history: Vec::with_capacity(3),
+            sold_units_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            employee_count_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            price_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            loan_payment_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             loan: None,
         }
     }
@@ -166,6 +175,26 @@ impl Company {
             self.sales_history.remove(0);
         }
         self.sales_history.push(round_cents(self.last_month_sales));
+        Self::push_history_u32(
+            &mut self.sold_units_history,
+            self.last_month_units_sold,
+            COMPANY_HISTORY_WINDOW,
+        );
+        Self::push_history_u32(
+            &mut self.employee_count_history,
+            self.employee_count,
+            COMPANY_HISTORY_WINDOW,
+        );
+        Self::push_history_f64(
+            &mut self.price_history,
+            round_cents(self.unit_price),
+            COMPANY_HISTORY_WINDOW,
+        );
+        Self::push_history_f64(
+            &mut self.loan_payment_history,
+            round_cents(self.last_month_loan_payment),
+            COMPANY_HISTORY_WINDOW,
+        );
     }
 
     pub fn recompute_profitability(&mut self) {
@@ -221,6 +250,20 @@ impl Company {
         }
 
         openings_to_add
+    }
+
+    fn push_history_f64(history: &mut Vec<f64>, value: f64, max_len: usize) {
+        if history.len() == max_len {
+            history.remove(0);
+        }
+        history.push(value);
+    }
+
+    fn push_history_u32(history: &mut Vec<u32>, value: u32, max_len: usize) {
+        if history.len() == max_len {
+            history.remove(0);
+        }
+        history.push(value);
     }
 }
 

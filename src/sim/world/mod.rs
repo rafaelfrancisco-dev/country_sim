@@ -33,6 +33,7 @@ pub struct InvariantViolation {
 }
 
 impl World {
+    #[cfg(test)]
     pub fn new(countries: Vec<Country>) -> Self {
         Self::new_with_generation_seed(countries, 0)
     }

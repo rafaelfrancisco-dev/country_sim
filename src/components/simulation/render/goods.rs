@@ -2,8 +2,9 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
+    symbols,
     text::Line,
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Wrap},
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -150,6 +151,9 @@ impl Simulation {
         area: Rect,
         world: &RunningSnapshot,
     ) {
+        let [details_area, charts_area] =
+            Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).areas(area);
+
         let details = world
             .company_details_lines
             .iter()
@@ -158,16 +162,167 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(details)
-                .style(theme::primary_text())
+                .style(theme::primary_text().bg(theme::PANEL_BG))
                 .wrap(Wrap { trim: true })
                 .block(
                     Block::default()
                         .title(" Company Details ")
                         .borders(Borders::ALL)
                         .border_style(theme::neutral_border())
-                        .title_style(theme::primary_text()),
+                        .title_style(theme::primary_text())
+                        .style(Style::default().bg(theme::PANEL_BG)),
                 ),
-            area,
+            details_area,
         );
+
+        let [charts_top, charts_bottom] =
+            Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(charts_area);
+        let [sold_area, employee_area] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(charts_top);
+        let [price_area, loan_area] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(charts_bottom);
+
+        self.draw_company_history_chart(
+            frame,
+            sold_area,
+            world.company_sold_history.as_slice(),
+            "Sold Units History",
+            Color::Cyan,
+            false,
+        );
+        self.draw_company_history_chart(
+            frame,
+            employee_area,
+            world.company_employee_history.as_slice(),
+            "Employees History",
+            Color::Green,
+            false,
+        );
+        self.draw_company_history_chart(
+            frame,
+            price_area,
+            world.company_price_history.as_slice(),
+            "Price History",
+            Color::Yellow,
+            true,
+        );
+        self.draw_company_history_chart(
+            frame,
+            loan_area,
+            world.company_loan_payment_history.as_slice(),
+            "Loan Payments History",
+            Color::LightMagenta,
+            true,
+        );
+    }
+
+    fn draw_company_history_chart(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        history: &[f64],
+        title: &str,
+        color: Color,
+        as_money: bool,
+    ) {
+        if history.is_empty() {
+            frame.render_widget(
+                Paragraph::new("No monthly history yet.")
+                    .wrap(Wrap { trim: true })
+                    .style(theme::muted_text().bg(theme::PANEL_BG))
+                    .block(
+                        Block::default()
+                            .title(format!(" {title} "))
+                            .borders(Borders::ALL)
+                            .border_style(theme::neutral_border())
+                            .title_style(theme::primary_text())
+                            .style(Style::default().bg(theme::PANEL_BG)),
+                    ),
+                area,
+            );
+            return;
+        }
+
+        let points = history
+            .iter()
+            .enumerate()
+            .map(|(idx, value)| (idx as f64 + 1.0, *value))
+            .collect::<Vec<_>>();
+
+        let x_min = 1.0;
+        let mut x_max = history.len() as f64;
+        if (x_max - x_min).abs() < f64::EPSILON {
+            x_max = x_min + 1.0;
+        }
+
+        let (value_min, value_max) = history
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), value| {
+                (min.min(*value), max.max(*value))
+            });
+        let (y_min, y_max) = Self::company_chart_axis_bounds(value_min, value_max);
+        let y_labels = if as_money {
+            vec![format!("{y_min:.2}"), format!("{y_max:.2}")]
+        } else {
+            vec![format!("{y_min:.0}"), format!("{y_max:.0}")]
+        };
+
+        let dataset = Dataset::default()
+            .graph_type(GraphType::Line)
+            .marker(symbols::Marker::Braille)
+            .style(Style::default().fg(color).bg(theme::PANEL_BG))
+            .data(&points);
+
+        let chart = Chart::new(vec![dataset])
+            .style(Style::default().bg(theme::PANEL_BG))
+            .x_axis(
+                Axis::default()
+                    .title("Month")
+                    .style(theme::primary_text().bg(theme::PANEL_BG))
+                    .bounds([x_min, x_max])
+                    .labels(vec!["1".to_string(), history.len().to_string()]),
+            )
+            .y_axis(
+                Axis::default()
+                    .style(theme::primary_text().bg(theme::PANEL_BG))
+                    .bounds([y_min, y_max])
+                    .labels(y_labels),
+            )
+            .block(
+                Block::default()
+                    .title(format!(" {title} "))
+                    .borders(Borders::ALL)
+                    .border_style(theme::neutral_border())
+                    .title_style(theme::primary_text())
+                    .style(Style::default().bg(theme::PANEL_BG)),
+            );
+
+        frame.render_widget(chart, area);
+    }
+
+    fn company_chart_axis_bounds(min: f64, max: f64) -> (f64, f64) {
+        if !min.is_finite() || !max.is_finite() {
+            return (0.0, 1.0);
+        }
+
+        if (max - min).abs() < f64::EPSILON {
+            let padding = if max.abs() < 1.0 {
+                1.0
+            } else {
+                max.abs() * 0.10
+            };
+            let lower = (min - padding).max(0.0);
+            let upper = max + padding;
+            return (lower, upper);
+        }
+
+        let span = max - min;
+        let padding = span * 0.10;
+        let lower = (min - padding).max(0.0);
+        let upper = max + padding;
+        (lower, upper)
     }
 }
