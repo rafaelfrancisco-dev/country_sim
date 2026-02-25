@@ -1,11 +1,13 @@
 # Running Charts Tab
 
 ## Overview
-The running simulation UI has two views:
-- `Main`: existing country/people navigation and details screens.
+The running simulation UI has four tabs:
+- `Main`: country/people navigation and details screens.
+- `Goods`: company and goods market view.
 - `Charts`: a dashboard with trend charts for core economy metrics.
+- `Events`: scrollable log of simulation events (births, deaths, loans, debt distress).
 
-View switching uses `Tab` and `Shift+Tab`. The active view is shown in the header; there is no dedicated "Running Tabs" panel.
+Tab switching uses `Tab` and `Shift+Tab`. The active tab is shown in the header; there is no dedicated "Running Tabs" panel.
 
 ## Goals
 - Keep the current simulation workflow intact in `Main`.
@@ -28,6 +30,11 @@ Global running controls (all tabs):
 - `<` / `>`: change selected-country context
 
 On `Charts`, list/details navigation keys are intentionally disabled.
+
+`Events` tab controls:
+- `↑` / `↓`: scroll event list
+- `/`: activate search (type to filter, `Esc` to close, `Ctrl+u` to clear)
+- `s`: toggle sort order (Newest First / Oldest First)
 
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 

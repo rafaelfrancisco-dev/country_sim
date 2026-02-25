@@ -33,6 +33,7 @@ pub(super) struct RunningInputState {
     pub details_view: DetailsView,
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
+    pub events_search_active: bool,
 }
 
 #[derive(Debug)]
@@ -92,6 +93,7 @@ impl Simulation {
                 details_view: DetailsView::List,
                 selection_focus: SelectionFocus::Country,
                 active_tab: RunningTab::Main,
+                events_search_active: false,
             },
             action_tx: None,
         }
@@ -119,6 +121,7 @@ impl Simulation {
                     details_view: world.details_view,
                     selection_focus: world.selection_focus,
                     active_tab: world.active_tab,
+                    events_search_active: world.events_search_active,
                 };
             }
         }

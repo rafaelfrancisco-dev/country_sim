@@ -107,6 +107,7 @@ impl Simulation {
             RunningTab::Main => self.draw_main_tab(frame, body, world),
             RunningTab::Goods => self.draw_goods_tab(frame, body, world),
             RunningTab::Charts => self.draw_charts_tab(frame, body, world),
+            RunningTab::Events => self.draw_events_tab(frame, body, world),
         };
         if !world.invariant_warnings.is_empty() {
             footer_text.push_str(&format!(
@@ -161,6 +162,7 @@ impl Simulation {
             RunningTab::Main => "Main",
             RunningTab::Goods => "Goods",
             RunningTab::Charts => "Charts",
+            RunningTab::Events => "Events",
         }
     }
 }

@@ -94,6 +94,13 @@ impl Country {
             if issued > 0.0 {
                 company.cash_balance = round_cents(company.cash_balance + issued);
                 company.last_month_new_loan = round_cents(company.last_month_new_loan + issued);
+                self.pending_events.push(SimEvent::LoanEmitted {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Company,
+                    entity_id: u32::from(company.id),
+                    principal: issued,
+                    day: self.day,
+                });
             }
         }
     }
@@ -135,6 +142,23 @@ impl Country {
                 .bank
                 .collect_monthly_payment(&mut person.cash_balance, &mut person.loan);
             person.last_month_loan_payment = payment.amount_paid;
+            if payment.unpaid_amount > 0.0 {
+                self.pending_events.push(SimEvent::DebtDistress {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Person,
+                    entity_id: person.id,
+                    unpaid_amount: payment.unpaid_amount,
+                    day: self.day,
+                });
+            }
+            if payment.loan_ended {
+                self.pending_events.push(SimEvent::LoanEnded {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Person,
+                    entity_id: person.id,
+                    day: self.day,
+                });
+            }
         }
 
         for company in &mut self.companies {
@@ -142,6 +166,23 @@ impl Country {
                 .bank
                 .collect_monthly_payment(&mut company.cash_balance, &mut company.loan);
             company.last_month_loan_payment = payment.amount_paid;
+            if payment.unpaid_amount > 0.0 {
+                self.pending_events.push(SimEvent::DebtDistress {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Company,
+                    entity_id: u32::from(company.id),
+                    unpaid_amount: payment.unpaid_amount,
+                    day: self.day,
+                });
+            }
+            if payment.loan_ended {
+                self.pending_events.push(SimEvent::LoanEnded {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Company,
+                    entity_id: u32::from(company.id),
+                    day: self.day,
+                });
+            }
         }
     }
 
@@ -163,6 +204,13 @@ impl Country {
             if issued > 0.0 {
                 person.cash_balance = round_cents(person.cash_balance + issued);
                 person.last_month_new_loan = round_cents(person.last_month_new_loan + issued);
+                self.pending_events.push(SimEvent::LoanEmitted {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Person,
+                    entity_id: person.id,
+                    principal: issued,
+                    day: self.day,
+                });
             }
         }
 
@@ -183,6 +231,13 @@ impl Country {
             if issued > 0.0 {
                 company.cash_balance = round_cents(company.cash_balance + issued);
                 company.last_month_new_loan = round_cents(company.last_month_new_loan + issued);
+                self.pending_events.push(SimEvent::LoanEmitted {
+                    country_name: self.name.clone(),
+                    entity_kind: EntityKind::Company,
+                    entity_id: u32::from(company.id),
+                    principal: issued,
+                    day: self.day,
+                });
             }
         }
     }

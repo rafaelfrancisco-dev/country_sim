@@ -68,7 +68,15 @@ impl Country {
                     company.add_opening(job_type_id, 1);
                 }
 
-                self.bank.write_off_loan(&mut person.loan);
+                let written_off = self.bank.write_off_loan(&mut person.loan);
+                if written_off > 0.0 {
+                    self.pending_events.push(SimEvent::LoanWrittenOff {
+                        country_name: self.name.clone(),
+                        entity_id: person.id,
+                        principal_lost: written_off,
+                        day: self.day,
+                    });
+                }
             } else {
                 survivors.push(person);
             }
@@ -76,6 +84,13 @@ impl Country {
 
         self.people = survivors;
         self.last_day_deaths = deaths;
+        if deaths > 0 {
+            self.pending_events.push(SimEvent::PopDeath {
+                country_name: self.name.clone(),
+                count: deaths,
+                day: self.day,
+            });
+        }
     }
 
     fn create_daily_births(&mut self) {
@@ -108,6 +123,12 @@ impl Country {
             self.next_person_id = self.next_person_id.saturating_add(1);
             self.people.push(newborn);
         }
+
+        self.pending_events.push(SimEvent::PopBirth {
+            country_name: self.name.clone(),
+            count: births,
+            day: self.day,
+        });
     }
 
     fn process_daily_job_market(&mut self) {

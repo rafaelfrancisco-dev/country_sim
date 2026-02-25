@@ -3,6 +3,7 @@ use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
     bank::{Bank, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, JobOpening},
+    event::{EntityKind, SimEvent},
     good::GOODS_COUNT,
     job::{JobTypeId, job_is_eligible_for_habilitation},
     money::{from_cents, round_cents, to_cents},
@@ -45,6 +46,7 @@ pub struct Country {
     pub monthly_unmet_need_events: u64,
     pub monthly_essential_debt_spending: f64,
     pub export_tariffs_by_good: [f64; GOODS_COUNT],
+    pub pending_events: Vec<SimEvent>,
     pub initial_money_supply: f64,
     pub household_cash_total: f64,
     pub company_cash_total: f64,
@@ -123,6 +125,7 @@ impl Country {
             monthly_unmet_need_events: 0,
             monthly_essential_debt_spending: 0.0,
             export_tariffs_by_good,
+            pending_events: Vec::new(),
             initial_money_supply: round_cents(initial_money_supply),
             household_cash_total: 0.0,
             company_cash_total: 0.0,

@@ -35,6 +35,7 @@ pub struct LoanPayment {
     pub interest_paid: f64,
     pub principal_paid: f64,
     pub unpaid_amount: f64,
+    pub loan_ended: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -159,7 +160,8 @@ impl Bank {
             account.months_remaining -= 1;
         }
 
-        if account.debt_balance <= 0.0 {
+        let loan_ended = account.debt_balance <= 0.0;
+        if loan_ended {
             *loan = None;
         }
 
@@ -169,6 +171,7 @@ impl Bank {
             interest_paid,
             principal_paid,
             unpaid_amount: round_cents(scheduled_due - amount_paid),
+            loan_ended,
         }
     }
 

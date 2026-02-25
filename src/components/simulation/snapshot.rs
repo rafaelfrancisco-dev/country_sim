@@ -1,6 +1,6 @@
 use crate::{
     components::simulation::ui_state::{
-        ChartScope, DetailsView, RunningTab, SelectionFocus, UiState,
+        ChartScope, DetailsView, EventsSort, RunningTab, SelectionFocus, UiState,
     },
     sim::{
         GameEngine, GamePhase,
@@ -117,6 +117,12 @@ pub(super) struct RunningSnapshot {
     pub queue_depth: usize,
     pub tick_queue_lag_ms: f64,
     pub invariant_warnings: Vec<String>,
+    pub event_log_lines: Vec<String>,
+    pub events_total_count: usize,
+    pub events_scroll: usize,
+    pub events_sort_label: &'static str,
+    pub events_search_active: bool,
+    pub events_search_query: String,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -176,7 +182,7 @@ impl UiSnapshot {
         ui_state: &UiState,
         runtime_stats: RuntimeStatsSnapshot,
     ) -> RunningSnapshot {
-        let mut ui = *ui_state;
+        let mut ui = ui_state.clone();
         ui.ensure_valid(world);
 
         let selected_country = ui.selected_country(world);
@@ -322,6 +328,25 @@ impl UiSnapshot {
             .map(|v| format!("{}: {}", v.code, v.message))
             .collect();
 
+        let search_lower = ui.events_search_query.to_ascii_lowercase();
+        let mut event_log_lines: Vec<String> = world
+            .event_log
+            .iter()
+            .map(|e| e.format())
+            .filter(|line| {
+                search_lower.is_empty()
+                    || line.to_ascii_lowercase().contains(&search_lower)
+            })
+            .collect();
+        if matches!(ui.events_sort, EventsSort::NewestFirst) {
+            event_log_lines.reverse();
+        }
+        let events_total_count = event_log_lines.len();
+        let events_sort_label = match ui.events_sort {
+            EventsSort::NewestFirst => "Newest First",
+            EventsSort::OldestFirst => "Oldest First",
+        };
+
         RunningSnapshot {
             day: world.day,
             generation_seed: world.generation_seed,
@@ -358,6 +383,12 @@ impl UiSnapshot {
             queue_depth: runtime_stats.queue_depth,
             tick_queue_lag_ms: runtime_stats.tick_queue_lag_ms,
             invariant_warnings,
+            event_log_lines,
+            events_total_count,
+            events_scroll: ui.events_scroll,
+            events_sort_label,
+            events_search_active: ui.events_search_active,
+            events_search_query: ui.events_search_query.clone(),
         }
     }
 }

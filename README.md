@@ -5,12 +5,14 @@
 A toy app...
 
 ## Recent UI Additions
-- Running views (`Main` and `Charts`) switched via `Tab` / `Shift+Tab` (no dedicated tabs box)
+- Four running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Charts`, `Events`
 - Monthly trend charts for:
   - population
   - total money supply
   - created money outstanding
   - bank reserve
+- Events log with scrollable history of births, deaths, loans, and debt distress events
+  - `/` to search, `s` to toggle sort order (newest/oldest first)
 
 ## Documentation
 - [Game context](docs/game-context.md)

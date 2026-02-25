@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{RunningInputState, Simulation, SimulationCommand, ui_state::DetailsView};
 use crate::{
@@ -48,6 +48,7 @@ impl Simulation {
             RunningTab::Charts => self.map_chart_key(key),
             RunningTab::Goods => self.map_goods_key(key, input_state),
             RunningTab::Main => self.map_main_key(key, input_state),
+            RunningTab::Events => self.map_events_key(key, input_state),
         }
     }
 
@@ -124,6 +125,36 @@ impl Simulation {
                 },
                 _ => None,
             },
+            _ => None,
+        }
+    }
+
+    fn map_events_key(
+        &self,
+        key: KeyEvent,
+        input_state: RunningInputState,
+    ) -> Option<SimulationCommand> {
+        if input_state.events_search_active {
+            return match key.code {
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(SimulationCommand::Ui(UiCommand::EventsSearchClear))
+                }
+                KeyCode::Backspace => {
+                    Some(SimulationCommand::Ui(UiCommand::EventsSearchBackspace))
+                }
+                KeyCode::Esc => Some(SimulationCommand::Ui(UiCommand::EventsToggleSearch)),
+                KeyCode::Char(c) => Some(SimulationCommand::Ui(UiCommand::EventsSearchChar(c))),
+                _ => None,
+            };
+        }
+
+        match key.code {
+            KeyCode::Up => Some(SimulationCommand::Ui(UiCommand::EventsScrollUp)),
+            KeyCode::Down => Some(SimulationCommand::Ui(UiCommand::EventsScrollDown)),
+            KeyCode::Char('/') => Some(SimulationCommand::Ui(UiCommand::EventsToggleSearch)),
+            KeyCode::Char(c) if c.eq_ignore_ascii_case(&'s') => {
+                Some(SimulationCommand::Ui(UiCommand::EventsToggleSort))
+            }
             _ => None,
         }
     }
@@ -217,6 +248,7 @@ mod tests {
                 details_view: world.details_view,
                 selection_focus: world.selection_focus,
                 active_tab: world.active_tab,
+                events_search_active: world.events_search_active,
             },
             SnapshotPhase::Setup(_) => panic!("running world should exist"),
         }
@@ -253,6 +285,7 @@ mod tests {
             details_view: DetailsView::Person,
             selection_focus: SelectionFocus::People,
             active_tab: RunningTab::Main,
+            events_search_active: false,
         };
 
         assert_eq!(

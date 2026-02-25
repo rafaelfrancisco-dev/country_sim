@@ -24,6 +24,13 @@ pub enum RunningTab {
     Main,
     Goods,
     Charts,
+    Events,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum EventsSort {
+    NewestFirst,
+    OldestFirst,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -32,7 +39,7 @@ pub enum ChartScope {
     WorldAggregate,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UiState {
     pub details_view: DetailsView,
     pub selection_focus: SelectionFocus,
@@ -43,6 +50,10 @@ pub struct UiState {
     pub selected_person_row: usize,
     pub company_page: usize,
     pub selected_company_row: usize,
+    pub events_scroll: usize,
+    pub events_sort: EventsSort,
+    pub events_search_active: bool,
+    pub events_search_query: String,
 }
 
 impl Default for UiState {
@@ -57,6 +68,10 @@ impl Default for UiState {
             selected_person_row: 0,
             company_page: 0,
             selected_company_row: 0,
+            events_scroll: 0,
+            events_sort: EventsSort::NewestFirst,
+            events_search_active: false,
+            events_search_query: String::new(),
         }
     }
 }
@@ -93,6 +108,30 @@ impl UiState {
             UiCommand::ChartNextCountry => self.select_next_country_row(world),
             UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
             UiCommand::GoodsNextCountry => self.select_next_country_row(world),
+            UiCommand::EventsScrollUp => {
+                self.events_scroll = self.events_scroll.saturating_sub(1);
+            }
+            UiCommand::EventsScrollDown => {
+                self.events_scroll = self.events_scroll.saturating_add(1);
+            }
+            UiCommand::EventsToggleSort => {
+                self.events_sort = match self.events_sort {
+                    EventsSort::NewestFirst => EventsSort::OldestFirst,
+                    EventsSort::OldestFirst => EventsSort::NewestFirst,
+                };
+            }
+            UiCommand::EventsToggleSearch => {
+                self.events_search_active = !self.events_search_active;
+            }
+            UiCommand::EventsSearchChar(c) => {
+                self.events_search_query.push(c);
+            }
+            UiCommand::EventsSearchBackspace => {
+                self.events_search_query.pop();
+            }
+            UiCommand::EventsSearchClear => {
+                self.events_search_query.clear();
+            }
         }
     }
 
@@ -433,15 +472,17 @@ impl UiState {
         self.active_tab = match self.active_tab {
             RunningTab::Main => RunningTab::Goods,
             RunningTab::Goods => RunningTab::Charts,
-            RunningTab::Charts => RunningTab::Main,
+            RunningTab::Charts => RunningTab::Events,
+            RunningTab::Events => RunningTab::Main,
         };
     }
 
     fn prev_tab(&mut self) {
         self.active_tab = match self.active_tab {
-            RunningTab::Main => RunningTab::Charts,
+            RunningTab::Main => RunningTab::Events,
             RunningTab::Goods => RunningTab::Main,
             RunningTab::Charts => RunningTab::Goods,
+            RunningTab::Events => RunningTab::Charts,
         };
     }
 

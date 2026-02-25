@@ -3,7 +3,12 @@ mod history;
 
 use rayon::prelude::*;
 
-use super::{country::Country, country::DAYS_PER_MONTH, tickable::Tickable};
+use super::{
+    country::Country,
+    country::DAYS_PER_MONTH,
+    event::{EVENT_LOG_LIMIT, SimEvent},
+    tickable::Tickable,
+};
 
 pub const HISTORY_LIMIT: usize = 120;
 
@@ -24,6 +29,7 @@ pub struct World {
     pub paused: bool,
     pub world_history: Vec<MetricPoint>,
     pub country_history: Vec<Vec<MetricPoint>>,
+    pub event_log: Vec<SimEvent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +53,7 @@ impl World {
             paused: false,
             world_history: Vec::with_capacity(HISTORY_LIMIT),
             country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
+            event_log: Vec::with_capacity(EVENT_LOG_LIMIT),
         };
         world.capture_snapshot();
         world
@@ -59,6 +66,19 @@ impl World {
     #[cfg(test)]
     pub fn completed_month_boundaries(&self) -> u64 {
         self.day / DAYS_PER_MONTH
+    }
+
+    fn drain_country_events(&mut self) {
+        let pending: Vec<SimEvent> = self
+            .countries
+            .iter_mut()
+            .flat_map(|c| c.pending_events.drain(..))
+            .collect();
+        self.event_log.extend(pending);
+        if self.event_log.len() > EVENT_LOG_LIMIT {
+            let evict = EVENT_LOG_LIMIT / 4;
+            self.event_log.drain(0..evict);
+        }
     }
 
     pub fn validate_invariants(&self) -> Vec<InvariantViolation> {
@@ -127,6 +147,7 @@ impl Tickable for World {
                 .par_iter_mut()
                 .for_each(Country::reset_month_trackers);
         }
+        self.drain_country_events();
     }
 }
 

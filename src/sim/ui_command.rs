@@ -28,4 +28,11 @@ pub enum UiCommand {
     ChartNextCountry,
     GoodsPrevCountry,
     GoodsNextCountry,
+    EventsScrollUp,
+    EventsScrollDown,
+    EventsToggleSort,
+    EventsToggleSearch,
+    EventsSearchChar(char),
+    EventsSearchBackspace,
+    EventsSearchClear,
 }
