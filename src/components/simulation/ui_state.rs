@@ -85,6 +85,7 @@ impl UiState {
             UiCommand::OpenSelectedCompanyDetails => self.open_selected_company_details(world),
             UiCommand::JumpToEmployerCompany => self.jump_to_employer_company(world),
             UiCommand::CloseDetails => self.details_view = DetailsView::List,
+            UiCommand::ToggleSimMode => {}
             UiCommand::NextTab => self.next_tab(),
             UiCommand::PrevTab => self.prev_tab(),
             UiCommand::ToggleChartScope => self.toggle_chart_scope(),

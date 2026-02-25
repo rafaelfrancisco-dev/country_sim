@@ -78,7 +78,7 @@ impl Simulation {
             );
         }
 
-        "Controls: [Tab/Shift+Tab] switch tab  [t] toggle scope  [</>] cycle country  [Space] pause/resume  [n] step day (paused)  [q] quit".to_string()
+        "Controls: [Tab/Shift+Tab] switch tab  [t] toggle scope  [</>] cycle country  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit".to_string()
     }
 
     fn draw_metric_chart<F>(

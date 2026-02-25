@@ -1,6 +1,7 @@
 use clap::Parser;
 
 use crate::config::{get_config_dir, get_data_dir};
+use crate::sim::SimulationMode;
 
 #[derive(Parser, Debug)]
 #[command(author, version = version(), about)]
@@ -12,6 +13,14 @@ pub struct Cli {
     /// Frame rate, i.e. number of frames per second
     #[arg(short, long, value_name = "FLOAT", default_value_t = 60.0)]
     pub frame_rate: f64,
+
+    /// Simulation scheduler mode
+    #[arg(long, value_enum, default_value_t = SimulationMode::Realtime)]
+    pub sim_mode: SimulationMode,
+
+    /// UI refresh rate while simulation runs in max-speed mode
+    #[arg(long, value_name = "FLOAT", default_value_t = 2.0)]
+    pub fast_ui_hz: f64,
 }
 
 const VERSION_MESSAGE: &str = concat!(

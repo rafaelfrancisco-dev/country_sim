@@ -1,6 +1,13 @@
 use crossterm::event::KeyEvent;
 use ratatui::prelude::Rect;
 use serde::{Deserialize, Serialize};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU8, Ordering},
+    },
+    time::{Duration, Instant},
+};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
 
@@ -8,6 +15,7 @@ use crate::{
     action::Action,
     components::{Component, fps::FpsCounter, simulation::Simulation},
     config::Config,
+    sim::SimulationMode,
     tui::{Event, Tui},
 };
 
@@ -22,6 +30,10 @@ pub struct App {
     last_tick_key_events: Vec<KeyEvent>,
     action_tx: mpsc::UnboundedSender<Action>,
     action_rx: mpsc::UnboundedReceiver<Action>,
+    sim_mode_state: Arc<AtomicU8>,
+    max_mode_frame_rate: f64,
+    last_render_at: Option<Instant>,
+    input_boost_until: Option<Instant>,
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -31,12 +43,21 @@ pub enum Mode {
 }
 
 impl App {
-    pub fn new(tick_rate: f64, frame_rate: f64) -> color_eyre::Result<Self> {
+    pub fn new(
+        tick_rate: f64,
+        frame_rate: f64,
+        sim_mode: SimulationMode,
+        max_mode_frame_rate: f64,
+    ) -> color_eyre::Result<Self> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
+        let sim_mode_state = Arc::new(AtomicU8::new(sim_mode.as_atomic_u8()));
         Ok(Self {
             tick_rate,
             frame_rate,
-            components: vec![Box::new(Simulation::new()), Box::new(FpsCounter::default())],
+            components: vec![
+                Box::new(Simulation::with_runtime(tick_rate, sim_mode_state.clone())),
+                Box::new(FpsCounter::default()),
+            ],
             should_quit: false,
             should_suspend: false,
             config: Config::new()?,
@@ -44,6 +65,10 @@ impl App {
             last_tick_key_events: Vec::new(),
             action_tx,
             action_rx,
+            sim_mode_state,
+            max_mode_frame_rate: max_mode_frame_rate.max(0.1),
+            last_render_at: None,
+            input_boost_until: None,
         })
     }
 
@@ -93,7 +118,10 @@ impl App {
             Event::Tick => action_tx.send(Action::Tick)?,
             Event::Render => action_tx.send(Action::Render)?,
             Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
-            Event::Key(key) => self.handle_key_event(key)?,
+            Event::Key(key) => {
+                self.input_boost_until = Some(Instant::now() + Duration::from_millis(250));
+                self.handle_key_event(key)?;
+            }
             _ => {}
         }
         for component in self.components.iter_mut() {
@@ -144,10 +172,36 @@ impl App {
         if saw_tick {
             self.apply_action(Action::Tick, tui)?;
         }
-        if saw_render {
+        if saw_render && self.should_render_now() {
             self.apply_action(Action::Render, tui)?;
         }
         Ok(())
+    }
+
+    fn should_render_now(&mut self) -> bool {
+        let mode = SimulationMode::from_atomic_u8(self.sim_mode_state.load(Ordering::Acquire));
+        let now = Instant::now();
+        let interactive_boost = self
+            .input_boost_until
+            .is_some_and(|deadline| now < deadline);
+        let target_rate = if interactive_boost {
+            self.frame_rate
+        } else {
+            match mode {
+                SimulationMode::Realtime => self.frame_rate,
+                SimulationMode::MaxSpeed => self.max_mode_frame_rate,
+            }
+        }
+        .max(0.1);
+
+        let min_interval = Duration::from_secs_f64(1.0 / target_rate);
+        let should_render = self
+            .last_render_at
+            .is_none_or(|last| now.saturating_duration_since(last) >= min_interval);
+        if should_render {
+            self.last_render_at = Some(now);
+        }
+        should_render
     }
 
     fn apply_action(&mut self, action: Action, tui: &mut Tui) -> color_eyre::Result<()> {

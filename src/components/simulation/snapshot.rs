@@ -7,6 +7,7 @@ use crate::{
         good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,
+        runtime::SimulationMode,
         setup::SetupField,
         world::{MetricPoint, World},
     },
@@ -102,33 +103,71 @@ pub(super) struct RunningSnapshot {
     pub country_goods_summary_lines: Vec<String>,
     pub chart_scope_label: String,
     pub chart_history: Vec<MetricPoint>,
+    pub sim_mode: SimulationMode,
+    pub ticks_per_second: f64,
+    pub avg_tick_duration_ms: f64,
+    pub queue_depth: usize,
+    pub tick_queue_lag_ms: f64,
     pub invariant_warnings: Vec<String>,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub(super) struct RuntimeStatsSnapshot {
+    pub mode: SimulationMode,
+    pub ticks_per_second: f64,
+    pub avg_tick_duration_ms: f64,
+    pub queue_depth: usize,
+    pub tick_queue_lag_ms: f64,
+}
+
+impl RuntimeStatsSnapshot {
+    pub(super) fn new(
+        mode: SimulationMode,
+        ticks_per_second: f64,
+        avg_tick_duration_ms: f64,
+        queue_depth: usize,
+        tick_queue_lag_ms: f64,
+    ) -> Self {
+        Self {
+            mode,
+            ticks_per_second,
+            avg_tick_duration_ms,
+            queue_depth,
+            tick_queue_lag_ms,
+        }
+    }
+}
+
 impl UiSnapshot {
-    pub(super) fn from_engine_and_ui(engine: &GameEngine, ui_state: &UiState) -> Self {
-        let phase = match engine.phase() {
+    pub(super) fn from_engine_and_ui(
+        engine: &GameEngine,
+        ui_state: &UiState,
+        runtime_stats: RuntimeStatsSnapshot,
+    ) -> Self {
+        Self::from_phase_and_ui(engine.phase(), ui_state, runtime_stats)
+    }
+
+    pub(super) fn from_phase_and_ui(
+        phase: &GamePhase,
+        ui_state: &UiState,
+        runtime_stats: RuntimeStatsSnapshot,
+    ) -> Self {
+        let phase = match phase {
             GamePhase::Setup(setup) => {
                 SnapshotPhase::Setup(SetupSnapshot::from_setup_form(setup, false))
             }
             GamePhase::Running(world) => {
-                SnapshotPhase::Running(Self::running_from_world(world, ui_state))
+                SnapshotPhase::Running(Self::running_from_world(world, ui_state, runtime_stats))
             }
         };
         Self { phase }
     }
 
-    pub(super) fn loading_setup_from_engine(engine: &GameEngine) -> Option<Self> {
-        let GamePhase::Setup(setup) = engine.phase() else {
-            return None;
-        };
-
-        Some(Self {
-            phase: SnapshotPhase::Setup(SetupSnapshot::from_setup_form(setup, true)),
-        })
-    }
-
-    fn running_from_world(world: &World, ui_state: &UiState) -> RunningSnapshot {
+    fn running_from_world(
+        world: &World,
+        ui_state: &UiState,
+        runtime_stats: RuntimeStatsSnapshot,
+    ) -> RunningSnapshot {
         let mut ui = *ui_state;
         ui.ensure_valid(world);
 
@@ -281,6 +320,11 @@ impl UiSnapshot {
             country_goods_summary_lines,
             chart_scope_label,
             chart_history,
+            sim_mode: runtime_stats.mode,
+            ticks_per_second: runtime_stats.ticks_per_second,
+            avg_tick_duration_ms: runtime_stats.avg_tick_duration_ms,
+            queue_depth: runtime_stats.queue_depth,
+            tick_queue_lag_ms: runtime_stats.tick_queue_lag_ms,
             invariant_warnings,
         }
     }

@@ -22,7 +22,7 @@ impl Simulation {
         match world.details_view {
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to goods list  [Space] pause/resume  [n] step day (paused)  [q] quit".to_string()
+                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to goods list  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit".to_string()
             }
             _ => {
                 let [top, bottom] =
@@ -32,7 +32,7 @@ impl Simulation {
                 self.draw_goods_company_table(frame, bottom, world);
 
                 format!(
-                    "Controls: [Tab/Shift+Tab] switch tab  [</>] change country  [←/→] focus country/company  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] company details  [Space] pause/resume  [n] step day (paused)  [q] quit | Country Page {}/{} | Company Page {}/{}",
+                    "Controls: [Tab/Shift+Tab] switch tab  [</>] change country  [←/→] focus country/company  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] company details  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit | Country Page {}/{} | Company Page {}/{}",
                     world.country_page + 1,
                     world.total_country_pages,
                     world.company_page + 1,

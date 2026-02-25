@@ -1,16 +1,13 @@
 use crossterm::event::KeyEvent;
 use ratatui::{Frame, layout::Rect};
-use std::sync::{
-    Arc, RwLock,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::{Arc, RwLock, atomic::AtomicU8};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::warn;
 
 use super::Component;
 use crate::{
     action::Action,
-    sim::{GameCommand, GameEngine, UiCommand},
+    sim::{GameCommand, GameEngine, SimulationMode, UiCommand},
 };
 
 mod input;
@@ -23,7 +20,7 @@ mod worker;
 
 use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, RunningTab, SelectionFocus};
-use worker::SimulationWorker;
+use worker::{EngineSnapshot, SimulationWorker};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SimulationCommand {
@@ -40,34 +37,53 @@ pub(super) struct RunningInputState {
 
 #[derive(Debug)]
 pub struct Simulation {
-    snapshot: Arc<RwLock<UiSnapshot>>,
+    snapshot: Arc<RwLock<EngineSnapshot>>,
     last_snapshot: UiSnapshot,
     worker: SimulationWorker,
-    tick_in_flight: Arc<AtomicBool>,
     phase_is_running: bool,
+    ui_state: ui_state::UiState,
     running_input_state: RunningInputState,
     action_tx: Option<UnboundedSender<Action>>,
 }
 
 impl Default for Simulation {
     fn default() -> Self {
+        let sim_mode = Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8()));
+        Self::with_runtime(0.0, sim_mode)
+    }
+}
+
+impl Simulation {
+    pub fn with_runtime(realtime_tick_rate: f64, sim_mode_state: Arc<AtomicU8>) -> Self {
         let engine_state = GameEngine::default();
         let ui_state = ui_state::UiState::default();
-        let initial_snapshot = UiSnapshot::from_engine_and_ui(&engine_state, &ui_state);
-        let snapshot = Arc::new(RwLock::new(initial_snapshot.clone()));
-        let tick_in_flight = Arc::new(AtomicBool::new(false));
+        let runtime_stats = snapshot::RuntimeStatsSnapshot::new(
+            SimulationMode::from_atomic_u8(
+                sim_mode_state.load(std::sync::atomic::Ordering::Acquire),
+            ),
+            0.0,
+            0.0,
+            0,
+            0.0,
+        );
+        let initial_snapshot =
+            UiSnapshot::from_engine_and_ui(&engine_state, &ui_state, runtime_stats);
+        let snapshot = Arc::new(RwLock::new(EngineSnapshot {
+            phase: engine_state.phase().clone(),
+            runtime_stats,
+        }));
         let worker = SimulationWorker::new(
             engine_state,
-            ui_state,
             snapshot.clone(),
-            tick_in_flight.clone(),
+            realtime_tick_rate,
+            sim_mode_state,
         );
         Self {
             snapshot,
             last_snapshot: initial_snapshot,
             worker,
-            tick_in_flight,
             phase_is_running: false,
+            ui_state,
             running_input_state: RunningInputState {
                 details_view: DetailsView::List,
                 selection_focus: SelectionFocus::Country,
@@ -76,16 +92,19 @@ impl Default for Simulation {
             action_tx: None,
         }
     }
-}
 
-impl Simulation {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::default()
     }
 
     fn refresh_cached_input_state(&mut self) {
         if let Ok(snapshot) = self.snapshot.try_read() {
-            self.last_snapshot = snapshot.clone();
+            self.last_snapshot = UiSnapshot::from_phase_and_ui(
+                &snapshot.phase,
+                &self.ui_state,
+                snapshot.runtime_stats,
+            );
         }
 
         match &self.last_snapshot.phase {
@@ -109,9 +128,15 @@ impl Simulation {
     }
 
     fn apply_ui_command(&mut self, command: UiCommand) {
-        if let Err(err) = self.worker.send_ui_command(command) {
-            warn!("failed to enqueue ui command: {err}");
-            self.report_worker_error(err.to_string());
+        if matches!(command, UiCommand::ToggleSimMode) {
+            self.worker.toggle_sim_mode();
+            return;
+        }
+
+        if let Ok(snapshot) = self.snapshot.read()
+            && let crate::sim::GamePhase::Running(world) = &snapshot.phase
+        {
+            self.ui_state.apply(command, world);
         }
     }
 
@@ -128,11 +153,8 @@ impl Simulation {
 
     #[cfg(test)]
     fn snapshot_phase(&self) -> SnapshotPhase {
-        self.snapshot
-            .read()
-            .expect("snapshot lock poisoned")
-            .phase
-            .clone()
+        let snapshot = self.snapshot.read().expect("snapshot lock poisoned");
+        UiSnapshot::from_phase_and_ui(&snapshot.phase, &self.ui_state, snapshot.runtime_stats).phase
     }
 
     fn money(amount: f64) -> String {
@@ -168,15 +190,6 @@ impl Component for Simulation {
 
     fn update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
         if matches!(action, Action::Tick) {
-            if self
-                .tick_in_flight
-                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-                .is_ok()
-                && self.worker.send(GameCommand::Tick).is_err()
-            {
-                self.tick_in_flight.store(false, Ordering::Release);
-                self.report_worker_error("failed to enqueue tick command".to_string());
-            }
             self.reconcile_monthly_processing();
         } else if matches!(action, Action::Render) {
             self.reconcile_monthly_processing();

@@ -32,6 +32,9 @@ impl Simulation {
             KeyCode::Char(c) if c.eq_ignore_ascii_case(&'n') => {
                 return Some(SimulationCommand::Domain(GameCommand::StepOneDay));
             }
+            KeyCode::Char(c) if c.eq_ignore_ascii_case(&'m') => {
+                return Some(SimulationCommand::Ui(UiCommand::ToggleSimMode));
+            }
             KeyCode::Char(c)
                 if c.eq_ignore_ascii_case(&'c')
                     && input_state.details_view == DetailsView::Person =>
@@ -236,6 +239,10 @@ mod tests {
         assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Char('t')), list_state),
             None
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('m')), list_state),
+            Some(SimulationCommand::Ui(UiCommand::ToggleSimMode))
         );
     }
 

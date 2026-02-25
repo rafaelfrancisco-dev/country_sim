@@ -17,6 +17,7 @@ Global running controls (all tabs):
 - `Tab` / `Shift+Tab`: switch tabs
 - `Space`: pause/resume
 - `n`: step one day while paused
+- `m`: toggle simulation mode (`realtime` / `max-speed`)
 - existing quit/suspend shortcuts
 
 `Main` tab controls are unchanged:
@@ -28,7 +29,7 @@ Global running controls (all tabs):
 
 On `Charts`, list/details navigation keys are intentionally disabled.
 
-When input arrives during worker backpressure, repeated tab presses are collapsed to the latest intent before dispatch, avoiding delayed back-and-forth toggles.
+UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 
 ## Charts and Metrics
 The `Charts` tab renders four charts in a 2x2 grid:

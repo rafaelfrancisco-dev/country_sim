@@ -18,9 +18,59 @@ struct SellerQuote {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct SupplierRef {
+    seller_country_idx: usize,
+    seller_company_idx: usize,
+    base_price_cents: i64,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum PurchaseAttempt {
     Bought,
     Unmet,
+}
+
+#[derive(Debug, Default)]
+struct RoundRobinScratch {
+    pending_demands: Vec<Vec<u32>>,
+    needs_met: Vec<Vec<u8>>,
+    needs_unmet: Vec<Vec<u8>>,
+    max_people: usize,
+}
+
+impl RoundRobinScratch {
+    fn prepare_for_world(&mut self, countries: &[crate::sim::country::Country]) {
+        let country_count = countries.len();
+        self.pending_demands.resize_with(country_count, Vec::new);
+        self.needs_met.resize_with(country_count, Vec::new);
+        self.needs_unmet.resize_with(country_count, Vec::new);
+
+        self.max_people = 0;
+        for (country_idx, country) in countries.iter().enumerate() {
+            let person_count = country.people.len();
+            self.max_people = self.max_people.max(person_count);
+
+            let pending = &mut self.pending_demands[country_idx];
+            if pending.capacity() < person_count {
+                pending.reserve(person_count - pending.capacity());
+            }
+            pending.resize(person_count, 0);
+
+            let needs_met = &mut self.needs_met[country_idx];
+            if needs_met.capacity() < person_count {
+                needs_met.reserve(person_count - needs_met.capacity());
+            }
+            needs_met.resize(person_count, 0);
+            needs_met.fill(0);
+
+            let needs_unmet = &mut self.needs_unmet[country_idx];
+            if needs_unmet.capacity() < person_count {
+                needs_unmet.reserve(person_count - needs_unmet.capacity());
+            }
+            needs_unmet.resize(person_count, 0);
+            needs_unmet.fill(0);
+        }
+    }
 }
 
 impl World {
@@ -75,13 +125,18 @@ impl World {
         let start_country_idx = (cycle_seed as usize) % country_count;
 
         let mut discretionary_budgets = self.initial_discretionary_budgets();
+        let suppliers_by_good = self.build_suppliers_by_good();
+        let mut scratch = RoundRobinScratch::default();
 
         for good in common_goods() {
+            scratch.prepare_for_world(&self.countries);
             self.process_good_round_robin(
                 good.id,
                 good.necessity_rank,
                 start_country_idx,
                 &mut discretionary_budgets,
+                &suppliers_by_good[good.id as usize],
+                &mut scratch,
             );
         }
     }
@@ -160,38 +215,25 @@ impl World {
         necessity_rank: u8,
         start_country_idx: usize,
         discretionary_budgets: &mut [Vec<i64>],
+        supplier_refs: &[SupplierRef],
+        scratch: &mut RoundRobinScratch,
     ) {
         let country_count = self.countries.len();
-        let mut pending_demands = Vec::with_capacity(country_count);
-        let mut needs_met = Vec::with_capacity(country_count);
-        let mut needs_unmet = Vec::with_capacity(country_count);
-        let mut max_people = 0_usize;
+        let monthly_demand_factor = common_goods()[good_id as usize].monthly_demand_factor;
 
-        for country in &self.countries {
-            max_people = max_people.max(country.people.len());
-
+        for (country_idx, country) in self.countries.iter().enumerate() {
             let country_id = country.id;
-
-            let mut country_pending = Vec::with_capacity(country.people.len());
-            let mut country_met = Vec::with_capacity(country.people.len());
-            let mut country_unmet = Vec::with_capacity(country.people.len());
-
-            for person in &country.people {
-                country_pending.push(demand_units_for_person_good(
+            let country_pending = &mut scratch.pending_demands[country_idx];
+            for (person_idx, person) in country.people.iter().enumerate() {
+                country_pending[person_idx] = demand_units_for_person_good(
                     self.day,
                     country_id,
                     person.id,
                     person.name_seed,
                     good_id,
-                    common_goods()[good_id as usize].monthly_demand_factor,
-                ));
-                country_met.push(false);
-                country_unmet.push(false);
+                    monthly_demand_factor,
+                );
             }
-
-            pending_demands.push(country_pending);
-            needs_met.push(country_met);
-            needs_unmet.push(country_unmet);
         }
 
         let essential = necessity_rank <= ESSENTIAL_GOODS_COUNT;
@@ -200,12 +242,10 @@ impl World {
             let mut any_pending = false;
             let mut progress = false;
 
-            for person_idx in 0..max_people {
+            for person_idx in 0..scratch.max_people {
                 for offset in 0..country_count {
                     let buyer_country_idx = (start_country_idx + offset) % country_count;
-                    let Some(country_pending) = pending_demands.get_mut(buyer_country_idx) else {
-                        continue;
-                    };
+                    let country_pending = &mut scratch.pending_demands[buyer_country_idx];
                     if person_idx >= country_pending.len() {
                         continue;
                     }
@@ -226,26 +266,18 @@ impl World {
                     match self.try_purchase_one_unit(
                         buyer_country_idx,
                         person_idx,
-                        good_id,
+                        supplier_refs,
                         essential,
                         budget,
                     ) {
                         PurchaseAttempt::Bought => {
                             country_pending[person_idx] =
                                 country_pending[person_idx].saturating_sub(1);
-                            if let Some(row) = needs_met.get_mut(buyer_country_idx)
-                                && let Some(flag) = row.get_mut(person_idx)
-                            {
-                                *flag = true;
-                            }
+                            scratch.needs_met[buyer_country_idx][person_idx] = 1;
                             progress = true;
                         }
                         PurchaseAttempt::Unmet => {
-                            if let Some(row) = needs_unmet.get_mut(buyer_country_idx)
-                                && let Some(flag) = row.get_mut(person_idx)
-                            {
-                                *flag = true;
-                            }
+                            scratch.needs_unmet[buyer_country_idx][person_idx] = 1;
                             self.bump_unmet_need_events(buyer_country_idx, pending_units);
                             country_pending[person_idx] = 0;
                         }
@@ -259,10 +291,10 @@ impl World {
         }
 
         for country_idx in 0..country_count {
-            let person_count = pending_demands[country_idx].len();
+            let person_count = scratch.pending_demands[country_idx].len();
             for person_idx in 0..person_count {
-                let need_met = needs_met[country_idx][person_idx];
-                let need_unmet = needs_unmet[country_idx][person_idx];
+                let need_met = scratch.needs_met[country_idx][person_idx] != 0;
+                let need_unmet = scratch.needs_unmet[country_idx][person_idx] != 0;
                 self.mark_person_need_result(
                     country_idx,
                     person_idx,
@@ -278,11 +310,11 @@ impl World {
         &mut self,
         buyer_country_idx: usize,
         person_idx: usize,
-        good_id: GoodId,
+        supplier_refs: &[SupplierRef],
         essential: bool,
         discretionary_budget_cents: &mut i64,
     ) -> PurchaseAttempt {
-        let Some(quote) = self.find_cheapest_supplier(good_id, buyer_country_idx) else {
+        let Some(quote) = self.find_cheapest_supplier(supplier_refs, buyer_country_idx) else {
             return PurchaseAttempt::Unmet;
         };
 
@@ -307,14 +339,75 @@ impl World {
 
     fn find_cheapest_supplier(
         &self,
-        good_id: GoodId,
+        supplier_refs: &[SupplierRef],
         buyer_country_idx: usize,
     ) -> Option<SellerQuote> {
         let mut best_quote: Option<SellerQuote> = None;
 
+        for supplier in supplier_refs {
+            let Some(country) = self.countries.get(supplier.seller_country_idx) else {
+                continue;
+            };
+            let Some(company) = country.companies.get(supplier.seller_company_idx) else {
+                continue;
+            };
+            if company.inventory_units == 0 {
+                continue;
+            }
+
+            let tariff_cents = if supplier.seller_country_idx == buyer_country_idx {
+                0
+            } else {
+                let good_idx = company.produced_good_id as usize;
+                let tariff_rate = country
+                    .export_tariffs_by_good
+                    .get(good_idx)
+                    .copied()
+                    .unwrap_or(0.0);
+                to_cents(from_cents(supplier.base_price_cents) * tariff_rate)
+            };
+            let landed_price_cents = supplier.base_price_cents.saturating_add(tariff_cents);
+
+            let candidate = SellerQuote {
+                seller_country_idx: supplier.seller_country_idx,
+                seller_company_idx: supplier.seller_company_idx,
+                base_price_cents: supplier.base_price_cents,
+                tariff_cents,
+                landed_price_cents,
+            };
+
+            let is_better = match best_quote {
+                None => true,
+                Some(current) => {
+                    (
+                        candidate.landed_price_cents,
+                        candidate.base_price_cents,
+                        candidate.seller_country_idx,
+                        candidate.seller_company_idx,
+                    ) < (
+                        current.landed_price_cents,
+                        current.base_price_cents,
+                        current.seller_country_idx,
+                        current.seller_company_idx,
+                    )
+                }
+            };
+
+            if is_better {
+                best_quote = Some(candidate);
+            }
+        }
+
+        best_quote
+    }
+
+    fn build_suppliers_by_good(&self) -> Vec<Vec<SupplierRef>> {
+        let mut suppliers_by_good = vec![Vec::new(); GOODS_COUNT];
+
         for (seller_country_idx, country) in self.countries.iter().enumerate() {
             for (seller_company_idx, company) in country.companies.iter().enumerate() {
-                if company.produced_good_id != good_id || company.inventory_units == 0 {
+                let good_idx = company.produced_good_id as usize;
+                if good_idx >= GOODS_COUNT {
                     continue;
                 }
 
@@ -323,51 +416,15 @@ impl World {
                     continue;
                 }
 
-                let tariff_cents = if seller_country_idx == buyer_country_idx {
-                    0
-                } else {
-                    let good_idx = good_id as usize;
-                    let tariff_rate = country
-                        .export_tariffs_by_good
-                        .get(good_idx)
-                        .copied()
-                        .unwrap_or(0.0);
-                    to_cents(from_cents(base_price_cents) * tariff_rate)
-                };
-                let landed_price_cents = base_price_cents.saturating_add(tariff_cents);
-
-                let candidate = SellerQuote {
+                suppliers_by_good[good_idx].push(SupplierRef {
                     seller_country_idx,
                     seller_company_idx,
                     base_price_cents,
-                    tariff_cents,
-                    landed_price_cents,
-                };
-
-                let is_better = match best_quote {
-                    None => true,
-                    Some(current) => {
-                        (
-                            candidate.landed_price_cents,
-                            candidate.base_price_cents,
-                            candidate.seller_country_idx,
-                            candidate.seller_company_idx,
-                        ) < (
-                            current.landed_price_cents,
-                            current.base_price_cents,
-                            current.seller_country_idx,
-                            current.seller_company_idx,
-                        )
-                    }
-                };
-
-                if is_better {
-                    best_quote = Some(candidate);
-                }
+                });
             }
         }
 
-        best_quote
+        suppliers_by_good
     }
 
     fn execute_goods_purchase(

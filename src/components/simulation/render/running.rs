@@ -10,6 +10,7 @@ use super::super::{Simulation, theme};
 use crate::{
     components::simulation::snapshot::RunningSnapshot,
     components::simulation::ui_state::{DetailsView, RunningTab},
+    sim::SimulationMode,
 };
 
 impl Simulation {
@@ -55,9 +56,38 @@ impl Simulation {
             ),
             Span::styled(" | State: ", theme::muted_text()),
             Span::styled(run_state, state_style),
+            Span::styled(" | Sim: ", theme::muted_text()),
+            Span::styled(
+                world.sim_mode.label(),
+                match world.sim_mode {
+                    SimulationMode::Realtime => Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                    SimulationMode::MaxSpeed => Style::default()
+                        .fg(Color::LightMagenta)
+                        .add_modifier(Modifier::BOLD),
+                },
+            ),
             Span::styled(" | View: ", theme::muted_text()),
             Span::styled(
                 self.active_tab_label(world.active_tab),
+                theme::primary_text(),
+            ),
+            Span::styled(" | Tick/s: ", theme::muted_text()),
+            Span::styled(
+                format!("{:.1}", world.ticks_per_second),
+                theme::primary_text(),
+            ),
+            Span::styled(" | Avg Tick (ms): ", theme::muted_text()),
+            Span::styled(
+                format!("{:.2}", world.avg_tick_duration_ms),
+                theme::primary_text(),
+            ),
+            Span::styled(" | Queue: ", theme::muted_text()),
+            Span::styled(world.queue_depth.to_string(), theme::primary_text()),
+            Span::styled(" | Lag (ms): ", theme::muted_text()),
+            Span::styled(
+                format!("{:.2}", world.tick_queue_lag_ms),
                 theme::primary_text(),
             ),
             Span::styled(" | Selected Country: ", theme::muted_text()),
@@ -98,7 +128,7 @@ impl Simulation {
                 self.draw_people_table(frame, people_area, world);
 
                 format!(
-                    "Controls: [Tab/Shift+Tab] switch tab  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] details (focused row)  [q] quit | Country Page {}/{} | People Page {}/{}",
+                    "Controls: [Tab/Shift+Tab] switch tab  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] details (focused row)  [q] quit | Country Page {}/{} | People Page {}/{}",
                     world.country_page + 1,
                     world.total_country_pages,
                     world.people_page + 1,
@@ -107,15 +137,15 @@ impl Simulation {
             }
             DetailsView::Person => {
                 self.draw_person_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to people list  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to people list  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
             }
             DetailsView::Country => {
                 self.draw_country_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
             }
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [q] quit".to_string()
+                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit".to_string()
             }
         }
     }

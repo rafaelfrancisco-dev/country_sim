@@ -23,8 +23,8 @@ pub trait Tickable {
   - `tick_day`: increments world day, ticks all countries, captures chart snapshot on monthly boundary.
 
 ## Tick Entry Points
-- Runtime `Action::Tick` maps to `GameCommand::Tick` and advances `World::tick_day`.
-- Manual step (`n`) maps to `GameCommand::StepOneDay` and also advances one day when paused.
+- Runtime progression is driven by a dedicated simulation clock thread owned by the simulation worker.
+- Manual step (`n`) maps to `GameCommand::StepOneDay` and advances one day when paused.
 
 ## Monthly Boundary Model
 - Month length: `DAYS_PER_MONTH = 30`.
@@ -33,12 +33,14 @@ pub trait Tickable {
 
 ## Execution Model
 Simulation commands are processed by a dedicated worker thread that owns the authoritative `GameEngine`.
+The worker is paired with a separate clock thread that schedules `GameCommand::Tick` independently from UI rendering.
 
 Implications:
 - Daily and monthly writes remain totally ordered at command level (single worker applies commands sequentially).
-- Worker publishes a lightweight UI snapshot after each command.
-- UI thread enqueues commands and renders from the latest snapshot, so rendering and input stay responsive even while a tick is running.
-- No merge/reconciliation step is required between daily and monthly state.
+- Worker publishes an engine snapshot (`GamePhase` + runtime stats).
+- UI state (tabs, selection, details view) is owned by the UI component and applied locally from `UiCommand`.
+- Render cadence can be throttled (for max-speed mode) without changing simulation progression speed.
+- Simulation mode (`realtime` / `max-speed`) is shared through an atomic mode flag read by the clock thread.
 
 Inside a single `World::tick_day`, country updates now run in parallel by deterministic country chunks via `rayon`.
 

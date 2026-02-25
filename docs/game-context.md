@@ -41,10 +41,14 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Monthly lifecycle (every 30 days): payroll, taxes, loans, spending, growth openings, and close.
 
 ### `World`
-- Navigation state: `day`, `countries`, selected rows/pages, details mode.
+- Engine state: `day`, `countries`, pause flag, and monthly histories.
 - Running views: `Main` and `Charts` (switched with `Tab` / `Shift+Tab`, no separate tabs panel).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
+
+### UI State
+- Navigation state (`selected rows/pages`, `details mode`, active running tab) is held in `UiState` on the UI side.
+- UI commands (tab switching, selection focus, paging) update `UiState` locally from the latest engine snapshot.
 
 ## Generation and Defaults
 - Population per country: `millions_per_country * 1_000_000`.

@@ -26,6 +26,9 @@ impl Country {
         let demographic = self.sim_params.demographic;
         let day = self.day;
         let country_id = self.id;
+        let cached_daily_death_probabilities: [f64; 101] = std::array::from_fn(|age_years| {
+            demographic.daily_death_probability_for_age_years(age_years as u8)
+        });
         let death_flags_by_chunk = self
             .people
             .par_chunks(PEOPLE_CHUNK_SIZE)
@@ -33,8 +36,8 @@ impl Country {
                 chunk
                     .iter()
                     .map(|person| {
-                        let death_probability =
-                            demographic.daily_death_probability_for_age_years(person.age_years());
+                        let death_probability = cached_daily_death_probabilities
+                            [usize::from(person.age_years().min(100))];
                         let death_seed = hash64(
                             (u64::from(country_id) << 48)
                                 ^ (day << 24)
