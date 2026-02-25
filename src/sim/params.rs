@@ -166,6 +166,34 @@ impl Default for GoodsMarketParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct FiscalParams {
+    /// Monthly benefit paid to each unemployed working-age (18–65) adult,
+    /// expressed as a fraction of `median_income_reference`.
+    pub unemployment_benefit_rate: f64,
+    /// Reference monthly income used to compute the unemployment benefit amount.
+    pub median_income_reference: f64,
+    /// If an unemployed person's cash is below this threshold AND they have
+    /// unmet essential needs, the government tops up their cash to this amount.
+    pub basic_needs_cash_threshold: f64,
+}
+
+impl Default for FiscalParams {
+    fn default() -> Self {
+        Self {
+            unemployment_benefit_rate: 0.50,
+            median_income_reference: 2_000.0,
+            basic_needs_cash_threshold: 500.0,
+        }
+    }
+}
+
+impl FiscalParams {
+    pub fn monthly_unemployment_benefit(&self) -> f64 {
+        self.unemployment_benefit_rate * self.median_income_reference
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
@@ -173,4 +201,40 @@ pub struct SimulationParams {
     pub labor: LaborParams,
     pub company_growth: CompanyGrowthParams,
     pub goods_market: GoodsMarketParams,
+    pub fiscal: FiscalParams,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fiscal_benefit_is_rate_times_reference_income() {
+        let params = FiscalParams {
+            unemployment_benefit_rate: 0.5,
+            median_income_reference: 2_000.0,
+            basic_needs_cash_threshold: 500.0,
+        };
+        assert!((params.monthly_unemployment_benefit() - 1_000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn fiscal_benefit_is_zero_when_rate_is_zero() {
+        let params = FiscalParams {
+            unemployment_benefit_rate: 0.0,
+            median_income_reference: 2_000.0,
+            basic_needs_cash_threshold: 500.0,
+        };
+        assert!((params.monthly_unemployment_benefit()).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn fiscal_benefit_scales_with_reference_income() {
+        let params = FiscalParams {
+            unemployment_benefit_rate: 0.4,
+            median_income_reference: 3_000.0,
+            basic_needs_cash_threshold: 500.0,
+        };
+        assert!((params.monthly_unemployment_benefit() - 1_200.0).abs() < f64::EPSILON);
+    }
 }

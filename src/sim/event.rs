@@ -14,6 +14,7 @@ pub enum SimEvent {
     LoanEnded { country_name: String, entity_kind: EntityKind, entity_id: u32, day: u64 },
     LoanWrittenOff { country_name: String, entity_id: u32, principal_lost: f64, day: u64 },
     DebtDistress { country_name: String, entity_kind: EntityKind, entity_id: u32, unpaid_amount: f64, day: u64 },
+    GovTransfer { country_name: String, total_recipients: u32, total_amount: f64, day: u64 },
 }
 
 impl SimEvent {
@@ -39,6 +40,9 @@ impl SimEvent {
             Self::DebtDistress { country_name, entity_kind, entity_id, unpaid_amount, day } => {
                 let kind = entity_kind_label(entity_kind);
                 format!("[DEBT!] Day {day:>6} | {country_name}: {kind} #{entity_id} missed payment ${unpaid_amount:.2}")
+            }
+            Self::GovTransfer { country_name, total_recipients, total_amount, day } => {
+                format!("[GOV]   Day {day:>6} | {country_name}: {total_recipients} recipients +${total_amount:.2} benefits")
             }
         }
     }

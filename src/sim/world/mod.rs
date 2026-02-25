@@ -19,6 +19,8 @@ pub struct MetricPoint {
     pub total_money_supply: f64,
     pub created_money_outstanding: f64,
     pub bank_reserve: f64,
+    pub treasury_balance: f64,
+    pub budget_balance: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -480,6 +482,8 @@ mod tests {
                 total_money_supply: 0.0,
                 created_money_outstanding: 0.0,
                 bank_reserve: 0.0,
+                treasury_balance: 0.0,
+                budget_balance: 0.0,
             },
             |acc, point| MetricPoint {
                 month: acc.month.max(point.month),
@@ -488,6 +492,8 @@ mod tests {
                 created_money_outstanding: acc.created_money_outstanding
                     + point.created_money_outstanding,
                 bank_reserve: acc.bank_reserve + point.bank_reserve,
+                treasury_balance: acc.treasury_balance + point.treasury_balance,
+                budget_balance: acc.budget_balance + point.budget_balance,
             },
         );
 
@@ -501,6 +507,8 @@ mod tests {
                 < f64::EPSILON
         );
         assert!((aggregate.bank_reserve - country_sum.bank_reserve).abs() < f64::EPSILON);
+        assert!((aggregate.treasury_balance - country_sum.treasury_balance).abs() < f64::EPSILON);
+        assert!((aggregate.budget_balance - country_sum.budget_balance).abs() < f64::EPSILON);
     }
 
     #[test]

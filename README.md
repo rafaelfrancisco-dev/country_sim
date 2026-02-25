@@ -6,13 +6,19 @@ A toy app...
 
 ## Recent UI Additions
 - Four running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Charts`, `Events`
-- Monthly trend charts for:
+- Monthly trend charts (3×2 grid):
   - population
   - total money supply
   - created money outstanding
   - bank reserve
-- Events log with scrollable history of births, deaths, loans, and debt distress events
+  - treasury balance
+  - budget balance (tax revenue − government spending)
+- Events log with scrollable history of births, deaths, loans, debt distress, and government transfers
   - `/` to search, `s` to toggle sort order (newest/oldest first)
+- Government spending system:
+  - Monthly unemployment benefits paid to working-age (18–65) unemployed adults
+  - Basic needs safety net tops up cash for people with unmet essential needs
+  - Treasury balance, monthly gov spending, budget balance, and gov debt tracked per country
 
 ## Documentation
 - [Game context](docs/game-context.md)

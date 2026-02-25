@@ -36,15 +36,21 @@ impl Simulation {
             );
             frame.render_widget(placeholder, body);
         } else {
-            let [top, bottom] =
-                Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(body);
+            let [row1, row2, row3] = Layout::vertical([
+                Constraint::Ratio(1, 3),
+                Constraint::Ratio(1, 3),
+                Constraint::Ratio(1, 3),
+            ])
+            .areas(body);
             let [population_area, supply_area] =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(top);
+                    .areas(row1);
             let [created_money_area, reserve_area] =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(bottom);
+                    .areas(row2);
+            let [treasury_area, budget_area] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(row3);
 
             self.draw_metric_chart(
                 frame,
@@ -77,6 +83,22 @@ impl Simulation {
                 &format!("Bank Reserve ({scope_label})"),
                 Color::Magenta,
                 |point| point.bank_reserve,
+            );
+            self.draw_metric_chart(
+                frame,
+                treasury_area,
+                history,
+                &format!("Treasury Balance ({scope_label})"),
+                Color::LightBlue,
+                |point| point.treasury_balance,
+            );
+            self.draw_metric_chart(
+                frame,
+                budget_area,
+                history,
+                &format!("Budget Balance ({scope_label})"),
+                Color::LightRed,
+                |point| point.budget_balance,
             );
         }
 

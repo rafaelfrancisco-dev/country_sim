@@ -516,6 +516,15 @@ fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             money(country.monthly_tax_collected)
         ),
         format!(
+            "MTD Gov Spending: {}",
+            money(country.monthly_gov_spending)
+        ),
+        format!(
+            "MTD Budget Balance: {}",
+            money(country.monthly_budget_balance)
+        ),
+        format!("Gov Debt: {}", money(country.gov_debt)),
+        format!(
             "MTD Household Spending: {}",
             money(country.monthly_household_spending)
         ),

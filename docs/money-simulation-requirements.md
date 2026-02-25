@@ -58,6 +58,18 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Income tax is withheld monthly and transferred to treasury.
 - Treasury inflows come from tax and deceased-person cash transfer.
 
+## Government Spending
+- After taxes are collected each month, the treasury distributes benefits to eligible people.
+- **Unemployment benefit**: each unemployed working-age adult (18–65) receives `unemployment_benefit_rate × median_income_reference` per month, funded from treasury.
+- **Basic needs safety net**: if a person has any unmet essential need (goods 0–4: water, food, housing, electricity, medicine) AND cash below `basic_needs_cash_threshold`, the treasury tops up their cash to that threshold.
+- Both transfers are capped by the available treasury balance (no negative treasury).
+- Tracked fields per country: `monthly_gov_spending`, `monthly_budget_balance` (tax collected − gov spending), `gov_debt` (cumulative shortfalls).
+- A `GovTransfer` event is emitted each month when any benefit is paid.
+- Configurable via `FiscalParams` in `SimulationParams`:
+  - `unemployment_benefit_rate` (default: 0.5)
+  - `median_income_reference` (default: $2,000 → $1,000/month benefit)
+  - `basic_needs_cash_threshold` (default: $500)
+
 ## Consumption and Sales
 - Monthly household spending remains 5% to 15% of available cash.
 - Seller company is chosen within country companies.
@@ -75,15 +87,18 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 1. Company liquidity check and pre-payroll loan request.
 2. Payroll from companies to employed people.
 3. Income tax withholding and transfer to treasury.
-4. Loan repayment pass (people, then companies).
-5. Household spending.
-6. End-of-month loan requests.
-7. Company profitability update and vacancy expansion.
-8. Company close and aggregate recomputation.
+4. Government spending (unemployment benefits + basic needs top-up).
+5. Loan repayment pass (people, then companies).
+6. Household spending.
+7. End-of-month loan requests.
+8. Company profitability update and vacancy expansion.
+9. Company close and aggregate recomputation.
 
 ## Invariants
 - Treasury inflows are from taxation and deceased-person cash transfer.
-- Net new money enters via loan issuance.
+- Treasury outflows are government benefit transfers to households.
+- Government transfers are balance-neutral: treasury decreases by the same amount household cash increases, leaving total money supply unchanged.
+- Net new money enters via loan issuance only.
 - Repaying or writing off created principal decreases created-money outstanding.
 - Tracked money supply remains close to:
   - `initial_supply + created_money_outstanding`

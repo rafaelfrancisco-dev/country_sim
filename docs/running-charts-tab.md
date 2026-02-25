@@ -5,7 +5,7 @@ The running simulation UI has four tabs:
 - `Main`: country/people navigation and details screens.
 - `Goods`: company and goods market view.
 - `Charts`: a dashboard with trend charts for core economy metrics.
-- `Events`: scrollable log of simulation events (births, deaths, loans, debt distress).
+- `Events`: scrollable log of simulation events (births, deaths, loans, debt distress, government transfers).
 
 Tab switching uses `Tab` and `Shift+Tab`. The active tab is shown in the header; there is no dedicated "Running Tabs" panel.
 
@@ -39,11 +39,13 @@ On `Charts`, list/details navigation keys are intentionally disabled.
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 
 ## Charts and Metrics
-The `Charts` tab renders four charts in a 2x2 grid:
+The `Charts` tab renders six charts in a 3×2 grid (three rows, two columns):
 - Population
 - Total Money Supply
 - Created Money Outstanding
 - Bank Reserve
+- Treasury Balance
+- Budget Balance
 
 Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.
 
@@ -67,6 +69,8 @@ Scope is single-mode (not overlaid):
 - `total_money_supply`: tracked money currently in circulation.
 - `created_money_outstanding`: principal-derived created money still outstanding.
 - `bank_reserve`: reserve balance accumulated by collected interest.
+- `treasury_balance`: cumulative unspent government revenue (taxes minus benefit payments).
+- `budget_balance`: monthly net fiscal position (tax collected − government spending); negative = deficit month.
 
 `bank_reserve` is used as the “money created via interest” proxy in charts.
 

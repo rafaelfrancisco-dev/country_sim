@@ -41,6 +41,16 @@ impl World {
             .iter()
             .map(|country| country.bank.reserve_balance)
             .sum();
+        let treasury_balance = self
+            .countries
+            .iter()
+            .map(|country| country.treasury_balance)
+            .sum();
+        let budget_balance = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_budget_balance)
+            .sum();
 
         MetricPoint {
             month,
@@ -48,6 +58,8 @@ impl World {
             total_money_supply,
             created_money_outstanding,
             bank_reserve,
+            treasury_balance,
+            budget_balance,
         }
     }
 
@@ -58,6 +70,8 @@ impl World {
             total_money_supply: country.total_money_supply,
             created_money_outstanding: country.bank.created_money_outstanding,
             bank_reserve: country.bank.reserve_balance,
+            treasury_balance: country.treasury_balance,
+            budget_balance: country.monthly_budget_balance,
         }
     }
 
