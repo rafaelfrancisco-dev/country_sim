@@ -17,6 +17,40 @@ A toy app...
 - [Running charts tab](docs/running-charts-tab.md)
 - [Money simulation requirements](docs/money-simulation-requirements.md)
 - [Demographics and labor model](docs/demographics-labor-model.md)
+- [Benchmarking protocol](docs/benchmarking.md)
+
+## Benchmarking
+- Canonical command:
+```bash
+./scripts/bench-sim.sh \
+  --seed 0x5eedc0de \
+  --countries 5 \
+  --population-per-country 1000000 \
+  --days 180 \
+  --threads 8 \
+  --sim-mode max-speed \
+  --out-json target/bench/latest.json \
+  --out-csv target/bench/latest.csv \
+  --flamegraph target/bench/flamegraph.svg
+```
+- Run the exact command before any performance work and save:
+  - `target/bench/baseline.json`
+  - `target/bench/baseline.csv`
+  - `target/bench/baseline-flamegraph.svg`
+- Run the same command after each change and compare against baseline:
+  - higher `ticks_per_sec`
+  - lower `avg_tick_ms` and `p95_tick_ms`
+  - lower market-loop share in flamegraph
+- Benchmark outputs include:
+  - `ticks_per_sec`
+  - `avg_tick_ms`
+  - `p95_tick_ms`
+  - `total_wall_clock_ms`
+  - `scenario`
+  - `thread_count`
+  - `world_state_hash`
+  - `timestamp`
+- `--sim-mode` must be `max-speed`; other values are rejected by the benchmark runner.
 
 ## Profiling
 - Run the game with flamegraph support: `./scripts/run-flamegraph.sh`

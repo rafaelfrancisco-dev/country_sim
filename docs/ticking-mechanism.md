@@ -49,6 +49,9 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - `Country` daily/monthly internals use deterministic staged pipelines:
   - Parallel intent/decision phases over chunked entities.
   - Sequential commit phases in stable index order when side effects touch shared state.
+- `World` goods market uses two-phase execution:
+  - Phase A (parallel): build purchase intents from snapshot budgets/cash and quote templates.
+  - Phase B (single-writer): apply intents in deterministic key order `(round, person_idx, country_rr_order)`.
 - Money aggregates and payroll accumulation use cent-based deterministic reductions, then convert back to `f64`.
 - Randomness remains seed-derived from stable IDs/day/month values (no thread-local RNG).
 
@@ -64,3 +67,4 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 ## Rationale
 - Daily demographics and labor are stateful and mutate the same entities as monthly economics.
 - Synchronous month processing avoids overwrite/drift risks from async snapshot replacement.
+- Benchmarking protocol for deterministic performance comparisons: [docs/benchmarking.md](benchmarking.md)
