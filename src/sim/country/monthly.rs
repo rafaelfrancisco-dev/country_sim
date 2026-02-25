@@ -30,9 +30,13 @@ impl Country {
         self.monthly_unmet_need_events = 0;
         self.monthly_essential_debt_spending = 0.0;
 
-        for person in &mut self.people {
-            person.reset_monthly_trackers();
-        }
+        self.people
+            .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+            .for_each(|chunk| {
+                for person in chunk {
+                    person.reset_monthly_trackers();
+                }
+            });
         for company in &mut self.companies {
             company.open_month();
         }

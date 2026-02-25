@@ -49,7 +49,14 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - `Country` daily/monthly internals use deterministic staged pipelines:
   - Parallel intent/decision phases over chunked entities.
   - Sequential commit phases in stable index order when side effects touch shared state.
-- `World` goods market uses two-phase execution:
+- `World` goods market (`run_daily_goods_economy`) runs several parallel regions after country ticks complete:
+  - `consume_superficial_stock_daily`: each country's people processed via `par_chunks_mut`. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
+  - Demand init in `process_good_round_robin`: `pending_demands` per country filled via `par_chunks_mut` zipped with `par_chunks` over people. `demand_units_for_person_good` is a pure hash-based function.
+  - `recompute_aggregates`: runs `par_iter_mut` over all countries after the goods market completes.
+  - `process_discretionary_superficial_purchases` uses a two-phase pattern per country:
+    - Phase A (parallel planning): `par_chunks` over people, each chunk uses `thread_rng()`, produces a `Vec<person_idx>` of intending buyers. Read-only on all country/company state.
+    - Phase B (sequential apply): iterates the buyer list, re-fetches the current cheapest supplier (respecting live inventory), re-checks affordability, then executes each purchase.
+- Essential-goods round-robin uses two-phase execution:
   - Phase A (parallel): build purchase intents from snapshot budgets/cash and quote templates.
   - Phase B (single-writer): apply intents in deterministic key order `(round, person_idx, country_rr_order)`.
 - Money aggregates and payroll accumulation use cent-based deterministic reductions, then convert back to `f64`.
@@ -57,7 +64,7 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - Runtime entropy is intentionally targeted to:
   - daily deaths
   - daily births (Poisson draw)
-  - discretionary superficial-good purchases when stock is empty and cash allows
+  - discretionary superficial-good purchases when stock is empty and cash allows (per-chunk `thread_rng()`)
 
 ### Explicit Sequential Exceptions
 - Bank-dependent loan origination/repayment commits remain sequential where bank mutation ordering is business-significant.

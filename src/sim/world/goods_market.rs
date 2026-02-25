@@ -8,6 +8,7 @@ use rand::Rng;
 use rayon::prelude::*;
 use std::{cell::RefCell, sync::Arc};
 
+const PEOPLE_CHUNK_SIZE: usize = 2_048;
 const ESSENTIAL_GOODS_COUNT: u8 = 4;
 const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
 const MAX_DYNAMIC_TARIFF_RATE: f64 = 0.75;
@@ -158,9 +159,9 @@ impl World {
         self.consume_superficial_stock_daily();
         self.process_global_goods_market();
         self.process_discretionary_superficial_purchases();
-        for country in &mut self.countries {
-            country.recompute_aggregates();
-        }
+        self.countries
+            .par_iter_mut()
+            .for_each(|country| country.recompute_aggregates());
     }
 
     fn produce_goods_daily(&mut self) {
@@ -242,29 +243,38 @@ impl World {
     }
 
     fn consume_superficial_stock_daily(&mut self) {
+        // Hoist the static per-slot computation out of the 5M-person loop.
+        let daily_usages: [f32; SUPERFICIAL_GOOD_SLOT_COUNT] =
+            std::array::from_fn(|slot_idx| {
+                let good_id = SUPERFICIAL_GOOD_IDS[slot_idx];
+                (common_goods()[good_id as usize].monthly_demand_factor / 30.0).max(0.0) as f32
+            });
+
         for country in &mut self.countries {
-            for person in &mut country.people {
-                for (slot_idx, good_id) in SUPERFICIAL_GOOD_IDS.iter().copied().enumerate() {
-                    let daily_usage = (common_goods()[good_id as usize].monthly_demand_factor
-                        / 30.0)
-                        .max(0.0) as f32;
-                    if daily_usage <= 0.0 {
-                        continue;
-                    }
+            country
+                .people
+                .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for person in chunk {
+                        for (slot_idx, &daily_usage) in daily_usages.iter().enumerate() {
+                            if daily_usage <= 0.0 {
+                                continue;
+                            }
 
-                    person.superficial_stock_consumption_carry[slot_idx] += daily_usage;
-                    let consume_units =
-                        person.superficial_stock_consumption_carry[slot_idx].floor() as u16;
-                    if consume_units == 0 {
-                        continue;
-                    }
+                            person.superficial_stock_consumption_carry[slot_idx] += daily_usage;
+                            let consume_units =
+                                person.superficial_stock_consumption_carry[slot_idx].floor() as u16;
+                            if consume_units == 0 {
+                                continue;
+                            }
 
-                    person.superficial_stock_consumption_carry[slot_idx] -=
-                        f32::from(consume_units);
-                    person.superficial_stock_units[slot_idx] =
-                        person.superficial_stock_units[slot_idx].saturating_sub(consume_units);
-                }
-            }
+                            person.superficial_stock_consumption_carry[slot_idx] -=
+                                f32::from(consume_units);
+                            person.superficial_stock_units[slot_idx] =
+                                person.superficial_stock_units[slot_idx].saturating_sub(consume_units);
+                        }
+                    }
+                });
         }
     }
 
@@ -275,7 +285,6 @@ impl World {
 
         let suppliers_by_good = self.build_suppliers_by_good();
         let tariff_rates_by_good = self.tariff_rates_by_good_for_month();
-        let mut rng = rand::thread_rng();
 
         for good_id in SUPERFICIAL_GOOD_IDS {
             let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
@@ -286,35 +295,63 @@ impl World {
             let stock_slot = usize::from(good_id - SUPERFICIAL_GOOD_START_ID);
 
             for buyer_country_idx in 0..self.countries.len() {
-                let person_count = self.countries[buyer_country_idx].people.len();
-                for person_idx in 0..person_count {
-                    let stock_units = self.countries[buyer_country_idx].people[person_idx]
-                        .superficial_stock_units[stock_slot];
-                    if stock_units > 0 {
-                        continue;
-                    }
+                // Pre-fetch cheapest quote for snapshot affordability check.
+                let Some(snapshot_quote) =
+                    self.find_cheapest_supplier(&quote_templates_by_buyer, buyer_country_idx)
+                else {
+                    continue;
+                };
+                if snapshot_quote.landed_price_cents <= 0 {
+                    continue;
+                }
 
-                    let Some(quote) =
+                // Phase A — parallel planning: each person independently decides to buy.
+                // Uses per-chunk thread_rng(); discretionary purchases are non-deterministic.
+                let buyers: Vec<usize> = self.countries[buyer_country_idx]
+                    .people
+                    .par_chunks(PEOPLE_CHUNK_SIZE)
+                    .enumerate()
+                    .flat_map(|(chunk_idx, chunk)| {
+                        let mut rng = rand::thread_rng();
+                        let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
+                        chunk
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(offset, person)| {
+                                if person.superficial_stock_units[stock_slot] > 0 {
+                                    return None;
+                                }
+                                let cash_cents = to_cents(person.cash_balance);
+                                if cash_cents < snapshot_quote.landed_price_cents {
+                                    return None;
+                                }
+                                let affordability_ratio = cash_cents as f64
+                                    / snapshot_quote.landed_price_cents as f64;
+                                let probability =
+                                    ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
+                                if probability <= 0.0 || !rng.gen_bool(probability) {
+                                    return None;
+                                }
+                                Some(base_idx + offset)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+
+                // Phase B — sequential apply: re-fetch current cheapest supplier per purchase
+                // so inventory depletion is respected, then execute.
+                for person_idx in buyers {
+                    let Some(current_quote) =
                         self.find_cheapest_supplier(&quote_templates_by_buyer, buyer_country_idx)
                     else {
-                        continue;
+                        break;
                     };
-                    if quote.landed_price_cents <= 0 {
-                        continue;
-                    }
-
                     let cash_cents = self.person_cash_cents(buyer_country_idx, person_idx);
-                    if cash_cents < quote.landed_price_cents {
+                    if cash_cents < current_quote.landed_price_cents {
                         continue;
                     }
 
-                    let affordability_ratio = cash_cents as f64 / quote.landed_price_cents as f64;
-                    let probability = ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
-                    if probability <= 0.0 || !rng.gen_bool(probability) {
-                        continue;
-                    }
-
-                    self.execute_goods_purchase(buyer_country_idx, person_idx, quote);
+                    self.execute_goods_purchase(buyer_country_idx, person_idx, current_quote);
                     if let Some(person) = self
                         .countries
                         .get_mut(buyer_country_idx)
@@ -467,20 +504,29 @@ impl World {
         let country_count = self.countries.len();
         let monthly_demand_factor = common_goods()[good_id as usize].monthly_demand_factor;
 
-        for (country_idx, country) in self.countries.iter().enumerate() {
-            let country_id = country.id;
-            let country_pending = &mut scratch.pending_demands[country_idx];
-            for (person_idx, person) in country.people.iter().enumerate() {
-                country_pending[person_idx] = demand_units_for_person_good(
-                    self.day,
-                    country_id,
-                    person.id,
-                    person.name_seed,
-                    good_id,
-                    monthly_demand_factor,
-                );
-            }
-        }
+        let day = self.day;
+        scratch
+            .pending_demands
+            .iter_mut()
+            .zip(self.countries.iter())
+            .for_each(|(country_pending, country)| {
+                let country_id = country.id;
+                country_pending
+                    .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+                    .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
+                    .for_each(|(pending_chunk, people_chunk)| {
+                        for (pending, person) in pending_chunk.iter_mut().zip(people_chunk.iter()) {
+                            *pending = demand_units_for_person_good(
+                                day,
+                                country_id,
+                                person.id,
+                                person.name_seed,
+                                good_id,
+                                monthly_demand_factor,
+                            );
+                        }
+                    });
+            });
 
         let essential = necessity_rank <= ESSENTIAL_GOODS_COUNT;
         let mut round = 0_u64;

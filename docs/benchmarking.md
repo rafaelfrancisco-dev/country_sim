@@ -57,6 +57,9 @@ Where:
 
 Planning runs in parallel, but apply is single-writer and always uses this deterministic key order.
 
+## Compiler Profile
+The `[profile.release]` section uses `opt-level = 3` (not `"s"`). The `"s"` setting optimises for binary size and suppresses autovectorisation and aggressive inlining on arithmetic-heavy hot loops. With `lto = true` and `codegen-units = 1` already set, `opt-level = 3` lets LLVM autovectorise inner hash loops, `f64` arithmetic chains, and `round_cents` paths.
+
 ## Rollout Gates
 - Correctness gate:
   - invariants and accounting tests pass.
