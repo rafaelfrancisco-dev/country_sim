@@ -52,3 +52,9 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[profile.flamegraph]
+inherits = "release"
+debug = true
+strip = "none"
+split-debuginfo = "unpacked"
