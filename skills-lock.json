@@ -1,6 +1,16 @@
 {
   "version": 1,
   "skills": {
+    "m01-ownership": {
+      "source": "zhanghandong/rust-skills",
+      "sourceType": "github",
+      "computedHash": "69f57ede558e32e703e468ef5328f5bcc6610adff9d99b49984a5b3507d31b5b"
+    },
+    "m04-zero-cost": {
+      "source": "zhanghandong/rust-skills",
+      "sourceType": "github",
+      "computedHash": "8bc6733618b217b608fe5011f4c74b7ceb8c0765ba60702e30fa8fa4824584f2"
+    },
     "m10-performance": {
       "source": "zhanghandong/rust-skills",
       "sourceType": "github",
