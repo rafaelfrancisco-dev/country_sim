@@ -195,7 +195,7 @@ impl UiSnapshot {
                 let idx = country_page_start + page_idx;
                 CountryRowSnapshot {
                     name: country.name.clone(),
-                    population: country.population().to_string(),
+                    population: compact_count(country.population() as f64),
                     household_cash: money(country.household_cash_total),
                     company_cash: money(country.company_cash_total),
                     treasury: money(country.treasury_balance),
@@ -276,15 +276,13 @@ impl UiSnapshot {
                     good: good_name,
                     price: money(company.unit_price),
                     avg_price,
-                    inventory: company.inventory_units.to_string(),
-                    produced: company.last_month_units_produced.to_string(),
-                    sold: company.last_month_units_sold.to_string(),
-                    total_sold: company
-                        .sold_units_history
-                        .iter()
-                        .sum::<u32>()
-                        .to_string(),
-                    export_sold: company.last_month_export_units_sold.to_string(),
+                    inventory: compact_count(company.inventory_units),
+                    produced: compact_count(company.last_month_units_produced),
+                    sold: compact_count(company.last_month_units_sold),
+                    total_sold: compact_count(
+                        company.sold_units_history.iter().sum::<u32>(),
+                    ),
+                    export_sold: compact_count(company.last_month_export_units_sold),
                     domestic_export_split: format!(
                         "{}/{}",
                         company.last_month_domestic_units_sold,
@@ -333,7 +331,7 @@ impl UiSnapshot {
             details_view: ui.details_view,
             selection_focus: ui.selection_focus,
             selected_country_name,
-            total_population: world.total_population().to_string(),
+            total_population: compact_count(world.total_population() as f64),
             country_page: ui.country_page(),
             total_country_pages: ui.total_country_pages(world),
             people_page: ui.people_page,
@@ -470,7 +468,7 @@ fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         format!("Day: {}", world.day),
         format!("Month: {}", country.month),
         String::new(),
-        format!("Population: {}", country.population()),
+        format!("Population: {}", compact_count(country.population() as f64)),
         format!("Household Cash: {}", money(country.household_cash_total)),
         format!("Company Cash: {}", money(country.company_cash_total)),
         format!("Treasury: {}", money(country.treasury_balance)),
@@ -528,12 +526,13 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         ),
         format!("Open Positions: {}", company.open_positions.len()),
         format!("Unit Price: {}", money(company.unit_price)),
-        format!("Inventory Units: {}", company.inventory_units),
-        format!("MTD Produced Units: {}", company.last_month_units_produced),
-        format!("MTD Sold Units: {}", company.last_month_units_sold),
+        format!("Inventory Units: {}", compact_count(company.inventory_units)),
+        format!("MTD Produced Units: {}", compact_count(company.last_month_units_produced)),
+        format!("MTD Sold Units: {}", compact_count(company.last_month_units_sold)),
         format!(
             "MTD Domestic/Export Units: {}/{}",
-            company.last_month_domestic_units_sold, company.last_month_export_units_sold
+            compact_count(company.last_month_domestic_units_sold),
+            compact_count(company.last_month_export_units_sold)
         ),
         format!(
             "MTD Sell Through: {:.2}%",
@@ -644,6 +643,43 @@ fn goods_mask_names(mask: u16) -> String {
     }
 }
 
+fn compact_num(n: f64) -> String {
+    let abs = n.abs();
+    let (divisor, suffix) = if abs >= 1_000_000.0 {
+        (1_000_000.0, "M")
+    } else if abs >= 10_000.0 {
+        (1_000.0, "k")
+    } else {
+        return format!("{n:.2}");
+    };
+    let scaled = n / divisor;
+    let r = (scaled * 10.0).round() / 10.0;
+    if r.fract() == 0.0 {
+        format!("{r:.0}{suffix}")
+    } else {
+        format!("{r:.1}{suffix}")
+    }
+}
+
+fn compact_count(n: impl Into<f64>) -> String {
+    let n: f64 = n.into();
+    let abs = n.abs();
+    let (divisor, suffix) = if abs >= 1_000_000.0 {
+        (1_000_000.0, "M")
+    } else if abs >= 10_000.0 {
+        (1_000.0, "k")
+    } else {
+        return format!("{n:.0}");
+    };
+    let scaled = n / divisor;
+    let r = (scaled * 10.0).round() / 10.0;
+    if r.fract() == 0.0 {
+        format!("{r:.0}{suffix}")
+    } else {
+        format!("{r:.1}{suffix}")
+    }
+}
+
 fn money(amount: f64) -> String {
-    format!("{amount:.2}")
+    compact_num(amount)
 }

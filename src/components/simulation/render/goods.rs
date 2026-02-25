@@ -13,6 +13,24 @@ use crate::components::simulation::{
     ui_state::{DetailsView, SelectionFocus},
 };
 
+fn compact_count_f64(n: f64) -> String {
+    let abs = n.abs();
+    let (divisor, suffix) = if abs >= 1_000_000.0 {
+        (1_000_000.0, "M")
+    } else if abs >= 10_000.0 {
+        (1_000.0, "k")
+    } else {
+        return format!("{n:.0}");
+    };
+    let scaled = n / divisor;
+    let r = (scaled * 10.0).round() / 10.0;
+    if r.fract() == 0.0 {
+        format!("{r:.0}{suffix}")
+    } else {
+        format!("{r:.1}{suffix}")
+    }
+}
+
 impl Simulation {
     pub(super) fn draw_goods_tab(
         &self,
@@ -270,9 +288,12 @@ impl Simulation {
             });
         let (y_min, y_max) = Self::company_chart_axis_bounds(value_min, value_max);
         let y_labels = if as_money {
-            vec![format!("{y_min:.2}"), format!("{y_max:.2}")]
+            vec![Self::money(y_min), Self::money(y_max)]
         } else {
-            vec![format!("{y_min:.0}"), format!("{y_max:.0}")]
+            vec![
+                compact_count_f64(y_min),
+                compact_count_f64(y_max),
+            ]
         };
 
         let dataset = Dataset::default()
