@@ -1,3 +1,4 @@
+mod goods_market;
 mod history;
 
 use rayon::prelude::*;
@@ -114,8 +115,25 @@ impl Tickable for World {
                 }
             });
 
+        self.run_daily_goods_economy();
+
         if self.day.is_multiple_of(DAYS_PER_MONTH) {
+            self.countries
+                .par_chunks_mut(COUNTRY_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for country in chunk {
+                        country.process_month_end();
+                    }
+                });
+            self.adjust_dynamic_country_tariffs();
             self.capture_snapshot();
+            self.countries
+                .par_chunks_mut(COUNTRY_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for country in chunk {
+                        country.reset_month_trackers();
+                    }
+                });
         }
     }
 }
@@ -123,7 +141,11 @@ impl Tickable for World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::person::Person;
+    use crate::sim::{
+        company::Company,
+        country::Country,
+        person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus, Person},
+    };
     use rayon::ThreadPoolBuilder;
 
     fn build_people(count: usize) -> Vec<Person> {
@@ -137,6 +159,38 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    fn unemployed_person(id: u32, cash_balance: f64) -> Person {
+        let mut person = Person::new_with_profile(
+            id,
+            EmploymentStatus::Unemployed,
+            id + 100,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        person.cash_balance = cash_balance;
+        person
+    }
+
+    fn employed_person(
+        id: u32,
+        job_type_id: u8,
+        employer_company_id: u16,
+        cash_balance: f64,
+    ) -> Person {
+        let mut person = Person::new_with_profile(
+            id,
+            EmploymentStatus::Employed {
+                job_type_id,
+                employer_company_id,
+            },
+            id + 100,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        person.cash_balance = cash_balance;
+        person
     }
 
     fn run_world_in_pool(
@@ -279,5 +333,196 @@ mod tests {
             world_one_thread.country_history,
             world_many_threads.country_history
         );
+    }
+
+    #[test]
+    fn global_goods_market_chooses_cheapest_landed_supplier_and_collects_tariff() {
+        let mut country_a_companies = vec![Company::new(0, "A Water".to_string(), vec![0, 5], 0)];
+        country_a_companies[0].inventory_units = 20;
+        country_a_companies[0].unit_price = 20.0;
+        country_a_companies[0].cash_balance = 1_000.0;
+
+        let mut country_b_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
+        country_b_companies[0].inventory_units = 20;
+        country_b_companies[0].unit_price = 10.0;
+        country_b_companies[0].cash_balance = 1_000.0;
+
+        let country_a = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![unemployed_person(1, 200.0)],
+            country_a_companies,
+            1_200.0,
+        );
+        let country_b = Country::with_economy(
+            1,
+            "B".to_string(),
+            vec![unemployed_person(2, 200.0)],
+            country_b_companies,
+            1_200.0,
+        );
+
+        let mut world = World::new(vec![country_a, country_b]);
+        for _ in 0..20 {
+            world.tick_day();
+        }
+
+        assert_eq!(world.countries[0].companies[0].last_month_units_sold, 0);
+        assert!(world.countries[1].companies[0].last_month_export_units_sold > 0);
+        assert!((world.countries[0].monthly_tariff_collected - 0.0).abs() < 0.01);
+        assert!(world.countries[1].monthly_tariff_collected > 0.0);
+        assert!(world.countries[0].monthly_goods_import_spending > 0.0);
+        assert!(world.countries[1].monthly_goods_export_revenue > 0.0);
+    }
+
+    #[test]
+    fn essentials_can_push_cash_negative_and_are_tracked_as_essential_debt_spending() {
+        let mut companies = vec![Company::new(0, "Water".to_string(), vec![0, 5], 0)];
+        companies[0].inventory_units = 20;
+        companies[0].unit_price = 10.0;
+        companies[0].cash_balance = 1_000.0;
+
+        let country = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![unemployed_person(1, 5.0)],
+            companies,
+            1_005.0,
+        );
+
+        let mut world = World::new(vec![country]);
+        for _ in 0..15 {
+            world.tick_day();
+        }
+
+        let person = &world.countries[0].people[0];
+        assert!(world.countries[0].monthly_essential_debt_spending > 0.0);
+        assert!(person.last_month_goods_spending > 0.0);
+        assert!(person.cash_balance < 0.0);
+        assert!((person.last_month_needs_met_mask & 1_u16) != 0);
+    }
+
+    #[test]
+    fn non_essentials_respect_discretionary_budget_cap() {
+        let mut companies = vec![Company::new(0, "Fun".to_string(), vec![0, 5], 14)];
+        companies[0].inventory_units = 20;
+        companies[0].unit_price = 50.0;
+        companies[0].cash_balance = 1_000.0;
+
+        let country = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![unemployed_person(1, 100.0)],
+            companies,
+            1_100.0,
+        );
+
+        let mut world = World::new(vec![country]);
+        for _ in 0..20 {
+            world.tick_day();
+        }
+
+        assert_eq!(world.countries[0].companies[0].last_month_units_sold, 0);
+        assert!((world.countries[0].people[0].cash_balance - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn production_uses_only_manufacturing_workers() {
+        let mut companies = vec![Company::new(0, "Water".to_string(), vec![1, 5], 0)];
+        companies[0].inventory_units = 0;
+        companies[0].cash_balance = 1_000.0;
+
+        let country = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![
+                employed_person(1, 5, 0, 100.0),
+                employed_person(2, 1, 0, 100.0),
+            ],
+            companies,
+            1_200.0,
+        );
+
+        let mut world = World::new(vec![country]);
+        for _ in 0..29 {
+            world.tick_day();
+        }
+
+        assert_eq!(
+            world.countries[0].companies[0].manufacturing_employee_count,
+            1
+        );
+        assert_eq!(world.countries[0].companies[0].last_month_units_produced, 9);
+    }
+
+    #[test]
+    fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_unmet() {
+        let mut country_a_companies = vec![Company::new(0, "A Water".to_string(), vec![0, 5], 0)];
+        country_a_companies[0].inventory_units = 0;
+        country_a_companies[0].unit_price = 50.0;
+        country_a_companies[0].cash_balance = 1_000.0;
+
+        let mut country_b_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
+        country_b_companies[0].inventory_units = 4;
+        country_b_companies[0].unit_price = 10.0;
+        country_b_companies[0].cash_balance = 1_000.0;
+
+        let country_a = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![unemployed_person(1, 300.0)],
+            country_a_companies,
+            1_300.0,
+        );
+        let country_b = Country::with_economy(
+            1,
+            "B".to_string(),
+            vec![unemployed_person(2, 300.0)],
+            country_b_companies,
+            1_300.0,
+        );
+
+        let mut world = World::new(vec![country_a, country_b]);
+        let before = world.countries[1].export_tariffs_by_good[0];
+
+        for _ in 0..20 {
+            world.tick_day();
+        }
+        world.adjust_dynamic_country_tariffs();
+
+        let after = world.countries[1].export_tariffs_by_good[0];
+
+        assert!(after > before);
+    }
+
+    #[test]
+    fn scarce_supply_is_shared_across_countries_with_round_robin_allocation() {
+        let mut exporter_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
+        exporter_companies[0].inventory_units = 2;
+        exporter_companies[0].unit_price = 10.0;
+        exporter_companies[0].cash_balance = 1_000.0;
+
+        let country_a = Country::with_economy(
+            0,
+            "A".to_string(),
+            vec![unemployed_person(1, 300.0)],
+            vec![Company::new(0, "A Water".to_string(), vec![0, 5], 0)],
+            1_300.0,
+        );
+        let country_b = Country::with_economy(
+            1,
+            "B".to_string(),
+            vec![unemployed_person(2, 300.0)],
+            exporter_companies,
+            1_300.0,
+        );
+
+        let mut world = World::new(vec![country_a, country_b]);
+        for _ in 0..20 {
+            world.tick_day();
+        }
+
+        assert!(world.countries[0].monthly_household_spending > 0.0);
+        assert!(world.countries[1].monthly_household_spending > 0.0);
     }
 }

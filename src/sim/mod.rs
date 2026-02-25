@@ -3,6 +3,7 @@ pub mod company;
 pub mod country;
 pub mod engine;
 pub mod generator;
+pub mod good;
 pub mod job;
 pub mod money;
 pub mod names;

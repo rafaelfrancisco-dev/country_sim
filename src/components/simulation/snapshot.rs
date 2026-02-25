@@ -4,6 +4,7 @@ use crate::{
     },
     sim::{
         GameEngine, GamePhase,
+        good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,
         setup::SetupField,
@@ -60,6 +61,22 @@ pub(super) struct PersonRowSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(super) struct CompanyRowSnapshot {
+    pub company_id: String,
+    pub name: String,
+    pub good: String,
+    pub price: String,
+    pub inventory: String,
+    pub produced: String,
+    pub sold: String,
+    pub export_sold: String,
+    pub domestic_export_split: String,
+    pub sales: String,
+    pub is_selected: bool,
+    pub is_even: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(super) struct RunningSnapshot {
     pub day: u64,
     pub selected_country_month: u64,
@@ -73,11 +90,16 @@ pub(super) struct RunningSnapshot {
     pub total_country_pages: usize,
     pub people_page: usize,
     pub total_people_pages: usize,
+    pub company_page: usize,
+    pub total_company_pages: usize,
     pub country_rows: Vec<CountryRowSnapshot>,
     pub people_rows: Vec<PersonRowSnapshot>,
+    pub company_rows: Vec<CompanyRowSnapshot>,
     pub has_selected_country: bool,
     pub person_details_lines: Vec<String>,
     pub country_details_lines: Vec<String>,
+    pub company_details_lines: Vec<String>,
+    pub country_goods_summary_lines: Vec<String>,
     pub chart_scope_label: String,
     pub chart_history: Vec<MetricPoint>,
     pub invariant_warnings: Vec<String>,
@@ -178,8 +200,46 @@ impl UiSnapshot {
             }
         }
 
+        let company_page_start =
+            ui.company_page * crate::components::simulation::ui_state::COMPANY_PAGE_SIZE;
+        let mut company_rows = Vec::new();
+        if let Some(_country) = selected_country {
+            for (row_idx, company) in ui
+                .selected_companies_page(world)
+                .unwrap_or(&[])
+                .iter()
+                .enumerate()
+            {
+                let absolute_idx = company_page_start + row_idx;
+                let good_name = good_by_id(company.produced_good_id)
+                    .map_or("Unknown", |good| good.name)
+                    .to_string();
+
+                company_rows.push(CompanyRowSnapshot {
+                    company_id: company.id.to_string(),
+                    name: company.name.clone(),
+                    good: good_name,
+                    price: money(company.unit_price),
+                    inventory: company.inventory_units.to_string(),
+                    produced: company.last_month_units_produced.to_string(),
+                    sold: company.last_month_units_sold.to_string(),
+                    export_sold: company.last_month_export_units_sold.to_string(),
+                    domestic_export_split: format!(
+                        "{}/{}",
+                        company.last_month_domestic_units_sold,
+                        company.last_month_export_units_sold
+                    ),
+                    sales: money(company.last_month_sales),
+                    is_selected: absolute_idx == ui.selected_company_absolute_index(),
+                    is_even: row_idx.is_multiple_of(2),
+                });
+            }
+        }
+
         let person_details_lines = person_details_lines(world, &ui);
         let country_details_lines = country_details_lines(world, &ui);
+        let company_details_lines = company_details_lines(world, &ui);
+        let country_goods_summary_lines = country_goods_summary_lines(world, &ui);
         let chart_scope_label = chart_scope_label(world, &ui);
         let chart_history = match ui.chart_scope {
             ChartScope::SelectedCountry => world
@@ -209,11 +269,16 @@ impl UiSnapshot {
             total_country_pages: ui.total_country_pages(world),
             people_page: ui.people_page,
             total_people_pages: ui.total_people_pages(world),
+            company_page: ui.company_page,
+            total_company_pages: ui.total_company_pages(world),
             country_rows,
             people_rows,
+            company_rows,
             has_selected_country: selected_country.is_some(),
             person_details_lines,
             country_details_lines,
+            company_details_lines,
+            country_goods_summary_lines,
             chart_scope_label,
             chart_history,
             invariant_warnings,
@@ -281,15 +346,37 @@ fn person_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             money(person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
         ),
         String::new(),
-        format!("Last Gross Pay: {}", money(person.last_month_gross_pay)),
-        format!("Last Tax Paid: {}", money(person.last_month_tax_paid)),
-        format!("Last Net Pay: {}", money(person.last_month_net_pay)),
-        format!("Last Spending: {}", money(person.last_month_spending)),
+        format!("MTD Gross Pay: {}", money(person.last_month_gross_pay)),
+        format!("MTD Tax Paid: {}", money(person.last_month_tax_paid)),
+        format!("MTD Net Pay: {}", money(person.last_month_net_pay)),
+        format!("MTD Spending: {}", money(person.last_month_spending)),
         format!(
-            "Last Loan Payment: {}",
+            "MTD Loan Payment: {}",
             money(person.last_month_loan_payment)
         ),
-        format!("Last New Loan: {}", money(person.last_month_new_loan)),
+        format!("MTD New Loan: {}", money(person.last_month_new_loan)),
+        String::new(),
+        format!(
+            "MTD Goods Spending: {}",
+            money(person.last_month_goods_spending)
+        ),
+        format!(
+            "MTD Imported Goods Spending: {}",
+            money(person.last_month_imported_goods_spending)
+        ),
+        format!(
+            "MTD Goods Units Bought: {}",
+            person.last_month_goods_units_bought
+        ),
+        format!(
+            "Needs Met: {}",
+            goods_mask_names(person.last_month_needs_met_mask)
+        ),
+        format!(
+            "Needs Unmet: {}",
+            goods_mask_names(person.last_month_unmet_needs_mask)
+        ),
+        "Press [c] to open employer company details in Goods tab.".to_string(),
     ]
 }
 
@@ -316,15 +403,102 @@ fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         format!("Money Supply: {}", money(country.total_money_supply)),
         format!("Expected Supply: {}", money(country.expected_money_supply)),
         format!("Supply Gap: {}", money(country.money_supply_gap)),
-        format!("Last Monthly Tax: {}", money(country.monthly_tax_collected)),
         format!(
-            "Last Monthly Spending: {}",
+            "MTD Tax Collected: {}",
+            money(country.monthly_tax_collected)
+        ),
+        format!(
+            "MTD Household Spending: {}",
             money(country.monthly_household_spending)
+        ),
+        format!(
+            "MTD Tariffs Collected: {}",
+            money(country.monthly_tariff_collected)
         ),
         format!(
             "People Page: {}/{}",
             ui.people_page + 1,
             ui.total_people_pages(world)
+        ),
+    ]
+}
+
+fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+    let Some(country) = ui.selected_country(world) else {
+        return vec!["No country is currently selected.".to_string()];
+    };
+
+    let Some(company) = ui.selected_company_on_page(world) else {
+        return vec!["No company available for the current selection.".to_string()];
+    };
+
+    let good_label = good_by_id(company.produced_good_id)
+        .map_or("Unknown", |good| good.name)
+        .to_string();
+
+    vec![
+        format!("Country: {}", country.name),
+        format!("Company: {}", company.name),
+        format!("Company ID: {}", company.id),
+        format!("Produced Good: {}", good_label),
+        String::new(),
+        format!("Unit Price: {}", money(company.unit_price)),
+        format!("Inventory Units: {}", company.inventory_units),
+        format!("MTD Produced Units: {}", company.last_month_units_produced),
+        format!("MTD Sold Units: {}", company.last_month_units_sold),
+        format!(
+            "MTD Domestic/Export Units: {}/{}",
+            company.last_month_domestic_units_sold, company.last_month_export_units_sold
+        ),
+        format!(
+            "MTD Sell Through: {:.2}%",
+            company.last_month_sell_through * 100.0
+        ),
+        String::new(),
+        format!("MTD Sales: {}", money(company.last_month_sales)),
+        format!(
+            "MTD Payroll Paid: {}",
+            money(company.last_month_payroll_paid)
+        ),
+        format!("MTD Profit: {}", money(company.last_month_profit)),
+        format!("Cash Balance: {}", money(company.cash_balance)),
+        format!(
+            "Loan Debt: {}",
+            money(company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
+        ),
+    ]
+}
+
+fn country_goods_summary_lines(world: &World, ui: &UiState) -> Vec<String> {
+    let Some(country) = ui.selected_country(world) else {
+        return vec!["No country is currently selected.".to_string()];
+    };
+
+    vec![
+        format!("Country: {} (Month {})", country.name, country.month),
+        format!(
+            "MTD Household Goods Spending: {}",
+            money(country.monthly_household_spending)
+        ),
+        format!(
+            "MTD Imported Goods Spending: {}",
+            money(country.monthly_goods_import_spending)
+        ),
+        format!(
+            "MTD Goods Export Revenue: {}",
+            money(country.monthly_goods_export_revenue)
+        ),
+        format!(
+            "MTD Tariffs Collected: {}",
+            money(country.monthly_tariff_collected)
+        ),
+        format!(
+            "MTD Essential Debt Spending: {}",
+            money(country.monthly_essential_debt_spending)
+        ),
+        format!(
+            "MTD Unmet Need Events: {}",
+            country.monthly_unmet_need_events
         ),
     ]
 }
@@ -339,6 +513,20 @@ fn chart_scope_label(world: &World, ui: &UiState) -> String {
             format!("Selected: {country_name}")
         }
         ChartScope::WorldAggregate => "World Aggregate".to_string(),
+    }
+}
+
+fn goods_mask_names(mask: u16) -> String {
+    let names = common_goods()
+        .iter()
+        .filter(|good| (mask & (1_u16 << good.id)) != 0)
+        .map(|good| good.name)
+        .collect::<Vec<_>>();
+
+    if names.is_empty() {
+        "None".to_string()
+    } else {
+        names.join(", ")
     }
 }
 

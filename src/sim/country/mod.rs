@@ -3,6 +3,7 @@ use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
     bank::{Bank, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, JobOpening},
+    good::GOODS_COUNT,
     job::{JobTypeId, job_is_eligible_for_habilitation},
     money::{from_cents, round_cents, to_cents},
     params::SimulationParams,
@@ -38,6 +39,12 @@ pub struct Country {
     pub treasury_balance: f64,
     pub monthly_tax_collected: f64,
     pub monthly_household_spending: f64,
+    pub monthly_tariff_collected: f64,
+    pub monthly_goods_import_spending: f64,
+    pub monthly_goods_export_revenue: f64,
+    pub monthly_unmet_need_events: u64,
+    pub monthly_essential_debt_spending: f64,
+    pub export_tariffs_by_good: [f64; GOODS_COUNT],
     pub initial_money_supply: f64,
     pub household_cash_total: f64,
     pub company_cash_total: f64,
@@ -92,6 +99,8 @@ impl Country {
             .max()
             .unwrap_or(0)
             .saturating_add(1);
+        let mut export_tariffs_by_good = [0.0; GOODS_COUNT];
+        export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
 
         let mut country = Self {
             id,
@@ -108,6 +117,12 @@ impl Country {
             treasury_balance: 0.0,
             monthly_tax_collected: 0.0,
             monthly_household_spending: 0.0,
+            monthly_tariff_collected: 0.0,
+            monthly_goods_import_spending: 0.0,
+            monthly_goods_export_revenue: 0.0,
+            monthly_unmet_need_events: 0,
+            monthly_essential_debt_spending: 0.0,
+            export_tariffs_by_good,
             initial_money_supply: round_cents(initial_money_supply),
             household_cash_total: 0.0,
             company_cash_total: 0.0,
@@ -141,9 +156,6 @@ impl Country {
 impl Tickable for Country {
     fn tick_day(&mut self) {
         self.tick_day_without_month();
-        if self.day.is_multiple_of(DAYS_PER_MONTH) {
-            self.process_month();
-        }
     }
 }
 

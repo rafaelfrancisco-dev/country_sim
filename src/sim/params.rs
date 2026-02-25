@@ -135,10 +135,38 @@ impl Default for CompanyGrowthParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct GoodsMarketParams {
+    pub tariff_rate: f64,
+    pub worker_effort_per_month: f64,
+    pub min_margin_rate: f64,
+    pub price_raise_rate: f64,
+    pub price_cut_rate: f64,
+    pub sell_through_raise_threshold: f64,
+    pub sell_through_cut_threshold: f64,
+    pub max_markup_multiple: f64,
+}
+
+impl Default for GoodsMarketParams {
+    fn default() -> Self {
+        Self {
+            tariff_rate: 0.15,
+            worker_effort_per_month: 24.0,
+            min_margin_rate: 0.05,
+            price_raise_rate: 0.05,
+            price_cut_rate: 0.05,
+            sell_through_raise_threshold: 0.90,
+            sell_through_cut_threshold: 0.70,
+            max_markup_multiple: 4.0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
     pub company_growth: CompanyGrowthParams,
+    pub goods_market: GoodsMarketParams,
 }

@@ -1,5 +1,7 @@
 use super::*;
 impl Country {
+    const MANUFACTURING_OPERATOR_JOB_ID: JobTypeId = 5;
+
     pub(super) fn run_daily_lifecycle(&mut self) {
         self.age_people_one_day();
         self.apply_daily_deaths();
@@ -203,14 +205,17 @@ impl Country {
             .people
             .par_chunks(PEOPLE_CHUNK_SIZE)
             .map(|chunk| {
-                let mut local = vec![0_u32; company_count];
+                let mut local = vec![(0_u32, 0_u32); company_count];
                 for person in chunk {
                     let Some(company_id) = person.employer_company_id() else {
                         continue;
                     };
                     let company_idx = company_id as usize;
-                    if let Some(count) = local.get_mut(company_idx) {
-                        *count = count.saturating_add(1);
+                    if let Some((headcount, manufacturing)) = local.get_mut(company_idx) {
+                        *headcount = headcount.saturating_add(1);
+                        if person.job_type_id() == Some(Self::MANUFACTURING_OPERATOR_JOB_ID) {
+                            *manufacturing = manufacturing.saturating_add(1);
+                        }
                     }
                 }
                 local
@@ -219,11 +224,15 @@ impl Country {
 
         for company in &mut self.companies {
             company.employee_count = 0;
+            company.manufacturing_employee_count = 0;
         }
         for local_counts in counts_by_chunk {
-            for (company_idx, count) in local_counts.into_iter().enumerate() {
+            for (company_idx, (count, manufacturing)) in local_counts.into_iter().enumerate() {
                 if let Some(company) = self.companies.get_mut(company_idx) {
                     company.employee_count = company.employee_count.saturating_add(count);
+                    company.manufacturing_employee_count = company
+                        .manufacturing_employee_count
+                        .saturating_add(manufacturing);
                 }
             }
         }

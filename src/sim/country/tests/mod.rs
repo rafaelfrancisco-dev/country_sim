@@ -75,6 +75,9 @@ fn month_processing_runs_every_thirty_days() {
     assert_eq!(country.month, 0);
 
     country.tick_day();
+    assert_eq!(country.month, 0);
+
+    country.process_month();
     assert_eq!(country.month, 1);
 }
 

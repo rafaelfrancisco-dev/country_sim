@@ -69,6 +69,7 @@ impl Simulation {
 
         let mut footer_text = match world.active_tab {
             RunningTab::Main => self.draw_main_tab(frame, body, world),
+            RunningTab::Goods => self.draw_goods_tab(frame, body, world),
             RunningTab::Charts => self.draw_charts_tab(frame, body, world),
         };
         if !world.invariant_warnings.is_empty() {
@@ -112,12 +113,17 @@ impl Simulation {
                 self.draw_country_details(frame, body, world);
                 "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
             }
+            DetailsView::Company => {
+                self.draw_company_details(frame, body, world);
+                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [q] quit".to_string()
+            }
         }
     }
 
     fn active_tab_label(&self, active_tab: RunningTab) -> &'static str {
         match active_tab {
             RunningTab::Main => "Main",
+            RunningTab::Goods => "Goods",
             RunningTab::Charts => "Charts",
         }
     }

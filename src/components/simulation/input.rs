@@ -33,23 +33,103 @@ impl Simulation {
                 return Some(SimulationCommand::Domain(GameCommand::StepOneDay));
             }
             KeyCode::Char(c)
-                if c.eq_ignore_ascii_case(&'t') && input_state.active_tab == RunningTab::Charts =>
+                if c.eq_ignore_ascii_case(&'c')
+                    && input_state.details_view == DetailsView::Person =>
             {
-                return Some(SimulationCommand::Ui(UiCommand::ToggleChartScope));
-            }
-            KeyCode::Char('<') if input_state.active_tab == RunningTab::Charts => {
-                return Some(SimulationCommand::Ui(UiCommand::ChartPrevCountry));
-            }
-            KeyCode::Char('>') if input_state.active_tab == RunningTab::Charts => {
-                return Some(SimulationCommand::Ui(UiCommand::ChartNextCountry));
+                return Some(SimulationCommand::Ui(UiCommand::JumpToEmployerCompany));
             }
             _ => {}
         }
 
-        if input_state.active_tab != RunningTab::Main {
-            return None;
+        match input_state.active_tab {
+            RunningTab::Charts => self.map_chart_key(key),
+            RunningTab::Goods => self.map_goods_key(key, input_state),
+            RunningTab::Main => self.map_main_key(key, input_state),
         }
+    }
 
+    fn map_chart_key(&self, key: KeyEvent) -> Option<SimulationCommand> {
+        match key.code {
+            KeyCode::Char(c) if c.eq_ignore_ascii_case(&'t') => {
+                Some(SimulationCommand::Ui(UiCommand::ToggleChartScope))
+            }
+            KeyCode::Char('<') => Some(SimulationCommand::Ui(UiCommand::ChartPrevCountry)),
+            KeyCode::Char('>') => Some(SimulationCommand::Ui(UiCommand::ChartNextCountry)),
+            _ => None,
+        }
+    }
+
+    fn map_goods_key(
+        &self,
+        key: KeyEvent,
+        input_state: RunningInputState,
+    ) -> Option<SimulationCommand> {
+        match key.code {
+            KeyCode::Left => Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection)),
+            KeyCode::Right => Some(SimulationCommand::Ui(UiCommand::FocusCompanySelection)),
+            KeyCode::Char('<') => Some(SimulationCommand::Ui(UiCommand::GoodsPrevCountry)),
+            KeyCode::Char('>') => Some(SimulationCommand::Ui(UiCommand::GoodsNextCountry)),
+            KeyCode::Up if input_state.details_view == DetailsView::List => {
+                match input_state.selection_focus {
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::SelectPrevCountryRow))
+                    }
+                    SelectionFocus::Company => {
+                        Some(SimulationCommand::Ui(UiCommand::SelectPrevCompanyRow))
+                    }
+                    SelectionFocus::People => None,
+                }
+            }
+            KeyCode::Down if input_state.details_view == DetailsView::List => {
+                match input_state.selection_focus {
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::SelectNextCountryRow))
+                    }
+                    SelectionFocus::Company => {
+                        Some(SimulationCommand::Ui(UiCommand::SelectNextCompanyRow))
+                    }
+                    SelectionFocus::People => None,
+                }
+            }
+            KeyCode::Enter
+                if input_state.details_view == DetailsView::List
+                    && input_state.selection_focus == SelectionFocus::Company =>
+            {
+                Some(SimulationCommand::Ui(UiCommand::OpenSelectedCompanyDetails))
+            }
+            KeyCode::Esc if input_state.details_view != DetailsView::List => {
+                Some(SimulationCommand::Ui(UiCommand::CloseDetails))
+            }
+            KeyCode::Char(c) => match c.to_ascii_lowercase() {
+                'j' => match input_state.selection_focus {
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::CountryPagePrev))
+                    }
+                    SelectionFocus::Company => {
+                        Some(SimulationCommand::Ui(UiCommand::CompanyPagePrev))
+                    }
+                    SelectionFocus::People => None,
+                },
+                'k' => match input_state.selection_focus {
+                    SelectionFocus::Country => {
+                        Some(SimulationCommand::Ui(UiCommand::CountryPageNext))
+                    }
+                    SelectionFocus::Company => {
+                        Some(SimulationCommand::Ui(UiCommand::CompanyPageNext))
+                    }
+                    SelectionFocus::People => None,
+                },
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn map_main_key(
+        &self,
+        key: KeyEvent,
+        input_state: RunningInputState,
+    ) -> Option<SimulationCommand> {
         match key.code {
             KeyCode::Left => Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection)),
             KeyCode::Right => Some(SimulationCommand::Ui(UiCommand::FocusPeopleSelection)),
@@ -61,6 +141,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectPrevPersonRow))
                     }
+                    SelectionFocus::Company => None,
                 }
             }
             KeyCode::Down if input_state.details_view == DetailsView::List => {
@@ -71,6 +152,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectNextPersonRow))
                     }
+                    SelectionFocus::Company => None,
                 }
             }
             KeyCode::Enter
@@ -96,6 +178,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePagePrev))
                     }
+                    SelectionFocus::Company => None,
                 },
                 'k' => match input_state.selection_focus {
                     SelectionFocus::Country => {
@@ -104,6 +187,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
                     }
+                    SelectionFocus::Company => None,
                 },
                 _ => None,
             },
@@ -152,6 +236,21 @@ mod tests {
         assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Char('t')), list_state),
             None
+        );
+    }
+
+    #[test]
+    fn running_keymap_maps_person_details_company_jump() {
+        let simulation = Simulation::new();
+        let state = RunningInputState {
+            details_view: DetailsView::Person,
+            selection_focus: SelectionFocus::People,
+            active_tab: RunningTab::Main,
+        };
+
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('c')), state),
+            Some(SimulationCommand::Ui(UiCommand::JumpToEmployerCompany))
         );
     }
 }

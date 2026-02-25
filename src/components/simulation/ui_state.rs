@@ -1,24 +1,28 @@
-use crate::sim::{UiCommand, person::Person, world::World};
+use crate::sim::{UiCommand, company::Company, person::Person, world::World};
 
 pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
+pub const COMPANY_PAGE_SIZE: usize = 12;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DetailsView {
     List,
     Person,
     Country,
+    Company,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SelectionFocus {
     Country,
     People,
+    Company,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RunningTab {
     Main,
+    Goods,
     Charts,
 }
 
@@ -37,6 +41,8 @@ pub struct UiState {
     pub selected_country: usize,
     pub people_page: usize,
     pub selected_person_row: usize,
+    pub company_page: usize,
+    pub selected_company_row: usize,
 }
 
 impl Default for UiState {
@@ -49,6 +55,8 @@ impl Default for UiState {
             selected_country: 0,
             people_page: 0,
             selected_person_row: 0,
+            company_page: 0,
+            selected_company_row: 0,
         }
     }
 }
@@ -59,22 +67,31 @@ impl UiState {
         match command {
             UiCommand::FocusCountrySelection => self.selection_focus = SelectionFocus::Country,
             UiCommand::FocusPeopleSelection => self.selection_focus = SelectionFocus::People,
+            UiCommand::FocusCompanySelection => self.selection_focus = SelectionFocus::Company,
             UiCommand::SelectPrevCountryRow => self.select_prev_country_row(world),
             UiCommand::SelectNextCountryRow => self.select_next_country_row(world),
             UiCommand::SelectPrevPersonRow => self.select_prev_person_row(world),
             UiCommand::SelectNextPersonRow => self.select_next_person_row(world),
+            UiCommand::SelectPrevCompanyRow => self.select_prev_company_row(world),
+            UiCommand::SelectNextCompanyRow => self.select_next_company_row(world),
             UiCommand::CountryPageNext => self.next_country_page(world),
             UiCommand::CountryPagePrev => self.prev_country_page(world),
             UiCommand::PeoplePageNext => self.next_people_page(world),
             UiCommand::PeoplePagePrev => self.prev_people_page(world),
+            UiCommand::CompanyPageNext => self.next_company_page(world),
+            UiCommand::CompanyPagePrev => self.prev_company_page(world),
             UiCommand::OpenSelectedPersonDetails => self.open_selected_person_details(world),
             UiCommand::OpenSelectedCountryDetails => self.open_selected_country_details(world),
+            UiCommand::OpenSelectedCompanyDetails => self.open_selected_company_details(world),
+            UiCommand::JumpToEmployerCompany => self.jump_to_employer_company(world),
             UiCommand::CloseDetails => self.details_view = DetailsView::List,
             UiCommand::NextTab => self.next_tab(),
             UiCommand::PrevTab => self.prev_tab(),
             UiCommand::ToggleChartScope => self.toggle_chart_scope(),
             UiCommand::ChartPrevCountry => self.select_prev_country_row(world),
             UiCommand::ChartNextCountry => self.select_next_country_row(world),
+            UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
+            UiCommand::GoodsNextCountry => self.select_next_country_row(world),
         }
     }
 
@@ -147,11 +164,56 @@ impl UiState {
             .get(self.selected_person_row)
     }
 
+    pub fn total_company_pages(&self, world: &World) -> usize {
+        let Some(country) = self.selected_country(world) else {
+            return 1;
+        };
+        if country.companies.is_empty() {
+            1
+        } else {
+            country.companies.len().div_ceil(COMPANY_PAGE_SIZE)
+        }
+    }
+
+    pub fn selected_companies_page<'a>(&self, world: &'a World) -> Option<&'a [Company]> {
+        let country = self.selected_country(world)?;
+        let len = country.companies.len();
+        if len == 0 {
+            return Some(&country.companies[0..0]);
+        }
+
+        let start = self.company_page.saturating_mul(COMPANY_PAGE_SIZE);
+        if start >= len {
+            return Some(&country.companies[0..0]);
+        }
+
+        let end = (start + COMPANY_PAGE_SIZE).min(len);
+        Some(&country.companies[start..end])
+    }
+
+    pub fn selected_companies_page_len(&self, world: &World) -> usize {
+        self.selected_companies_page(world)
+            .map_or(0, |page| page.len())
+    }
+
+    pub fn selected_company_on_page<'a>(&self, world: &'a World) -> Option<&'a Company> {
+        self.selected_companies_page(world)?
+            .get(self.selected_company_row)
+    }
+
+    pub fn selected_company_absolute_index(&self) -> usize {
+        self.company_page
+            .saturating_mul(COMPANY_PAGE_SIZE)
+            .saturating_add(self.selected_company_row)
+    }
+
     pub fn ensure_valid(&mut self, world: &World) {
         if world.countries.is_empty() {
             self.selected_country = 0;
             self.people_page = 0;
             self.selected_person_row = 0;
+            self.company_page = 0;
+            self.selected_company_row = 0;
             self.details_view = DetailsView::List;
             return;
         }
@@ -161,8 +223,17 @@ impl UiState {
         self.people_page = self.people_page.min(people_pages.saturating_sub(1));
         self.clamp_selected_person_row(world);
 
+        let company_pages = self.total_company_pages(world);
+        self.company_page = self.company_page.min(company_pages.saturating_sub(1));
+        self.clamp_selected_company_row(world);
+
         if matches!(self.details_view, DetailsView::Person)
             && self.selected_person_on_page(world).is_none()
+        {
+            self.details_view = DetailsView::List;
+        }
+        if matches!(self.details_view, DetailsView::Company)
+            && self.selected_company_on_page(world).is_none()
         {
             self.details_view = DetailsView::List;
         }
@@ -177,7 +248,7 @@ impl UiState {
         let max_index = world.countries.len().saturating_sub(1);
         if self.selected_country < max_index {
             self.selected_country += 1;
-            self.reset_people_navigation();
+            self.reset_country_dependent_navigation();
         }
     }
 
@@ -190,7 +261,7 @@ impl UiState {
         let prev = self.selected_country.saturating_sub(1);
         if prev != self.selected_country {
             self.selected_country = prev;
-            self.reset_people_navigation();
+            self.reset_country_dependent_navigation();
         }
     }
 
@@ -211,7 +282,7 @@ impl UiState {
         let next_index = (next_start + row_in_page).min(world.countries.len() - 1);
         if next_index != self.selected_country {
             self.selected_country = next_index;
-            self.reset_people_navigation();
+            self.reset_country_dependent_navigation();
         }
     }
 
@@ -232,7 +303,7 @@ impl UiState {
         let prev_index = (prev_start + row_in_page).min(world.countries.len() - 1);
         if prev_index != self.selected_country {
             self.selected_country = prev_index;
-            self.reset_people_navigation();
+            self.reset_country_dependent_navigation();
         }
     }
 
@@ -270,6 +341,40 @@ impl UiState {
         self.selected_person_row = self.selected_person_row.saturating_sub(1);
     }
 
+    fn next_company_page(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Company;
+        let max_page = self.total_company_pages(world).saturating_sub(1);
+        if self.company_page < max_page {
+            self.company_page += 1;
+        }
+        self.clamp_selected_company_row(world);
+    }
+
+    fn prev_company_page(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Company;
+        self.company_page = self.company_page.saturating_sub(1);
+        self.clamp_selected_company_row(world);
+    }
+
+    fn select_next_company_row(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Company;
+        let len = self.selected_companies_page_len(world);
+        if len == 0 {
+            self.selected_company_row = 0;
+            return;
+        }
+
+        let max_row = len.saturating_sub(1);
+        if self.selected_company_row < max_row {
+            self.selected_company_row += 1;
+        }
+    }
+
+    fn select_prev_company_row(&mut self, _world: &World) {
+        self.selection_focus = SelectionFocus::Company;
+        self.selected_company_row = self.selected_company_row.saturating_sub(1);
+    }
+
     fn open_selected_person_details(&mut self, world: &World) {
         if self.details_view != DetailsView::List {
             return;
@@ -290,15 +395,53 @@ impl UiState {
         }
     }
 
+    fn open_selected_company_details(&mut self, world: &World) {
+        if self.details_view != DetailsView::List {
+            return;
+        }
+
+        if self.selected_company_on_page(world).is_some() {
+            self.details_view = DetailsView::Company;
+            self.active_tab = RunningTab::Goods;
+            self.selection_focus = SelectionFocus::Company;
+        }
+    }
+
+    fn jump_to_employer_company(&mut self, world: &World) {
+        let Some(person) = self.selected_person_on_page(world) else {
+            return;
+        };
+        let Some(employer_company_id) = person.employer_company_id() else {
+            return;
+        };
+
+        self.active_tab = RunningTab::Goods;
+        self.selection_focus = SelectionFocus::Company;
+
+        let absolute_index = employer_company_id as usize;
+        self.company_page = absolute_index / COMPANY_PAGE_SIZE;
+        self.selected_company_row = absolute_index % COMPANY_PAGE_SIZE;
+        self.clamp_selected_company_row(world);
+
+        if self.selected_company_on_page(world).is_some() {
+            self.details_view = DetailsView::Company;
+        }
+    }
+
     fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
-            RunningTab::Main => RunningTab::Charts,
+            RunningTab::Main => RunningTab::Goods,
+            RunningTab::Goods => RunningTab::Charts,
             RunningTab::Charts => RunningTab::Main,
         };
     }
 
     fn prev_tab(&mut self) {
-        self.next_tab();
+        self.active_tab = match self.active_tab {
+            RunningTab::Main => RunningTab::Charts,
+            RunningTab::Goods => RunningTab::Main,
+            RunningTab::Charts => RunningTab::Goods,
+        };
     }
 
     fn toggle_chart_scope(&mut self) {
@@ -308,9 +451,11 @@ impl UiState {
         };
     }
 
-    fn reset_people_navigation(&mut self) {
+    fn reset_country_dependent_navigation(&mut self) {
         self.people_page = 0;
         self.selected_person_row = 0;
+        self.company_page = 0;
+        self.selected_company_row = 0;
         self.details_view = DetailsView::List;
     }
 
@@ -320,6 +465,15 @@ impl UiState {
             self.selected_person_row = 0;
         } else {
             self.selected_person_row = self.selected_person_row.min(len - 1);
+        }
+    }
+
+    fn clamp_selected_company_row(&mut self, world: &World) {
+        let len = self.selected_companies_page_len(world);
+        if len == 0 {
+            self.selected_company_row = 0;
+        } else {
+            self.selected_company_row = self.selected_company_row.min(len - 1);
         }
     }
 }

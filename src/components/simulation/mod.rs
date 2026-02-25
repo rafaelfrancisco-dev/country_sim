@@ -227,6 +227,6 @@ mod tests {
         let SnapshotPhase::Running(world) = simulation.snapshot_phase() else {
             panic!("running world should exist");
         };
-        assert_eq!(world.active_tab, RunningTab::Charts);
+        assert_eq!(world.active_tab, RunningTab::Goods);
     }
 }

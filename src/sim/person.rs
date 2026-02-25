@@ -74,6 +74,11 @@ pub struct Person {
     pub last_month_tax_paid: f64,
     pub last_month_net_pay: f64,
     pub last_month_spending: f64,
+    pub last_month_goods_spending: f64,
+    pub last_month_imported_goods_spending: f64,
+    pub last_month_goods_units_bought: u32,
+    pub last_month_needs_met_mask: u16,
+    pub last_month_unmet_needs_mask: u16,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
 }
@@ -113,6 +118,11 @@ impl Person {
             last_month_tax_paid: 0.0,
             last_month_net_pay: 0.0,
             last_month_spending: 0.0,
+            last_month_goods_spending: 0.0,
+            last_month_imported_goods_spending: 0.0,
+            last_month_goods_units_bought: 0,
+            last_month_needs_met_mask: 0,
+            last_month_unmet_needs_mask: 0,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
         };
@@ -211,6 +221,11 @@ impl Person {
         self.last_month_tax_paid = 0.0;
         self.last_month_net_pay = 0.0;
         self.last_month_spending = 0.0;
+        self.last_month_goods_spending = 0.0;
+        self.last_month_imported_goods_spending = 0.0;
+        self.last_month_goods_units_bought = 0;
+        self.last_month_needs_met_mask = 0;
+        self.last_month_unmet_needs_mask = 0;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
     }
@@ -246,12 +261,14 @@ mod tests {
         person.cash_balance = 50.0;
         person.last_month_gross_pay = 10.0;
         person.last_month_tax_paid = 2.0;
+        person.last_month_goods_spending = 33.0;
 
         person.reset_monthly_trackers();
 
         assert!((person.cash_balance - 50.0).abs() < f64::EPSILON);
         assert!((person.last_month_gross_pay - 0.0).abs() < f64::EPSILON);
         assert!((person.last_month_tax_paid - 0.0).abs() < f64::EPSILON);
+        assert!((person.last_month_goods_spending - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]
