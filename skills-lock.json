@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "m10-performance": {
+      "source": "zhanghandong/rust-skills",
+      "sourceType": "github",
+      "computedHash": "c0e093f630ec71079aa7a138af376821e3cc24dfb129f7162e82d854e26a1087"
+    },
     "rust-best-practices": {
       "source": "apollographql/skills",
       "sourceType": "github",

@@ -3,6 +3,7 @@ use crate::sim::{
     good::{GOODS_COUNT, GoodId, common_goods},
     money::{from_cents, round_cents, to_cents},
 };
+use rayon::prelude::*;
 
 const ESSENTIAL_GOODS_COUNT: u8 = 4;
 const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
@@ -22,6 +23,15 @@ struct SupplierRef {
     seller_country_idx: usize,
     seller_company_idx: usize,
     base_price_cents: i64,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct QuoteTemplate {
+    seller_country_idx: usize,
+    seller_company_idx: usize,
+    base_price_cents: i64,
+    tariff_cents: i64,
+    landed_price_cents: i64,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -129,13 +139,15 @@ impl World {
         let mut scratch = RoundRobinScratch::default();
 
         for good in common_goods() {
+            let quote_templates_by_buyer =
+                self.build_quote_templates_by_buyer(good.id, &suppliers_by_good[good.id as usize]);
             scratch.prepare_for_world(&self.countries);
             self.process_good_round_robin(
                 good.id,
                 good.necessity_rank,
                 start_country_idx,
                 &mut discretionary_budgets,
-                &suppliers_by_good[good.id as usize],
+                &quote_templates_by_buyer,
                 &mut scratch,
             );
         }
@@ -183,30 +195,29 @@ impl World {
     }
 
     fn initial_discretionary_budgets(&self) -> Vec<Vec<i64>> {
-        let mut budgets = Vec::with_capacity(self.countries.len());
+        self.countries
+            .par_iter()
+            .map(|country| {
+                let month = country.month.saturating_add(1);
+                let country_id = country.id;
+                let mut country_budgets = Vec::with_capacity(country.people.len());
 
-        for country in &self.countries {
-            let month = country.month.saturating_add(1);
-            let country_id = country.id;
-            let mut country_budgets = Vec::with_capacity(country.people.len());
+                for person in &country.people {
+                    let budget_seed = hash64(
+                        (u64::from(country_id) << 48)
+                            ^ (month << 24)
+                            ^ u64::from(person.id)
+                            ^ u64::from(person.name_seed),
+                    );
+                    let spend_percent = 5.0 + (budget_seed % 11) as f64;
+                    country_budgets.push(to_cents(
+                        person.cash_balance.max(0.0) * spend_percent / 100.0 / 30.0,
+                    ));
+                }
 
-            for person in &country.people {
-                let budget_seed = hash64(
-                    (u64::from(country_id) << 48)
-                        ^ (month << 24)
-                        ^ u64::from(person.id)
-                        ^ u64::from(person.name_seed),
-                );
-                let spend_percent = 5.0 + (budget_seed % 11) as f64;
-                country_budgets.push(to_cents(
-                    person.cash_balance.max(0.0) * spend_percent / 100.0 / 30.0,
-                ));
-            }
-
-            budgets.push(country_budgets);
-        }
-
-        budgets
+                country_budgets
+            })
+            .collect()
     }
 
     fn process_good_round_robin(
@@ -215,7 +226,7 @@ impl World {
         necessity_rank: u8,
         start_country_idx: usize,
         discretionary_budgets: &mut [Vec<i64>],
-        supplier_refs: &[SupplierRef],
+        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
         scratch: &mut RoundRobinScratch,
     ) {
         let country_count = self.countries.len();
@@ -266,7 +277,7 @@ impl World {
                     match self.try_purchase_one_unit(
                         buyer_country_idx,
                         person_idx,
-                        supplier_refs,
+                        quote_templates_by_buyer,
                         essential,
                         budget,
                     ) {
@@ -310,11 +321,12 @@ impl World {
         &mut self,
         buyer_country_idx: usize,
         person_idx: usize,
-        supplier_refs: &[SupplierRef],
+        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
         essential: bool,
         discretionary_budget_cents: &mut i64,
     ) -> PurchaseAttempt {
-        let Some(quote) = self.find_cheapest_supplier(supplier_refs, buyer_country_idx) else {
+        let Some(quote) = self.find_cheapest_supplier(quote_templates_by_buyer, buyer_country_idx)
+        else {
             return PurchaseAttempt::Unmet;
         };
 
@@ -339,66 +351,30 @@ impl World {
 
     fn find_cheapest_supplier(
         &self,
-        supplier_refs: &[SupplierRef],
+        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
         buyer_country_idx: usize,
     ) -> Option<SellerQuote> {
-        let mut best_quote: Option<SellerQuote> = None;
-
-        for supplier in supplier_refs {
-            let Some(country) = self.countries.get(supplier.seller_country_idx) else {
+        let buyer_templates = quote_templates_by_buyer.get(buyer_country_idx)?;
+        for template in buyer_templates {
+            let Some(country) = self.countries.get(template.seller_country_idx) else {
                 continue;
             };
-            let Some(company) = country.companies.get(supplier.seller_company_idx) else {
+            let Some(company) = country.companies.get(template.seller_company_idx) else {
                 continue;
             };
             if company.inventory_units == 0 {
                 continue;
             }
 
-            let tariff_cents = if supplier.seller_country_idx == buyer_country_idx {
-                0
-            } else {
-                let good_idx = company.produced_good_id as usize;
-                let tariff_rate = country
-                    .export_tariffs_by_good
-                    .get(good_idx)
-                    .copied()
-                    .unwrap_or(0.0);
-                to_cents(from_cents(supplier.base_price_cents) * tariff_rate)
-            };
-            let landed_price_cents = supplier.base_price_cents.saturating_add(tariff_cents);
-
-            let candidate = SellerQuote {
-                seller_country_idx: supplier.seller_country_idx,
-                seller_company_idx: supplier.seller_company_idx,
-                base_price_cents: supplier.base_price_cents,
-                tariff_cents,
-                landed_price_cents,
-            };
-
-            let is_better = match best_quote {
-                None => true,
-                Some(current) => {
-                    (
-                        candidate.landed_price_cents,
-                        candidate.base_price_cents,
-                        candidate.seller_country_idx,
-                        candidate.seller_company_idx,
-                    ) < (
-                        current.landed_price_cents,
-                        current.base_price_cents,
-                        current.seller_country_idx,
-                        current.seller_company_idx,
-                    )
-                }
-            };
-
-            if is_better {
-                best_quote = Some(candidate);
-            }
+            return Some(SellerQuote {
+                seller_country_idx: template.seller_country_idx,
+                seller_company_idx: template.seller_company_idx,
+                base_price_cents: template.base_price_cents,
+                tariff_cents: template.tariff_cents,
+                landed_price_cents: template.landed_price_cents,
+            });
         }
-
-        best_quote
+        None
     }
 
     fn build_suppliers_by_good(&self) -> Vec<Vec<SupplierRef>> {
@@ -425,6 +401,53 @@ impl World {
         }
 
         suppliers_by_good
+    }
+
+    fn build_quote_templates_by_buyer(
+        &self,
+        good_id: GoodId,
+        supplier_refs: &[SupplierRef],
+    ) -> Vec<Vec<QuoteTemplate>> {
+        let country_count = self.countries.len();
+        (0..country_count)
+            .map(|buyer_country_idx| {
+                let mut templates = supplier_refs
+                    .iter()
+                    .map(|supplier| {
+                        let tariff_cents = if supplier.seller_country_idx == buyer_country_idx {
+                            0
+                        } else {
+                            let tariff_rate = self.countries[supplier.seller_country_idx]
+                                .export_tariffs_by_good
+                                .get(good_id as usize)
+                                .copied()
+                                .unwrap_or(0.0);
+                            to_cents(from_cents(supplier.base_price_cents) * tariff_rate)
+                        };
+                        let landed_price_cents =
+                            supplier.base_price_cents.saturating_add(tariff_cents);
+
+                        QuoteTemplate {
+                            seller_country_idx: supplier.seller_country_idx,
+                            seller_company_idx: supplier.seller_company_idx,
+                            base_price_cents: supplier.base_price_cents,
+                            tariff_cents,
+                            landed_price_cents,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                templates.sort_by_key(|template| {
+                    (
+                        template.landed_price_cents,
+                        template.base_price_cents,
+                        template.seller_country_idx,
+                        template.seller_company_idx,
+                    )
+                });
+                templates
+            })
+            .collect()
     }
 
     fn execute_goods_purchase(

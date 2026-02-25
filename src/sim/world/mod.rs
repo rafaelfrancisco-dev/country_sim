@@ -6,7 +6,6 @@ use rayon::prelude::*;
 use super::{country::Country, country::DAYS_PER_MONTH, tickable::Tickable};
 
 pub const HISTORY_LIMIT: usize = 120;
-const COUNTRY_CHUNK_SIZE: usize = 8;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct MetricPoint {
@@ -107,33 +106,19 @@ impl Tickable for World {
     fn tick_day(&mut self) {
         self.day = self.day.saturating_add(1);
 
-        self.countries
-            .par_chunks_mut(COUNTRY_CHUNK_SIZE)
-            .for_each(|chunk| {
-                for country in chunk {
-                    country.tick_day();
-                }
-            });
+        self.countries.par_iter_mut().for_each(Country::tick_day);
 
         self.run_daily_goods_economy();
 
         if self.day.is_multiple_of(DAYS_PER_MONTH) {
             self.countries
-                .par_chunks_mut(COUNTRY_CHUNK_SIZE)
-                .for_each(|chunk| {
-                    for country in chunk {
-                        country.process_month_end();
-                    }
-                });
+                .par_iter_mut()
+                .for_each(Country::process_month_end);
             self.adjust_dynamic_country_tariffs();
             self.capture_snapshot();
             self.countries
-                .par_chunks_mut(COUNTRY_CHUNK_SIZE)
-                .for_each(|chunk| {
-                    for country in chunk {
-                        country.reset_month_trackers();
-                    }
-                });
+                .par_iter_mut()
+                .for_each(Country::reset_month_trackers);
         }
     }
 }
