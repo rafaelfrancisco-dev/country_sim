@@ -3,7 +3,6 @@ use crate::{
         ChartScope, DetailsView, EventsSort, RunningTab, SelectionFocus, UiState,
     },
     sim::{
-        GameEngine, GamePhase,
         good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,
@@ -11,6 +10,7 @@ use crate::{
         setup::SetupField,
         stock_market::StockRowSnapshot,
         world::{MetricPoint, World},
+        GameEngine, GamePhase,
     },
 };
 
@@ -109,6 +109,7 @@ pub(super) struct RunningSnapshot {
     pub company_employee_history: Vec<f64>,
     pub company_price_history: Vec<f64>,
     pub company_loan_payment_history: Vec<f64>,
+    pub company_money_history: Vec<f64>,
     pub country_goods_summary_lines: Vec<String>,
     pub chart_scope_label: String,
     pub chart_history: Vec<MetricPoint>,
@@ -319,6 +320,7 @@ impl UiSnapshot {
             company_employee_history,
             company_price_history,
             company_loan_payment_history,
+            company_money_history,
         ) = selected_company_histories(world, &ui);
         let country_goods_summary_lines = country_goods_summary_lines(world, &ui);
         let (
@@ -390,6 +392,7 @@ impl UiSnapshot {
             company_employee_history,
             company_price_history,
             company_loan_payment_history,
+            company_money_history,
             country_goods_summary_lines,
             chart_scope_label,
             chart_history,
@@ -621,7 +624,7 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             money(company.last_month_loan_payment)
         ),
         format!("MTD New Loan: {}", money(company.last_month_new_loan)),
-        format!("Cash Balance: {}", money(company.cash_balance)),
+        format!("Current Money: {}", money(company.cash_balance)),
         format!(
             "Loan Debt: {}",
             money(company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
@@ -632,9 +635,9 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
 fn selected_company_histories(
     world: &World,
     ui: &UiState,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
     let Some(company) = ui.selected_company_on_page(world) else {
-        return (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     };
 
     (
@@ -650,6 +653,7 @@ fn selected_company_histories(
             .collect(),
         company.price_history.clone(),
         company.loan_payment_history.clone(),
+        company.cash_balance_history.clone(),
     )
 }
 
@@ -741,14 +745,8 @@ fn build_stock_tab_data(
     // Summary panel
     let summary_lines = vec![
         format!("Country: {} (Month {})", country.name, country.month),
-        format!(
-            "Market Cap: {}",
-            money(market.total_market_cap())
-        ),
-        format!(
-            "Listed Companies: {}",
-            market.listed_count()
-        ),
+        format!("Market Cap: {}", money(market.total_market_cap())),
+        format!("Listed Companies: {}", market.listed_count()),
         format!(
             "Bank Equity Exposure: {}",
             money(market.bank_equity_exposure())

@@ -1,7 +1,7 @@
 use super::{
     bank::LoanAccount,
-    good::{GoodId, common_goods, good_by_id},
-    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
+    good::{common_goods, good_by_id, GoodId},
+    job::{common_job_types, job_by_id, salary_for_job, JobTypeId},
     money::round_cents,
     params::{GoodsMarketParams, SimulationParams},
 };
@@ -51,6 +51,7 @@ pub struct Company {
     pub employee_count_history: Vec<u32>,
     pub price_history: Vec<f64>,
     pub loan_payment_history: Vec<f64>,
+    pub cash_balance_history: Vec<f64>,
     pub loan: Option<LoanAccount>,
 }
 
@@ -99,6 +100,7 @@ impl Company {
             employee_count_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             price_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             loan_payment_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            cash_balance_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             loan: None,
         }
     }
@@ -230,6 +232,11 @@ impl Company {
         Self::push_history_f64(
             &mut self.loan_payment_history,
             round_cents(self.last_month_loan_payment),
+            COMPANY_HISTORY_WINDOW,
+        );
+        Self::push_history_f64(
+            &mut self.cash_balance_history,
+            round_cents(self.cash_balance),
             COMPANY_HISTORY_WINDOW,
         );
     }
@@ -377,11 +384,9 @@ mod tests {
         let companies = build_default_companies("A", 2);
 
         assert_eq!(companies.len(), 2);
-        assert!(
-            companies
-                .iter()
-                .all(|company| company.offered_job_types.len() > 1)
-        );
+        assert!(companies
+            .iter()
+            .all(|company| company.offered_job_types.len() > 1));
     }
 
     #[test]

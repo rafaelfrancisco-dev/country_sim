@@ -1,13 +1,13 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
     widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
+    Frame,
 };
 
-use super::super::{Simulation, theme};
+use super::super::{theme, Simulation};
 use crate::components::simulation::{
     snapshot::RunningSnapshot,
     ui_state::{DetailsView, SelectionFocus},
@@ -198,13 +198,19 @@ impl Simulation {
             details_area,
         );
 
-        let [charts_top, charts_bottom] =
-            Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(charts_area);
+        let [charts_top, charts_mid, charts_bottom] = Layout::vertical([
+            Constraint::Percentage(34),
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+        ])
+        .areas(charts_area);
         let [sold_area, employee_area] =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(charts_top);
         let [price_area, loan_area] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(charts_mid);
+        let [money_area, spare_area] =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(charts_bottom);
 
@@ -239,6 +245,26 @@ impl Simulation {
             "Loan Payments History",
             Color::LightMagenta,
             true,
+        );
+        self.draw_company_history_chart(
+            frame,
+            money_area,
+            world.company_money_history.as_slice(),
+            "Money History",
+            Color::LightGreen,
+            true,
+        );
+        frame.render_widget(
+            Paragraph::new("")
+                .style(theme::muted_text().bg(theme::PANEL_BG))
+                .block(
+                    Block::default()
+                        .title(" ")
+                        .borders(Borders::ALL)
+                        .border_style(theme::neutral_border())
+                        .style(Style::default().bg(theme::PANEL_BG)),
+                ),
+            spare_area,
         );
     }
 
