@@ -96,6 +96,45 @@ pub enum SimEvent {
         principal_written_off: f64,
         day: u64,
     },
+    StockIpo {
+        country_name: String,
+        company_id: u16,
+        company_name: String,
+        ticker: String,
+        shares_issued: u64,
+        price_per_share: f64,
+        total_raised: f64,
+        day: u64,
+    },
+    StockDividend {
+        country_name: String,
+        company_id: u16,
+        ticker: String,
+        total_amount: f64,
+        per_share: f64,
+        day: u64,
+    },
+    StockMarginCall {
+        country_name: String,
+        person_id: u32,
+        shares_liquidated: u64,
+        proceeds: f64,
+        day: u64,
+    },
+    StockDelisted {
+        country_name: String,
+        company_id: u16,
+        company_name: String,
+        shares_wiped: u64,
+        day: u64,
+    },
+    StockMarketClose {
+        country_name: String,
+        day: u64,
+        total_market_cap: f64,
+        total_turnover: f64,
+        listed_count: usize,
+    },
 }
 
 impl SimEvent {
@@ -237,6 +276,65 @@ impl SimEvent {
             } => {
                 format!(
                     "[BANKR] Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) bankrupt, {laid_off_count} laid off, ${principal_written_off:.2} written off"
+                )
+            }
+            Self::StockIpo {
+                country_name,
+                company_id,
+                company_name,
+                ticker,
+                shares_issued,
+                price_per_share,
+                total_raised,
+                day,
+            } => {
+                format!(
+                    "[IPO]   Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) listed as {ticker}, {shares_issued} shares @ ${price_per_share:.2}, raised ${total_raised:.2}"
+                )
+            }
+            Self::StockDividend {
+                country_name,
+                company_id,
+                ticker,
+                total_amount,
+                per_share,
+                day,
+            } => {
+                format!(
+                    "[DIV]   Day {day:>6} | {country_name}: {ticker} (#{company_id}) paid ${total_amount:.2} dividends (${per_share:.4}/share)"
+                )
+            }
+            Self::StockMarginCall {
+                country_name,
+                person_id,
+                shares_liquidated,
+                proceeds,
+                day,
+            } => {
+                format!(
+                    "[MARGN] Day {day:>6} | {country_name}: Person #{person_id} margin call, {shares_liquidated} shares liquidated for ${proceeds:.2}"
+                )
+            }
+            Self::StockDelisted {
+                country_name,
+                company_id,
+                company_name,
+                shares_wiped,
+                day,
+            } => {
+                format!(
+                    "[DELIST] Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) delisted, {shares_wiped} shares wiped"
+                )
+            }
+            Self::StockMarketClose {
+                country_name,
+                day,
+                total_market_cap,
+                total_turnover,
+                listed_count,
+            } => {
+                format!(
+                    "[STK]   Day {day:>6} | {country_name}: Market close — cap ${total_market_cap:.2}, turnover ${total_turnover:.2}, {listed_count} listed"
                 )
             }
         }

@@ -17,12 +17,14 @@ pub enum SelectionFocus {
     Country,
     People,
     Company,
+    Stock,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RunningTab {
     Main,
     Goods,
+    Stocks,
     Charts,
     Events,
 }
@@ -54,6 +56,8 @@ pub struct UiState {
     pub events_sort: EventsSort,
     pub events_search_active: bool,
     pub events_search_query: String,
+    pub stock_selected_row: usize,
+    pub stock_page: usize,
 }
 
 impl Default for UiState {
@@ -72,6 +76,8 @@ impl Default for UiState {
             events_sort: EventsSort::NewestFirst,
             events_search_active: false,
             events_search_query: String::new(),
+            stock_selected_row: 0,
+            stock_page: 0,
         }
     }
 }
@@ -131,6 +137,28 @@ impl UiState {
             }
             UiCommand::EventsSearchClear => {
                 self.events_search_query.clear();
+            }
+            UiCommand::StocksPrevCountry => self.select_prev_country_row(world),
+            UiCommand::StocksNextCountry => self.select_next_country_row(world),
+            UiCommand::StocksFocusCountry => {
+                self.selection_focus = SelectionFocus::Country;
+            }
+            UiCommand::StocksFocusTable => {
+                self.selection_focus = SelectionFocus::Stock;
+            }
+            UiCommand::StocksPrevRow => {
+                self.stock_selected_row = self.stock_selected_row.saturating_sub(1);
+            }
+            UiCommand::StocksNextRow => {
+                self.stock_selected_row = self.stock_selected_row.saturating_add(1);
+            }
+            UiCommand::StocksPagePrev => {
+                self.stock_page = self.stock_page.saturating_sub(1);
+                self.stock_selected_row = 0;
+            }
+            UiCommand::StocksPageNext => {
+                self.stock_page = self.stock_page.saturating_add(1);
+                self.stock_selected_row = 0;
             }
         }
     }
@@ -471,7 +499,8 @@ impl UiState {
     fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
             RunningTab::Main => RunningTab::Goods,
-            RunningTab::Goods => RunningTab::Charts,
+            RunningTab::Goods => RunningTab::Stocks,
+            RunningTab::Stocks => RunningTab::Charts,
             RunningTab::Charts => RunningTab::Events,
             RunningTab::Events => RunningTab::Main,
         };
@@ -481,7 +510,8 @@ impl UiState {
         self.active_tab = match self.active_tab {
             RunningTab::Main => RunningTab::Events,
             RunningTab::Goods => RunningTab::Main,
-            RunningTab::Charts => RunningTab::Goods,
+            RunningTab::Stocks => RunningTab::Goods,
+            RunningTab::Charts => RunningTab::Stocks,
             RunningTab::Events => RunningTab::Charts,
         };
     }

@@ -1,5 +1,6 @@
 mod goods_market;
 mod history;
+mod stock_market;
 
 use rayon::prelude::*;
 
@@ -138,6 +139,7 @@ impl Tickable for World {
         self.countries.par_iter_mut().for_each(Country::tick_day);
 
         self.run_daily_goods_economy();
+        self.run_daily_stock_market();
 
         if self.day.is_multiple_of(DAYS_PER_MONTH) {
             self.countries

@@ -35,4 +35,12 @@ pub enum UiCommand {
     EventsSearchChar(char),
     EventsSearchBackspace,
     EventsSearchClear,
+    StocksPrevCountry,
+    StocksNextCountry,
+    StocksFocusCountry,
+    StocksFocusTable,
+    StocksPrevRow,
+    StocksNextRow,
+    StocksPagePrev,
+    StocksPageNext,
 }

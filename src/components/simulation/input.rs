@@ -48,6 +48,7 @@ impl Simulation {
             RunningTab::Charts => self.map_chart_key(key),
             RunningTab::Goods => self.map_goods_key(key, input_state),
             RunningTab::Main => self.map_main_key(key, input_state),
+            RunningTab::Stocks => self.map_stocks_key(key, input_state),
             RunningTab::Events => self.map_events_key(key, input_state),
         }
     }
@@ -81,7 +82,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::SelectPrevCompanyRow))
                     }
-                    SelectionFocus::People => None,
+                    SelectionFocus::People | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Down if input_state.details_view == DetailsView::List => {
@@ -92,7 +93,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::SelectNextCompanyRow))
                     }
-                    SelectionFocus::People => None,
+                    SelectionFocus::People | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Enter
@@ -112,7 +113,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::CompanyPagePrev))
                     }
-                    SelectionFocus::People => None,
+                    SelectionFocus::People | SelectionFocus::Stock => None,
                 },
                 'k' => match input_state.selection_focus {
                     SelectionFocus::Country => {
@@ -121,8 +122,39 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::CompanyPageNext))
                     }
-                    SelectionFocus::People => None,
+                    SelectionFocus::People | SelectionFocus::Stock => None,
                 },
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn map_stocks_key(
+        &self,
+        key: KeyEvent,
+        input_state: RunningInputState,
+    ) -> Option<SimulationCommand> {
+        match key.code {
+            KeyCode::Left => Some(SimulationCommand::Ui(UiCommand::StocksFocusCountry)),
+            KeyCode::Right => Some(SimulationCommand::Ui(UiCommand::StocksFocusTable)),
+            KeyCode::Char('<') => Some(SimulationCommand::Ui(UiCommand::StocksPrevCountry)),
+            KeyCode::Char('>') => Some(SimulationCommand::Ui(UiCommand::StocksNextCountry)),
+            KeyCode::Up => match input_state.selection_focus {
+                SelectionFocus::Country => {
+                    Some(SimulationCommand::Ui(UiCommand::SelectPrevCountryRow))
+                }
+                _ => Some(SimulationCommand::Ui(UiCommand::StocksPrevRow)),
+            },
+            KeyCode::Down => match input_state.selection_focus {
+                SelectionFocus::Country => {
+                    Some(SimulationCommand::Ui(UiCommand::SelectNextCountryRow))
+                }
+                _ => Some(SimulationCommand::Ui(UiCommand::StocksNextRow)),
+            },
+            KeyCode::Char(c) => match c.to_ascii_lowercase() {
+                'j' => Some(SimulationCommand::Ui(UiCommand::StocksPagePrev)),
+                'k' => Some(SimulationCommand::Ui(UiCommand::StocksPageNext)),
                 _ => None,
             },
             _ => None,
@@ -173,7 +205,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectPrevPersonRow))
                     }
-                    SelectionFocus::Company => None,
+                    SelectionFocus::Company | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Down if input_state.details_view == DetailsView::List => {
@@ -184,7 +216,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectNextPersonRow))
                     }
-                    SelectionFocus::Company => None,
+                    SelectionFocus::Company | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Enter
@@ -210,7 +242,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePagePrev))
                     }
-                    SelectionFocus::Company => None,
+                    SelectionFocus::Company | SelectionFocus::Stock => None,
                 },
                 'k' => match input_state.selection_focus {
                     SelectionFocus::Country => {
@@ -219,7 +251,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
                     }
-                    SelectionFocus::Company => None,
+                    SelectionFocus::Company | SelectionFocus::Stock => None,
                 },
                 _ => None,
             },

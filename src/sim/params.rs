@@ -285,6 +285,49 @@ impl Default for GovernmentBackfillParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct StockMarketParams {
+    pub enabled: bool,
+    /// Max participants sampled per day per country.
+    pub daily_participant_cap: usize,
+    /// Fraction of cash a person must keep as reserve before buying stocks.
+    pub investor_cash_reserve_ratio: f64,
+    /// Max fraction of new shares (dilution) allowed in an IPO.
+    pub ipo_max_dilution: f64,
+    /// Initial shares outstanding issued at IPO.
+    pub ipo_initial_shares: u64,
+    /// Fraction of last-month profit paid as dividends.
+    pub dividend_payout_ratio: f64,
+    /// Company must have at least this many months of cash runway to pay dividends.
+    pub dividend_min_runway_months: f64,
+    /// Discount applied to last price when bank force-liquidates pledged shares.
+    pub margin_liquidation_discount: f64,
+    /// Max fraction of bank reserves the bank may deploy in equity.
+    pub bank_max_equity_reserve_fraction: f64,
+    /// Number of the largest companies to list at simulation start (0 = none).
+    pub initial_listing_count: usize,
+    /// Free-float fraction of initial_shares sold to investors at seed IPO.
+    pub initial_float_fraction: f64,
+}
+
+impl Default for StockMarketParams {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            daily_participant_cap: 200,
+            investor_cash_reserve_ratio: 0.30,
+            ipo_max_dilution: 0.30,
+            ipo_initial_shares: 1_000_000,
+            dividend_payout_ratio: 0.40,
+            dividend_min_runway_months: 3.0,
+            margin_liquidation_discount: 0.05,
+            bank_max_equity_reserve_fraction: 0.10,
+            initial_listing_count: 5,
+            initial_float_fraction: 0.20,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
@@ -297,6 +340,7 @@ pub struct SimulationParams {
     pub goods_market: GoodsMarketParams,
     pub fiscal: FiscalParams,
     pub government_backfill: GovernmentBackfillParams,
+    pub stock_market: StockMarketParams,
 }
 
 #[cfg(test)]

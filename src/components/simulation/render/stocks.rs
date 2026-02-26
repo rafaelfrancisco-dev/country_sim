@@ -1,0 +1,239 @@
+use ratatui::{
+    Frame,
+    layout::{Constraint, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{
+        Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap,
+    },
+    symbols,
+};
+
+use super::super::{Simulation, theme};
+use crate::components::simulation::snapshot::RunningSnapshot;
+
+
+impl Simulation {
+    pub(in crate::components::simulation) fn draw_stocks_tab(
+        &self,
+        frame: &mut Frame,
+        body: Rect,
+        world: &RunningSnapshot,
+    ) -> String {
+        let [top, bottom] =
+            Layout::vertical([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(body);
+
+        let [summary_area, table_area] =
+            Layout::horizontal([Constraint::Length(36), Constraint::Min(0)]).areas(top);
+
+        self.draw_stock_summary(frame, summary_area, world);
+        self.draw_stock_table(frame, table_area, world);
+        self.draw_stock_charts(frame, bottom, world);
+
+        format!(
+            "Controls: [Tab/Shift+Tab] switch tab  [</>] cycle country  [←/→] focus country/table  [↑/↓] move row  [j/k] page  [Space] pause/resume  [q] quit | Listed: {}",
+            world.stock_rows.len()
+        )
+    }
+
+    fn draw_stock_summary(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+        let block = Block::default()
+            .title(" Market Summary ")
+            .borders(Borders::ALL)
+            .border_style(theme::neutral_border());
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        let lines: Vec<Line> = world
+            .stock_summary_lines
+            .iter()
+            .map(|l| Line::from(Span::styled(l.as_str(), theme::primary_text())))
+            .collect();
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    }
+
+    fn draw_stock_table(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+        let block = Block::default()
+            .title(" Listed Companies ")
+            .borders(Borders::ALL)
+            .border_style(theme::neutral_border());
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        if world.stock_rows.is_empty() {
+            frame.render_widget(
+                Paragraph::new("No listed companies yet. IPOs occur when distressed companies cannot secure debt financing.")
+                    .style(theme::muted_text())
+                    .wrap(Wrap { trim: true }),
+                inner,
+            );
+            return;
+        }
+
+        let header = Row::new(vec![
+            "Ticker", "Company", "Price", "Day%", "Mkt Cap", "Vol", "Float", "Bank%",
+        ])
+        .style(
+            Style::default()
+                .fg(theme::TEXT_PRIMARY)
+                .add_modifier(Modifier::BOLD),
+        );
+
+        let rows: Vec<Row> = world
+            .stock_rows
+            .iter()
+            .map(|r| {
+                let day_style = if r.day_pct.starts_with('+') {
+                    Style::default().fg(Color::Green)
+                } else if r.day_pct.starts_with('-') {
+                    Style::default().fg(Color::Red)
+                } else {
+                    theme::primary_text()
+                };
+
+                let row_style = if r.is_selected {
+                    Style::default()
+                        .bg(theme::HIGHLIGHT_BG)
+                        .fg(theme::TEXT_PRIMARY)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
+
+                Row::new(vec![
+                    ratatui::text::Text::from(r.ticker.as_str()),
+                    ratatui::text::Text::from(r.company_name.as_str()),
+                    ratatui::text::Text::from(r.last_price.as_str()),
+                    ratatui::text::Text::styled(r.day_pct.as_str(), day_style),
+                    ratatui::text::Text::from(r.market_cap.as_str()),
+                    ratatui::text::Text::from(r.volume.as_str()),
+                    ratatui::text::Text::from(r.float_shares.as_str()),
+                    ratatui::text::Text::from(r.bank_pct.as_str()),
+                ])
+                .style(row_style)
+            })
+            .collect();
+
+        let widths = [
+            Constraint::Length(6),
+            Constraint::Min(12),
+            Constraint::Length(8),
+            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(7),
+            Constraint::Length(7),
+            Constraint::Length(6),
+        ];
+
+        let table = Table::new(rows, widths)
+            .header(header)
+            .block(Block::default());
+        frame.render_widget(table, inner);
+    }
+
+    fn draw_stock_charts(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+        let [left, right] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(area);
+
+        let [price_area, volume_area] =
+            Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(left);
+
+        let [index_area, bank_area] =
+            Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(right);
+
+        self.draw_stock_chart_f64(
+            frame,
+            price_area,
+            " Selected Stock Price ",
+            &world.stock_selected_index_price_history,
+            Color::Cyan,
+        );
+        self.draw_stock_chart_f64(
+            frame,
+            volume_area,
+            " Selected Stock Volume ",
+            &world.stock_selected_index_volume_history,
+            Color::Yellow,
+        );
+        self.draw_stock_chart_f64(
+            frame,
+            index_area,
+            " Country Stock Index ",
+            &world.stock_country_index_history,
+            Color::Green,
+        );
+        self.draw_stock_chart_f64(
+            frame,
+            bank_area,
+            " Bank Equity Exposure ",
+            &world.stock_bank_exposure_history,
+            Color::Magenta,
+        );
+    }
+
+    fn draw_stock_chart_f64(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        title: &str,
+        data: &[f64],
+        color: Color,
+    ) {
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(theme::neutral_border());
+
+        if data.is_empty() {
+            frame.render_widget(
+                Paragraph::new("No data yet")
+                    .style(theme::muted_text())
+                    .block(block),
+                area,
+            );
+            return;
+        }
+
+        let min = data.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max = data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let padding = ((max - min) * 0.1).max(1.0);
+        let y_min = (min - padding).max(0.0);
+        let y_max = max + padding;
+
+        let points: Vec<(f64, f64)> = data
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| (i as f64, v))
+            .collect();
+
+        let dataset = Dataset::default()
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(color))
+            .data(&points);
+
+        let x_labels = vec![
+            ratatui::text::Span::raw("0"),
+            ratatui::text::Span::raw(data.len().to_string()),
+        ];
+        let y_labels = vec![
+            ratatui::text::Span::raw(format!("{y_min:.0}")),
+            ratatui::text::Span::raw(format!("{y_max:.0}")),
+        ];
+
+        let chart = Chart::new(vec![dataset])
+            .block(block)
+            .x_axis(
+                Axis::default()
+                    .bounds([0.0, data.len() as f64])
+                    .labels(x_labels),
+            )
+            .y_axis(
+                Axis::default()
+                    .bounds([y_min, y_max])
+                    .labels(y_labels),
+            );
+
+        frame.render_widget(chart, area);
+    }
+}

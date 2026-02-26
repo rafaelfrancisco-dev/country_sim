@@ -120,14 +120,16 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
         seed_balances_to_people(&mut people, household_supply);
         seed_balances_to_companies(&mut companies, company_supply);
 
-        countries.push(Country::with_economy_and_params(
+        let mut country = Country::with_economy_and_params(
             country_idx,
             country_name,
             people,
             companies,
             total_supply,
             config.sim_params.clone(),
-        ));
+        );
+        country.seed_initial_ipos();
+        countries.push(country);
     }
 
     countries

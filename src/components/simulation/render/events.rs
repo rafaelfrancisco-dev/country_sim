@@ -112,6 +112,22 @@ fn event_line_style(line: &str) -> Style {
         Style::default().fg(Color::LightRed)
     } else if line.starts_with("[SWITCH]") {
         Style::default().fg(Color::Blue)
+    } else if line.starts_with("[IPO]") {
+        Style::default()
+            .fg(Color::LightCyan)
+            .add_modifier(Modifier::BOLD)
+    } else if line.starts_with("[DIV]") {
+        Style::default().fg(Color::Green)
+    } else if line.starts_with("[MARGN]") {
+        Style::default()
+            .fg(Color::LightYellow)
+            .add_modifier(Modifier::BOLD)
+    } else if line.starts_with("[SEIZE]") || line.starts_with("[DELIST]") {
+        Style::default()
+            .fg(Color::Red)
+            .add_modifier(Modifier::BOLD)
+    } else if line.starts_with("[STK]") {
+        Style::default().fg(Color::Cyan)
     } else {
         Style::default()
     }

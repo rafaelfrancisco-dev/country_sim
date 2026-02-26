@@ -12,6 +12,7 @@ pub mod params;
 pub mod person;
 pub mod runtime;
 pub mod setup;
+pub mod stock_market;
 pub mod tickable;
 pub mod ui_command;
 pub mod world;

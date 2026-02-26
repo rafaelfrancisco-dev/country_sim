@@ -9,6 +9,7 @@ use super::{
     money::{from_cents, round_cents, to_cents},
     params::SimulationParams,
     person::{EmploymentStatus, HabilitationLevel, Person},
+    stock_market::StockMarket,
     tickable::Tickable,
 };
 use rayon::prelude::*;
@@ -49,6 +50,7 @@ pub struct Country {
     pub monthly_gov_spending: f64,
     pub monthly_budget_balance: f64,
     pub gov_debt: f64,
+    pub stock_market: StockMarket,
     pub export_tariffs_by_good: [f64; GOODS_COUNT],
     pub pending_events: Vec<SimEvent>,
     pub initial_money_supply: f64,
@@ -132,6 +134,7 @@ impl Country {
             monthly_gov_spending: 0.0,
             monthly_budget_balance: 0.0,
             gov_debt: 0.0,
+            stock_market: StockMarket::new(),
             export_tariffs_by_good,
             pending_events: Vec::new(),
             initial_money_supply: round_cents(initial_money_supply),

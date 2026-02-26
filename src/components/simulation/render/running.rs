@@ -106,6 +106,7 @@ impl Simulation {
         let mut footer_text = match world.active_tab {
             RunningTab::Main => self.draw_main_tab(frame, body, world),
             RunningTab::Goods => self.draw_goods_tab(frame, body, world),
+            RunningTab::Stocks => self.draw_stocks_tab(frame, body, world),
             RunningTab::Charts => self.draw_charts_tab(frame, body, world),
             RunningTab::Events => self.draw_events_tab(frame, body, world),
         };
@@ -161,6 +162,7 @@ impl Simulation {
         match active_tab {
             RunningTab::Main => "Main",
             RunningTab::Goods => "Goods",
+            RunningTab::Stocks => "Stocks",
             RunningTab::Charts => "Charts",
             RunningTab::Events => "Events",
         }
