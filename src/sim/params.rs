@@ -256,6 +256,35 @@ impl FiscalParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct GovernmentBackfillParams {
+    pub enabled: bool,
+    pub essential_good_max_id_inclusive: u8,
+    pub openings_total: u16,
+    pub manufacturing_openings: u16,
+    pub runway_months: f64,
+    pub base_wage_multiplier: f64,
+    pub vacancy_escalation_rate: f64,
+    pub max_wage_multiplier: f64,
+    pub switch_incentive_buffer: f64,
+}
+
+impl Default for GovernmentBackfillParams {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            essential_good_max_id_inclusive: 4,
+            openings_total: 3,
+            manufacturing_openings: 2,
+            runway_months: 1.5,
+            base_wage_multiplier: 1.35,
+            vacancy_escalation_rate: 0.12,
+            max_wage_multiplier: 1.8,
+            switch_incentive_buffer: 0.05,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
@@ -267,6 +296,7 @@ pub struct SimulationParams {
     pub labor_mobility: LaborMobilityParams,
     pub goods_market: GoodsMarketParams,
     pub fiscal: FiscalParams,
+    pub government_backfill: GovernmentBackfillParams,
 }
 
 #[cfg(test)]

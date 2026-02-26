@@ -93,6 +93,25 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Both transfers are capped by the available treasury balance (no negative treasury).
 - Tracked fields per country: `monthly_gov_spending`, `monthly_budget_balance` (tax collected − gov spending), `gov_debt` (cumulative shortfalls).
 - A `GovTransfer` event is emitted each month when any benefit is paid.
+
+## Government Essential Backfill
+- After private startup formation each month, a country checks essential goods (`0..=4`) for local producer coverage.
+- For every missing essential good, the government creates one public-utility company for that good.
+- New public companies:
+  - start with `is_public_utility=true` and `is_essential_backfill=true`
+  - are seeded with openings (default `3`, with manufacturing-heavy split)
+  - use high-attraction wage offers:
+    - `offer = min(cap, max(catalog*base_multiplier, market_best*(1 + switch_raise_threshold + incentive_buffer)))`
+    - default cap multiplier: `1.8×` catalog salary
+  - apply vacancy wage escalation monthly before switch matching:
+    - `opening_salary *= (1 + vacancy_escalation_rate)` with cap clamp
+- Funding for each public company:
+  - required capital = `monthly_opening_payroll × runway_months`
+  - treasury pays first
+  - any shortfall is deficit-financed via bank-created money
+  - deficit amount is added to `gov_debt`
+  - total funded amount is added to `monthly_gov_spending` and reflected in `monthly_budget_balance`
+- A `GovCompanyFunded` event is emitted for each public company created.
 - Configurable via `FiscalParams` in `SimulationParams`:
   - `unemployment_benefit_rate` (default: 0.5)
   - `median_income_reference` (default: $2,000 → $1,000/month benefit)

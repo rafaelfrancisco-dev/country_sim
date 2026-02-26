@@ -118,6 +118,18 @@ impl Bank {
         approved_principal
     }
 
+    pub fn fund_government_deficit(&mut self, principal: f64) -> f64 {
+        let approved_principal = round_cents(principal.max(0.0));
+        if approved_principal <= 0.0 {
+            return 0.0;
+        }
+
+        self.created_money_outstanding =
+            round_cents(self.created_money_outstanding + approved_principal);
+        self.total_originated = round_cents(self.total_originated + approved_principal);
+        approved_principal
+    }
+
     pub fn collect_monthly_payment(
         &mut self,
         cash_balance: &mut f64,
@@ -288,5 +300,16 @@ mod tests {
         assert!(written_off > 0.0);
         assert!(loan.is_none());
         assert!(bank.created_money_outstanding < before);
+    }
+
+    #[test]
+    fn government_deficit_funding_increases_created_money() {
+        let mut bank = Bank::new();
+
+        let funded = bank.fund_government_deficit(2_500.0);
+
+        assert!((funded - 2_500.0).abs() < 0.01);
+        assert!((bank.created_money_outstanding - 2_500.0).abs() < 0.01);
+        assert!((bank.total_originated - 2_500.0).abs() < 0.01);
     }
 }

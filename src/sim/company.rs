@@ -20,6 +20,8 @@ pub struct JobOpening {
 pub struct Company {
     pub id: u16,
     pub name: String,
+    pub is_public_utility: bool,
+    pub is_essential_backfill: bool,
     pub offered_job_types: Vec<JobTypeId>,
     pub produced_good_id: GoodId,
     pub open_positions: Vec<JobOpening>,
@@ -66,6 +68,8 @@ impl Company {
         Self {
             id,
             name,
+            is_public_utility: false,
+            is_essential_backfill: false,
             offered_job_types,
             produced_good_id,
             open_positions: Vec::new(),

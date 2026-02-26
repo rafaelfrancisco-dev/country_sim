@@ -50,6 +50,15 @@ pub enum SimEvent {
         total_amount: f64,
         day: u64,
     },
+    GovCompanyFunded {
+        country_name: String,
+        company_id: u16,
+        produced_good_id: u8,
+        total_funding: f64,
+        treasury_funding: f64,
+        deficit_funding: f64,
+        day: u64,
+    },
     CompanyFounded {
         country_name: String,
         company_id: u16,
@@ -157,6 +166,19 @@ impl SimEvent {
             } => {
                 format!(
                     "[GOV]   Day {day:>6} | {country_name}: {total_recipients} recipients +${total_amount:.2} benefits"
+                )
+            }
+            Self::GovCompanyFunded {
+                country_name,
+                company_id,
+                produced_good_id,
+                total_funding,
+                treasury_funding,
+                deficit_funding,
+                day,
+            } => {
+                format!(
+                    "[GOVCO] Day {day:>6} | {country_name}: Company #{company_id} for essential good #{produced_good_id} funded ${total_funding:.2} (treasury ${treasury_funding:.2}, deficit ${deficit_funding:.2})"
                 )
             }
             Self::CompanyFounded {
