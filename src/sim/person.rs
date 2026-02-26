@@ -65,6 +65,7 @@ pub enum EmploymentStatus {
 pub struct Person {
     pub id: u32,
     pub employment: EmploymentStatus,
+    pub agreed_monthly_salary: f64,
     pub cash_balance: f64,
     pub name_seed: u32,
     pub age_days: u16,
@@ -111,6 +112,7 @@ impl Person {
         let mut person = Self {
             id,
             employment,
+            agreed_monthly_salary: 0.0,
             cash_balance: 0.0,
             name_seed,
             age_days,
@@ -131,6 +133,9 @@ impl Person {
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
         };
+        if let EmploymentStatus::Employed { job_type_id, .. } = person.employment {
+            person.agreed_monthly_salary = salary_for_job(job_type_id);
+        }
         person.refresh_habilitation_from_age();
         person
     }
@@ -162,15 +167,40 @@ impl Person {
     }
 
     pub fn set_employment(&mut self, employer_company_id: u16, job_type_id: JobTypeId) {
+        self.set_employment_with_salary(
+            employer_company_id,
+            job_type_id,
+            salary_for_job(job_type_id),
+        );
+    }
+
+    pub fn set_employment_with_salary(
+        &mut self,
+        employer_company_id: u16,
+        job_type_id: JobTypeId,
+        salary: f64,
+    ) {
         self.employment = EmploymentStatus::Employed {
             job_type_id,
             employer_company_id,
         };
+        self.agreed_monthly_salary = salary.max(0.0);
+    }
+
+    pub fn remap_employer_company_id(&mut self, employer_company_id: u16) {
+        if let EmploymentStatus::Employed {
+            employer_company_id: current_employer_id,
+            ..
+        } = &mut self.employment
+        {
+            *current_employer_id = employer_company_id;
+        }
     }
 
     pub fn clear_employment(&mut self) -> Option<(u16, JobTypeId)> {
         let previous = self.employment;
         self.employment = EmploymentStatus::Unemployed;
+        self.agreed_monthly_salary = 0.0;
         match previous {
             EmploymentStatus::Unemployed => None,
             EmploymentStatus::Employed {
@@ -218,7 +248,11 @@ impl Person {
     }
 
     pub fn monthly_salary(&self) -> f64 {
-        self.job_type_id().map_or(0.0, salary_for_job)
+        if self.is_employed() {
+            self.agreed_monthly_salary.max(0.0)
+        } else {
+            0.0
+        }
     }
 
     pub fn reset_monthly_trackers(&mut self) {

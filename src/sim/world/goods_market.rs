@@ -179,8 +179,7 @@ impl World {
 
                 if let Some(&last_sold) = company.sold_units_history.last() {
                     if last_sold > 0 {
-                        let months_of_inventory =
-                            company.inventory_units as f64 / last_sold as f64;
+                        let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
                         if months_of_inventory > market.excess_inventory_months {
                             continue;
                         }
@@ -244,11 +243,10 @@ impl World {
 
     fn consume_superficial_stock_daily(&mut self) {
         // Hoist the static per-slot computation out of the 5M-person loop.
-        let daily_usages: [f32; SUPERFICIAL_GOOD_SLOT_COUNT] =
-            std::array::from_fn(|slot_idx| {
-                let good_id = SUPERFICIAL_GOOD_IDS[slot_idx];
-                (common_goods()[good_id as usize].monthly_demand_factor / 30.0).max(0.0) as f32
-            });
+        let daily_usages: [f32; SUPERFICIAL_GOOD_SLOT_COUNT] = std::array::from_fn(|slot_idx| {
+            let good_id = SUPERFICIAL_GOOD_IDS[slot_idx];
+            (common_goods()[good_id as usize].monthly_demand_factor / 30.0).max(0.0) as f32
+        });
 
         for country in &mut self.countries {
             country
@@ -270,8 +268,9 @@ impl World {
 
                             person.superficial_stock_consumption_carry[slot_idx] -=
                                 f32::from(consume_units);
-                            person.superficial_stock_units[slot_idx] =
-                                person.superficial_stock_units[slot_idx].saturating_sub(consume_units);
+                            person.superficial_stock_units[slot_idx] = person
+                                .superficial_stock_units[slot_idx]
+                                .saturating_sub(consume_units);
                         }
                     }
                 });
@@ -325,8 +324,8 @@ impl World {
                                 if cash_cents < snapshot_quote.landed_price_cents {
                                     return None;
                                 }
-                                let affordability_ratio = cash_cents as f64
-                                    / snapshot_quote.landed_price_cents as f64;
+                                let affordability_ratio =
+                                    cash_cents as f64 / snapshot_quote.landed_price_cents as f64;
                                 let probability =
                                     ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
                                 if probability <= 0.0 || !rng.gen_bool(probability) {

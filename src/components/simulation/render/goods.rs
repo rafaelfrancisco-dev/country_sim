@@ -290,10 +290,7 @@ impl Simulation {
         let y_labels = if as_money {
             vec![Self::money(y_min), Self::money(y_max)]
         } else {
-            vec![
-                compact_count_f64(y_min),
-                compact_count_f64(y_max),
-            ]
+            vec![compact_count_f64(y_min), compact_count_f64(y_max)]
         };
 
         let dataset = Dataset::default()

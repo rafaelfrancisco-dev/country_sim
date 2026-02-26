@@ -1,7 +1,7 @@
 use super::{
     bank::LoanAccount,
     good::{GoodId, common_goods, good_by_id},
-    job::{JobTypeId, common_job_types, job_by_id},
+    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
     params::{GoodsMarketParams, SimulationParams},
 };
@@ -9,10 +9,11 @@ use super::{
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
 const COMPANY_HISTORY_WINDOW: usize = 12;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct JobOpening {
     pub job_type_id: JobTypeId,
     pub slots: u16,
+    pub offered_monthly_salary: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +27,9 @@ pub struct Company {
     pub manufacturing_employee_count: u32,
     pub inventory_units: u32,
     pub unit_price: f64,
+    pub wage_offer_multiplier: f64,
+    pub consecutive_missed_loan_payments: u8,
+    pub missed_loan_payment_this_month: bool,
     pub production_effort_carry: f64,
     pub cash_balance: f64,
     pub monthly_payroll_budget: f64,
@@ -69,6 +73,9 @@ impl Company {
             manufacturing_employee_count: 0,
             inventory_units: 0,
             unit_price: default_price,
+            wage_offer_multiplier: 1.0,
+            consecutive_missed_loan_payments: 0,
+            missed_loan_payment_this_month: false,
             production_effort_carry: 0.0,
             cash_balance: 0.0,
             monthly_payroll_budget: 0.0,
@@ -97,23 +104,37 @@ impl Company {
     }
 
     pub fn add_opening(&mut self, job_type_id: JobTypeId, slots: u16) {
+        let salary = round_cents(salary_for_job(job_type_id) * self.wage_offer_multiplier.max(0.0));
+        self.add_opening_with_salary(job_type_id, slots, salary);
+    }
+
+    pub fn add_opening_with_salary(
+        &mut self,
+        job_type_id: JobTypeId,
+        slots: u16,
+        offered_salary: f64,
+    ) {
         if slots == 0 || !self.supports_job(job_type_id) {
             return;
         }
 
-        if let Some(opening) = self
-            .open_positions
-            .iter_mut()
-            .find(|opening| opening.job_type_id == job_type_id)
-        {
+        let offered_salary = round_cents(offered_salary.max(0.0));
+        if let Some(opening) = self.open_positions.iter_mut().find(|opening| {
+            opening.job_type_id == job_type_id
+                && (opening.offered_monthly_salary - offered_salary).abs() < 0.01
+        }) {
             opening.slots = opening.slots.saturating_add(slots);
             return;
         }
 
-        self.open_positions.push(JobOpening { job_type_id, slots });
+        self.open_positions.push(JobOpening {
+            job_type_id,
+            slots,
+            offered_monthly_salary: offered_salary,
+        });
     }
 
-    pub fn consume_opening(&mut self, opening_index: usize) -> Option<JobTypeId> {
+    pub fn consume_opening(&mut self, opening_index: usize) -> Option<(JobTypeId, f64)> {
         let opening = self.open_positions.get_mut(opening_index)?;
         if opening.slots == 0 {
             return None;
@@ -121,11 +142,12 @@ impl Company {
 
         opening.slots -= 1;
         let job_type_id = opening.job_type_id;
+        let offered_salary = opening.offered_monthly_salary;
         if opening.slots == 0 {
             self.open_positions.remove(opening_index);
         }
 
-        Some(job_type_id)
+        Some((job_type_id, offered_salary))
     }
 
     pub fn average_monthly_revenue(&self) -> f64 {
@@ -143,6 +165,7 @@ impl Company {
         self.last_month_sales = 0.0;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
+        self.missed_loan_payment_this_month = false;
         self.last_month_units_produced = 0;
         self.last_month_units_sold = 0;
         self.last_month_export_units_sold = 0;

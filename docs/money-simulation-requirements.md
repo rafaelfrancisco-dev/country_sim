@@ -30,6 +30,10 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - Bachelor track: age 21+
   - MedicalDoctor track: age 23+
 - Hiring is qualification-gated and interview-free.
+- Job contracts are salary-aware:
+  - each opening carries an `offered_monthly_salary`
+  - employed people keep an `agreed_monthly_salary` on contract
+  - payroll and loan affordability use contract salary (not catalog base)
 
 ## Demographics
 - Birth model:
@@ -52,6 +56,30 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Opening count per month:
   - `min(8, 1 + floor(last_month_profit / 50_000))`
 - Openings are distributed among existing offered job types with weight by assignment weight.
+
+## Company Formation, Distress, and Bankruptcy
+- **Startup formation (monthly)**:
+  - founders are currently employed workers in the same profession
+  - minimum founders per startup: `5`
+  - each founder keeps a personal reserve of `3 months` of current salary
+  - startup must fund `6 months` of planned opening payroll
+  - opening plan: `10` total (`7` in founder profession + `3` mixed weighted openings)
+  - startup good must be high-margin in-country:
+    - margin per good = `total_profit / total_sales`, where `total_sales > 0`
+    - required margin `>= 0.25`
+  - startup price starts at `5%` below country average for that good, floored by margin floor
+- **Distress escalation after missed company loan payments**:
+  - miss #1: wage cut (`10%`) on employee contracts and openings, with floor `0.70 × catalog salary`
+  - miss #2: layoffs (`20%`, ceil, min 1 when workforce > 0), highest salary first, tie by lower person ID
+  - miss #3+: bankruptcy only when both are true:
+    - `cash_balance <= 0`
+    - no additional loan capacity under bank affordability math
+  - on non-miss months, consecutive miss counter resets to `0`
+- **Bankruptcy handling**:
+  - all workers are laid off, openings cleared, loan principal written off, company cash forced to zero
+  - bankrupt companies are physically removed from the vector
+  - surviving company IDs are renumbered to contiguous indices
+  - person employment references are remapped to new IDs; references to removed companies become unemployed
 
 ## Country Revenue
 - Monthly payroll is paid only to employed people.
@@ -84,15 +112,19 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - On death, personal loans are written off and created principal outstanding is removed from bank-created money.
 
 ## Monthly Processing Order
-1. Company liquidity check and pre-payroll loan request.
-2. Payroll from companies to employed people.
-3. Income tax withholding and transfer to treasury.
+1. Recompute company headcounts.
+2. Company payroll-liquidity check and pre-payroll loan request.
+3. Payroll from companies to employed people + income tax transfer to treasury.
 4. Government spending (unemployment benefits + basic needs top-up).
 5. Loan repayment pass (people, then companies).
-6. Household spending.
+6. Company distress escalation.
 7. End-of-month loan requests.
-8. Company profitability update and vacancy expansion.
-9. Company close and aggregate recomputation.
+8. Growth-driven opening creation.
+9. Startup formation pass.
+10. Monthly job-switch pass (same profession, minimum 10% raise).
+11. Recompute company headcounts again.
+12. Company month close (pricing history/profitability history side effects).
+13. Month increment and aggregate recomputation.
 
 ## Invariants
 - Treasury inflows are from taxation and deceased-person cash transfer.

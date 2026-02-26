@@ -199,16 +199,17 @@ impl Country {
 
                 if let Some((company_idx, job_type_id)) = intent.preferred
                     && let Some(company) = companies.get_mut(company_idx)
-                    && let Some(job_id) = consume_opening_by_job_type(company, job_type_id)
+                    && let Some((job_id, offered_salary)) =
+                        consume_opening_by_job_type(company, job_type_id)
                 {
-                    person.set_employment(company_idx as u16, job_id);
+                    person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
                     continue;
                 }
 
-                if let Some((company_id, job_id)) =
+                if let Some((company_id, job_id, offered_salary)) =
                     consume_matching_opening(companies, intent.qualification, intent.seek_seed)
                 {
-                    person.set_employment(company_id, job_id);
+                    person.set_employment_with_salary(company_id, job_id, offered_salary);
                 }
             }
         }

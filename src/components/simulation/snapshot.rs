@@ -285,9 +285,7 @@ impl UiSnapshot {
                     inventory: compact_count(company.inventory_units),
                     produced: compact_count(company.last_month_units_produced),
                     sold: compact_count(company.last_month_units_sold),
-                    total_sold: compact_count(
-                        company.sold_units_history.iter().sum::<u32>(),
-                    ),
+                    total_sold: compact_count(company.sold_units_history.iter().sum::<u32>()),
                     export_sold: compact_count(company.last_month_export_units_sold),
                     domestic_export_split: format!(
                         "{}/{}",
@@ -309,8 +307,7 @@ impl UiSnapshot {
             company_employee_history,
             company_price_history,
             company_loan_payment_history,
-        ) =
-            selected_company_histories(world, &ui);
+        ) = selected_company_histories(world, &ui);
         let country_goods_summary_lines = country_goods_summary_lines(world, &ui);
         let chart_scope_label = chart_scope_label(world, &ui);
         let chart_history = match ui.chart_scope {
@@ -334,8 +331,7 @@ impl UiSnapshot {
             .iter()
             .map(|e| e.format())
             .filter(|line| {
-                search_lower.is_empty()
-                    || line.to_ascii_lowercase().contains(&search_lower)
+                search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower)
             })
             .collect();
         if matches!(ui.events_sort, EventsSort::NewestFirst) {
@@ -515,10 +511,7 @@ fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
             "MTD Tax Collected: {}",
             money(country.monthly_tax_collected)
         ),
-        format!(
-            "MTD Gov Spending: {}",
-            money(country.monthly_gov_spending)
-        ),
+        format!("MTD Gov Spending: {}", money(country.monthly_gov_spending)),
         format!(
             "MTD Budget Balance: {}",
             money(country.monthly_budget_balance)
@@ -566,9 +559,18 @@ fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
         ),
         format!("Open Positions: {}", company.open_positions.len()),
         format!("Unit Price: {}", money(company.unit_price)),
-        format!("Inventory Units: {}", compact_count(company.inventory_units)),
-        format!("MTD Produced Units: {}", compact_count(company.last_month_units_produced)),
-        format!("MTD Sold Units: {}", compact_count(company.last_month_units_sold)),
+        format!(
+            "Inventory Units: {}",
+            compact_count(company.inventory_units)
+        ),
+        format!(
+            "MTD Produced Units: {}",
+            compact_count(company.last_month_units_produced)
+        ),
+        format!(
+            "MTD Sold Units: {}",
+            compact_count(company.last_month_units_sold)
+        ),
         format!(
             "MTD Domestic/Export Units: {}/{}",
             compact_count(company.last_month_domestic_units_sold),

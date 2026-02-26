@@ -18,6 +18,7 @@ People carry:
 - `education_track`: `BasicOnly`, `HighSchool`, `Bachelor`, `MedicalDoctor`
 - `habilitation`: `NoSchoolYet`, `BasicSchool`, `HighSchool`, `HigherLearning`
 - `employment`: `Unemployed` or `Employed { job_type_id, employer_company_id }`
+- `agreed_monthly_salary` (employment contract salary; 0 for unemployed)
 
 ### Habilitation Progression
 - age < 12: `NoSchoolYet`
@@ -75,6 +76,18 @@ For unemployed, eligible people:
 - If a seeker passes seek probability, they attempt to match any open slot.
 - Slot must satisfy habilitation requirement.
 - No interview failure model: a valid slot is accepted immediately.
+- On hire, the person contract salary is set from the opening offer.
+
+### Monthly Job Mobility
+- Evaluated once per month for each employed worker.
+- A switch is allowed only when all conditions hold:
+  - same profession (`job_type_id`) as current contract
+  - different target company
+  - offered salary `>= current_salary * 1.10`
+- Best target is chosen by highest offered salary (tie: lower company ID).
+- On switch:
+  - worker moves to target and adopts offered salary
+  - prior employer receives a replacement opening at the worker's previous salary
 
 ## Company Growth Openings
 Openings are created monthly, only if both hold:
@@ -85,6 +98,26 @@ Opening count:
 - `openings_to_add = min(8, 1 + floor(last_month_profit / 50_000))`
 
 Openings are distributed across existing offered job types weighted by each job's assignment weight.
+
+## Startup Formation (Monthly)
+- Founders come from currently employed workers sharing the same profession.
+- Eligibility: at least 5 founders with positive investable cash.
+- Investable cash per founder:
+  - `max(0, cash_balance - 3 * current_salary)`
+- Product gate: startup can only form if at least one local good has realized margin `>= 25%`.
+- Funding gate: pooled founder contributions must cover 6 months of payroll for planned 10 openings.
+- Opening mix is fixed:
+  - 7 founder-profession openings
+  - 3 weighted mixed-profession openings
+- Founders leave prior employers, old employers get replacement openings, and founders join the startup.
+
+## Distress and Bankruptcy (Monthly)
+- Distress is tracked by consecutive missed company loan payments.
+- Escalation:
+  - miss #1: 10% wage cut (employees + openings, floored to 70% catalog salary)
+  - miss #2: 20% deterministic layoffs (highest salary first, tie by lower person ID)
+  - miss #3+: bankruptcy only when cash is non-positive and no additional loan capacity exists
+- Bankruptcy removes companies physically and renumbers IDs; all person employment references are remapped.
 
 ## Death Side Effects
 When a person dies:

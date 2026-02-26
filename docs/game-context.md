@@ -19,16 +19,18 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 ### `Person`
 - Economic state: `cash_balance`, optional `loan`, monthly trackers.
 - Employment state: `EmploymentStatus` (`Unemployed` or `Employed { job_type_id, employer_company_id }`).
+- Contract state: `agreed_monthly_salary` (salary set at hire/switch time).
 - Demographics: `age_days`, `education_track`, `habilitation`.
 - Helpers:
-  - `monthly_salary()` returns job salary for employed people, `0` for unemployed.
+  - `monthly_salary()` returns contract salary for employed people, `0` for unemployed.
   - `can_seek_job()` enforces education-track specific minimum working age.
 
 ### `Company`
 - Offers multiple existing job types.
-- Tracks open vacancies via `open_positions`.
+- Tracks open vacancies via `open_positions` with explicit offered salary.
 - Tracks monthly profitability and profitable streaks.
 - Can expand hiring only when profitability and reserve conditions are met.
+- Tracks distress state (`consecutive_missed_loan_payments`, `missed_loan_payment_this_month`) and wage policy (`wage_offer_multiplier`).
 
 ### `Country`
 - Owns `people`, `companies`, treasury, and `bank`.
@@ -38,7 +40,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   3. births using population-rate + carry model
   4. daily job-seeking and hiring against company vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll, taxes, loans, spending, growth openings, and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, distress escalation, loan requests, growth openings, startup formation, job switching, bankruptcy cleanup, and close.
+- Maintains `next_startup_serial` so startup names remain unique across company removals.
 
 ### `World`
 - Engine state: `day`, `countries`, pause flag, and monthly histories.
@@ -78,5 +81,6 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Daily demographic dynamics (births/deaths).
 - Qualification-gated labor matching.
 - Company growth openings and hiring behavior.
+- Startup formation, salary-aware job switching, distress escalation, and bankruptcy renumber/remap behavior.
 - Monthly money flow invariants and tax/loan behavior.
 - World tick/month boundary consistency and chart history retention.

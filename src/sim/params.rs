@@ -136,6 +136,70 @@ impl Default for CompanyGrowthParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct CompanyFormationParams {
+    pub min_founders_same_profession: usize,
+    pub founder_personal_reserve_months: f64,
+    pub startup_runway_months: f64,
+    pub initial_openings_total: u16,
+    pub initial_openings_founder_profession: u16,
+    pub high_margin_threshold: f64,
+    pub max_startups_per_month: Option<u16>,
+}
+
+impl Default for CompanyFormationParams {
+    fn default() -> Self {
+        Self {
+            min_founders_same_profession: 5,
+            founder_personal_reserve_months: 3.0,
+            startup_runway_months: 6.0,
+            initial_openings_total: 10,
+            initial_openings_founder_profession: 7,
+            high_margin_threshold: 0.25,
+            max_startups_per_month: None,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct CompanyDistressParams {
+    pub wage_cut_rate: f64,
+    pub layoff_rate: f64,
+    pub bankruptcy_missed_payment_threshold: u8,
+    pub min_wage_floor_ratio_to_catalog: f64,
+}
+
+impl Default for CompanyDistressParams {
+    fn default() -> Self {
+        Self {
+            wage_cut_rate: 0.10,
+            layoff_rate: 0.20,
+            bankruptcy_missed_payment_threshold: 3,
+            min_wage_floor_ratio_to_catalog: 0.70,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum SwitchCadence {
+    MonthlyOnce,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LaborMobilityParams {
+    pub switch_raise_threshold: f64,
+    pub switch_cadence: SwitchCadence,
+}
+
+impl Default for LaborMobilityParams {
+    fn default() -> Self {
+        Self {
+            switch_raise_threshold: 0.10,
+            switch_cadence: SwitchCadence::MonthlyOnce,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GoodsMarketParams {
     pub tariff_rate: f64,
     pub worker_effort_per_month: f64,
@@ -198,6 +262,9 @@ pub struct SimulationParams {
     pub education: EducationParams,
     pub labor: LaborParams,
     pub company_growth: CompanyGrowthParams,
+    pub company_formation: CompanyFormationParams,
+    pub company_distress: CompanyDistressParams,
+    pub labor_mobility: LaborMobilityParams,
     pub goods_market: GoodsMarketParams,
     pub fiscal: FiscalParams,
 }

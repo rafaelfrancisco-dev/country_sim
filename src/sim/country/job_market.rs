@@ -36,7 +36,10 @@ fn select_matching_opening_from_snapshot(
     Some((company_idx, job_type_id))
 }
 
-fn consume_opening_by_job_type(company: &mut Company, job_type_id: JobTypeId) -> Option<JobTypeId> {
+fn consume_opening_by_job_type(
+    company: &mut Company,
+    job_type_id: JobTypeId,
+) -> Option<(JobTypeId, f64)> {
     let opening_idx = company
         .open_positions
         .iter()
@@ -48,7 +51,7 @@ fn consume_matching_opening(
     companies: &mut [Company],
     qualification: HabilitationLevel,
     seed: u64,
-) -> Option<(u16, JobTypeId)> {
+) -> Option<(u16, JobTypeId, f64)> {
     let mut chosen: Option<(usize, usize, u64)> = None;
     let mut seen_slots = 0_u64;
 
@@ -72,6 +75,6 @@ fn consume_matching_opening(
 
     let (company_idx, opening_idx, _) = chosen?;
     let company = companies.get_mut(company_idx)?;
-    let job_id = company.consume_opening(opening_idx)?;
-    Some((company_idx as u16, job_id))
+    let (job_id, offered_salary) = company.consume_opening(opening_idx)?;
+    Some((company_idx as u16, job_id, offered_salary))
 }

@@ -84,9 +84,7 @@ impl Simulation {
 
         format!(
             "Controls: [Tab/Shift+Tab] switch tab  [↑/↓] scroll  [{}]  [s] toggle sort  [Space] pause/resume  [q] quit | Events: {} | Sort: {}",
-            search_hint,
-            world.events_total_count,
-            world.events_sort_label,
+            search_hint, world.events_total_count, world.events_sort_label,
         )
     }
 }
@@ -96,6 +94,8 @@ fn event_line_style(line: &str) -> Style {
         Style::default().fg(Color::Green)
     } else if line.starts_with("[DEATH]") || line.starts_with("[LOSS]") {
         Style::default().fg(Color::Red)
+    } else if line.starts_with("[BANKR]") {
+        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
     } else if line.starts_with("[LOAN+]") {
         Style::default().fg(Color::Yellow)
     } else if line.starts_with("[LOAN=]") {
@@ -104,6 +104,14 @@ fn event_line_style(line: &str) -> Style {
         Style::default()
             .fg(Color::LightRed)
             .add_modifier(Modifier::BOLD)
+    } else if line.starts_with("[FOUND]") {
+        Style::default().fg(Color::LightGreen)
+    } else if line.starts_with("[WAGE-]") {
+        Style::default().fg(Color::Yellow)
+    } else if line.starts_with("[LAYOF]") {
+        Style::default().fg(Color::LightRed)
+    } else if line.starts_with("[SWITCH]") {
+        Style::default().fg(Color::Blue)
     } else {
         Style::default()
     }

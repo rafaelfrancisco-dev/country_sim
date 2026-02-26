@@ -1,8 +1,12 @@
 use super::*;
 use crate::sim::{
+    bank::LoanAccount,
     company::build_default_companies,
     event::SimEvent,
-    params::{DemographicParams, FiscalParams, LaborParams, SimulationParams},
+    params::{
+        CompanyGrowthParams, DemographicParams, FiscalParams, LaborMobilityParams, LaborParams,
+        SimulationParams,
+    },
     person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus},
 };
 use rayon::ThreadPoolBuilder;
@@ -332,7 +336,10 @@ fn unemployed_adult(id: u32, cash: f64) -> Person {
 fn employed_adult(id: u32, cash: f64) -> Person {
     let mut p = Person::new_with_profile(
         id,
-        EmploymentStatus::Employed { job_type_id: 0, employer_company_id: 0 },
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
         id + 100,
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
@@ -383,7 +390,10 @@ fn employed_person_does_not_receive_unemployment_benefit() {
         .pending_events
         .iter()
         .any(|e| matches!(e, SimEvent::GovTransfer { .. }));
-    assert!(!has_gov_event, "no GovTransfer event should be emitted for employed person");
+    assert!(
+        !has_gov_event,
+        "no GovTransfer event should be emitted for employed person"
+    );
 }
 
 #[test]
@@ -468,10 +478,9 @@ fn gov_transfer_event_is_emitted_when_benefits_are_paid() {
 
     country.process_month_end();
 
-    let has_gov_event = country
-        .pending_events
-        .iter()
-        .any(|e| matches!(e, SimEvent::GovTransfer { total_recipients, .. } if *total_recipients > 0));
+    let has_gov_event = country.pending_events.iter().any(
+        |e| matches!(e, SimEvent::GovTransfer { total_recipients, .. } if *total_recipients > 0),
+    );
     assert!(has_gov_event, "GovTransfer event should be emitted");
 }
 
@@ -487,7 +496,10 @@ fn no_gov_transfer_event_when_nobody_qualifies() {
         .pending_events
         .iter()
         .any(|e| matches!(e, SimEvent::GovTransfer { .. }));
-    assert!(!has_gov_event, "no GovTransfer event should be emitted when nobody qualifies");
+    assert!(
+        !has_gov_event,
+        "no GovTransfer event should be emitted when nobody qualifies"
+    );
 }
 
 #[test]
@@ -522,7 +534,10 @@ fn basic_needs_top_up_raises_cash_to_threshold_for_person_with_unmet_essential_n
 #[test]
 fn no_benefit_paid_when_treasury_is_empty() {
     let benefit = FiscalParams::default().monthly_unemployment_benefit();
-    assert!(benefit > 0.0, "benefit must be positive for this test to be meaningful");
+    assert!(
+        benefit > 0.0,
+        "benefit must be positive for this test to be meaningful"
+    );
 
     let person = unemployed_adult(1, 0.0);
     let mut country = make_gov_country(vec![person], 0.0, FiscalParams::default());
@@ -562,5 +577,220 @@ fn government_spending_does_not_violate_money_supply_invariant() {
         violations.is_empty(),
         "money invariant violated after gov spending: {:?}",
         violations
+    );
+}
+
+#[test]
+fn monthly_job_switch_moves_worker_only_for_raise_and_backfills_old_opening() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+    companies[0].cash_balance = 100_000.0;
+    companies[1].cash_balance = 100_000.0;
+    companies[1].add_opening_with_salary(0, 1, 4_000.0);
+
+    let mut person = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    person.set_employment_with_salary(0, 0, 3_200.0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.labor_mobility = LaborMobilityParams::default();
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![person], companies, 0.0, params);
+    country.process_month_end();
+
+    assert_eq!(country.people[0].employer_company_id(), Some(1));
+    assert!((country.people[0].monthly_salary() - 4_000.0).abs() < 0.01);
+    assert!(
+        country.companies[0]
+            .open_positions
+            .iter()
+            .any(|opening| opening.job_type_id == 0
+                && opening.slots > 0
+                && (opening.offered_monthly_salary - 3_200.0).abs() < 0.01)
+    );
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::JobSwitched { .. }))
+    );
+}
+
+#[test]
+fn first_missed_company_payment_applies_wage_cut_to_contracts_and_openings() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].add_opening_with_salary(0, 1, 5_000.0);
+    companies[0].cash_balance = 0.0;
+    companies[0].loan = Some(LoanAccount::new(5_000.0, 0.12, 12));
+
+    let mut person = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    person.set_employment_with_salary(0, 0, 4_000.0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![person], companies, 0.0, params);
+    country.process_month_end();
+
+    assert_eq!(country.companies[0].consecutive_missed_loan_payments, 1);
+    assert!((country.people[0].monthly_salary() - 3_600.0).abs() < 0.01);
+    assert!(
+        country.companies[0]
+            .open_positions
+            .iter()
+            .any(|opening| (opening.offered_monthly_salary - 4_500.0).abs() < 0.01)
+    );
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::CompanyWageCut { .. }))
+    );
+}
+
+#[test]
+fn bankruptcy_physically_removes_company_and_remaps_employers() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+    companies[0].cash_balance = 0.0;
+    companies[0].loan = Some(LoanAccount::new(5_000.0, 0.12, 12));
+    companies[0].consecutive_missed_loan_payments = 2;
+    companies[1].cash_balance = 100_000.0;
+
+    let mut p0 = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        111,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    p0.set_employment_with_salary(0, 0, 3_200.0);
+
+    let mut p1 = Person::new_with_profile(
+        2,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 1,
+        },
+        112,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    p1.set_employment_with_salary(1, 0, 3_200.0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![p0, p1], companies, 0.0, params);
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 1);
+    assert_eq!(country.companies[0].id, 0);
+    assert!(!country.people[0].is_employed());
+    assert_eq!(country.people[1].employer_company_id(), Some(0));
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::CompanyBankrupt { .. }))
+    );
+}
+
+#[test]
+fn startup_formation_creates_company_and_moves_founders() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 1_000_000.0;
+    companies[0].produced_good_id = 0;
+    companies[0].last_month_sales = 100_000.0;
+
+    let mut people = Vec::new();
+    for idx in 0..5_u32 {
+        let mut person = Person::new_with_profile(
+            idx,
+            EmploymentStatus::Employed {
+                job_type_id: 0,
+                employer_company_id: 0,
+            },
+            idx + 100,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        person.set_employment_with_salary(0, 0, 3_200.0);
+        person.cash_balance = 100_000.0;
+        people.push(person);
+    }
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.company_formation.max_startups_per_month = Some(1);
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 2);
+    let startup_id = 1_u16;
+    assert!(
+        country
+            .people
+            .iter()
+            .all(|person| person.employer_company_id() == Some(startup_id))
+    );
+    let startup_openings: u16 = country.companies[startup_id as usize]
+        .open_positions
+        .iter()
+        .map(|opening| opening.slots)
+        .sum();
+    assert_eq!(startup_openings, 10);
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::CompanyFounded { .. }))
     );
 }

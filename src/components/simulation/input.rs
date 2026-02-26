@@ -139,9 +139,7 @@ impl Simulation {
                 KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(SimulationCommand::Ui(UiCommand::EventsSearchClear))
                 }
-                KeyCode::Backspace => {
-                    Some(SimulationCommand::Ui(UiCommand::EventsSearchBackspace))
-                }
+                KeyCode::Backspace => Some(SimulationCommand::Ui(UiCommand::EventsSearchBackspace)),
                 KeyCode::Esc => Some(SimulationCommand::Ui(UiCommand::EventsToggleSearch)),
                 KeyCode::Char(c) => Some(SimulationCommand::Ui(UiCommand::EventsSearchChar(c))),
                 _ => None,
