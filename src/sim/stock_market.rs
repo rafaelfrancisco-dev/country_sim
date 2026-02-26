@@ -6,16 +6,6 @@ pub const STOCK_PRICE_HISTORY_WINDOW: usize = 120;
 pub const STOCK_INDEX_HISTORY_WINDOW: usize = 120;
 
 // ---------------------------------------------------------------------------
-// Investor identity
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InvestorId {
-    Person(u32),
-    Bank,
-}
-
-// ---------------------------------------------------------------------------
 // Position / Portfolio
 // ---------------------------------------------------------------------------
 
@@ -47,12 +37,6 @@ pub struct Portfolio {
 impl Portfolio {
     pub fn position(&self, company_id: u16) -> Option<&Position> {
         self.positions.iter().find(|p| p.company_id == company_id)
-    }
-
-    pub fn position_mut(&mut self, company_id: u16) -> Option<&mut Position> {
-        self.positions
-            .iter_mut()
-            .find(|p| p.company_id == company_id)
     }
 
     /// Add `shares` bought at `cost_per_share` to the position; updates avg cost.
