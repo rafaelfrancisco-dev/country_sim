@@ -2,7 +2,7 @@ use super::{
     generator::{GenerationConfig, generate_countries},
     setup::{CITIZENS_PER_MILLION, SetupForm, SetupValues},
     tickable::Tickable,
-    world::World,
+    world::{MonthlyExportData, World},
 };
 
 pub const DEFAULT_GENERATION_SEED: u64 = 0x5eed_c0de_u64;
@@ -58,6 +58,20 @@ impl GameEngine {
 
     pub fn phase(&self) -> &GamePhase {
         &self.phase
+    }
+
+    pub fn drain_export_queue(&mut self) -> Vec<MonthlyExportData> {
+        if let GamePhase::Running(world) = &mut self.phase {
+            world.export_queue.drain(..).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn enable_export_queue(&mut self) {
+        if let GamePhase::Running(world) = &mut self.phase {
+            world.export_queue_active = true;
+        }
     }
 
     #[cfg(test)]

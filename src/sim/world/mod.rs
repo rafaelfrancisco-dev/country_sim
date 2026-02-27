@@ -1,6 +1,9 @@
+mod export;
 mod goods_market;
 mod history;
 mod stock_market;
+
+pub use export::{CountryExportData, MonthlyExportData};
 
 use rayon::prelude::*;
 #[cfg(feature = "bench-trace")]
@@ -35,6 +38,8 @@ pub struct World {
     pub world_history: Vec<MetricPoint>,
     pub country_history: Vec<Vec<MetricPoint>>,
     pub event_log: Vec<SimEvent>,
+    pub export_queue: Vec<MonthlyExportData>,
+    pub export_queue_active: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +64,8 @@ impl World {
             world_history: Vec::with_capacity(HISTORY_LIMIT),
             country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
             event_log: Vec::with_capacity(EVENT_LOG_LIMIT),
+            export_queue: Vec::new(),
+            export_queue_active: false,
         };
         world.capture_snapshot();
         world
@@ -149,6 +156,9 @@ impl Tickable for World {
                 .for_each(Country::process_month_end);
             self.adjust_dynamic_country_tariffs();
             self.capture_snapshot();
+            if self.export_queue_active {
+                self.push_export_snapshot();
+            }
             self.countries
                 .par_iter_mut()
                 .for_each(Country::reset_month_trackers);
@@ -207,6 +217,10 @@ impl World {
             let started = Instant::now();
             self.capture_snapshot();
             world_monthly_capture_snapshot_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            if self.export_queue_active {
+                self.push_export_snapshot();
+            }
 
             let started = Instant::now();
             self.countries

@@ -1,6 +1,7 @@
 use crossterm::event::KeyEvent;
 use ratatui::{Frame, layout::Rect};
 use std::{
+    path::PathBuf,
     sync::{
         Arc, RwLock,
         atomic::{AtomicU8, Ordering},
@@ -55,7 +56,7 @@ pub struct Simulation {
 impl Default for Simulation {
     fn default() -> Self {
         let sim_mode = Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8()));
-        Self::with_runtime(0.0, 2.0, sim_mode, DEFAULT_GENERATION_SEED)
+        Self::with_runtime(0.0, 2.0, sim_mode, DEFAULT_GENERATION_SEED, None)
     }
 }
 
@@ -65,6 +66,7 @@ impl Simulation {
         max_speed_ui_hz: f64,
         sim_mode_state: Arc<AtomicU8>,
         initial_generation_seed: u64,
+        export_csv: Option<PathBuf>,
     ) -> Self {
         let engine_state = GameEngine::new(initial_generation_seed);
         let mut ui_state = ui_state::UiState::default();
@@ -89,6 +91,7 @@ impl Simulation {
             realtime_tick_rate,
             Duration::from_secs_f64(1.0 / max_speed_ui_hz.max(0.1)).min(Duration::from_millis(500)),
             sim_mode_state,
+            export_csv,
         );
         Self {
             snapshot,
@@ -274,7 +277,7 @@ mod tests {
     fn observe_max_speed_ui_freshness_and_command_latency() {
         let sim_mode_state = Arc::new(AtomicU8::new(SimulationMode::MaxSpeed.as_atomic_u8()));
         let mut simulation =
-            Simulation::with_runtime(4.0, 2.0, sim_mode_state.clone(), DEFAULT_GENERATION_SEED);
+            Simulation::with_runtime(4.0, 2.0, sim_mode_state.clone(), DEFAULT_GENERATION_SEED, None);
         simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupNextField);
         simulation.apply_command_and_wait(GameCommand::SetupEditChar('0'));

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 use crate::config::{get_config_dir, get_data_dir};
@@ -25,6 +27,10 @@ pub struct Cli {
     /// UI refresh rate while simulation runs in max-speed mode
     #[arg(long, value_name = "FLOAT", default_value_t = 2.0)]
     pub fast_ui_hz: f64,
+
+    /// Directory to write monthly CSV exports (creates dir if absent)
+    #[arg(long, value_name = "DIR")]
+    pub export_csv: Option<PathBuf>,
 }
 
 const VERSION_MESSAGE: &str = concat!(

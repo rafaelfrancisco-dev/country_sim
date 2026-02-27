@@ -8,6 +8,7 @@ mod app;
 mod cli;
 mod components;
 mod config;
+mod csv_export;
 mod errors;
 mod logging;
 mod seed;
@@ -32,6 +33,7 @@ async fn main() -> color_eyre::Result<()> {
         args.sim_mode,
         args.fast_ui_hz,
         generation_seed,
+        args.export_csv,
     )?;
     app.run().await?;
     Ok(())

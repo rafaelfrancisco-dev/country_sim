@@ -75,6 +75,18 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - Additional snapshots are captured at each monthly boundary after country monthly processing.
 - History retention remains capped (`HISTORY_LIMIT = 120`).
 
+## Monthly Boundary Execution Order
+At each 30-day boundary, `World::tick_day` runs the following steps in order:
+
+1. `Country::process_month_end` (parallel) — payroll, taxes, gov spending, loan repayments, company decisions; pushes events to `country.pending_events`
+2. `adjust_dynamic_country_tariffs` — world-level tariff rebalancing
+3. `capture_snapshot` — records `MetricPoint` into the rolling history window
+4. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
+5. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
+6. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
+
+Step 4 must precede step 5 so that monthly accumulators are readable, and precede step 6 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
+
 ## Rationale
 - Daily demographics and labor are stateful and mutate the same entities as monthly economics.
 - Synchronous month processing avoids overwrite/drift risks from async snapshot replacement.

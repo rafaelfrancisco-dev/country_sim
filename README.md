@@ -4,6 +4,20 @@
 
 A toy app...
 
+## CSV Export
+Pass `--export-csv <DIR>` at startup to write one row per country per completed month to four CSV files in `<DIR>`:
+
+| File | Content |
+|------|---------|
+| `country_metrics_<seed>.csv` | Fiscal and monetary aggregates |
+| `people_agg_<seed>.csv` | Population, employment, income, loan aggregates |
+| `company_agg_<seed>.csv` | Company-level production and profit aggregates |
+| `events_<seed>.csv` | Event counts (births, deaths, layoffs, IPOs, …) |
+
+Files are keyed by the world seed in hex so re-runs with different seeds never overwrite each other. The flag is opt-in: omitting it has zero runtime cost (the snapshot pass is completely skipped).
+
+See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage examples.
+
 ## Recent UI Additions
 - Four running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Charts`, `Events`
 - Monthly trend charts (3×2 grid):
@@ -26,6 +40,7 @@ A toy app...
 - [Money simulation requirements](docs/money-simulation-requirements.md)
 - [Demographics and labor model](docs/demographics-labor-model.md)
 - [Benchmarking protocol](docs/benchmarking.md)
+- [CSV export](docs/csv-export.md)
 
 ## Benchmarking
 - Canonical command:
@@ -82,6 +97,7 @@ A toy app...
   - `--seed <decimal|0xhex>` world generation seed (optional)
   - `--sim-mode realtime|max-speed` (default: `realtime`)
   - `--fast-ui-hz <FLOAT>` (default: `2.0`, used in `max-speed` mode)
+  - `--export-csv <DIR>` write monthly CSV exports to directory (opt-in, zero cost when omitted)
   - `COUNTRY_SIM_SEED` env var is used when `--seed` is not provided
   - `m` toggles simulation mode at runtime from the running UI
 - The script enables debug symbols by default for useful function names (`profile=flamegraph`).

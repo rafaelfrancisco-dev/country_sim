@@ -2,6 +2,7 @@
 use std::sync::mpsc;
 use std::{
     fmt,
+    path::PathBuf,
     sync::{
         Arc, RwLock,
         atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
@@ -17,7 +18,10 @@ use super::{
     snapshot::{RuntimeStatsSnapshot, UiSnapshot},
     ui_state::UiState,
 };
-use crate::sim::{GameCommand, GameEngine, GamePhase, SimulationMode, UiCommand};
+use crate::{
+    csv_export::CsvExporter,
+    sim::{GameCommand, GameEngine, GamePhase, SimulationMode, UiCommand},
+};
 
 #[derive(Debug, Clone)]
 pub(super) struct RenderSnapshot {
@@ -129,6 +133,7 @@ impl SimulationWorker {
         realtime_tick_rate: f64,
         max_speed_publish_interval: Duration,
         sim_mode_state: Arc<AtomicU8>,
+        export_csv: Option<PathBuf>,
     ) -> Self {
         let tick_in_flight = Arc::new(AtomicBool::new(false));
         let pending_user_commands = Arc::new(AtomicUsize::new(0));
@@ -159,6 +164,10 @@ impl SimulationWorker {
                 worker_sim_mode_state.load(Ordering::Acquire),
             ));
             let mut last_snapshot_published_at = Instant::now();
+            let export_csv_path = export_csv;
+            let mut csv_exporter: Option<CsvExporter> = None;
+            let mut export_seed: Option<u64> = None;
+            let mut export_queue_activated = export_csv_path.is_none(); // skip if no path
 
             while let Some(message) = rx.blocking_recv() {
                 if worker_shutdown.load(Ordering::Acquire) {
@@ -205,6 +214,48 @@ impl SimulationWorker {
                             &worker_phase_is_running,
                             &worker_world_is_paused,
                         );
+
+                        // Activate the export queue on the world once the engine is Running
+                        if !export_queue_activated
+                            && matches!(engine.phase(), GamePhase::Running(_))
+                        {
+                            engine.enable_export_queue();
+                            export_queue_activated = true;
+                        }
+
+                        // Drain export queue and write CSV rows if enabled
+                        let export_rows = engine.drain_export_queue();
+                        if !export_rows.is_empty() {
+                            if export_seed.is_none() {
+                                export_seed =
+                                    export_rows.first().map(|r| r.generation_seed);
+                            }
+                            if let (Some(path), Some(seed)) =
+                                (&export_csv_path, export_seed)
+                            {
+                                if csv_exporter.is_none() {
+                                    match CsvExporter::new(path, seed) {
+                                        Ok(e) => csv_exporter = Some(e),
+                                        Err(err) => tracing::error!(
+                                            "failed to open CSV export: {err}"
+                                        ),
+                                    }
+                                }
+                                if let Some(exporter) = &mut csv_exporter {
+                                    for export_data in &export_rows {
+                                        for country_data in &export_data.countries {
+                                            if let Err(err) =
+                                                exporter.write_row(country_data)
+                                            {
+                                                tracing::error!(
+                                                    "CSV write error: {err}"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         if is_tick {
                             let tick_duration_ms =
@@ -529,6 +580,7 @@ mod tests {
             0.0,
             Duration::from_millis(500),
             Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8())),
+            None,
         );
 
         worker.send_and_wait(GameCommand::SetupEditChar('1'));

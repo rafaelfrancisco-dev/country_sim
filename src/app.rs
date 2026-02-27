@@ -1,6 +1,7 @@
 use crossterm::event::KeyEvent;
 use ratatui::prelude::Rect;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{
     sync::{
         Arc,
@@ -49,6 +50,7 @@ impl App {
         sim_mode: SimulationMode,
         max_mode_frame_rate: f64,
         initial_generation_seed: u64,
+        export_csv: Option<PathBuf>,
     ) -> color_eyre::Result<Self> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
         let sim_mode_state = Arc::new(AtomicU8::new(sim_mode.as_atomic_u8()));
@@ -61,6 +63,7 @@ impl App {
                     max_mode_frame_rate,
                     sim_mode_state.clone(),
                     initial_generation_seed,
+                    export_csv,
                 )),
                 Box::new(FpsCounter::default()),
             ],
