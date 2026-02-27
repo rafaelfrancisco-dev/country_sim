@@ -171,6 +171,8 @@ impl GameEngine {
 mod tests {
     use super::*;
     use crate::sim::{country::Country, person::Person};
+    use crate::csv_export::CsvExporter;
+    use std::path::PathBuf;
 
     fn person(id: u32) -> Person {
         Person::new(id, (id % 10) as u8, (id % 4) as u16, id + 1)
@@ -275,5 +277,48 @@ mod tests {
 
         let world = engine.world().expect("world should exist");
         assert_eq!(world.generation_seed, 0x123);
+    }
+
+    #[test]
+    #[ignore = "manual harness to generate one-year CSV export data"]
+    fn export_csv_for_one_year_headless() {
+        let out_dir = std::env::var("EXPORT_CSV_TEST_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/country_sim_year1"));
+
+        if out_dir.exists() {
+            std::fs::remove_dir_all(&out_dir).expect("remove prior output dir");
+        }
+        std::fs::create_dir_all(&out_dir).expect("create output dir");
+
+        let mut engine = GameEngine::new(DEFAULT_GENERATION_SEED);
+        submit_setup(&mut engine, "1", "0.1");
+        engine.enable_export_queue();
+
+        let mut exporter: Option<CsvExporter> = None;
+        let mut written_rows = 0usize;
+        for _ in 0..365 {
+            engine.apply(GameCommand::Tick);
+            let export_rows = engine.drain_export_queue();
+            if export_rows.is_empty() {
+                continue;
+            }
+
+            if exporter.is_none() {
+                let seed = export_rows[0].generation_seed;
+                exporter = Some(CsvExporter::new(&out_dir, seed).expect("create exporter"));
+            }
+
+            if let Some(exporter) = &mut exporter {
+                for month_data in export_rows {
+                    for country_data in month_data.countries {
+                        exporter.write_row(&country_data).expect("write csv row");
+                        written_rows += 1;
+                    }
+                }
+            }
+        }
+
+        assert_eq!(written_rows, 12, "365 days should produce 12 monthly rows");
     }
 }

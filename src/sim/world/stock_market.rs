@@ -30,7 +30,6 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
     let params = country.sim_params.stock_market;
     let cap = params.daily_participant_cap;
     let reserve_ratio = params.investor_cash_reserve_ratio;
-    let bank_max_fraction = params.bank_max_equity_reserve_fraction;
 
     // Build list of listed company IDs and their current prices
     let listed_ids: Vec<u16> = country.stock_market.listed.keys().copied().collect();
@@ -157,19 +156,12 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
         let total_buy_shares: u64 = buys.iter().map(|(_, s, _)| s).sum();
         let total_sell_shares: u64 = sells.iter().map(|(_, s, _)| s).sum();
 
-        // Bank provides residual liquidity
-        let bank_reserve = country.bank.reserve_balance;
-        let bank_equity_exposure = country.stock_market.bank_equity_exposure();
-        let bank_headroom =
-            round_cents((bank_reserve * bank_max_fraction - bank_equity_exposure).max(0.0));
-
         let matched_shares: u64;
         let clearing_price: f64;
         let net_demand = total_buy_shares as i64 - total_sell_shares as i64;
 
         if net_demand == 0 && total_buy_shares == 0 {
-            // No activity
-            country.stock_market.record_day_close(day);
+            // No activity on this listing.
             continue;
         }
 
@@ -192,8 +184,8 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
             clearing_price = round_cents(last_price * (1.0 - impact)).max(0.01);
         };
 
-        if matched_shares == 0 && net_demand == 0 {
-            country.stock_market.record_day_close(day);
+        if matched_shares == 0 {
+            // Do not synthesize trades or move price on one-sided/no-execution days.
             continue;
         }
 
@@ -250,35 +242,9 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
             buy_shares_remaining = buy_shares_remaining.saturating_sub(buy);
         }
 
-        // Bank provides residual liquidity for excess buys
-        if net_demand > 0 {
-            let extra_shares = (total_buy_shares - matched_shares) as u64;
-            let extra_cost = round_cents(extra_shares as f64 * clearing_price);
-            if extra_cost <= bank_headroom && extra_shares > 0 {
-                // bank sells shares from its portfolio if it has them
-                let bank_has = country
-                    .stock_market
-                    .bank_portfolio
-                    .position(*cid)
-                    .map_or(0, |p| p.shares);
-                let can_sell = bank_has.min(extra_shares);
-                if can_sell > 0 {
-                    let proceeds = round_cents(can_sell as f64 * clearing_price);
-                    country.stock_market.bank_portfolio.remove_shares(
-                        *cid,
-                        can_sell,
-                        clearing_price,
-                    );
-                    country.bank.reserve_balance =
-                        round_cents(country.bank.reserve_balance + proceeds);
-                }
-            }
-        }
-
         // Record the trade in the listing
-        let effective_volume = matched_shares.max(1);
         if let Some(equity) = country.stock_market.listed.get_mut(cid) {
-            equity.record_trade(effective_volume, clearing_price);
+            equity.record_trade(matched_shares, clearing_price);
         }
 
         if let Some(equity) = country.stock_market.listed.get(cid) {
