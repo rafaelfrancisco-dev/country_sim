@@ -1,13 +1,13 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
     widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
-    Frame,
 };
 
-use super::super::{theme, Simulation};
+use super::super::{Simulation, theme};
 use crate::components::simulation::{
     snapshot::RunningSnapshot,
     ui_state::{DetailsView, SelectionFocus},

@@ -1,6 +1,8 @@
 use super::*;
 use rand::{Rng, RngCore};
 use rand_distr::{Distribution, Poisson};
+#[cfg(feature = "bench-trace")]
+use std::time::Instant;
 
 impl Country {
     const MANUFACTURING_OPERATOR_JOB_ID: JobTypeId = 5;
@@ -13,6 +15,46 @@ impl Country {
 
         self.recompute_company_headcounts();
         self.recompute_aggregates();
+    }
+
+    #[cfg(feature = "bench-trace")]
+    pub(crate) fn run_daily_lifecycle_traced(&mut self) -> crate::sim::trace::CountryDailyTrace {
+        let total_started = Instant::now();
+
+        let started = Instant::now();
+        self.age_people_one_day();
+        let age_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        self.apply_daily_deaths();
+        let deaths_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        self.create_daily_births();
+        let births_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let (job_market_snapshot_ms, job_market_plan_ms, job_market_apply_ms) =
+            self.process_daily_job_market_traced();
+
+        let started = Instant::now();
+        self.recompute_company_headcounts();
+        let recompute_headcounts_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        self.recompute_aggregates();
+        let recompute_aggregates_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        crate::sim::trace::CountryDailyTrace {
+            total_ms: crate::sim::trace::duration_ms(total_started.elapsed()),
+            age_ms,
+            deaths_ms,
+            births_ms,
+            job_market_snapshot_ms,
+            job_market_plan_ms,
+            job_market_apply_ms,
+            recompute_headcounts_ms,
+            recompute_aggregates_ms,
+        }
     }
 
     fn age_people_one_day(&mut self) {
@@ -213,6 +255,100 @@ impl Country {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "bench-trace")]
+    fn process_daily_job_market_traced(&mut self) -> (f64, f64, f64) {
+        if self.companies.is_empty() {
+            return (0.0, 0.0, 0.0);
+        }
+
+        let day = self.day;
+        let country_id = self.id;
+        let labor_params = self.sim_params.labor;
+
+        let started = Instant::now();
+        let company_openings_snapshot = self
+            .companies
+            .iter()
+            .map(|company| company.open_positions.clone())
+            .collect::<Vec<_>>();
+        let snapshot_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        let intents_by_chunk = self
+            .people
+            .par_chunks(PEOPLE_CHUNK_SIZE)
+            .enumerate()
+            .map(|(chunk_idx, chunk)| {
+                let mut intents = Vec::new();
+                let base_idx = chunk_idx.saturating_mul(PEOPLE_CHUNK_SIZE);
+                for (offset, person) in chunk.iter().enumerate() {
+                    if person.is_employed() || !person.can_seek_job() {
+                        continue;
+                    }
+
+                    let seek_probability = labor_params
+                        .daily_seek_probability(person.age_years(), person.cash_balance);
+                    let seek_seed = hash64(
+                        (u64::from(country_id) << 48)
+                            ^ (day << 24)
+                            ^ u64::from(person.id)
+                            ^ u64::from(person.name_seed)
+                            ^ 0x5ee1_5eed_u64,
+                    );
+
+                    if !roll_probability(seek_seed, seek_probability) {
+                        continue;
+                    }
+
+                    let preferred = select_matching_opening_from_snapshot(
+                        &company_openings_snapshot,
+                        person.habilitation,
+                        seek_seed,
+                    );
+                    intents.push(JobSeekIntent {
+                        person_idx: base_idx + offset,
+                        seek_seed,
+                        qualification: person.habilitation,
+                        preferred,
+                    });
+                }
+                intents
+            })
+            .collect::<Vec<_>>();
+        let plan_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        let (people, companies) = (&mut self.people, &mut self.companies);
+        for chunk_intents in intents_by_chunk {
+            for intent in chunk_intents {
+                let Some(person) = people.get_mut(intent.person_idx) else {
+                    continue;
+                };
+                if person.is_employed() || !person.can_seek_job() {
+                    continue;
+                }
+
+                if let Some((company_idx, job_type_id)) = intent.preferred
+                    && let Some(company) = companies.get_mut(company_idx)
+                    && let Some((job_id, offered_salary)) =
+                        consume_opening_by_job_type(company, job_type_id)
+                {
+                    person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
+                    continue;
+                }
+
+                if let Some((company_id, job_id, offered_salary)) =
+                    consume_matching_opening(companies, intent.qualification, intent.seek_seed)
+                {
+                    person.set_employment_with_salary(company_id, job_id, offered_salary);
+                }
+            }
+        }
+        let apply_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        (snapshot_ms, plan_ms, apply_ms)
     }
 
     pub(super) fn recompute_company_headcounts(&mut self) {

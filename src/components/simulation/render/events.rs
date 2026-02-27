@@ -123,9 +123,7 @@ fn event_line_style(line: &str) -> Style {
             .fg(Color::LightYellow)
             .add_modifier(Modifier::BOLD)
     } else if line.starts_with("[SEIZE]") || line.starts_with("[DELIST]") {
-        Style::default()
-            .fg(Color::Red)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
     } else if line.starts_with("[STK]") {
         Style::default().fg(Color::Cyan)
     } else {

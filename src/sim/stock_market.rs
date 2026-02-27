@@ -44,9 +44,12 @@ impl Portfolio {
         if shares == 0 {
             return;
         }
-        if let Some(pos) = self.positions.iter_mut().find(|p| p.company_id == company_id) {
-            let total_cost =
-                pos.shares as f64 * pos.avg_cost + shares as f64 * cost_per_share;
+        if let Some(pos) = self
+            .positions
+            .iter_mut()
+            .find(|p| p.company_id == company_id)
+        {
+            let total_cost = pos.shares as f64 * pos.avg_cost + shares as f64 * cost_per_share;
             pos.shares += shares;
             pos.avg_cost = if pos.shares == 0 {
                 0.0
@@ -196,8 +199,16 @@ impl ListedEquity {
         self.prev_close = self.last_price;
         self.market_cap = self.last_price * self.shares_outstanding as f64;
 
-        push_capped(&mut self.price_history, self.last_price, STOCK_PRICE_HISTORY_WINDOW);
-        push_capped(&mut self.volume_history, self.day_volume, STOCK_PRICE_HISTORY_WINDOW);
+        push_capped(
+            &mut self.price_history,
+            self.last_price,
+            STOCK_PRICE_HISTORY_WINDOW,
+        );
+        push_capped(
+            &mut self.volume_history,
+            self.day_volume,
+            STOCK_PRICE_HISTORY_WINDOW,
+        );
         push_capped(
             &mut self.market_cap_history,
             self.market_cap,
@@ -343,8 +354,7 @@ impl StockMarket {
         for portfolio in self.person_portfolios.values_mut() {
             total_wiped = total_wiped.saturating_add(portfolio.wipe_company(company_id));
         }
-        total_wiped =
-            total_wiped.saturating_add(self.bank_portfolio.wipe_company(company_id));
+        total_wiped = total_wiped.saturating_add(self.bank_portfolio.wipe_company(company_id));
         total_wiped
     }
 

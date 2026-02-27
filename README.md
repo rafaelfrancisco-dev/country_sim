@@ -41,6 +41,21 @@ A toy app...
   --out-csv target/bench/latest.csv \
   --flamegraph target/bench/flamegraph.svg
 ```
+- Optional trace run (feature-gated, benchmark-only):
+```bash
+./scripts/bench-sim.sh \
+  --seed 0x5eedc0de \
+  --countries 4 \
+  --population-per-country 500000 \
+  --days 100 \
+  --threads 8 \
+  --sim-mode max-speed \
+  --out-json target/bench/trace-metrics.json \
+  --out-csv target/bench/trace-metrics.csv \
+  --trace-enabled \
+  --trace-out-csv target/bench/trace-days.csv \
+  --trace-summary-json target/bench/trace-summary.json
+```
 - Run the exact command before any performance work and save:
   - `target/bench/baseline.json`
   - `target/bench/baseline.csv`

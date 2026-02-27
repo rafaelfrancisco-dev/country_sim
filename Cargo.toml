@@ -6,6 +6,11 @@ description = "A toy app..."
 authors = ["Rafael Francisco <rafaelfrancisco6@gmail.com>"]
 build = "build.rs"
 
+[features]
+default = []
+bench-trace = []
+ui-diagnostics = []
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

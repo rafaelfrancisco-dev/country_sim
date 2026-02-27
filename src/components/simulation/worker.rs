@@ -13,24 +13,32 @@ use std::{
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tracing::warn;
 
-use super::snapshot::RuntimeStatsSnapshot;
-use crate::sim::{GameCommand, GameEngine, GamePhase, SimulationMode};
+use super::{
+    snapshot::{RuntimeStatsSnapshot, UiSnapshot},
+    ui_state::UiState,
+};
+use crate::sim::{GameCommand, GameEngine, GamePhase, SimulationMode, UiCommand};
 
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct EngineSnapshot {
-    pub phase: GamePhase,
-    pub runtime_stats: RuntimeStatsSnapshot,
+#[derive(Debug, Clone)]
+pub(super) struct RenderSnapshot {
+    pub ui_snapshot: UiSnapshot,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum WorkerCommand {
+    Domain(GameCommand),
+    Ui(UiCommand),
 }
 
 #[derive(Debug)]
 enum WorkerMsg {
     Apply {
-        command: GameCommand,
+        command: WorkerCommand,
         enqueued_at: Instant,
         is_user_initiated: bool,
     },
     #[cfg(test)]
-    ApplyAndAck(GameCommand, mpsc::Sender<()>),
+    ApplyAndAck(WorkerCommand, mpsc::Sender<()>),
     Shutdown,
 }
 
@@ -58,7 +66,6 @@ pub(super) struct SimulationWorker {
     clock_handle: Option<thread::JoinHandle<()>>,
     shutdown: Arc<AtomicBool>,
     pending_user_commands: Arc<AtomicUsize>,
-    sim_mode_state: Arc<AtomicU8>,
 }
 
 #[derive(Debug)]
@@ -71,7 +78,7 @@ struct RuntimeStats {
 impl RuntimeStats {
     fn new(mode: SimulationMode) -> Self {
         Self {
-            snapshot: RuntimeStatsSnapshot::new(mode, 0.0, 0.0, 0, 0.0),
+            snapshot: RuntimeStatsSnapshot::new(mode, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0),
             tick_window_started_at: Instant::now(),
             ticks_in_window: 0,
         }
@@ -99,6 +106,17 @@ impl RuntimeStats {
         }
     }
 
+    fn record_snapshot_publish(&mut self, snapshot_age_ms: f64, snapshot_build_ms: f64) {
+        self.snapshot.snapshot_publish_count =
+            self.snapshot.snapshot_publish_count.saturating_add(1);
+        self.snapshot.max_snapshot_age_ms = self.snapshot.max_snapshot_age_ms.max(snapshot_age_ms);
+        self.snapshot.avg_snapshot_build_ms = if self.snapshot.avg_snapshot_build_ms <= 0.0 {
+            snapshot_build_ms
+        } else {
+            self.snapshot.avg_snapshot_build_ms * 0.9 + snapshot_build_ms * 0.1
+        };
+    }
+
     fn snapshot(&self) -> RuntimeStatsSnapshot {
         self.snapshot
     }
@@ -107,8 +125,9 @@ impl RuntimeStats {
 impl SimulationWorker {
     pub(super) fn new(
         initial_engine: GameEngine,
-        snapshot: Arc<RwLock<EngineSnapshot>>,
+        snapshot: Arc<RwLock<RenderSnapshot>>,
         realtime_tick_rate: f64,
+        max_speed_publish_interval: Duration,
         sim_mode_state: Arc<AtomicU8>,
     ) -> Self {
         let tick_in_flight = Arc::new(AtomicBool::new(false));
@@ -135,19 +154,20 @@ impl SimulationWorker {
 
         let handle = thread::spawn(move || {
             let mut engine = initial_engine;
+            let mut ui_state = UiState::default();
             let mut runtime_stats = RuntimeStats::new(SimulationMode::from_atomic_u8(
                 worker_sim_mode_state.load(Ordering::Acquire),
             ));
+            let mut last_snapshot_published_at = Instant::now();
 
             while let Some(message) = rx.blocking_recv() {
                 if worker_shutdown.load(Ordering::Acquire) {
                     break;
                 }
 
-                let queue_depth = rx.len();
                 let mode =
                     SimulationMode::from_atomic_u8(worker_sim_mode_state.load(Ordering::Acquire));
-                runtime_stats.update_mode_and_queue(mode, queue_depth);
+                runtime_stats.update_mode_and_queue(mode, rx.len());
 
                 match message {
                     WorkerMsg::Apply {
@@ -155,25 +175,36 @@ impl SimulationWorker {
                         enqueued_at,
                         is_user_initiated,
                     } => {
-                        let is_tick = matches!(command, GameCommand::Tick);
                         let command_started_at = Instant::now();
                         let queue_lag_ms = command_started_at
                             .saturating_duration_since(enqueued_at)
                             .as_secs_f64()
                             * 1_000.0;
 
-                        let outcome = engine.apply(command);
-                        for warning in outcome.warnings {
-                            warn!("simulation invariant warning: {warning}");
+                        let mut is_tick = false;
+                        match command {
+                            WorkerCommand::Domain(game_command) => {
+                                is_tick = matches!(game_command, GameCommand::Tick);
+                                let outcome = engine.apply(game_command);
+                                for warning in outcome.warnings {
+                                    warn!("simulation invariant warning: {warning}");
+                                }
+                            }
+                            WorkerCommand::Ui(ui_command) => {
+                                Self::apply_ui_command(
+                                    ui_command,
+                                    &engine,
+                                    &mut ui_state,
+                                    &worker_sim_mode_state,
+                                );
+                            }
                         }
 
-                        if let GamePhase::Running(world) = engine.phase() {
-                            worker_phase_is_running.store(true, Ordering::Release);
-                            worker_world_is_paused.store(world.paused, Ordering::Release);
-                        } else {
-                            worker_phase_is_running.store(false, Ordering::Release);
-                            worker_world_is_paused.store(true, Ordering::Release);
-                        }
+                        update_phase_flags(
+                            &engine,
+                            &worker_phase_is_running,
+                            &worker_world_is_paused,
+                        );
 
                         if is_tick {
                             let tick_duration_ms =
@@ -181,13 +212,50 @@ impl SimulationWorker {
                             runtime_stats.record_tick(queue_lag_ms, tick_duration_ms);
                         }
 
-                        if let Ok(mut shared_snapshot) = worker_snapshot.write() {
-                            *shared_snapshot = EngineSnapshot {
-                                phase: engine.phase().clone(),
-                                runtime_stats: runtime_stats.snapshot(),
-                            };
+                        let mode_after = SimulationMode::from_atomic_u8(
+                            worker_sim_mode_state.load(Ordering::Acquire),
+                        );
+                        runtime_stats.update_mode_and_queue(mode_after, rx.len());
+
+                        let should_publish = if is_user_initiated {
+                            true
+                        } else if is_tick {
+                            should_publish_snapshot_for_tick(
+                                mode_after,
+                                command_started_at,
+                                last_snapshot_published_at,
+                                max_speed_publish_interval,
+                            )
                         } else {
-                            break;
+                            false
+                        };
+
+                        if should_publish {
+                            let snapshot_age_ms = command_started_at
+                                .saturating_duration_since(last_snapshot_published_at)
+                                .as_secs_f64()
+                                * 1_000.0;
+
+                            let snapshot_started_at = Instant::now();
+                            let mut ui_snapshot = UiSnapshot::from_engine_and_ui(
+                                &engine,
+                                &mut ui_state,
+                                runtime_stats.snapshot(),
+                            );
+                            let snapshot_build_ms =
+                                snapshot_started_at.elapsed().as_secs_f64() * 1_000.0;
+
+                            runtime_stats
+                                .record_snapshot_publish(snapshot_age_ms, snapshot_build_ms);
+                            let runtime_snapshot = runtime_stats.snapshot();
+                            ui_snapshot.apply_runtime_stats(runtime_snapshot);
+
+                            if let Ok(mut shared_snapshot) = worker_snapshot.write() {
+                                *shared_snapshot = RenderSnapshot { ui_snapshot };
+                                last_snapshot_published_at = Instant::now();
+                            } else {
+                                break;
+                            }
                         }
 
                         if is_tick {
@@ -199,32 +267,42 @@ impl SimulationWorker {
                     }
                     #[cfg(test)]
                     WorkerMsg::ApplyAndAck(command, ack_tx) => {
-                        let command_started_at = Instant::now();
-                        let is_tick = matches!(command, GameCommand::Tick);
-                        let outcome = engine.apply(command);
-                        for warning in outcome.warnings {
-                            warn!("simulation invariant warning: {warning}");
+                        match command {
+                            WorkerCommand::Domain(game_command) => {
+                                let _ = engine.apply(game_command);
+                            }
+                            WorkerCommand::Ui(ui_command) => {
+                                Self::apply_ui_command(
+                                    ui_command,
+                                    &engine,
+                                    &mut ui_state,
+                                    &worker_sim_mode_state,
+                                );
+                            }
                         }
 
-                        if let GamePhase::Running(world) = engine.phase() {
-                            worker_phase_is_running.store(true, Ordering::Release);
-                            worker_world_is_paused.store(world.paused, Ordering::Release);
-                        } else {
-                            worker_phase_is_running.store(false, Ordering::Release);
-                            worker_world_is_paused.store(true, Ordering::Release);
-                        }
+                        update_phase_flags(
+                            &engine,
+                            &worker_phase_is_running,
+                            &worker_world_is_paused,
+                        );
 
-                        if is_tick {
-                            let tick_duration_ms =
-                                command_started_at.elapsed().as_secs_f64() * 1_000.0;
-                            runtime_stats.record_tick(0.0, tick_duration_ms);
-                        }
+                        let mode_after = SimulationMode::from_atomic_u8(
+                            worker_sim_mode_state.load(Ordering::Acquire),
+                        );
+                        runtime_stats.update_mode_and_queue(mode_after, rx.len());
+
+                        let mut ui_snapshot = UiSnapshot::from_engine_and_ui(
+                            &engine,
+                            &mut ui_state,
+                            runtime_stats.snapshot(),
+                        );
+                        let runtime_snapshot = runtime_stats.snapshot();
+                        ui_snapshot.apply_runtime_stats(runtime_snapshot);
 
                         if let Ok(mut shared_snapshot) = worker_snapshot.write() {
-                            *shared_snapshot = EngineSnapshot {
-                                phase: engine.phase().clone(),
-                                runtime_stats: runtime_stats.snapshot(),
-                            };
+                            *shared_snapshot = RenderSnapshot { ui_snapshot };
+                            last_snapshot_published_at = Instant::now();
                         } else {
                             break;
                         }
@@ -287,7 +365,7 @@ impl SimulationWorker {
                     {
                         if clock_tx
                             .send(WorkerMsg::Apply {
-                                command: GameCommand::Tick,
+                                command: WorkerCommand::Domain(GameCommand::Tick),
                                 enqueued_at: Instant::now(),
                                 is_user_initiated: false,
                             })
@@ -311,37 +389,64 @@ impl SimulationWorker {
             clock_handle,
             shutdown,
             pending_user_commands,
-            sim_mode_state,
         }
     }
 
-    pub(super) fn send(&self, command: GameCommand) -> Result<(), WorkerError> {
-        self.pending_user_commands.fetch_add(1, Ordering::AcqRel);
+    fn apply_ui_command(
+        ui_command: UiCommand,
+        engine: &GameEngine,
+        ui_state: &mut UiState,
+        sim_mode_state: &AtomicU8,
+    ) {
+        if matches!(ui_command, UiCommand::ToggleSimMode) {
+            let current_mode =
+                SimulationMode::from_atomic_u8(sim_mode_state.load(Ordering::Acquire));
+            let next_mode = match current_mode {
+                SimulationMode::Realtime => SimulationMode::MaxSpeed,
+                SimulationMode::MaxSpeed => SimulationMode::Realtime,
+            };
+            sim_mode_state.store(next_mode.as_atomic_u8(), Ordering::Release);
+            return;
+        }
+
+        if let GamePhase::Running(world) = engine.phase() {
+            ui_state.apply(ui_command, world);
+        }
+    }
+
+    fn send_internal(
+        &self,
+        command: WorkerCommand,
+        is_user_initiated: bool,
+    ) -> Result<(), WorkerError> {
+        if is_user_initiated {
+            self.pending_user_commands.fetch_add(1, Ordering::AcqRel);
+        }
+
         if self
             .tx
             .send(WorkerMsg::Apply {
                 command,
                 enqueued_at: Instant::now(),
-                is_user_initiated: true,
+                is_user_initiated,
             })
             .is_err()
         {
-            self.pending_user_commands.fetch_sub(1, Ordering::AcqRel);
+            if is_user_initiated {
+                self.pending_user_commands.fetch_sub(1, Ordering::AcqRel);
+            }
             return Err(WorkerError::CHANNEL_CLOSED);
         }
 
         Ok(())
     }
 
-    pub(super) fn toggle_sim_mode(&self) {
-        let current_mode =
-            SimulationMode::from_atomic_u8(self.sim_mode_state.load(Ordering::Acquire));
-        let next_mode = match current_mode {
-            SimulationMode::Realtime => SimulationMode::MaxSpeed,
-            SimulationMode::MaxSpeed => SimulationMode::Realtime,
-        };
-        self.sim_mode_state
-            .store(next_mode.as_atomic_u8(), Ordering::Release);
+    pub(super) fn send_domain(&self, command: GameCommand) -> Result<(), WorkerError> {
+        self.send_internal(WorkerCommand::Domain(command), true)
+    }
+
+    pub(super) fn send_ui(&self, command: UiCommand) -> Result<(), WorkerError> {
+        self.send_internal(WorkerCommand::Ui(command), true)
     }
 
     #[cfg(test)]
@@ -349,10 +454,41 @@ impl SimulationWorker {
         let (ack_tx, ack_rx) = mpsc::channel();
         if self
             .tx
-            .send(WorkerMsg::ApplyAndAck(command, ack_tx))
+            .send(WorkerMsg::ApplyAndAck(
+                WorkerCommand::Domain(command),
+                ack_tx,
+            ))
             .is_ok()
         {
             let _ = ack_rx.recv();
+        }
+    }
+}
+
+fn update_phase_flags(
+    engine: &GameEngine,
+    phase_is_running: &AtomicBool,
+    world_is_paused: &AtomicBool,
+) {
+    if let GamePhase::Running(world) = engine.phase() {
+        phase_is_running.store(true, Ordering::Release);
+        world_is_paused.store(world.paused, Ordering::Release);
+    } else {
+        phase_is_running.store(false, Ordering::Release);
+        world_is_paused.store(true, Ordering::Release);
+    }
+}
+
+fn should_publish_snapshot_for_tick(
+    mode: SimulationMode,
+    now: Instant,
+    last_snapshot_published_at: Instant,
+    max_speed_publish_interval: Duration,
+) -> bool {
+    match mode {
+        SimulationMode::Realtime => true,
+        SimulationMode::MaxSpeed => {
+            now.saturating_duration_since(last_snapshot_published_at) >= max_speed_publish_interval
         }
     }
 }
@@ -377,14 +513,21 @@ mod tests {
     #[test]
     fn worker_applies_commands_in_order() {
         let initial_engine = GameEngine::default();
-        let snapshot = Arc::new(RwLock::new(EngineSnapshot {
-            phase: initial_engine.phase().clone(),
-            runtime_stats: RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0),
+        let mut initial_ui_state = UiState::default();
+        let runtime_stats =
+            RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0);
+        let snapshot = Arc::new(RwLock::new(RenderSnapshot {
+            ui_snapshot: UiSnapshot::from_engine_and_ui(
+                &initial_engine,
+                &mut initial_ui_state,
+                runtime_stats,
+            ),
         }));
         let worker = SimulationWorker::new(
             initial_engine,
             snapshot.clone(),
             0.0,
+            Duration::from_millis(500),
             Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8())),
         );
 
@@ -396,9 +539,34 @@ mod tests {
         worker.send_and_wait(GameCommand::Tick);
 
         let snapshot = snapshot.read().expect("snapshot lock poisoned").clone();
-        let GamePhase::Running(world) = snapshot.phase else {
+        let crate::components::simulation::snapshot::SnapshotPhase::Running(world) =
+            snapshot.ui_snapshot.phase
+        else {
             panic!("expected running phase");
         };
         assert_eq!(world.day, 2);
+    }
+
+    #[test]
+    fn max_speed_auto_tick_publish_is_cadenced() {
+        let now = Instant::now();
+        assert!(should_publish_snapshot_for_tick(
+            SimulationMode::Realtime,
+            now,
+            now,
+            Duration::from_millis(500)
+        ));
+        assert!(!should_publish_snapshot_for_tick(
+            SimulationMode::MaxSpeed,
+            now,
+            now,
+            Duration::from_millis(500)
+        ));
+        assert!(should_publish_snapshot_for_tick(
+            SimulationMode::MaxSpeed,
+            now + Duration::from_millis(600),
+            now,
+            Duration::from_millis(500)
+        ));
     }
 }

@@ -8,6 +8,8 @@ use crate::sim::{
     stock_market::{ListedEquity, StockMarket},
 };
 use std::cmp::Ordering;
+#[cfg(feature = "bench-trace")]
+use crate::time_op;
 
 impl Country {
     #[cfg(test)]
@@ -38,6 +40,55 @@ impl Country {
 
         self.month = self.month.saturating_add(1);
         self.recompute_aggregates();
+    }
+
+    #[cfg(feature = "bench-trace")]
+    pub(crate) fn process_month_end_traced(&mut self) -> crate::sim::trace::CountryMonthlyTrace {
+        let total_started = ::std::time::Instant::now();
+
+        let recompute_headcounts_before_ms = time_op!(self.recompute_company_headcounts());
+        let payroll_liquidity_ms = time_op!(self.ensure_company_payroll_liquidity());
+        let payroll_taxes_ms = time_op!(self.process_payroll_and_taxes());
+        let gov_spending_ms = time_op!(self.process_government_spending());
+        let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
+        let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
+        let profitability_ms = time_op!(self.recompute_company_profitability());
+        let company_distress_ms = time_op!(self.process_company_distress());
+        let loan_requests_ms = time_op!(self.process_end_of_month_loan_requests());
+        let growth_openings_ms = time_op!(self.update_company_growth_openings());
+        let startup_formation_ms = time_op!(self.process_startup_formation());
+        let essential_backfill_ms = time_op!(self.process_essential_company_backfill());
+        let public_wage_adjust_ms = time_op!(self.adjust_public_utility_opening_wages());
+        let job_switches_ms = time_op!(self.process_monthly_job_switches());
+        let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
+        let close_company_months_ms = time_op!(self.close_company_months());
+        let dividends_ms = time_op!(self.process_stock_dividends());
+
+        self.month = self.month.saturating_add(1);
+
+        let recompute_aggregates_ms = time_op!(self.recompute_aggregates());
+
+        crate::sim::trace::CountryMonthlyTrace {
+            total_ms: crate::sim::trace::duration_ms(total_started.elapsed()),
+            recompute_headcounts_before_ms,
+            payroll_liquidity_ms,
+            payroll_taxes_ms,
+            gov_spending_ms,
+            stock_collateral_ms,
+            loan_repayments_ms,
+            profitability_ms,
+            company_distress_ms,
+            loan_requests_ms,
+            growth_openings_ms,
+            startup_formation_ms,
+            essential_backfill_ms,
+            public_wage_adjust_ms,
+            job_switches_ms,
+            recompute_headcounts_after_ms,
+            close_company_months_ms,
+            dividends_ms,
+            recompute_aggregates_ms,
+        }
     }
 
     pub(crate) fn reset_month_trackers(&mut self) {
@@ -1239,13 +1290,8 @@ impl Country {
         let initial_shares = params.ipo_initial_shares;
 
         // Price purely on book value (no revenue history at day 0).
-        let price_per_share = StockMarket::ipo_valuation_anchor(
-            0.0,
-            0.0,
-            cash_balance,
-            debt_balance,
-            initial_shares,
-        );
+        let price_per_share =
+            StockMarket::ipo_valuation_anchor(0.0, 0.0, cash_balance, debt_balance, initial_shares);
         if price_per_share < 0.01 {
             return;
         }
@@ -1336,8 +1382,7 @@ impl Country {
         if let Some(company) = self.companies.get_mut(company_idx) {
             company.cash_balance = round_cents(company.cash_balance + raised);
         }
-        self.stock_market.ipo_raised_mtd =
-            round_cents(self.stock_market.ipo_raised_mtd + raised);
+        self.stock_market.ipo_raised_mtd = round_cents(self.stock_market.ipo_raised_mtd + raised);
 
         self.pending_events.push(SimEvent::StockIpo {
             country_name: self.name.clone(),
@@ -1368,9 +1413,7 @@ impl Country {
         let monthly_payroll = company.monthly_payroll_budget;
 
         // How much fresh cash does the company need?
-        let funding_need = round_cents(
-            (-cash_balance).max(0.0).max(monthly_payroll * 2.0),
-        );
+        let funding_need = round_cents((-cash_balance).max(0.0).max(monthly_payroll * 2.0));
         if funding_need <= 0.0 {
             return false;
         }
@@ -1390,10 +1433,8 @@ impl Country {
         );
 
         // New shares = how many needed to raise `funding_need`
-        let max_new_shares =
-            ((initial_shares as f64 * params.ipo_max_dilution) as u64).max(1);
-        let needed_shares =
-            ((funding_need / price_per_share).ceil() as u64).max(1);
+        let max_new_shares = ((initial_shares as f64 * params.ipo_max_dilution) as u64).max(1);
+        let needed_shares = ((funding_need / price_per_share).ceil() as u64).max(1);
         let shares_to_issue = needed_shares.min(max_new_shares);
 
         let total_raise_target = round_cents(shares_to_issue as f64 * price_per_share);
@@ -1437,7 +1478,8 @@ impl Country {
         let bank_reserve = self.bank.reserve_balance;
         let bank_equity_exposure = self.stock_market.bank_equity_exposure();
         let bank_headroom = round_cents(
-            (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure).max(0.0),
+            (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure)
+                .max(0.0),
         );
         if shares_allocated < shares_to_issue && bank_headroom >= price_per_share {
             let remaining = shares_to_issue - shares_allocated;
@@ -1458,9 +1500,11 @@ impl Country {
                     // IPO success — apply bank subscription
                     self.bank.reserve_balance =
                         round_cents(self.bank.reserve_balance - bank_cost_final);
-                    self.stock_market
-                        .bank_portfolio
-                        .add_shares(company_id, bank_alloc_final, price_per_share);
+                    self.stock_market.bank_portfolio.add_shares(
+                        company_id,
+                        bank_alloc_final,
+                        price_per_share,
+                    );
                 }
             }
         }
@@ -1600,8 +1644,7 @@ impl Country {
                 let sale_proceeds = round_cents(shares_to_sell as f64 * sale_price);
                 portfolio.remove_shares(cid, shares_to_sell, sale_price);
                 proceeds = round_cents(proceeds + sale_proceeds);
-                total_liquidated_shares =
-                    total_liquidated_shares.saturating_add(shares_to_sell);
+                total_liquidated_shares = total_liquidated_shares.saturating_add(shares_to_sell);
 
                 // Credit proceeds to person
                 if let Some(p) = self.people.iter_mut().find(|p| p.id == person_id) {
@@ -1612,8 +1655,7 @@ impl Country {
                     .bank_portfolio
                     .add_shares(cid, shares_to_sell, sale_price);
                 // Reserve increases for bank
-                self.bank.reserve_balance =
-                    round_cents(self.bank.reserve_balance + sale_proceeds);
+                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + sale_proceeds);
             }
 
             if total_liquidated_shares > 0 {
@@ -1644,12 +1686,7 @@ impl Country {
         let payout_ratio = self.sim_params.stock_market.dividend_payout_ratio;
         let runway_months = self.sim_params.stock_market.dividend_min_runway_months;
 
-        let company_ids: Vec<u16> = self
-            .stock_market
-            .listed
-            .keys()
-            .copied()
-            .collect();
+        let company_ids: Vec<u16> = self.stock_market.listed.keys().copied().collect();
 
         for company_id in company_ids {
             let Some(company) = self.companies.get(company_id as usize) else {
@@ -1711,25 +1748,19 @@ impl Country {
                         // Household dividend — apply withholding tax (same bracket logic)
                         let tax = round_cents(gross * 0.15); // flat 15% withholding
                         let net = round_cents(gross - tax);
-                        if let Some(person) =
-                            self.people.iter_mut().find(|p| p.id == *pid)
-                        {
+                        if let Some(person) = self.people.iter_mut().find(|p| p.id == *pid) {
                             person.cash_balance = round_cents(person.cash_balance + net);
                         }
                         self.treasury_balance = round_cents(self.treasury_balance + tax);
-                        self.monthly_tax_collected =
-                            round_cents(self.monthly_tax_collected + tax);
-                        if let Some(portfolio) =
-                            self.stock_market.person_portfolios.get_mut(pid)
-                        {
+                        self.monthly_tax_collected = round_cents(self.monthly_tax_collected + tax);
+                        if let Some(portfolio) = self.stock_market.person_portfolios.get_mut(pid) {
                             portfolio.dividends_mtd = round_cents(portfolio.dividends_mtd + net);
                         }
                         total_paid = round_cents(total_paid + gross);
                     }
                     None => {
                         // Bank dividend goes to reserves
-                        self.bank.reserve_balance =
-                            round_cents(self.bank.reserve_balance + gross);
+                        self.bank.reserve_balance = round_cents(self.bank.reserve_balance + gross);
                         self.stock_market.bank_portfolio.dividends_mtd =
                             round_cents(self.stock_market.bank_portfolio.dividends_mtd + gross);
                         total_paid = round_cents(total_paid + gross);

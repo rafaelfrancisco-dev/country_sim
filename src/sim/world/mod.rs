@@ -3,6 +3,8 @@ mod history;
 mod stock_market;
 
 use rayon::prelude::*;
+#[cfg(feature = "bench-trace")]
+use std::time::Instant;
 
 use super::{
     country::Country,
@@ -152,6 +154,205 @@ impl Tickable for World {
                 .for_each(Country::reset_month_trackers);
         }
         self.drain_country_events();
+    }
+}
+
+#[cfg(feature = "bench-trace")]
+impl World {
+    pub(crate) fn tick_day_with_trace(&mut self) -> crate::sim::trace::DayTraceRow {
+        let tick_started = Instant::now();
+
+        self.day = self.day.saturating_add(1);
+        let day = self.day;
+
+        let started = Instant::now();
+        let daily_traces = self
+            .countries
+            .par_iter_mut()
+            .map(Country::tick_day_without_month_traced)
+            .collect::<Vec<_>>();
+        let world_country_tick_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        self.run_daily_goods_economy();
+        let world_goods_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let started = Instant::now();
+        self.run_daily_stock_market();
+        let world_stock_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let mut world_monthly_total_ms = 0.0;
+        let mut world_monthly_process_countries_ms = 0.0;
+        let mut world_monthly_tariff_adjust_ms = 0.0;
+        let mut world_monthly_capture_snapshot_ms = 0.0;
+        let mut world_monthly_reset_trackers_ms = 0.0;
+
+        let mut monthly_traces = Vec::new();
+        let is_month_boundary = self.day.is_multiple_of(DAYS_PER_MONTH);
+        if is_month_boundary {
+            let monthly_started = Instant::now();
+
+            let started = Instant::now();
+            monthly_traces = self
+                .countries
+                .par_iter_mut()
+                .map(Country::process_month_end_traced)
+                .collect::<Vec<_>>();
+            world_monthly_process_countries_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            let started = Instant::now();
+            self.adjust_dynamic_country_tariffs();
+            world_monthly_tariff_adjust_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            let started = Instant::now();
+            self.capture_snapshot();
+            world_monthly_capture_snapshot_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            let started = Instant::now();
+            self.countries
+                .par_iter_mut()
+                .for_each(Country::reset_month_trackers);
+            world_monthly_reset_trackers_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            world_monthly_total_ms = crate::sim::trace::duration_ms(monthly_started.elapsed());
+        }
+
+        let started = Instant::now();
+        self.drain_country_events();
+        let world_drain_events_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        let (
+            country_daily_total_ms_sum,
+            country_daily_age_ms_sum,
+            country_daily_deaths_ms_sum,
+            country_daily_births_ms_sum,
+            country_daily_job_market_snapshot_ms_sum,
+            country_daily_job_market_plan_ms_sum,
+            country_daily_job_market_apply_ms_sum,
+            country_daily_recompute_headcounts_ms_sum,
+            country_daily_recompute_aggregates_ms_sum,
+        ) = daily_traces.iter().fold(
+            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            |acc, trace| {
+                (
+                    acc.0 + trace.total_ms,
+                    acc.1 + trace.age_ms,
+                    acc.2 + trace.deaths_ms,
+                    acc.3 + trace.births_ms,
+                    acc.4 + trace.job_market_snapshot_ms,
+                    acc.5 + trace.job_market_plan_ms,
+                    acc.6 + trace.job_market_apply_ms,
+                    acc.7 + trace.recompute_headcounts_ms,
+                    acc.8 + trace.recompute_aggregates_ms,
+                )
+            },
+        );
+
+        let (
+            country_monthly_total_ms_sum,
+            country_monthly_payroll_liquidity_ms_sum,
+            country_monthly_payroll_taxes_ms_sum,
+            country_monthly_gov_spending_ms_sum,
+            country_monthly_stock_collateral_ms_sum,
+            country_monthly_loan_repayments_ms_sum,
+            country_monthly_profitability_ms_sum,
+            country_monthly_company_distress_ms_sum,
+            country_monthly_loan_requests_ms_sum,
+            country_monthly_growth_openings_ms_sum,
+            country_monthly_startup_formation_ms_sum,
+            country_monthly_essential_backfill_ms_sum,
+            country_monthly_public_wage_adjust_ms_sum,
+            country_monthly_job_switches_ms_sum,
+            country_monthly_close_company_months_ms_sum,
+            country_monthly_dividends_ms_sum,
+            country_monthly_recompute_aggregates_ms_sum,
+        ) = monthly_traces.iter().fold(
+            (
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            ),
+            |acc, trace| {
+                (
+                    acc.0 + trace.total_ms,
+                    acc.1 + trace.payroll_liquidity_ms,
+                    acc.2 + trace.payroll_taxes_ms,
+                    acc.3 + trace.gov_spending_ms,
+                    acc.4 + trace.stock_collateral_ms,
+                    acc.5 + trace.loan_repayments_ms,
+                    acc.6 + trace.profitability_ms,
+                    acc.7 + trace.company_distress_ms,
+                    acc.8 + trace.loan_requests_ms,
+                    acc.9 + trace.growth_openings_ms,
+                    acc.10 + trace.startup_formation_ms,
+                    acc.11 + trace.essential_backfill_ms,
+                    acc.12 + trace.public_wage_adjust_ms,
+                    acc.13 + trace.job_switches_ms,
+                    acc.14 + trace.close_company_months_ms,
+                    acc.15 + trace.dividends_ms,
+                    acc.16 + trace.recompute_aggregates_ms,
+                )
+            },
+        );
+
+        let country_count = self.countries.len();
+        let people_count = self.countries.iter().map(|c| c.people.len()).sum();
+        let company_count = self.countries.iter().map(|c| c.companies.len()).sum();
+        let open_positions_count = self
+            .countries
+            .iter()
+            .flat_map(|c| c.companies.iter())
+            .map(|company| company.open_positions.len())
+            .sum();
+        let listed_equities_count = self
+            .countries
+            .iter()
+            .map(|c| c.stock_market.listed.len())
+            .sum();
+
+        crate::sim::trace::DayTraceRow {
+            day,
+            is_month_boundary,
+            tick_total_ms: crate::sim::trace::duration_ms(tick_started.elapsed()),
+            world_country_tick_ms,
+            world_goods_ms,
+            world_stock_ms,
+            world_monthly_total_ms,
+            world_monthly_process_countries_ms,
+            world_monthly_tariff_adjust_ms,
+            world_monthly_capture_snapshot_ms,
+            world_monthly_reset_trackers_ms,
+            world_drain_events_ms,
+            country_daily_total_ms_sum,
+            country_daily_age_ms_sum,
+            country_daily_deaths_ms_sum,
+            country_daily_births_ms_sum,
+            country_daily_job_market_snapshot_ms_sum,
+            country_daily_job_market_plan_ms_sum,
+            country_daily_job_market_apply_ms_sum,
+            country_daily_recompute_headcounts_ms_sum,
+            country_daily_recompute_aggregates_ms_sum,
+            country_monthly_total_ms_sum,
+            country_monthly_payroll_liquidity_ms_sum,
+            country_monthly_payroll_taxes_ms_sum,
+            country_monthly_gov_spending_ms_sum,
+            country_monthly_stock_collateral_ms_sum,
+            country_monthly_loan_repayments_ms_sum,
+            country_monthly_profitability_ms_sum,
+            country_monthly_company_distress_ms_sum,
+            country_monthly_loan_requests_ms_sum,
+            country_monthly_growth_openings_ms_sum,
+            country_monthly_startup_formation_ms_sum,
+            country_monthly_essential_backfill_ms_sum,
+            country_monthly_public_wage_adjust_ms_sum,
+            country_monthly_job_switches_ms_sum,
+            country_monthly_close_company_months_ms_sum,
+            country_monthly_dividends_ms_sum,
+            country_monthly_recompute_aggregates_ms_sum,
+            country_count,
+            people_count,
+            company_count,
+            open_positions_count,
+            listed_equities_count,
+        }
     }
 }
 
@@ -382,6 +583,17 @@ mod tests {
             .unwrap_or(default)
     }
 
+    #[cfg(feature = "bench-trace")]
+    fn env_bool(name: &str, default: bool) -> bool {
+        match env::var(name) {
+            Ok(raw) => matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            ),
+            Err(_) => default,
+        }
+    }
+
     fn percentile_95_ms(samples_ms: &[f64]) -> f64 {
         if samples_ms.is_empty() {
             return 0.0;
@@ -590,12 +802,27 @@ mod tests {
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("target/bench/latest.csv"));
 
+        #[cfg(feature = "bench-trace")]
+        let trace_enabled = env_bool("BENCH_TRACE_ENABLED", false);
+        #[cfg(feature = "bench-trace")]
+        let trace_csv_output = env::var("BENCH_TRACE_OUTPUT_CSV")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|_| trace_enabled);
+        #[cfg(feature = "bench-trace")]
+        let trace_summary_output = env::var("BENCH_TRACE_SUMMARY_JSON")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|_| trace_enabled);
+
         let pool = ThreadPoolBuilder::new()
             .num_threads(thread_count)
             .build()
             .expect("thread pool should build");
 
         let mut tick_durations_ms = Vec::with_capacity(days as usize);
+        #[cfg(feature = "bench-trace")]
+        let mut day_traces = Vec::with_capacity(days as usize);
         let wall_started = Instant::now();
         let world = pool.install(|| {
             let countries = generate_countries(&GenerationConfig::with_defaults(
@@ -605,6 +832,14 @@ mod tests {
             ));
             let mut world = World::new_with_generation_seed(countries, seed);
             for _ in 0..days {
+                #[cfg(feature = "bench-trace")]
+                if trace_enabled {
+                    let trace = world.tick_day_with_trace();
+                    tick_durations_ms.push(trace.tick_total_ms);
+                    day_traces.push(trace);
+                    continue;
+                }
+
                 let tick_started = Instant::now();
                 world.tick_day();
                 tick_durations_ms.push(tick_started.elapsed().as_secs_f64() * 1_000.0);
@@ -670,6 +905,19 @@ mod tests {
             timestamp
         );
         fs::write(&csv_output, csv).expect("benchmark csv should be written");
+
+        #[cfg(feature = "bench-trace")]
+        if trace_enabled {
+            if let Some(path) = trace_csv_output.as_ref() {
+                crate::sim::trace::write_day_traces_csv(path, &day_traces)
+                    .expect("trace csv should be written");
+            }
+            if let Some(path) = trace_summary_output.as_ref() {
+                let summary = crate::sim::trace::summarize_slowdown(&day_traces);
+                crate::sim::trace::write_summary_json(path, &summary)
+                    .expect("trace summary json should be written");
+            }
+        }
 
         assert!(metrics.total_wall_clock_ms > 0.0);
         assert!(metrics.ticks_per_sec > 0.0);

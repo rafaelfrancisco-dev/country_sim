@@ -1,7 +1,7 @@
 use super::{
     bank::LoanAccount,
-    good::{common_goods, good_by_id, GoodId},
-    job::{common_job_types, job_by_id, salary_for_job, JobTypeId},
+    good::{GoodId, common_goods, good_by_id},
+    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
     params::{GoodsMarketParams, SimulationParams},
 };
@@ -384,9 +384,11 @@ mod tests {
         let companies = build_default_companies("A", 2);
 
         assert_eq!(companies.len(), 2);
-        assert!(companies
-            .iter()
-            .all(|company| company.offered_job_types.len() > 1));
+        assert!(
+            companies
+                .iter()
+                .all(|company| company.offered_job_types.len() > 1)
+        );
     }
 
     #[test]

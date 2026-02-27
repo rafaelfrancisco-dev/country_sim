@@ -58,6 +58,7 @@ impl App {
             components: vec![
                 Box::new(Simulation::with_runtime(
                     tick_rate,
+                    max_mode_frame_rate,
                     sim_mode_state.clone(),
                     initial_generation_seed,
                 )),

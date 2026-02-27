@@ -25,6 +25,26 @@ Provide one canonical benchmark path for before/after performance comparisons.
   --flamegraph target/bench/flamegraph.svg
 ```
 
+## Optional Trace Mode (Feature-Gated)
+- Enable per-day phase tracing for benchmark diagnosis:
+```bash
+./scripts/bench-sim.sh \
+  --seed 0x5eedc0de \
+  --countries 4 \
+  --population-per-country 500000 \
+  --days 100 \
+  --threads 8 \
+  --sim-mode max-speed \
+  --out-json target/bench/trace-metrics.json \
+  --out-csv target/bench/trace-metrics.csv \
+  --trace-enabled \
+  --trace-out-csv target/bench/trace-days.csv \
+  --trace-summary-json target/bench/trace-summary.json
+```
+- `--trace-enabled` compiles the harness with `--features bench-trace`.
+- If a 100-day run is inconclusive, the script auto-runs a 300-day fallback with `_300d` suffixed artifacts.
+- Trace code is not included in default release builds unless `bench-trace` is explicitly enabled.
+
 ## Result Files
 - JSON (`--out-json`) and CSV (`--out-csv`) contain:
   - `ticks_per_sec`

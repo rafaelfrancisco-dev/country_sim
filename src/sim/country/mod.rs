@@ -165,6 +165,14 @@ impl Country {
         self.last_day_deaths = 0;
         self.run_daily_lifecycle();
     }
+
+    #[cfg(feature = "bench-trace")]
+    pub(crate) fn tick_day_without_month_traced(&mut self) -> crate::sim::trace::CountryDailyTrace {
+        self.day = self.day.saturating_add(1);
+        self.last_day_births = 0;
+        self.last_day_deaths = 0;
+        self.run_daily_lifecycle_traced()
+    }
 }
 
 impl Tickable for Country {

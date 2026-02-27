@@ -1,8 +1,5 @@
 use super::World;
-use crate::sim::{
-    event::SimEvent,
-    money::round_cents,
-};
+use crate::sim::{event::SimEvent, money::round_cents};
 
 impl World {
     /// Run the daily stock market for all countries after the goods market.
@@ -29,10 +26,7 @@ fn unit_interval(seed: u64) -> f64 {
     hash64(seed) as f64 / u64::MAX as f64
 }
 
-fn run_country_stock_market(
-    country: &mut crate::sim::country::Country,
-    day: u64,
-) {
+fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64) {
     let params = country.sim_params.stock_market;
     let cap = params.daily_participant_cap;
     let reserve_ratio = params.investor_cash_reserve_ratio;
@@ -59,9 +53,7 @@ fn run_country_stock_market(
 
     for slot in 0..sample_count {
         let seed = hash64(
-            day.wrapping_mul(0xb5ad4eceda1ce2a9)
-                ^ (u64::from(country.id) << 32)
-                ^ slot as u64,
+            day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id) << 32) ^ slot as u64,
         );
         let person_idx = (hash64(seed ^ 0x1234) as usize) % people_count;
         let person = &country.people[person_idx];
@@ -168,9 +160,8 @@ fn run_country_stock_market(
         // Bank provides residual liquidity
         let bank_reserve = country.bank.reserve_balance;
         let bank_equity_exposure = country.stock_market.bank_equity_exposure();
-        let bank_headroom = round_cents(
-            (bank_reserve * bank_max_fraction - bank_equity_exposure).max(0.0),
-        );
+        let bank_headroom =
+            round_cents((bank_reserve * bank_max_fraction - bank_equity_exposure).max(0.0));
 
         let matched_shares: u64;
         let clearing_price: f64;
@@ -217,9 +208,7 @@ fn run_country_stock_market(
                 continue;
             }
             let proceeds = round_cents(sell as f64 * clearing_price);
-            if let Some(portfolio) =
-                country.stock_market.person_portfolios.get_mut(pid)
-            {
+            if let Some(portfolio) = country.stock_market.person_portfolios.get_mut(pid) {
                 portfolio.remove_shares(*cid, sell, clearing_price);
             }
             if let Some(person) = country.people.iter_mut().find(|p| p.id == *pid) {
@@ -275,10 +264,11 @@ fn run_country_stock_market(
                 let can_sell = bank_has.min(extra_shares);
                 if can_sell > 0 {
                     let proceeds = round_cents(can_sell as f64 * clearing_price);
-                    country
-                        .stock_market
-                        .bank_portfolio
-                        .remove_shares(*cid, can_sell, clearing_price);
+                    country.stock_market.bank_portfolio.remove_shares(
+                        *cid,
+                        can_sell,
+                        clearing_price,
+                    );
                     country.bank.reserve_balance =
                         round_cents(country.bank.reserve_balance + proceeds);
                 }

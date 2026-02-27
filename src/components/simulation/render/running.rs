@@ -91,6 +91,21 @@ impl Simulation {
                 format!("{:.2}", world.tick_queue_lag_ms),
                 theme::primary_text(),
             ),
+            Span::styled(" | Publishes: ", theme::muted_text()),
+            Span::styled(
+                world.snapshot_publish_count.to_string(),
+                theme::primary_text(),
+            ),
+            Span::styled(" | Snap Build (ms): ", theme::muted_text()),
+            Span::styled(
+                format!("{:.2}", world.avg_snapshot_build_ms),
+                theme::primary_text(),
+            ),
+            Span::styled(" | Max Snap Age (ms): ", theme::muted_text()),
+            Span::styled(
+                format!("{:.2}", world.max_snapshot_age_ms),
+                theme::primary_text(),
+            ),
             Span::styled(" | Selected Country: ", theme::muted_text()),
             Span::styled(world.selected_country_name.as_str(), theme::primary_text()),
             Span::styled(" | Total Citizens: ", theme::muted_text()),

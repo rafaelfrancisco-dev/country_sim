@@ -2,16 +2,13 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{
-        Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap,
-    },
     symbols,
+    text::{Line, Span},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
 use crate::components::simulation::snapshot::RunningSnapshot;
-
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_stocks_tab(
@@ -133,7 +130,8 @@ impl Simulation {
 
     fn draw_stock_charts(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
         let [left, right] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(area);
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(area);
 
         let [price_area, volume_area] =
             Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(left);
@@ -228,11 +226,7 @@ impl Simulation {
                     .bounds([0.0, data.len() as f64])
                     .labels(x_labels),
             )
-            .y_axis(
-                Axis::default()
-                    .bounds([y_min, y_max])
-                    .labels(y_labels),
-            );
+            .y_axis(Axis::default().bounds([y_min, y_max]).labels(y_labels));
 
         frame.render_widget(chart, area);
     }

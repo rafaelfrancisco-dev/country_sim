@@ -16,6 +16,9 @@ SIM_MODE="max-speed"
 OUT_JSON="target/bench/latest.json"
 OUT_CSV="target/bench/latest.csv"
 FLAMEGRAPH_OUT=""
+TRACE_ENABLED="0"
+TRACE_OUT_CSV=""
+TRACE_SUMMARY_JSON=""
 
 usage() {
   cat <<'EOF'
@@ -29,8 +32,77 @@ Usage:
     --sim-mode max-speed \
     --out-json target/bench/latest.json \
     --out-csv target/bench/latest.csv \
+    [--trace-enabled] \
+    [--trace-out-csv target/bench/trace-days.csv] \
+    [--trace-summary-json target/bench/trace-summary.json] \
     [--flamegraph target/bench/flamegraph.svg]
 EOF
+}
+
+append_suffix() {
+  path="$1"
+  suffix="$2"
+  case "$path" in
+    *.*)
+      base="${path%.*}"
+      ext="${path##*.}"
+      printf '%s_%s.%s' "$base" "$suffix" "$ext"
+      ;;
+    *)
+      printf '%s_%s' "$path" "$suffix"
+      ;;
+  esac
+}
+
+run_benchmark_once() {
+  run_days="$1"
+  run_json="$2"
+  run_csv="$3"
+  run_trace_csv="$4"
+  run_trace_summary="$5"
+
+  mkdir -p "$(dirname "$run_json")" "$(dirname "$run_csv")"
+  if [ -n "$run_trace_csv" ]; then
+    mkdir -p "$(dirname "$run_trace_csv")"
+  fi
+  if [ -n "$run_trace_summary" ]; then
+    mkdir -p "$(dirname "$run_trace_summary")"
+  fi
+
+  echo "Running release benchmark harness..."
+  echo "Scenario: seed=$SEED countries=$COUNTRIES population_per_country=$POP_PER_COUNTRY days=$run_days"
+  echo "Threads: $THREADS"
+  echo "Outputs: json=$run_json csv=$run_csv"
+  if [ "$TRACE_ENABLED" = "1" ]; then
+    echo "Trace outputs: csv=$run_trace_csv summary=$run_trace_summary"
+  fi
+
+  if [ "$TRACE_ENABLED" = "1" ]; then
+    BENCH_TRACE_ENABLED="1" \
+    BENCH_TRACE_OUTPUT_CSV="$run_trace_csv" \
+    BENCH_TRACE_SUMMARY_JSON="$run_trace_summary" \
+    BENCH_SEED="$SEED" \
+    BENCH_COUNTRIES="$COUNTRIES" \
+    BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
+    BENCH_DAYS="$run_days" \
+    BENCH_THREADS="$THREADS" \
+    BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
+    BENCH_OUTPUT_JSON="$run_json" \
+    BENCH_OUTPUT_CSV="$run_csv" \
+    RAYON_NUM_THREADS="$THREADS" \
+    cargo test --release --features bench-trace benchmark_release_protocol_emits_metrics -- --ignored --nocapture
+  else
+    BENCH_SEED="$SEED" \
+    BENCH_COUNTRIES="$COUNTRIES" \
+    BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
+    BENCH_DAYS="$run_days" \
+    BENCH_THREADS="$THREADS" \
+    BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
+    BENCH_OUTPUT_JSON="$run_json" \
+    BENCH_OUTPUT_CSV="$run_csv" \
+    RAYON_NUM_THREADS="$THREADS" \
+    cargo test --release benchmark_release_protocol_emits_metrics -- --ignored --nocapture
+  fi
 }
 
 while [ "$#" -gt 0 ]; do
@@ -67,6 +139,18 @@ while [ "$#" -gt 0 ]; do
       OUT_CSV="$2"
       shift 2
       ;;
+    --trace-enabled)
+      TRACE_ENABLED="1"
+      shift 1
+      ;;
+    --trace-out-csv)
+      TRACE_OUT_CSV="$2"
+      shift 2
+      ;;
+    --trace-summary-json)
+      TRACE_SUMMARY_JSON="$2"
+      shift 2
+      ;;
     --flamegraph)
       FLAMEGRAPH_OUT="$2"
       shift 2
@@ -89,23 +173,31 @@ if [ "$SIM_MODE_NORMALIZED" != "max-speed" ]; then
   exit 1
 fi
 
-mkdir -p "$(dirname "$OUT_JSON")" "$(dirname "$OUT_CSV")"
+if [ "$TRACE_ENABLED" = "1" ] && [ -z "$TRACE_OUT_CSV" ]; then
+  TRACE_OUT_CSV="target/bench/trace-days.csv"
+fi
+if [ "$TRACE_ENABLED" = "1" ] && [ -z "$TRACE_SUMMARY_JSON" ]; then
+  TRACE_SUMMARY_JSON="target/bench/trace-summary.json"
+fi
 
-echo "Running release benchmark harness..."
-echo "Scenario: seed=$SEED countries=$COUNTRIES population_per_country=$POP_PER_COUNTRY days=$DAYS"
-echo "Threads: $THREADS"
-echo "Outputs: json=$OUT_JSON csv=$OUT_CSV"
+run_benchmark_once "$DAYS" "$OUT_JSON" "$OUT_CSV" "$TRACE_OUT_CSV" "$TRACE_SUMMARY_JSON"
 
-BENCH_SEED="$SEED" \
-BENCH_COUNTRIES="$COUNTRIES" \
-BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
-BENCH_DAYS="$DAYS" \
-BENCH_THREADS="$THREADS" \
-BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
-BENCH_OUTPUT_JSON="$OUT_JSON" \
-BENCH_OUTPUT_CSV="$OUT_CSV" \
-RAYON_NUM_THREADS="$THREADS" \
-cargo test --release benchmark_release_protocol_emits_metrics -- --ignored --nocapture
+if [ "$TRACE_ENABLED" = "1" ] && [ "$DAYS" = "100" ] && [ -f "$TRACE_SUMMARY_JSON" ]; then
+  if grep -Eq '"inconclusive"[[:space:]]*:[[:space:]]*true' "$TRACE_SUMMARY_JSON"; then
+    fallback_days="300"
+    fallback_json="$(append_suffix "$OUT_JSON" "300d")"
+    fallback_csv="$(append_suffix "$OUT_CSV" "300d")"
+    fallback_trace_csv="$(append_suffix "$TRACE_OUT_CSV" "300d")"
+    fallback_trace_summary="$(append_suffix "$TRACE_SUMMARY_JSON" "300d")"
+    echo "Trace summary was inconclusive for 100 days; running fallback ${fallback_days}-day benchmark."
+    run_benchmark_once \
+      "$fallback_days" \
+      "$fallback_json" \
+      "$fallback_csv" \
+      "$fallback_trace_csv" \
+      "$fallback_trace_summary"
+  fi
+fi
 
 if [ -n "$FLAMEGRAPH_OUT" ]; then
   if ! cargo flamegraph --help >/dev/null 2>&1; then
@@ -116,20 +208,41 @@ if [ -n "$FLAMEGRAPH_OUT" ]; then
 
   mkdir -p "$(dirname "$FLAMEGRAPH_OUT")"
   echo "Generating flamegraph at $FLAMEGRAPH_OUT..."
-  BENCH_SEED="$SEED" \
-  BENCH_COUNTRIES="$COUNTRIES" \
-  BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
-  BENCH_DAYS="$DAYS" \
-  BENCH_THREADS="$THREADS" \
-  BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
-  BENCH_OUTPUT_JSON="$OUT_JSON" \
-  BENCH_OUTPUT_CSV="$OUT_CSV" \
-  RAYON_NUM_THREADS="$THREADS" \
-  cargo flamegraph \
-    --unit-test country_sim \
-    --profile flamegraph \
-    -o "$FLAMEGRAPH_OUT" \
-    -- benchmark_release_protocol_emits_metrics --ignored --nocapture
+  if [ "$TRACE_ENABLED" = "1" ]; then
+    BENCH_SEED="$SEED" \
+    BENCH_COUNTRIES="$COUNTRIES" \
+    BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
+    BENCH_DAYS="$DAYS" \
+    BENCH_THREADS="$THREADS" \
+    BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
+    BENCH_OUTPUT_JSON="$OUT_JSON" \
+    BENCH_OUTPUT_CSV="$OUT_CSV" \
+    BENCH_TRACE_ENABLED="$TRACE_ENABLED" \
+    BENCH_TRACE_OUTPUT_CSV="$TRACE_OUT_CSV" \
+    BENCH_TRACE_SUMMARY_JSON="$TRACE_SUMMARY_JSON" \
+    RAYON_NUM_THREADS="$THREADS" \
+    cargo flamegraph \
+      --unit-test country_sim \
+      --profile flamegraph \
+      -o "$FLAMEGRAPH_OUT" \
+      --features bench-trace \
+      -- benchmark_release_protocol_emits_metrics --ignored --nocapture
+  else
+    BENCH_SEED="$SEED" \
+    BENCH_COUNTRIES="$COUNTRIES" \
+    BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
+    BENCH_DAYS="$DAYS" \
+    BENCH_THREADS="$THREADS" \
+    BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
+    BENCH_OUTPUT_JSON="$OUT_JSON" \
+    BENCH_OUTPUT_CSV="$OUT_CSV" \
+    RAYON_NUM_THREADS="$THREADS" \
+    cargo flamegraph \
+      --unit-test country_sim \
+      --profile flamegraph \
+      -o "$FLAMEGRAPH_OUT" \
+      -- benchmark_release_protocol_emits_metrics --ignored --nocapture
+  fi
 fi
 
 echo "Benchmark complete."

@@ -3,6 +3,7 @@ use crate::{
         ChartScope, DetailsView, EventsSort, RunningTab, SelectionFocus, UiState,
     },
     sim::{
+        GameEngine, GamePhase,
         good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,
@@ -10,7 +11,6 @@ use crate::{
         setup::SetupField,
         stock_market::StockRowSnapshot,
         world::{MetricPoint, World},
-        GameEngine, GamePhase,
     },
 };
 
@@ -118,6 +118,9 @@ pub(super) struct RunningSnapshot {
     pub avg_tick_duration_ms: f64,
     pub queue_depth: usize,
     pub tick_queue_lag_ms: f64,
+    pub snapshot_publish_count: u64,
+    pub avg_snapshot_build_ms: f64,
+    pub max_snapshot_age_ms: f64,
     pub invariant_warnings: Vec<String>,
     pub event_log_lines: Vec<String>,
     pub events_total_count: usize,
@@ -144,6 +147,9 @@ pub(super) struct RuntimeStatsSnapshot {
     pub avg_tick_duration_ms: f64,
     pub queue_depth: usize,
     pub tick_queue_lag_ms: f64,
+    pub snapshot_publish_count: u64,
+    pub avg_snapshot_build_ms: f64,
+    pub max_snapshot_age_ms: f64,
 }
 
 impl RuntimeStatsSnapshot {
@@ -153,6 +159,9 @@ impl RuntimeStatsSnapshot {
         avg_tick_duration_ms: f64,
         queue_depth: usize,
         tick_queue_lag_ms: f64,
+        snapshot_publish_count: u64,
+        avg_snapshot_build_ms: f64,
+        max_snapshot_age_ms: f64,
     ) -> Self {
         Self {
             mode,
@@ -160,6 +169,9 @@ impl RuntimeStatsSnapshot {
             avg_tick_duration_ms,
             queue_depth,
             tick_queue_lag_ms,
+            snapshot_publish_count,
+            avg_snapshot_build_ms,
+            max_snapshot_age_ms,
         }
     }
 }
@@ -167,7 +179,7 @@ impl RuntimeStatsSnapshot {
 impl UiSnapshot {
     pub(super) fn from_engine_and_ui(
         engine: &GameEngine,
-        ui_state: &UiState,
+        ui_state: &mut UiState,
         runtime_stats: RuntimeStatsSnapshot,
     ) -> Self {
         Self::from_phase_and_ui(engine.phase(), ui_state, runtime_stats)
@@ -175,7 +187,7 @@ impl UiSnapshot {
 
     pub(super) fn from_phase_and_ui(
         phase: &GamePhase,
-        ui_state: &UiState,
+        ui_state: &mut UiState,
         runtime_stats: RuntimeStatsSnapshot,
     ) -> Self {
         let phase = match phase {
@@ -189,12 +201,24 @@ impl UiSnapshot {
         Self { phase }
     }
 
+    pub(super) fn apply_runtime_stats(&mut self, runtime_stats: RuntimeStatsSnapshot) {
+        if let SnapshotPhase::Running(world) = &mut self.phase {
+            world.sim_mode = runtime_stats.mode;
+            world.ticks_per_second = runtime_stats.ticks_per_second;
+            world.avg_tick_duration_ms = runtime_stats.avg_tick_duration_ms;
+            world.queue_depth = runtime_stats.queue_depth;
+            world.tick_queue_lag_ms = runtime_stats.tick_queue_lag_ms;
+            world.snapshot_publish_count = runtime_stats.snapshot_publish_count;
+            world.avg_snapshot_build_ms = runtime_stats.avg_snapshot_build_ms;
+            world.max_snapshot_age_ms = runtime_stats.max_snapshot_age_ms;
+        }
+    }
+
     fn running_from_world(
         world: &World,
-        ui_state: &UiState,
+        ui: &mut UiState,
         runtime_stats: RuntimeStatsSnapshot,
     ) -> RunningSnapshot {
-        let mut ui = ui_state.clone();
         ui.ensure_valid(world);
 
         let selected_country = ui.selected_country(world);
@@ -203,29 +227,38 @@ impl UiSnapshot {
             .unwrap_or_else(|| "N/A".to_string());
         let selected_country_month = selected_country.map_or(0, |country| country.month);
 
-        let country_page_start =
-            ui.country_page() * crate::components::simulation::ui_state::COUNTRY_PAGE_SIZE;
-        let country_rows = ui
-            .selected_countries_page(world)
-            .iter()
-            .enumerate()
-            .map(|(page_idx, country)| {
-                let idx = country_page_start + page_idx;
-                CountryRowSnapshot {
-                    name: country.name.clone(),
-                    population: compact_count(country.population() as f64),
-                    household_cash: money(country.household_cash_total),
-                    company_cash: money(country.company_cash_total),
-                    treasury: money(country.treasury_balance),
-                    loans: money(country.bank.created_money_outstanding),
-                    is_selected: idx == ui.selected_country,
-                    is_even: idx.is_multiple_of(2),
-                }
-            })
-            .collect::<Vec<_>>();
+        let is_main_tab = matches!(ui.active_tab, RunningTab::Main);
+        let is_goods_tab = matches!(ui.active_tab, RunningTab::Goods);
+        let is_stocks_tab = matches!(ui.active_tab, RunningTab::Stocks);
+        let is_charts_tab = matches!(ui.active_tab, RunningTab::Charts);
+        let is_events_tab = matches!(ui.active_tab, RunningTab::Events);
+
+        let country_rows = if is_main_tab || is_goods_tab {
+            let country_page_start =
+                ui.country_page() * crate::components::simulation::ui_state::COUNTRY_PAGE_SIZE;
+            ui.selected_countries_page(world)
+                .iter()
+                .enumerate()
+                .map(|(page_idx, country)| {
+                    let idx = country_page_start + page_idx;
+                    CountryRowSnapshot {
+                        name: country.name.clone(),
+                        population: compact_count(country.population() as f64),
+                        household_cash: money(country.household_cash_total),
+                        company_cash: money(country.company_cash_total),
+                        treasury: money(country.treasury_balance),
+                        loans: money(country.bank.created_money_outstanding),
+                        is_selected: idx == ui.selected_country,
+                        is_even: idx.is_multiple_of(2),
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
 
         let mut people_rows = Vec::new();
-        if let Some(country) = selected_country {
+        if is_main_tab && let Some(country) = selected_country {
             for (row_idx, person) in ui
                 .selected_people_page(world)
                 .unwrap_or(&[])
@@ -265,10 +298,10 @@ impl UiSnapshot {
             }
         }
 
-        let company_page_start =
-            ui.company_page * crate::components::simulation::ui_state::COMPANY_PAGE_SIZE;
         let mut company_rows = Vec::new();
-        if let Some(_country) = selected_country {
+        if is_goods_tab && selected_country.is_some() {
+            let company_page_start =
+                ui.company_page * crate::components::simulation::ui_state::COMPANY_PAGE_SIZE;
             for (row_idx, company) in ui
                 .selected_companies_page(world)
                 .unwrap_or(&[])
@@ -311,18 +344,53 @@ impl UiSnapshot {
             }
         }
 
-        let person_details_lines = person_details_lines(world, &ui);
-        let country_details_lines = country_details_lines(world, &ui);
-        let company_details_lines = company_details_lines(world, &ui);
-        let stock_person_details_lines = stock_person_details_lines(world, &ui);
+        let person_details_lines = if is_main_tab {
+            person_details_lines(world, ui)
+        } else {
+            Vec::new()
+        };
+        let country_details_lines = if is_main_tab {
+            country_details_lines(world, ui)
+        } else {
+            Vec::new()
+        };
         let (
+            company_details_lines,
             company_sold_history,
             company_employee_history,
             company_price_history,
             company_loan_payment_history,
             company_money_history,
-        ) = selected_company_histories(world, &ui);
-        let country_goods_summary_lines = country_goods_summary_lines(world, &ui);
+            country_goods_summary_lines,
+        ) = if is_goods_tab {
+            let (
+                company_sold_history,
+                company_employee_history,
+                company_price_history,
+                company_loan_payment_history,
+                company_money_history,
+            ) = selected_company_histories(world, ui);
+            (
+                company_details_lines(world, ui),
+                company_sold_history,
+                company_employee_history,
+                company_price_history,
+                company_loan_payment_history,
+                company_money_history,
+                country_goods_summary_lines(world, ui),
+            )
+        } else {
+            (
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            )
+        };
+
         let (
             stock_rows,
             stock_summary_lines,
@@ -330,36 +398,79 @@ impl UiSnapshot {
             stock_selected_index_volume_history,
             stock_country_index_history,
             stock_bank_exposure_history,
-        ) = build_stock_tab_data(world, &ui);
-        let chart_scope_label = chart_scope_label(world, &ui);
-        let chart_history = match ui.chart_scope {
-            ChartScope::SelectedCountry => world
-                .country_history
-                .get(ui.selected_country)
-                .cloned()
-                .unwrap_or_default(),
-            ChartScope::WorldAggregate => world.world_history.clone(),
+            stock_person_details_lines,
+        ) = if is_stocks_tab {
+            let (
+                stock_rows,
+                stock_summary_lines,
+                stock_selected_index_price_history,
+                stock_selected_index_volume_history,
+                stock_country_index_history,
+                stock_bank_exposure_history,
+            ) = build_stock_tab_data(world, ui);
+            (
+                stock_rows,
+                stock_summary_lines,
+                stock_selected_index_price_history,
+                stock_selected_index_volume_history,
+                stock_country_index_history,
+                stock_bank_exposure_history,
+                stock_person_details_lines(world, ui),
+            )
+        } else {
+            (
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            )
         };
 
+        let (chart_scope_label, chart_history) = if is_charts_tab {
+            let chart_scope_label = chart_scope_label(world, ui);
+            let chart_history = match ui.chart_scope {
+                ChartScope::SelectedCountry => world
+                    .country_history
+                    .get(ui.selected_country)
+                    .cloned()
+                    .unwrap_or_default(),
+                ChartScope::WorldAggregate => world.world_history.clone(),
+            };
+            (chart_scope_label, chart_history)
+        } else {
+            (String::new(), Vec::new())
+        };
+
+        #[cfg(feature = "ui-diagnostics")]
         let invariant_warnings = world
             .validate_invariants()
             .into_iter()
             .map(|v| format!("{}: {}", v.code, v.message))
             .collect();
+        #[cfg(not(feature = "ui-diagnostics"))]
+        let invariant_warnings = Vec::new();
 
-        let search_lower = ui.events_search_query.to_ascii_lowercase();
-        let mut event_log_lines: Vec<String> = world
-            .event_log
-            .iter()
-            .map(|e| e.format())
-            .filter(|line| {
-                search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower)
-            })
-            .collect();
-        if matches!(ui.events_sort, EventsSort::NewestFirst) {
-            event_log_lines.reverse();
-        }
-        let events_total_count = event_log_lines.len();
+        let (event_log_lines, events_total_count) = if is_events_tab {
+            let search_lower = ui.events_search_query.to_ascii_lowercase();
+            let mut event_log_lines: Vec<String> = world
+                .event_log
+                .iter()
+                .map(|e| e.format())
+                .filter(|line| {
+                    search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower)
+                })
+                .collect();
+            if matches!(ui.events_sort, EventsSort::NewestFirst) {
+                event_log_lines.reverse();
+            }
+            let events_total_count = event_log_lines.len();
+            (event_log_lines, events_total_count)
+        } else {
+            (Vec::new(), 0)
+        };
         let events_sort_label = match ui.events_sort {
             EventsSort::NewestFirst => "Newest First",
             EventsSort::OldestFirst => "Oldest First",
@@ -401,6 +512,9 @@ impl UiSnapshot {
             avg_tick_duration_ms: runtime_stats.avg_tick_duration_ms,
             queue_depth: runtime_stats.queue_depth,
             tick_queue_lag_ms: runtime_stats.tick_queue_lag_ms,
+            snapshot_publish_count: runtime_stats.snapshot_publish_count,
+            avg_snapshot_build_ms: runtime_stats.avg_snapshot_build_ms,
+            max_snapshot_age_ms: runtime_stats.max_snapshot_age_ms,
             invariant_warnings,
             event_log_lines,
             events_total_count,
@@ -930,4 +1044,63 @@ fn compact_count(n: impl Into<f64>) -> String {
 
 fn money(amount: f64) -> String {
     compact_num(amount)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sim::{GameCommand, GameEngine, GamePhase};
+
+    fn runtime_stats() -> RuntimeStatsSnapshot {
+        RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0)
+    }
+
+    fn setup_running_engine(days: usize) -> GameEngine {
+        let mut engine = GameEngine::default();
+        engine.apply(GameCommand::SetupEditChar('1'));
+        engine.apply(GameCommand::SetupNextField);
+        engine.apply(GameCommand::SetupEditChar('0'));
+        engine.apply(GameCommand::SetupEditChar('.'));
+        engine.apply(GameCommand::SetupEditChar('1'));
+        engine.apply(GameCommand::SetupSubmit);
+        for _ in 0..days {
+            engine.apply(GameCommand::Tick);
+        }
+        engine
+    }
+
+    fn running_snapshot_for_tab(engine: &GameEngine, active_tab: RunningTab) -> RunningSnapshot {
+        let mut ui_state = UiState {
+            active_tab,
+            ..UiState::default()
+        };
+        let snapshot =
+            UiSnapshot::from_phase_and_ui(engine.phase(), &mut ui_state, runtime_stats());
+        let SnapshotPhase::Running(world) = snapshot.phase else {
+            panic!("running snapshot expected");
+        };
+        world
+    }
+
+    #[test]
+    fn inactive_tabs_skip_heavy_data() {
+        let engine = setup_running_engine(35);
+        let main = running_snapshot_for_tab(&engine, RunningTab::Main);
+        assert!(main.event_log_lines.is_empty());
+        assert!(main.stock_rows.is_empty());
+        assert!(main.chart_history.is_empty());
+
+        let stocks = running_snapshot_for_tab(&engine, RunningTab::Stocks);
+        assert!(!stocks.stock_summary_lines.is_empty());
+
+        let events = running_snapshot_for_tab(&engine, RunningTab::Events);
+        assert_eq!(events.events_total_count, events.event_log_lines.len());
+
+        let expected_chart_points = match engine.phase() {
+            GamePhase::Running(world) => world.country_history.first().map_or(0, Vec::len),
+            GamePhase::Setup(_) => 0,
+        };
+        let charts = running_snapshot_for_tab(&engine, RunningTab::Charts);
+        assert_eq!(charts.chart_history.len(), expected_chart_points);
+    }
 }

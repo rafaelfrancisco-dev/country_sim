@@ -1,6 +1,12 @@
 use crossterm::event::KeyEvent;
 use ratatui::{Frame, layout::Rect};
-use std::sync::{Arc, RwLock, atomic::AtomicU8};
+use std::{
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicU8, Ordering},
+    },
+    time::Duration,
+};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::warn;
 
@@ -20,7 +26,7 @@ mod worker;
 
 use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, RunningTab, SelectionFocus};
-use worker::{EngineSnapshot, SimulationWorker};
+use worker::{RenderSnapshot, SimulationWorker};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SimulationCommand {
@@ -38,11 +44,10 @@ pub(super) struct RunningInputState {
 
 #[derive(Debug)]
 pub struct Simulation {
-    snapshot: Arc<RwLock<EngineSnapshot>>,
+    snapshot: Arc<RwLock<RenderSnapshot>>,
     last_snapshot: UiSnapshot,
     worker: SimulationWorker,
     phase_is_running: bool,
-    ui_state: ui_state::UiState,
     running_input_state: RunningInputState,
     action_tx: Option<UnboundedSender<Action>>,
 }
@@ -50,37 +55,39 @@ pub struct Simulation {
 impl Default for Simulation {
     fn default() -> Self {
         let sim_mode = Arc::new(AtomicU8::new(SimulationMode::Realtime.as_atomic_u8()));
-        Self::with_runtime(0.0, sim_mode, DEFAULT_GENERATION_SEED)
+        Self::with_runtime(0.0, 2.0, sim_mode, DEFAULT_GENERATION_SEED)
     }
 }
 
 impl Simulation {
     pub fn with_runtime(
         realtime_tick_rate: f64,
+        max_speed_ui_hz: f64,
         sim_mode_state: Arc<AtomicU8>,
         initial_generation_seed: u64,
     ) -> Self {
         let engine_state = GameEngine::new(initial_generation_seed);
-        let ui_state = ui_state::UiState::default();
+        let mut ui_state = ui_state::UiState::default();
         let runtime_stats = snapshot::RuntimeStatsSnapshot::new(
-            SimulationMode::from_atomic_u8(
-                sim_mode_state.load(std::sync::atomic::Ordering::Acquire),
-            ),
+            SimulationMode::from_atomic_u8(sim_mode_state.load(Ordering::Acquire)),
             0.0,
             0.0,
             0,
             0.0,
+            0,
+            0.0,
+            0.0,
         );
         let initial_snapshot =
-            UiSnapshot::from_engine_and_ui(&engine_state, &ui_state, runtime_stats);
-        let snapshot = Arc::new(RwLock::new(EngineSnapshot {
-            phase: engine_state.phase().clone(),
-            runtime_stats,
+            UiSnapshot::from_engine_and_ui(&engine_state, &mut ui_state, runtime_stats);
+        let snapshot = Arc::new(RwLock::new(RenderSnapshot {
+            ui_snapshot: initial_snapshot.clone(),
         }));
         let worker = SimulationWorker::new(
             engine_state,
             snapshot.clone(),
             realtime_tick_rate,
+            Duration::from_secs_f64(1.0 / max_speed_ui_hz.max(0.1)).min(Duration::from_millis(500)),
             sim_mode_state,
         );
         Self {
@@ -88,7 +95,6 @@ impl Simulation {
             last_snapshot: initial_snapshot,
             worker,
             phase_is_running: false,
-            ui_state,
             running_input_state: RunningInputState {
                 details_view: DetailsView::List,
                 selection_focus: SelectionFocus::Country,
@@ -106,11 +112,7 @@ impl Simulation {
 
     fn refresh_cached_input_state(&mut self) {
         if let Ok(snapshot) = self.snapshot.try_read() {
-            self.last_snapshot = UiSnapshot::from_phase_and_ui(
-                &snapshot.phase,
-                &self.ui_state,
-                snapshot.runtime_stats,
-            );
+            self.last_snapshot = snapshot.ui_snapshot.clone();
         }
 
         match &self.last_snapshot.phase {
@@ -128,22 +130,16 @@ impl Simulation {
     }
 
     fn queue_domain_command(&mut self, command: GameCommand) {
-        if let Err(err) = self.worker.send(command) {
+        if let Err(err) = self.worker.send_domain(command) {
             warn!("failed to enqueue domain command: {err}");
             self.report_worker_error(err.to_string());
         }
     }
 
-    fn apply_ui_command(&mut self, command: UiCommand) {
-        if matches!(command, UiCommand::ToggleSimMode) {
-            self.worker.toggle_sim_mode();
-            return;
-        }
-
-        if let Ok(snapshot) = self.snapshot.read()
-            && let crate::sim::GamePhase::Running(world) = &snapshot.phase
-        {
-            self.ui_state.apply(command, world);
+    fn queue_ui_command(&mut self, command: UiCommand) {
+        if let Err(err) = self.worker.send_ui(command) {
+            warn!("failed to enqueue ui command: {err}");
+            self.report_worker_error(err.to_string());
         }
     }
 
@@ -161,7 +157,7 @@ impl Simulation {
     #[cfg(test)]
     fn snapshot_phase(&self) -> SnapshotPhase {
         let snapshot = self.snapshot.read().expect("snapshot lock poisoned");
-        UiSnapshot::from_phase_and_ui(&snapshot.phase, &self.ui_state, snapshot.runtime_stats).phase
+        snapshot.ui_snapshot.phase.clone()
     }
 
     fn compact_num(n: f64) -> String {
@@ -205,7 +201,7 @@ impl Component for Simulation {
         if let Some(command) = command {
             match command {
                 SimulationCommand::Domain(command) => self.queue_domain_command(command),
-                SimulationCommand::Ui(command) => self.apply_ui_command(command),
+                SimulationCommand::Ui(command) => self.queue_ui_command(command),
             }
             self.reconcile_monthly_processing();
         }
@@ -239,6 +235,11 @@ impl Component for Simulation {
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent};
+    use std::{
+        sync::{Arc, atomic::AtomicU8},
+        thread,
+        time::{Duration, Instant},
+    };
 
     use super::*;
     use crate::{action::Action, components::Component};
@@ -266,5 +267,90 @@ mod tests {
             panic!("running world should exist");
         };
         assert_eq!(world.active_tab, RunningTab::Goods);
+    }
+
+    #[test]
+    #[ignore = "manual runtime probe for max-speed UI freshness and responsiveness"]
+    fn observe_max_speed_ui_freshness_and_command_latency() {
+        let sim_mode_state = Arc::new(AtomicU8::new(SimulationMode::MaxSpeed.as_atomic_u8()));
+        let mut simulation =
+            Simulation::with_runtime(4.0, 2.0, sim_mode_state.clone(), DEFAULT_GENERATION_SEED);
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
+        simulation.apply_command_and_wait(GameCommand::SetupNextField);
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('0'));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('.'));
+        simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
+        simulation.apply_command_and_wait(GameCommand::SetupSubmit);
+
+        let started_at = Instant::now();
+        let probe_duration = Duration::from_secs(20);
+        let mut max_snapshot_age_observed = 0.0_f64;
+        let mut day_start = 0_u64;
+        let mut day_end = 0_u64;
+        let mut latencies_ms = Vec::new();
+
+        if let SnapshotPhase::Running(world) = simulation.snapshot_phase() {
+            day_start = world.day;
+        }
+
+        while started_at.elapsed() < probe_duration {
+            let _ = simulation.update(Action::Render);
+
+            if let SnapshotPhase::Running(world) = simulation.snapshot_phase() {
+                day_end = world.day;
+                max_snapshot_age_observed =
+                    max_snapshot_age_observed.max(world.max_snapshot_age_ms);
+            }
+
+            let cmd_start = Instant::now();
+            let _ = simulation.handle_key_event(KeyEvent::from(KeyCode::Tab));
+            let initial_tab = match simulation.snapshot_phase() {
+                SnapshotPhase::Running(world) => world.active_tab,
+                SnapshotPhase::Setup(_) => RunningTab::Main,
+            };
+
+            let deadline = Instant::now() + Duration::from_millis(1200);
+            while Instant::now() < deadline {
+                let _ = simulation.update(Action::Render);
+                if let SnapshotPhase::Running(world) = simulation.snapshot_phase()
+                    && world.active_tab != initial_tab
+                {
+                    latencies_ms.push(cmd_start.elapsed().as_secs_f64() * 1_000.0);
+                    break;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+
+            thread::sleep(Duration::from_millis(120));
+        }
+
+        latencies_ms.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let avg_latency = if latencies_ms.is_empty() {
+            0.0
+        } else {
+            latencies_ms.iter().sum::<f64>() / latencies_ms.len() as f64
+        };
+        let p95_latency = if latencies_ms.is_empty() {
+            0.0
+        } else {
+            let idx = ((latencies_ms.len() - 1) as f64 * 0.95).round() as usize;
+            latencies_ms[idx]
+        };
+
+        println!(
+            "MAX_SPEED_UI_PROBE days_start={} days_end={} days_advanced={} max_snapshot_age_ms={:.2} cmd_latency_avg_ms={:.2} cmd_latency_p95_ms={:.2} samples={}",
+            day_start,
+            day_end,
+            day_end.saturating_sub(day_start),
+            max_snapshot_age_observed,
+            avg_latency,
+            p95_latency,
+            latencies_ms.len()
+        );
+
+        assert!(
+            day_end > day_start,
+            "simulation did not advance in max-speed mode"
+        );
     }
 }
