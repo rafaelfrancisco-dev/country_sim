@@ -156,6 +156,7 @@ pub struct ListedEquity {
     pub prev_close: f64,
     pub day_volume: u64,
     pub day_turnover: f64,
+    pub day_trades_count: u64,
     pub market_cap: f64,
     pub price_history: Vec<f64>,
     pub volume_history: Vec<u64>,
@@ -180,6 +181,7 @@ impl ListedEquity {
             prev_close: initial_price,
             day_volume: 0,
             day_turnover: 0.0,
+            day_trades_count: 0,
             market_cap,
             price_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
             volume_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
@@ -217,12 +219,14 @@ impl ListedEquity {
 
         self.day_volume = 0;
         self.day_turnover = 0.0;
+        self.day_trades_count = 0;
     }
 
-    /// Apply a trade: update price, volume, turnover.
+    /// Apply a trade: update price, volume, turnover, trade count.
     pub fn record_trade(&mut self, shares: u64, price: f64) {
         self.day_volume = self.day_volume.saturating_add(shares);
         self.day_turnover = round_cents(self.day_turnover + price * shares as f64);
+        self.day_trades_count = self.day_trades_count.saturating_add(1);
         self.last_price = price;
         self.market_cap = price * self.shares_outstanding as f64;
     }
@@ -346,10 +350,40 @@ impl StockMarket {
         self.bank_portfolio.dividends_mtd = 0.0;
     }
 
+    /// Add a listing while preserving index continuity.
+    pub fn insert_listing_preserve_index(&mut self, company_id: u16, equity: ListedEquity) {
+        let before_cap = self.total_market_cap();
+        let added_cap = equity.market_cap.max(0.0);
+
+        self.listed.insert(company_id, equity);
+
+        let after_cap = self.total_market_cap();
+        if self.index_base <= 0.0 {
+            self.index_base = after_cap.max(0.0);
+            return;
+        }
+
+        if before_cap > 0.0 && after_cap > 0.0 && added_cap > 0.0 {
+            self.index_base *= after_cap / before_cap;
+        }
+    }
+
     /// Called on bankruptcy: wipe all portfolio positions for `company_id`,
     /// remove from listings. Returns total shares wiped across all holders.
     pub fn delist_company(&mut self, company_id: u16) -> u64 {
-        self.listed.remove(&company_id);
+        let before_cap = self.total_market_cap();
+        let removed_cap = self
+            .listed
+            .remove(&company_id)
+            .map_or(0.0, |equity| equity.market_cap.max(0.0));
+        let after_cap = self.total_market_cap();
+        if self.index_base > 0.0 && before_cap > 0.0 && removed_cap > 0.0 {
+            if after_cap > 0.0 {
+                self.index_base *= after_cap / before_cap;
+            } else {
+                self.index_base = 0.0;
+            }
+        }
         let mut total_wiped = 0_u64;
         for portfolio in self.person_portfolios.values_mut() {
             total_wiped = total_wiped.saturating_add(portfolio.wipe_company(company_id));

@@ -139,3 +139,67 @@ Discrete simulation event counts per country per month. Each column is the count
 - The `CsvExporter` is opened lazily on the first month boundary, so the files are only created if the simulation actually runs past day 30.
 - Each run opens files with `File::create` (truncate), so re-running with the same seed and output directory will overwrite the previous files.
 - Relevant source: `src/csv_export.rs`, `src/sim/world/export.rs`, `src/sim/engine.rs` (`drain_export_queue`, `enable_export_queue`).
+
+---
+
+## 5. `stock_daily_country_<seed>.csv` — Daily Stock Market Country Summary
+
+**Cadence**: one row per country per day (only days when stock market is enabled and the country has at least one listing).
+
+| Column | Type | Description |
+|---|---|---|
+| `day` | integer | Simulation day (1-based) |
+| `country_id` | integer | Country identifier |
+| `country_name` | string | Country name |
+| `listed_count` | integer | Number of equities currently listed |
+| `trades_count` | integer | Number of matched fills executed today |
+| `total_volume` | integer | Total shares traded today |
+| `total_turnover` | decimal | Total cash turnover today (sum across all equities) |
+| `index_value` | decimal | Composite market-cap index (base 1000 at first listing) |
+| `bank_equity_exposure` | decimal | Bank portfolio market value |
+| `bank_reserve_balance` | decimal | Bank reserve at end of day |
+
+---
+
+## 6. `stock_daily_equity_<seed>.csv` — Daily Per-Equity Data
+
+**Cadence**: one row per listed equity per day (same days as country file).
+
+| Column | Type | Description |
+|---|---|---|
+| `day` | integer | Simulation day (1-based) |
+| `country_id` | integer | Country identifier |
+| `country_name` | string | Country name |
+| `company_id` | integer | Company (equity) identifier |
+| `ticker` | string | Equity ticker symbol |
+| `close_price` | decimal | Day's closing price |
+| `day_return_pct` | decimal | Daily return %: `(close − prev_close) / prev_close × 100` |
+| `volume` | integer | Shares traded today |
+| `turnover` | decimal | Cash value traded today |
+| `trades_count` | integer | Number of matched fills for this equity |
+| `bank_position_shares` | integer | Bank's current holding (shares) |
+| `free_float_shares` | integer | Total publicly-held shares (person + bank) |
+
+**Usage notes**:
+- `|day_return_pct| ≤ max_daily_price_move_pct × 100` (default hard cap ±8%) by engine construction.
+- `free_float_shares` is constant between IPOs/delistings; share conservation invariant: `Σ person holdings + bank_position_shares == free_float_shares`.
+- Daily stock files are written each tick (not just month-end), so they can be significantly larger than the monthly CSVs for long runs.
+
+---
+
+## Draining Stock Export Data
+
+Stock export data uses a separate queue from the monthly export. Use `GameEngine::drain_stock_export_queues()` (returns `(Vec<StockDailyCountryExportData>, Vec<StockDailyEquityExportData>)`) after each tick:
+
+```rust
+engine.enable_export_queue();
+for _ in 0..days {
+    engine.apply(GameCommand::Tick);
+    // Monthly
+    for batch in engine.drain_export_queue() { ... }
+    // Daily stock
+    let (country_rows, equity_rows) = engine.drain_stock_export_queues();
+    for row in &country_rows { exporter.write_stock_country_row(row)?; }
+    for row in &equity_rows  { exporter.write_stock_equity_row(row)?;  }
+}
+```

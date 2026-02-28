@@ -2,7 +2,9 @@ use super::{
     generator::{GenerationConfig, generate_countries},
     setup::{CITIZENS_PER_MILLION, SetupForm, SetupValues},
     tickable::Tickable,
-    world::{MonthlyExportData, World},
+    world::{
+        MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData, World,
+    },
 };
 
 pub const DEFAULT_GENERATION_SEED: u64 = 0x5eed_c0de_u64;
@@ -68,9 +70,32 @@ impl GameEngine {
         }
     }
 
+    /// Drain the daily stock export queues.
+    /// Returns `(country_rows, equity_rows)`.
+    pub fn drain_stock_export_queues(
+        &mut self,
+    ) -> (Vec<StockDailyCountryExportData>, Vec<StockDailyEquityExportData>) {
+        if let GamePhase::Running(world) = &mut self.phase {
+            (
+                world.stock_country_export_queue.drain(..).collect(),
+                world.stock_equity_export_queue.drain(..).collect(),
+            )
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    }
+
     pub fn enable_export_queue(&mut self) {
         if let GamePhase::Running(world) = &mut self.phase {
             world.export_queue_active = true;
+        }
+    }
+
+    /// Returns the world's generation seed once the engine is in the Running phase.
+    pub fn world_generation_seed(&self) -> Option<u64> {
+        match &self.phase {
+            GamePhase::Running(world) => Some(world.generation_seed),
+            GamePhase::Setup(_) => None,
         }
     }
 
@@ -320,5 +345,135 @@ mod tests {
         }
 
         assert_eq!(written_rows, 12, "365 days should produce 12 monthly rows");
+    }
+
+    #[test]
+    #[ignore = "manual harness: 3 countries × 100k × 365 days with stock CSV export"]
+    fn export_stock_csv_for_one_year_headless() {
+        fn env_u64(name: &str, default: u64) -> u64 {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(default)
+        }
+        fn env_u16(name: &str, default: u16) -> u16 {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse::<u16>().ok())
+                .unwrap_or(default)
+        }
+        fn env_f64(name: &str, default: f64) -> f64 {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(default)
+        }
+
+        let days = env_u64("STOCK_EXPORT_DAYS", 365);
+        let country_count = env_u16("STOCK_EXPORT_COUNTRIES", 3);
+        let millions_per_country = env_f64("STOCK_EXPORT_MILLIONS", 0.1);
+
+        let out_dir = std::env::var("EXPORT_CSV_TEST_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/country_sim_stock_year1"));
+
+        if out_dir.exists() {
+            std::fs::remove_dir_all(&out_dir).expect("remove prior output dir");
+        }
+        std::fs::create_dir_all(&out_dir).expect("create output dir");
+
+        let mut engine = GameEngine::new(DEFAULT_GENERATION_SEED);
+        submit_setup(
+            &mut engine,
+            &country_count.to_string(),
+            &format!("{millions_per_country:.3}"),
+        );
+        engine.enable_export_queue();
+
+        let mut exporter: Option<CsvExporter> = None;
+        let mut monthly_rows = 0usize;
+        let mut stock_country_rows = 0usize;
+        let mut stock_equity_rows = 0usize;
+        let mut invariant_warnings = 0usize;
+
+        for _ in 0..days {
+            let outcome = engine.apply(GameCommand::Tick);
+            invariant_warnings += outcome.warnings.len();
+
+            // Monthly export
+            let export_rows = engine.drain_export_queue();
+            if !export_rows.is_empty() {
+                if exporter.is_none() {
+                    let seed = export_rows[0].generation_seed;
+                    exporter = Some(CsvExporter::new(&out_dir, seed).expect("create exporter"));
+                }
+                if let Some(exp) = &mut exporter {
+                    for month_data in export_rows {
+                        for country_data in month_data.countries {
+                            exp.write_row(&country_data).expect("write monthly csv row");
+                            monthly_rows += 1;
+                        }
+                    }
+                }
+            }
+
+            // Daily stock export
+            let (country_rows, equity_rows) = engine.drain_stock_export_queues();
+            if !country_rows.is_empty() {
+                if exporter.is_none() {
+                    // Shouldn't happen if monthly ran first, but handle gracefully
+                    let seed = DEFAULT_GENERATION_SEED;
+                    exporter = Some(CsvExporter::new(&out_dir, seed).expect("create exporter"));
+                }
+                if let Some(exp) = &mut exporter {
+                    for row in &country_rows {
+                        exp.write_stock_country_row(row)
+                            .expect("write stock country row");
+                        stock_country_rows += 1;
+                    }
+                    for row in &equity_rows {
+                        exp.write_stock_equity_row(row)
+                            .expect("write stock equity row");
+                        stock_equity_rows += 1;
+                    }
+                }
+            }
+        }
+
+        let expected_monthly_rows = ((days / 30) as usize) * country_count as usize;
+        assert_eq!(
+            monthly_rows, expected_monthly_rows,
+            "expected {expected_monthly_rows} monthly rows (countries × completed months)"
+        );
+        // Stock country rows: one row per country per day (only days with listings)
+        assert!(
+            stock_country_rows > 0,
+            "expected at least some stock country rows"
+        );
+        // Stock equity rows: >= stock_country_rows (multiple equities per country)
+        assert!(
+            stock_equity_rows >= stock_country_rows,
+            "expected at least as many equity rows as country rows"
+        );
+        assert_eq!(
+            invariant_warnings, 0,
+            "invariant violations detected: {invariant_warnings}"
+        );
+
+        // Verify output files exist
+        let world = engine.world().expect("world should exist");
+        let seed = world.generation_seed;
+        assert!(
+            out_dir
+                .join(format!("stock_daily_country_{seed:016x}.csv"))
+                .exists(),
+            "stock_daily_country CSV missing"
+        );
+        assert!(
+            out_dir
+                .join(format!("stock_daily_equity_{seed:016x}.csv"))
+                .exists(),
+            "stock_daily_equity CSV missing"
+        );
     }
 }

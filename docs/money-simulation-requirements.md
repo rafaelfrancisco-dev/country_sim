@@ -153,3 +153,45 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Repaying or writing off created principal decreases created-money outstanding.
 - Tracked money supply remains close to:
   - `initial_supply + created_money_outstanding`
+
+## Stock Market Microstructure
+
+### Daily Market Mechanics (Limit-Order Engine)
+The stock market runs once per day after the goods market. Each country's market uses a deterministic limit-order matching engine:
+
+1. **Retail order generation**: A sample of up to `daily_participant_cap` (default 200) traders is selected deterministically via hashed slot indices.
+2. **Signal computation**: Each sampled person × listed stock produces two signals:
+   - *Trend*: `(last_price − MA20) / MA20` — positive means above recent average
+   - *Value gap*: `(fundamental_anchor − last_price) / last_price` — positive means undervalued
+3. **Order placement rules**:
+   - Sell intent: has position AND (`value_gap < −2%` OR `trend > 5%` OR noise trade)
+   - Buy intent: `value_gap > 2%` OR `trend < −2%` OR no position AND below trend OR noise trade
+   - One order type per stock per slot; order size bounded by `max_order_fraction_of_float`
+4. **Bank maker orders**: For each listed symbol the bank quotes:
+   - Bid at `last_price × (1 − maker_spread_bps / 20000)` — limited by equity headroom
+   - Ask at `last_price × (1 + maker_spread_bps / 20000)` — limited by bank inventory
+5. **Price-time priority matching**: Buys sorted descending by limit, sells ascending. Fill at midpoint clamped to `[prev_close × (1 − max_daily_price_move_pct), prev_close × (1 + max_daily_price_move_pct)]`.
+6. **Settlement (strict, zero-synthetic)**:
+   - Person buy: `cash_balance -= cost`, shares increase
+   - Person sell: shares decrease, `cash_balance += proceeds`
+   - Bank buy: `reserve_balance -= cost`, bank shares increase
+   - Bank sell: bank shares decrease, `reserve_balance += proceeds`
+7. **One `record_day_close` per country** is called after all symbols settle.
+
+### Monthly Stock Events
+- **Margin calls** (step 5 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
+- **Dividends** (step 17): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
+
+### Share Conservation Invariant
+For every listed company: `Σ person_holdings + bank_holdings == free_float_shares`. This is checked by `Country::validate_money_invariants` every tick via `ApplyOutcome::warnings`.
+
+### Key Parameters (`StockMarketParams`)
+| Field | Default | Description |
+|---|---|---|
+| `daily_participant_cap` | 200 | Max traders sampled per day |
+| `maker_spread_bps` | 50 | Bank bid-ask spread (basis points) |
+| `max_daily_price_move_pct` | 0.08 | Hard ±8% daily price cap |
+| `retail_noise_trade_prob` | 0.01 | Noise trade probability per slot |
+| `max_order_fraction_of_float` | 0.01 | Max order size as fraction of float |
+| `investor_cash_reserve_ratio` | 0.30 | Cash kept liquid before buying |
+| `bank_max_equity_reserve_fraction` | 0.10 | Bank equity cap (fraction of reserve) |

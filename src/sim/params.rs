@@ -308,13 +308,21 @@ pub struct StockMarketParams {
     pub initial_listing_count: usize,
     /// Free-float fraction of initial_shares sold to investors at seed IPO.
     pub initial_float_fraction: f64,
+    /// Market-maker spread in basis points (50 bps = 0.50%). Bank quotes bid/ask this wide.
+    pub maker_spread_bps: u16,
+    /// Maximum allowed single-day price move as a fraction (0.08 = ±8%).
+    pub max_daily_price_move_pct: f64,
+    /// Probability that a sampled retail trader places a random noise order regardless of signal.
+    pub retail_noise_trade_prob: f64,
+    /// Maximum fraction of free-float shares that any single order may represent.
+    pub max_order_fraction_of_float: f64,
 }
 
 impl Default for StockMarketParams {
     fn default() -> Self {
         Self {
             enabled: true,
-            daily_participant_cap: 200,
+            daily_participant_cap: 1000,
             investor_cash_reserve_ratio: 0.30,
             ipo_max_dilution: 0.30,
             ipo_initial_shares: 1_000_000,
@@ -324,6 +332,10 @@ impl Default for StockMarketParams {
             bank_max_equity_reserve_fraction: 0.10,
             initial_listing_count: 5,
             initial_float_fraction: 0.20,
+            maker_spread_bps: 50,
+            max_daily_price_move_pct: 0.08,
+            retail_noise_trade_prob: 0.05,
+            max_order_fraction_of_float: 0.01,
         }
     }
 }

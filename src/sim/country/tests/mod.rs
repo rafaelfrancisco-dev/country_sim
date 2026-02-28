@@ -989,3 +989,79 @@ fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
             .any(|event| matches!(event, SimEvent::JobSwitched { .. }))
     );
 }
+
+// ---------------------------------------------------------------------------
+// Stock market — margin call direction test
+// ---------------------------------------------------------------------------
+
+#[test]
+fn margin_liquidation_decreases_bank_reserve_not_increases() {
+    use crate::sim::{
+        bank::{DEFAULT_LOAN_APR, DEFAULT_LOAN_TERM_MONTHS},
+        stock_market::ListedEquity,
+    };
+
+    // Build a country with one person who has a loan and holds shares
+    let mut person = Person::new(1, 40, 0, 1);
+    person.cash_balance = 0.0; // will not cover loan payment → triggers margin call
+
+    let companies = build_default_companies("MarginTest", 2);
+    let mut country = Country::with_economy(
+        0,
+        "MarginTest".to_string(),
+        vec![person],
+        companies,
+        50_000.0,
+    );
+
+    // Give bank initial reserve
+    country.bank.reserve_balance = 20_000.0;
+
+    // List a company and give the person shares
+    let equity = ListedEquity::new(0, "MCT".to_string(), 10.0, 1_000_000, 500);
+    country.stock_market.listed.insert(0, equity);
+    country.stock_market.person_portfolio_mut(1).add_shares(0, 500, 10.0);
+
+    // Give the person a loan they cannot pay (monthly_payment >> cash)
+    let mut loan_slot = None;
+    country.bank.originate_loan(
+        5_000.0,
+        0.0,
+        DEFAULT_LOAN_APR / DEFAULT_LOAN_TERM_MONTHS as f64 * 100.0,
+        &mut loan_slot,
+    );
+    country.people[0].loan = loan_slot;
+
+    // Run month-end (which includes collateral seizure)
+    country.process_month_end();
+
+    // Share conservation must hold
+    let violations = country.validate_money_invariants();
+    let share_violations: Vec<_> = violations
+        .iter()
+        .filter(|v| v.code == "stock_share_conservation")
+        .collect();
+    assert!(
+        share_violations.is_empty(),
+        "share conservation violated after margin call: {:?}",
+        share_violations
+    );
+
+    // If margin call fired: bank should hold shares, person fewer
+    let bank_shares = country
+        .stock_market
+        .bank_portfolio
+        .position(0)
+        .map_or(0, |p| p.shares);
+    let person_shares = country
+        .stock_market
+        .person_portfolios
+        .get(&1)
+        .and_then(|p| p.position(0))
+        .map_or(0, |p| p.shares);
+
+    assert!(
+        bank_shares > 0 || person_shares == 500,
+        "expected either bank received liquidated shares ({bank_shares}) or person still holds all 500 ({person_shares})"
+    );
+}

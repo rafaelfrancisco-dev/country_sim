@@ -3,7 +3,10 @@ mod goods_market;
 mod history;
 mod stock_market;
 
-pub use export::{CountryExportData, MonthlyExportData};
+pub use export::{
+    CountryExportData, MonthlyExportData, StockDailyCountryExportData,
+    StockDailyEquityExportData,
+};
 
 use rayon::prelude::*;
 #[cfg(feature = "bench-trace")]
@@ -40,6 +43,8 @@ pub struct World {
     pub event_log: Vec<SimEvent>,
     pub export_queue: Vec<MonthlyExportData>,
     pub export_queue_active: bool,
+    pub stock_country_export_queue: Vec<StockDailyCountryExportData>,
+    pub stock_equity_export_queue: Vec<StockDailyEquityExportData>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,6 +71,8 @@ impl World {
             event_log: Vec::with_capacity(EVENT_LOG_LIMIT),
             export_queue: Vec::new(),
             export_queue_active: false,
+            stock_country_export_queue: Vec::new(),
+            stock_equity_export_queue: Vec::new(),
         };
         world.capture_snapshot();
         world

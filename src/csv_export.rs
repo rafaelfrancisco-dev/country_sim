@@ -4,13 +4,17 @@ use std::{
     path::Path,
 };
 
-use crate::sim::world::CountryExportData;
+use crate::sim::world::{
+    CountryExportData, StockDailyCountryExportData, StockDailyEquityExportData,
+};
 
 pub struct CsvExporter {
     country_metrics: csv::Writer<BufWriter<File>>,
     people_agg: csv::Writer<BufWriter<File>>,
     company_agg: csv::Writer<BufWriter<File>>,
     events: csv::Writer<BufWriter<File>>,
+    stock_daily_country: csv::Writer<BufWriter<File>>,
+    stock_daily_equity: csv::Writer<BufWriter<File>>,
 }
 
 impl CsvExporter {
@@ -28,6 +32,12 @@ impl CsvExporter {
         )?));
         let mut events = csv::Writer::from_writer(BufWriter::new(File::create(
             dir.join(format!("events_{seed:016x}.csv")),
+        )?));
+        let mut stock_daily_country = csv::Writer::from_writer(BufWriter::new(File::create(
+            dir.join(format!("stock_daily_country_{seed:016x}.csv")),
+        )?));
+        let mut stock_daily_equity = csv::Writer::from_writer(BufWriter::new(File::create(
+            dir.join(format!("stock_daily_equity_{seed:016x}.csv")),
         )?));
 
         country_metrics.write_record([
@@ -115,16 +125,48 @@ impl CsvExporter {
             "stock_margin_calls",
         ])?;
 
+        stock_daily_country.write_record([
+            "day",
+            "country_id",
+            "country_name",
+            "listed_count",
+            "trades_count",
+            "total_volume",
+            "total_turnover",
+            "index_value",
+            "bank_equity_exposure",
+            "bank_reserve_balance",
+        ])?;
+
+        stock_daily_equity.write_record([
+            "day",
+            "country_id",
+            "country_name",
+            "company_id",
+            "ticker",
+            "close_price",
+            "day_return_pct",
+            "volume",
+            "turnover",
+            "trades_count",
+            "bank_position_shares",
+            "free_float_shares",
+        ])?;
+
         country_metrics.flush()?;
         people_agg.flush()?;
         company_agg.flush()?;
         events.flush()?;
+        stock_daily_country.flush()?;
+        stock_daily_equity.flush()?;
 
         Ok(Self {
             country_metrics,
             people_agg,
             company_agg,
             events,
+            stock_daily_country,
+            stock_daily_equity,
         })
     }
 
@@ -226,6 +268,48 @@ impl CsvExporter {
         self.company_agg.flush()?;
         self.events.flush()?;
 
+        Ok(())
+    }
+
+    pub fn write_stock_country_row(
+        &mut self,
+        data: &StockDailyCountryExportData,
+    ) -> std::io::Result<()> {
+        self.stock_daily_country.write_record([
+            data.day.to_string(),
+            data.country_id.to_string(),
+            data.country_name.clone(),
+            data.listed_count.to_string(),
+            data.trades_count.to_string(),
+            data.total_volume.to_string(),
+            format!("{:.2}", data.total_turnover),
+            format!("{:.4}", data.index_value),
+            format!("{:.2}", data.bank_equity_exposure),
+            format!("{:.2}", data.bank_reserve_balance),
+        ])?;
+        self.stock_daily_country.flush()?;
+        Ok(())
+    }
+
+    pub fn write_stock_equity_row(
+        &mut self,
+        data: &StockDailyEquityExportData,
+    ) -> std::io::Result<()> {
+        self.stock_daily_equity.write_record([
+            data.day.to_string(),
+            data.country_id.to_string(),
+            data.country_name.clone(),
+            data.company_id.to_string(),
+            data.ticker.clone(),
+            format!("{:.4}", data.close_price),
+            format!("{:.4}", data.day_return_pct),
+            data.volume.to_string(),
+            format!("{:.2}", data.turnover),
+            data.trades_count.to_string(),
+            data.bank_position_shares.to_string(),
+            data.free_float_shares.to_string(),
+        ])?;
+        self.stock_daily_equity.flush()?;
         Ok(())
     }
 }

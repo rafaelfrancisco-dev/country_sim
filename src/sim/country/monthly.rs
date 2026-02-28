@@ -1300,8 +1300,12 @@ impl Country {
         let float_shares = ((initial_shares as f64 * params.initial_float_fraction) as u64).max(1);
 
         // Collect person subscriptions.
+        // Cap per-person allocation so ~20% of the population becomes shareholders:
+        // target ~people/5 subscribers → per_participant_max = float_shares / target.
+        // This gives the daily market a sufficient holder base to generate sell orders.
         let reserve_ratio = params.investor_cash_reserve_ratio;
-        let per_participant_max = (float_shares / 10).max(1);
+        let target_subscribers = (self.people.len() / 5).max(1) as u64;
+        let per_participant_max = (float_shares / target_subscribers).max(1);
         let mut shares_allocated = 0_u64;
         let mut raised = 0.0_f64;
         let mut subscriptions: Vec<(u32, u64, f64)> = Vec::new();
@@ -1373,10 +1377,8 @@ impl Country {
             total_shares,
             shares_allocated,
         );
-        if self.stock_market.index_base <= 0.0 {
-            self.stock_market.index_base = equity.market_cap;
-        }
-        self.stock_market.listed.insert(company_id, equity);
+        self.stock_market
+            .insert_listing_preserve_index(company_id, equity);
 
         // Proceeds flow into company treasury (primary offering).
         if let Some(company) = self.companies.get_mut(company_idx) {
@@ -1534,10 +1536,8 @@ impl Country {
             total_shares,
             shares_allocated, // free float = newly issued shares
         );
-        if self.stock_market.index_base <= 0.0 {
-            self.stock_market.index_base = equity.market_cap;
-        }
-        self.stock_market.listed.insert(company_id, equity);
+        self.stock_market
+            .insert_listing_preserve_index(company_id, equity);
 
         // Inject raised cash into company
         if let Some(company) = self.companies.get_mut(company_idx) {
@@ -1650,12 +1650,12 @@ impl Country {
                 if let Some(p) = self.people.iter_mut().find(|p| p.id == person_id) {
                     p.cash_balance = round_cents(p.cash_balance + sale_proceeds);
                 }
-                // Bank receives shares
+                // Bank receives shares — bank pays for them (reserve decreases)
                 self.stock_market
                     .bank_portfolio
                     .add_shares(cid, shares_to_sell, sale_price);
-                // Reserve increases for bank
-                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + sale_proceeds);
+                self.bank.reserve_balance =
+                    round_cents(self.bank.reserve_balance - sale_proceeds).max(0.0);
             }
 
             if total_liquidated_shares > 0 {

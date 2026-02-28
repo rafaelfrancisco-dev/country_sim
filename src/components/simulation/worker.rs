@@ -220,6 +220,11 @@ impl SimulationWorker {
                             && matches!(engine.phase(), GamePhase::Running(_))
                         {
                             engine.enable_export_queue();
+                            // Capture the seed as soon as the world is live so stock CSV
+                            // can be written before the first monthly export fires (day 30).
+                            if export_seed.is_none() {
+                                export_seed = engine.world_generation_seed();
+                            }
                             export_queue_activated = true;
                         }
 
@@ -249,6 +254,46 @@ impl SimulationWorker {
                                             {
                                                 tracing::error!(
                                                     "CSV write error: {err}"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Drain daily stock export queues and write CSV rows if enabled
+                        if export_csv_path.is_some() {
+                            let (stock_country_rows, stock_equity_rows) =
+                                engine.drain_stock_export_queues();
+                            if !stock_country_rows.is_empty() {
+                                if let (Some(path), Some(seed)) =
+                                    (&export_csv_path, export_seed)
+                                {
+                                    if csv_exporter.is_none() {
+                                        match CsvExporter::new(path, seed) {
+                                            Ok(e) => csv_exporter = Some(e),
+                                            Err(err) => tracing::error!(
+                                                "failed to open CSV export: {err}"
+                                            ),
+                                        }
+                                    }
+                                    if let Some(exporter) = &mut csv_exporter {
+                                        for row in &stock_country_rows {
+                                            if let Err(err) =
+                                                exporter.write_stock_country_row(row)
+                                            {
+                                                tracing::error!(
+                                                    "CSV stock country write error: {err}"
+                                                );
+                                            }
+                                        }
+                                        for row in &stock_equity_rows {
+                                            if let Err(err) =
+                                                exporter.write_stock_equity_row(row)
+                                            {
+                                                tracing::error!(
+                                                    "CSV stock equity write error: {err}"
                                                 );
                                             }
                                         }
