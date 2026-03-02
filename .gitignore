@@ -1,3 +1,6 @@
 /target
 .data/*.log
 *.svg
+flamegraph.html
+gecko_profile.json
+perf*.data

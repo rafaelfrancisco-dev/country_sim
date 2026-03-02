@@ -3,7 +3,7 @@ use super::{
     good::{GoodId, common_goods, good_by_id},
     job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
-    params::{GoodsMarketParams, SimulationParams},
+    params::{GoodsMarketParams, LaborDemandParams, SimulationParams},
 };
 
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
@@ -39,6 +39,7 @@ pub struct Company {
     pub last_month_sales: f64,
     pub last_month_profit: f64,
     pub consecutive_profitable_months: u8,
+    pub consecutive_loss_months: u8,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
     pub last_month_units_produced: u32,
@@ -88,6 +89,7 @@ impl Company {
             last_month_sales: 0.0,
             last_month_profit: 0.0,
             consecutive_profitable_months: 0,
+            consecutive_loss_months: 0,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
             last_month_units_produced: 0,
@@ -248,8 +250,10 @@ impl Company {
         if self.last_month_profit > 0.0 {
             self.consecutive_profitable_months =
                 self.consecutive_profitable_months.saturating_add(1);
+            self.consecutive_loss_months = 0;
         } else {
             self.consecutive_profitable_months = 0;
+            self.consecutive_loss_months = self.consecutive_loss_months.saturating_add(1);
         }
     }
 
@@ -294,6 +298,48 @@ impl Company {
         }
 
         openings_to_add
+    }
+
+    pub fn ensure_baseline_openings(&mut self, demand: LaborDemandParams, month_seed: u64) -> u16 {
+        if self.employee_count == 0 {
+            return 0;
+        }
+
+        let target_from_headcount = (self.employee_count as f64 * demand.replacement_opening_rate)
+            .ceil()
+            .max(0.0) as u16;
+        let target_openings = target_from_headcount.max(demand.min_openings_per_active_company);
+        if target_openings == 0 {
+            return 0;
+        }
+
+        let existing_slots: u16 = self
+            .open_positions
+            .iter()
+            .map(|opening| opening.slots)
+            .sum();
+        if existing_slots >= target_openings {
+            return 0;
+        }
+
+        let slots_to_add = target_openings - existing_slots;
+        let weighted_jobs = self
+            .offered_job_types
+            .iter()
+            .filter_map(|job_id| job_by_id(*job_id).map(|job| (job.id, job.assignment_weight)))
+            .collect::<Vec<_>>();
+        if weighted_jobs.is_empty() {
+            return 0;
+        }
+
+        for idx in 0..slots_to_add {
+            let seed = month_seed ^ (u64::from(self.id) << 32) ^ u64::from(idx) ^ 0x44aa_11cc;
+            if let Some(job_id) = pick_weighted_job(seed, &weighted_jobs) {
+                self.add_opening(job_id, 1);
+            }
+        }
+
+        slots_to_add
     }
 
     fn push_history_f64(history: &mut Vec<f64>, value: f64, max_len: usize) {

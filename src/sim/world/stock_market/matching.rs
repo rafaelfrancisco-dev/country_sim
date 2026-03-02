@@ -58,7 +58,13 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
         return;
     }
 
-    let sample_count = cap.min(people_count);
+    let scaled_by_population =
+        (people_count as f64 * params.participant_population_fraction).round() as usize;
+    let scaled_by_listings = params
+        .min_participants_per_listed
+        .saturating_mul(listed_ids.len());
+    let sample_target = cap.max(scaled_by_population).max(scaled_by_listings);
+    let sample_count = sample_target.min(people_count);
 
     // -----------------------------------------------------------------------
     // Build per-symbol order books
@@ -125,6 +131,11 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
 
             let order_seed = hash64(slot_seed ^ u64::from(cid) ^ 0xf00d);
             let noise = (unit_interval(hash64(order_seed ^ 0x1111)) - 0.5) * 2.0 * noise_prob;
+            let day_sentiment = (unit_interval(hash64(
+                day ^ (u64::from(country.id) << 20) ^ (u64::from(cid) << 4) ^ 0x1bad_b002,
+            )) - 0.5)
+                * 0.12;
+            let trader_style_roll = unit_interval(hash64(order_seed ^ 0x7777));
 
             let has_position = country
                 .stock_market
@@ -133,13 +144,30 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
                 .and_then(|p| p.position(cid))
                 .map_or(false, |pos| pos.shares > 0);
 
-            // Positive directional score means undervalued/down-trending => buy pressure.
-            // Negative score means overvalued/up-trending => sell pressure.
-            let directional = (value_gap - trend).clamp(-0.25, 0.25) + noise;
-            let buy_threshold = if has_position { 0.03 } else { 0.08 };
+            // Blend value/trend by deterministic trader archetype to reduce one-sided drift.
+            let value_gap = value_gap.clamp(-0.08, 0.08);
+            let directional_core = if trader_style_roll < 0.45 {
+                // Value-oriented but mostly mean-reverting against short trend.
+                0.20 * value_gap - 0.80 * trend
+            } else if trader_style_roll < 0.80 {
+                // Strong contrarian/noise archetype.
+                -0.10 * value_gap - 0.90 * trend
+            } else {
+                // Rebalancer archetype.
+                -0.60 * trend
+            };
+            let directional = directional_core.clamp(-0.12, 0.12) + noise + day_sentiment;
+            let buy_threshold = if has_position { 0.03 } else { 0.05 };
             let sell_threshold = 0.03;
-            let want_buy = directional > buy_threshold;
-            let want_sell = has_position && directional < -sell_threshold;
+            let mut want_buy = directional > buy_threshold;
+            let mut want_sell = has_position && directional < -sell_threshold;
+            if !want_buy && !want_sell {
+                if has_position && unit_interval(hash64(order_seed ^ 0x8888)) < 0.22 {
+                    want_sell = true;
+                } else if !has_position && unit_interval(hash64(order_seed ^ 0x9999)) < 0.02 {
+                    want_buy = true;
+                }
+            }
 
             if want_sell {
                 let free_shares = country
@@ -150,13 +178,14 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
                     .map_or(0, |pos| pos.shares.saturating_sub(pos.pledged_shares));
 
                 if free_shares > 0 {
-                    let sell_frac = unit_interval(hash64(order_seed ^ 0x2222)) * 0.30 + 0.05;
+                    let sell_frac = unit_interval(hash64(order_seed ^ 0x2222)) * 0.45 + 0.10;
                     let shares = ((free_shares as f64 * sell_frac).ceil() as u64)
                         .min(free_shares)
                         .min(max_order_by_float)
                         .max(1);
-                    // Sell limit: slight discount below last (0–1%) for eager sellers
-                    let disc = unit_interval(hash64(order_seed ^ 0x3333)) * 0.01;
+                    // Sell limit: wider discount below last to allow downside
+                    // repricing during negative sentiment days.
+                    let disc = unit_interval(hash64(order_seed ^ 0x3333)) * 0.03;
                     let limit_price = round_cents((last_price * (1.0 - disc)).max(0.01));
                     sell_orders.entry(cid).or_default().push(LimitOrder {
                         trader: TraderId::Person(person_id),
@@ -172,15 +201,15 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
                 if investable < last_price {
                     continue;
                 }
-                let buy_frac = unit_interval(hash64(order_seed ^ 0x4444)) * 0.35 + 0.05;
+                let buy_frac = unit_interval(hash64(order_seed ^ 0x4444)) * 0.45 + 0.08;
                 let budget = round_cents(investable * buy_frac);
                 let shares = (budget / last_price) as u64;
                 let shares = shares.min(max_order_by_float).max(1);
                 if shares == 0 {
                     continue;
                 }
-                // Buy limit: slight premium above last (0–1%) for eager buyers
-                let prem = unit_interval(hash64(order_seed ^ 0x5555)) * 0.01;
+                // Buy limit: tiny premium above last to avoid structural upward drift.
+                let prem = unit_interval(hash64(order_seed ^ 0x5555)) * 0.001;
                 let limit_price = round_cents(last_price * (1.0 + prem));
                 let cash_budget = round_cents(shares as f64 * limit_price);
                 buy_orders.entry(cid).or_default().push(LimitOrder {
@@ -252,6 +281,25 @@ pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::
             });
         }
     }
+
+    let mut active_traders = HashSet::new();
+    let mut buy_orders_count = 0_u64;
+    let mut sell_orders_count = 0_u64;
+    for orders in buy_orders.values() {
+        buy_orders_count = buy_orders_count.saturating_add(orders.len() as u64);
+        for order in orders {
+            active_traders.insert(order.trader.stable_key());
+        }
+    }
+    for orders in sell_orders.values() {
+        sell_orders_count = sell_orders_count.saturating_add(orders.len() as u64);
+        for order in orders {
+            active_traders.insert(order.trader.stable_key());
+        }
+    }
+    country.stock_market.day_active_traders_count = active_traders.len();
+    country.stock_market.day_buy_orders_count = buy_orders_count;
+    country.stock_market.day_sell_orders_count = sell_orders_count;
 
     // -----------------------------------------------------------------------
     // Match and settle per symbol
@@ -485,7 +533,3 @@ fn settle_fills(country: &mut crate::sim::country::Country, fills: &[TradeFill])
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-
-
-

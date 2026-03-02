@@ -13,8 +13,31 @@ impl Country {
 
         for company_idx in 0..self.companies.len() {
             let missed = self.companies[company_idx].missed_loan_payment_this_month;
+            let loss_months = self.companies[company_idx].consecutive_loss_months;
             if !missed {
                 self.companies[company_idx].consecutive_missed_loan_payments = 0;
+                if loss_months >= params.loss_distress_month_threshold {
+                    let company_id = self.companies[company_idx].id;
+                    if params.loss_trigger_wage_cut_rate > 0.0 {
+                        self.apply_company_wage_cut(company_id, params.loss_trigger_wage_cut_rate);
+                        self.pending_events.push(SimEvent::CompanyWageCut {
+                            country_name: self.name.clone(),
+                            company_id,
+                            cut_rate: params.loss_trigger_wage_cut_rate,
+                            day: self.day,
+                        });
+                    }
+                    let laid_off =
+                        self.layoff_people_by_rate(company_id, params.loss_trigger_layoff_rate);
+                    if laid_off > 0 {
+                        self.pending_events.push(SimEvent::CompanyLayoffs {
+                            country_name: self.name.clone(),
+                            company_id,
+                            laid_off_count: laid_off,
+                            day: self.day,
+                        });
+                    }
+                }
                 continue;
             }
 
@@ -280,5 +303,4 @@ impl Country {
     }
 
 }
-
 

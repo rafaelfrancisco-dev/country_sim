@@ -128,6 +128,7 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
             total_supply,
             config.sim_params.clone(),
         );
+        fund_initial_bank_reserve(&mut country);
         country.seed_initial_ipos();
         countries.push(country);
     }
@@ -259,6 +260,39 @@ fn randomize_company_prices(
     }
 }
 
+fn fund_initial_bank_reserve(country: &mut Country) {
+    let target = round_cents(country.sim_params.stock_market.maker_bootstrap_reserve.max(0.0));
+    if target <= 0.0 || country.companies.is_empty() {
+        return;
+    }
+
+    let total_company_cash: f64 = country.companies.iter().map(|c| c.cash_balance).sum();
+    let transfer_total = round_cents(target.min(total_company_cash.max(0.0)));
+    if transfer_total <= 0.0 {
+        return;
+    }
+
+    let mut remaining = transfer_total;
+    let company_count = country.companies.len() as f64;
+    let companies_len = country.companies.len();
+    for (idx, company) in country.companies.iter_mut().enumerate() {
+        if remaining <= 0.0 {
+            break;
+        }
+        let planned = if idx + 1 == companies_len {
+            remaining
+        } else {
+            round_cents(transfer_total / company_count)
+        };
+        let pulled = round_cents(planned.min(company.cash_balance.max(0.0)));
+        company.cash_balance = round_cents(company.cash_balance - pulled);
+        remaining = round_cents((remaining - pulled).max(0.0));
+    }
+    let actual_transfer = round_cents(transfer_total - remaining);
+    country.bank.reserve_balance = round_cents(country.bank.reserve_balance + actual_transfer);
+    country.recompute_aggregates();
+}
+
 fn seed_balances_to_people(people: &mut [Person], total_supply: f64) {
     if people.is_empty() {
         return;
@@ -323,7 +357,8 @@ mod tests {
         let countries = generate_countries(&config(3));
 
         for country in countries {
-            assert!((country.household_cash_total - country.company_cash_total).abs() <= 0.01);
+            let non_household_cash = round_cents(country.company_cash_total + country.bank.reserve_balance);
+            assert!((country.household_cash_total - non_household_cash).abs() <= 0.01);
             let expected_total = round_cents(country.initial_money_supply);
             assert!((country.total_money_supply - expected_total).abs() <= 0.01);
         }

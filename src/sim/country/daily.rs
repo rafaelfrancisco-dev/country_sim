@@ -222,6 +222,7 @@ impl Country {
             })
             .collect::<Vec<_>>();
 
+        let mut hires_total = 0_u64;
         let (people, companies) = (&mut self.people, &mut self.companies);
         for chunk_intents in intents_by_chunk {
             for intent in chunk_intents {
@@ -238,6 +239,7 @@ impl Country {
                         consume_opening_by_job_type(company, job_type_id)
                 {
                     person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
+                    hires_total = hires_total.saturating_add(1);
                     continue;
                 }
 
@@ -245,9 +247,11 @@ impl Country {
                     consume_matching_opening(companies, intent.qualification, intent.seek_seed)
                 {
                     person.set_employment_with_salary(company_id, job_id, offered_salary);
+                    hires_total = hires_total.saturating_add(1);
                 }
             }
         }
+        self.monthly_hires_total = self.monthly_hires_total.saturating_add(hires_total);
     }
 
     #[cfg(feature = "bench-trace")]
@@ -313,6 +317,7 @@ impl Country {
         let plan_ms = crate::sim::trace::duration_ms(started.elapsed());
 
         let started = Instant::now();
+        let mut hires_total = 0_u64;
         let (people, companies) = (&mut self.people, &mut self.companies);
         for chunk_intents in intents_by_chunk {
             for intent in chunk_intents {
@@ -329,6 +334,7 @@ impl Country {
                         consume_opening_by_job_type(company, job_type_id)
                 {
                     person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
+                    hires_total = hires_total.saturating_add(1);
                     continue;
                 }
 
@@ -336,9 +342,11 @@ impl Country {
                     consume_matching_opening(companies, intent.qualification, intent.seek_seed)
                 {
                     person.set_employment_with_salary(company_id, job_id, offered_salary);
+                    hires_total = hires_total.saturating_add(1);
                 }
             }
         }
+        self.monthly_hires_total = self.monthly_hires_total.saturating_add(hires_total);
         let apply_ms = crate::sim::trace::duration_ms(started.elapsed());
 
         (snapshot_ms, plan_ms, apply_ms)

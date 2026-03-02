@@ -264,6 +264,9 @@ pub struct StockMarket {
     pub ipo_raised_mtd: f64,
     pub dividends_paid_mtd: f64,
     pub forced_liquidations_mtd: f64,
+    pub day_active_traders_count: usize,
+    pub day_buy_orders_count: u64,
+    pub day_sell_orders_count: u64,
 }
 
 impl Default for StockMarket {
@@ -277,6 +280,9 @@ impl Default for StockMarket {
             ipo_raised_mtd: 0.0,
             dividends_paid_mtd: 0.0,
             forced_liquidations_mtd: 0.0,
+            day_active_traders_count: 0,
+            day_buy_orders_count: 0,
+            day_sell_orders_count: 0,
         }
     }
 }
@@ -335,6 +341,9 @@ impl StockMarket {
         for equity in self.listed.values_mut() {
             equity.record_day_close();
         }
+        self.day_active_traders_count = 0;
+        self.day_buy_orders_count = 0;
+        self.day_sell_orders_count = 0;
     }
 
     /// Reset MTD accumulators (called at month end after capturing history).
@@ -453,9 +462,9 @@ impl StockMarket {
         }
         // Annualized revenue x 0.5 P/S, adjusted for profitability
         let ann_rev = monthly_revenue * 12.0;
-        let ps_multiple = if last_month_profit > 0.0 { 0.8 } else { 0.3 };
+        let ps_multiple = if last_month_profit > 0.0 { 0.5 } else { 0.2 };
         let enterprise_value = ann_rev * ps_multiple;
-        let equity_value = (enterprise_value + cash_balance - debt_balance).max(0.0);
+        let equity_value = (enterprise_value + cash_balance * 0.35 - debt_balance).max(0.0);
         let price_per_share = equity_value / initial_shares as f64;
         price_per_share.max(0.01)
     }

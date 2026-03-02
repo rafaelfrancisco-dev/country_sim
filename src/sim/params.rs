@@ -94,11 +94,11 @@ impl Default for LaborParams {
     fn default() -> Self {
         Self {
             baseline_unemployment_rate: 0.06,
-            seek_base: 0.002,
-            seek_age_slope: 0.0002,
-            seek_cash_pressure_scale: 0.01,
+            seek_base: 0.006,
+            seek_age_slope: 0.0003,
+            seek_cash_pressure_scale: 0.03,
             seek_cash_reference: 3_000.0,
-            seek_probability_cap: 0.03,
+            seek_probability_cap: 0.08,
         }
     }
 }
@@ -111,6 +111,23 @@ impl LaborParams {
             * self.seek_cash_pressure_scale;
 
         (self.seek_base + age_component + cash_pressure).min(self.seek_probability_cap)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LaborDemandParams {
+    /// Baseline monthly opening target as a fraction of current company headcount.
+    pub replacement_opening_rate: f64,
+    /// Minimum baseline openings for companies that currently employ workers.
+    pub min_openings_per_active_company: u16,
+}
+
+impl Default for LaborDemandParams {
+    fn default() -> Self {
+        Self {
+            replacement_opening_rate: 0.018,
+            min_openings_per_active_company: 2,
+        }
     }
 }
 
@@ -164,6 +181,9 @@ impl Default for CompanyFormationParams {
 pub struct CompanyDistressParams {
     pub wage_cut_rate: f64,
     pub layoff_rate: f64,
+    pub loss_distress_month_threshold: u8,
+    pub loss_trigger_wage_cut_rate: f64,
+    pub loss_trigger_layoff_rate: f64,
     pub bankruptcy_missed_payment_threshold: u8,
     pub min_wage_floor_ratio_to_catalog: f64,
 }
@@ -173,6 +193,9 @@ impl Default for CompanyDistressParams {
         Self {
             wage_cut_rate: 0.10,
             layoff_rate: 0.20,
+            loss_distress_month_threshold: 3,
+            loss_trigger_wage_cut_rate: 0.04,
+            loss_trigger_layoff_rate: 0.03,
             bankruptcy_missed_payment_threshold: 3,
             min_wage_floor_ratio_to_catalog: 0.70,
         }
@@ -316,26 +339,35 @@ pub struct StockMarketParams {
     pub retail_noise_trade_prob: f64,
     /// Maximum fraction of free-float shares that any single order may represent.
     pub max_order_fraction_of_float: f64,
+    /// Share of population sampled daily as participants.
+    pub participant_population_fraction: f64,
+    /// Minimum sampled participants per listed symbol.
+    pub min_participants_per_listed: usize,
+    /// Initial bank reserve injected (and removed from company cash) to enable maker liquidity.
+    pub maker_bootstrap_reserve: f64,
 }
 
 impl Default for StockMarketParams {
     fn default() -> Self {
         Self {
             enabled: true,
-            daily_participant_cap: 1000,
+            daily_participant_cap: 400,
             investor_cash_reserve_ratio: 0.30,
             ipo_max_dilution: 0.30,
             ipo_initial_shares: 1_000_000,
             dividend_payout_ratio: 0.40,
             dividend_min_runway_months: 3.0,
             margin_liquidation_discount: 0.05,
-            bank_max_equity_reserve_fraction: 0.10,
+            bank_max_equity_reserve_fraction: 0.15,
             initial_listing_count: 5,
             initial_float_fraction: 0.20,
-            maker_spread_bps: 50,
+            maker_spread_bps: 20,
             max_daily_price_move_pct: 0.08,
-            retail_noise_trade_prob: 0.05,
-            max_order_fraction_of_float: 0.01,
+            retail_noise_trade_prob: 0.12,
+            max_order_fraction_of_float: 0.05,
+            participant_population_fraction: 0.004,
+            min_participants_per_listed: 50,
+            maker_bootstrap_reserve: 2_000_000.0,
         }
     }
 }
@@ -345,6 +377,7 @@ pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
+    pub labor_demand: LaborDemandParams,
     pub company_growth: CompanyGrowthParams,
     pub company_formation: CompanyFormationParams,
     pub company_distress: CompanyDistressParams,

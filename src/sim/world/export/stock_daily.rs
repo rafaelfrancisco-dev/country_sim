@@ -17,6 +17,9 @@ pub struct StockDailyCountryExportData {
     pub index_value: f64,
     pub bank_equity_exposure: f64,
     pub bank_reserve_balance: f64,
+    pub active_traders_count: usize,
+    pub buy_orders_count: u64,
+    pub sell_orders_count: u64,
 }
 
 /// One row per listed equity per day in `stock_daily_equity_*.csv`.
@@ -80,6 +83,9 @@ impl World {
                     index_value: country.stock_market.index_value(),
                     bank_equity_exposure: country.stock_market.bank_equity_exposure(),
                     bank_reserve_balance: country.bank.reserve_balance,
+                    active_traders_count: country.stock_market.day_active_traders_count,
+                    buy_orders_count: country.stock_market.day_buy_orders_count,
+                    sell_orders_count: country.stock_market.day_sell_orders_count,
                 });
 
             for (cid, equity) in &country.stock_market.listed {
@@ -145,6 +151,9 @@ pub struct CountryExportData {
     // people_agg
     pub employed_count: usize,
     pub unemployed_count: usize,
+    pub labor_force_count: usize,
+    pub non_participating_count: usize,
+    pub headline_non_employed_rate_pct: f64,
     pub avg_age_years: f64,
     pub avg_cash_balance: f64,
     pub total_gross_pay: f64,
@@ -184,11 +193,11 @@ pub struct CountryExportData {
     pub loans_defaulted: u64,
     pub debt_distress_events: u64,
     pub gov_transfers: u64,
+    pub hires_total: u64,
     pub stock_ipos: u64,
     pub stock_delistings: u64,
     pub stock_margin_calls: u64,
 }
-
 
 
 

@@ -31,6 +31,9 @@ fn collect_country_data(
     // People aggregates
     let mut employed_count = 0usize;
     let mut unemployed_count = 0usize;
+    let mut labor_force_count = 0usize;
+    let mut non_participating_count = 0usize;
+    let mut total_employed_population = 0usize;
     let mut total_age_days = 0u64;
     let mut total_cash_balance = 0.0_f64;
     let mut total_gross_pay = 0.0_f64;
@@ -41,9 +44,17 @@ fn collect_country_data(
     let mut count_with_unmet_needs = 0usize;
 
     for person in &country.people {
-        match person.employment {
-            EmploymentStatus::Employed { .. } => employed_count += 1,
-            EmploymentStatus::Unemployed => unemployed_count += 1,
+        if matches!(person.employment, EmploymentStatus::Employed { .. }) {
+            total_employed_population += 1;
+        }
+        if person.is_labor_force_participant() {
+            match person.employment {
+                EmploymentStatus::Employed { .. } => employed_count += 1,
+                EmploymentStatus::Unemployed => unemployed_count += 1,
+            }
+            labor_force_count += 1;
+        } else {
+            non_participating_count += 1;
         }
         total_age_days += u64::from(person.age_days);
         total_cash_balance += person.cash_balance;
@@ -72,6 +83,11 @@ fn collect_country_data(
     };
     let avg_loan_balance = if count_with_active_loans > 0 {
         total_loan_balance / count_with_active_loans as f64
+    } else {
+        0.0
+    };
+    let headline_non_employed_rate_pct = if population > 0 {
+        (population.saturating_sub(total_employed_population)) as f64 / population as f64 * 100.0
     } else {
         0.0
     };
@@ -163,6 +179,9 @@ fn collect_country_data(
         money_supply_gap: country.money_supply_gap,
         employed_count,
         unemployed_count,
+        labor_force_count,
+        non_participating_count,
+        headline_non_employed_rate_pct,
         avg_age_years,
         avg_cash_balance,
         total_gross_pay,
@@ -198,6 +217,7 @@ fn collect_country_data(
         loans_defaulted: events.loans_defaulted,
         debt_distress_events: events.debt_distress_events,
         gov_transfers: events.gov_transfers,
+        hires_total: country.monthly_hires_total,
         stock_ipos: events.stock_ipos,
         stock_delistings: events.stock_delistings,
         stock_margin_calls: events.stock_margin_calls,
@@ -306,5 +326,4 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         } => (country_name, *day),
     }
 }
-
 

@@ -214,6 +214,15 @@ impl Person {
         self.age_years() >= self.education_track.minimum_job_seek_age()
     }
 
+    pub fn is_working_age(&self) -> bool {
+        let age = self.age_years();
+        (18..=65).contains(&age)
+    }
+
+    pub fn is_labor_force_participant(&self) -> bool {
+        self.is_working_age() && self.can_seek_job()
+    }
+
     pub fn refresh_habilitation_from_age(&mut self) {
         let age = self.age_years();
         self.habilitation = if age < 12 {

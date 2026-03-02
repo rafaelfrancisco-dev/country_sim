@@ -65,9 +65,13 @@ Population and labour aggregates per country per month.
 | `country_id` | integer | Country ID |
 | `country_name` | string | Country name |
 | `population` | integer | Total living persons |
-| `employed_count` | integer | Persons with an active employer |
-| `unemployed_count` | integer | Persons without an employer |
-| `unemployment_rate_pct` | float | `unemployed / (employed + unemployed) × 100` |
+| `employed_count` | integer | Labor-force participants with an active employer |
+| `unemployed_count` | integer | Labor-force participants without an employer |
+| `labor_force_count` | integer | `employed_count + unemployed_count` |
+| `non_participating_count` | integer | Persons outside labor force (not counted in unemployment denominator) |
+| `unemployment_rate_pct` | float | Labor-force unemployment: `unemployed_count / labor_force_count × 100` |
+| `participation_rate_pct` | float | `labor_force_count / population × 100` |
+| `headline_non_employed_rate_pct` | float | Broad non-employment share: `(population - employed_count) / population × 100` |
 | `avg_age_years` | float | Mean age of the living population in years |
 | `avg_cash_balance` | float | Mean person cash balance |
 | `total_gross_pay` | float | Sum of last-month gross wages across all persons |
@@ -127,6 +131,7 @@ Discrete simulation event counts per country per month. Each column is the count
 | `loans_defaulted` | integer | Loans written off (person default) |
 | `debt_distress_events` | integer | Missed loan payment events |
 | `gov_transfers` | integer | Government benefit transfer batches paid |
+| `hires_total` | integer | Total unemployed→employed transitions during the month |
 | `stock_ipos` | integer | Companies that completed an IPO |
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
@@ -158,6 +163,9 @@ Discrete simulation event counts per country per month. Each column is the count
 | `index_value` | decimal | Composite market-cap index (base 1000 at first listing) |
 | `bank_equity_exposure` | decimal | Bank portfolio market value |
 | `bank_reserve_balance` | decimal | Bank reserve at end of day |
+| `active_traders_count` | integer | Unique traders with at least one order in the day |
+| `buy_orders_count` | integer | Total buy orders submitted during the day |
+| `sell_orders_count` | integer | Total sell orders submitted during the day |
 
 ---
 

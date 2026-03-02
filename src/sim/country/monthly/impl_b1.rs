@@ -4,11 +4,13 @@ impl Country {
     pub(super) fn update_company_growth_openings(&mut self) {
         let month_seed = self.month.saturating_add(1);
         let sim_params = self.sim_params.clone();
+        let labor_demand = self.sim_params.labor_demand;
         self.companies
             .par_chunks_mut(COMPANY_CHUNK_SIZE)
             .for_each(|chunk| {
                 for company in chunk {
                     company.open_positions_from_growth(&sim_params, month_seed);
+                    company.ensure_baseline_openings(labor_demand, month_seed);
                 }
             });
     }
@@ -246,5 +248,4 @@ impl Country {
     }
 
 }
-
 

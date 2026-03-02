@@ -47,6 +47,7 @@ pub struct Country {
     pub monthly_goods_export_revenue: f64,
     pub monthly_unmet_need_events: u64,
     pub monthly_essential_debt_spending: f64,
+    pub monthly_hires_total: u64,
     pub monthly_gov_spending: f64,
     pub monthly_budget_balance: f64,
     pub gov_debt: f64,
@@ -131,6 +132,7 @@ impl Country {
             monthly_goods_export_revenue: 0.0,
             monthly_unmet_need_events: 0,
             monthly_essential_debt_spending: 0.0,
+            monthly_hires_total: 0,
             monthly_gov_spending: 0.0,
             monthly_budget_balance: 0.0,
             gov_debt: 0.0,
@@ -189,4 +191,3 @@ pub use tax::monthly_income_tax;
 
 #[cfg(test)]
 mod tests;
-

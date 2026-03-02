@@ -72,7 +72,11 @@ impl CsvExporter {
             "population",
             "employed_count",
             "unemployed_count",
+            "labor_force_count",
+            "non_participating_count",
             "unemployment_rate_pct",
+            "participation_rate_pct",
+            "headline_non_employed_rate_pct",
             "avg_age_years",
             "avg_cash_balance",
             "total_gross_pay",
@@ -120,6 +124,7 @@ impl CsvExporter {
             "loans_defaulted",
             "debt_distress_events",
             "gov_transfers",
+            "hires_total",
             "stock_ipos",
             "stock_delistings",
             "stock_margin_calls",
@@ -136,6 +141,9 @@ impl CsvExporter {
             "index_value",
             "bank_equity_exposure",
             "bank_reserve_balance",
+            "active_traders_count",
+            "buy_orders_count",
+            "sell_orders_count",
         ])?;
 
         stock_daily_equity.write_record([
@@ -171,9 +179,13 @@ impl CsvExporter {
     }
 
     pub fn write_row(&mut self, data: &CountryExportData) -> std::io::Result<()> {
-        let total = data.employed_count + data.unemployed_count;
-        let unemployment_rate_pct = if total > 0 {
-            data.unemployed_count as f64 / total as f64 * 100.0
+        let unemployment_rate_pct = if data.labor_force_count > 0 {
+            data.unemployed_count as f64 / data.labor_force_count as f64 * 100.0
+        } else {
+            0.0
+        };
+        let participation_rate_pct = if data.population > 0 {
+            data.labor_force_count as f64 / data.population as f64 * 100.0
         } else {
             0.0
         };
@@ -210,7 +222,11 @@ impl CsvExporter {
             data.population.to_string(),
             data.employed_count.to_string(),
             data.unemployed_count.to_string(),
+            data.labor_force_count.to_string(),
+            data.non_participating_count.to_string(),
             format!("{:.4}", unemployment_rate_pct),
+            format!("{:.4}", participation_rate_pct),
+            format!("{:.4}", data.headline_non_employed_rate_pct),
             format!("{:.4}", data.avg_age_years),
             format!("{:.2}", data.avg_cash_balance),
             format!("{:.2}", data.total_gross_pay),
@@ -258,6 +274,7 @@ impl CsvExporter {
             data.loans_defaulted.to_string(),
             data.debt_distress_events.to_string(),
             data.gov_transfers.to_string(),
+            data.hires_total.to_string(),
             data.stock_ipos.to_string(),
             data.stock_delistings.to_string(),
             data.stock_margin_calls.to_string(),
@@ -286,6 +303,9 @@ impl CsvExporter {
             format!("{:.4}", data.index_value),
             format!("{:.2}", data.bank_equity_exposure),
             format!("{:.2}", data.bank_reserve_balance),
+            data.active_traders_count.to_string(),
+            data.buy_orders_count.to_string(),
+            data.sell_orders_count.to_string(),
         ])?;
         self.stock_daily_country.flush()?;
         Ok(())

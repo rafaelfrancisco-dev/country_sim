@@ -88,6 +88,7 @@ impl Country {
         self.monthly_goods_export_revenue = 0.0;
         self.monthly_unmet_need_events = 0;
         self.monthly_essential_debt_spending = 0.0;
+        self.monthly_hires_total = 0;
         self.monthly_gov_spending = 0.0;
         self.monthly_budget_balance = 0.0;
         self.stock_market.reset_mtd_trackers();
@@ -250,5 +251,4 @@ impl Country {
     }
 
 }
-
 
