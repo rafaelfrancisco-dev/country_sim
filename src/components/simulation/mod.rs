@@ -50,6 +50,7 @@ pub struct Simulation {
     last_snapshot: UiSnapshot,
     worker: SimulationWorker,
     phase_is_running: bool,
+    setup_generation_in_progress: bool,
     running_input_state: RunningInputState,
     action_tx: Option<UnboundedSender<Action>>,
 }
@@ -99,6 +100,7 @@ impl Simulation {
             last_snapshot: initial_snapshot,
             worker,
             phase_is_running: false,
+            setup_generation_in_progress: false,
             running_input_state: RunningInputState {
                 details_view: DetailsView::List,
                 selection_focus: SelectionFocus::Country,
@@ -119,10 +121,17 @@ impl Simulation {
             self.last_snapshot = snapshot.ui_snapshot.clone();
         }
 
-        match &self.last_snapshot.phase {
-            SnapshotPhase::Setup(_) => self.phase_is_running = false,
+        match &mut self.last_snapshot.phase {
+            SnapshotPhase::Setup(setup) => {
+                self.phase_is_running = false;
+                if setup.validation_error.is_some() {
+                    self.setup_generation_in_progress = false;
+                }
+                setup.is_generating = self.setup_generation_in_progress;
+            }
             SnapshotPhase::Running(world) => {
                 self.phase_is_running = true;
+                self.setup_generation_in_progress = false;
                 self.running_input_state = RunningInputState {
                     details_view: world.details_view,
                     selection_focus: world.selection_focus,
@@ -133,11 +142,13 @@ impl Simulation {
         }
     }
 
-    fn queue_domain_command(&mut self, command: GameCommand) {
+    fn queue_domain_command(&mut self, command: GameCommand) -> bool {
         if let Err(err) = self.worker.send_domain(command) {
             warn!("failed to enqueue domain command: {err}");
             self.report_worker_error(err.to_string());
+            return false;
         }
+        true
     }
 
     fn queue_ui_command(&mut self, command: UiCommand) {
@@ -204,7 +215,16 @@ impl Component for Simulation {
 
         if let Some(command) = command {
             match command {
-                SimulationCommand::Domain(command) => self.queue_domain_command(command),
+                SimulationCommand::Domain(command) => {
+                    let setup_submit_requested =
+                        !self.phase_is_running && matches!(command, GameCommand::SetupSubmit);
+                    if setup_submit_requested {
+                        self.setup_generation_in_progress = true;
+                    }
+                    if !self.queue_domain_command(command) && setup_submit_requested {
+                        self.setup_generation_in_progress = false;
+                    }
+                }
                 SimulationCommand::Ui(command) => self.queue_ui_command(command),
             }
             self.reconcile_monthly_processing();
@@ -271,6 +291,42 @@ mod tests {
             panic!("running world should exist");
         };
         assert_eq!(world.active_tab, RunningTab::Goods);
+    }
+
+    #[test]
+    fn setup_submit_shows_generating_indicator_until_validation_finishes() {
+        let mut simulation = Simulation::new();
+
+        let _ = simulation.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        simulation.refresh_cached_input_state();
+
+        let SnapshotPhase::Setup(setup) = &simulation.last_snapshot.phase else {
+            panic!("setup phase should still be active immediately after submit");
+        };
+        assert!(
+            setup.is_generating,
+            "setup should display generating indicator while command is in flight"
+        );
+
+        let start = Instant::now();
+        let timeout = Duration::from_secs(1);
+        loop {
+            simulation.refresh_cached_input_state();
+            let SnapshotPhase::Setup(setup) = &simulation.last_snapshot.phase else {
+                panic!("invalid setup should not transition to running");
+            };
+            if setup.validation_error.is_some() {
+                assert!(
+                    !setup.is_generating,
+                    "setup should stop displaying generating indicator after validation fails"
+                );
+                break;
+            }
+            if start.elapsed() >= timeout {
+                panic!("timed out waiting for setup validation error");
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
     }
 
     #[test]
