@@ -169,10 +169,32 @@ impl SimulationWorker {
             let mut export_seed: Option<u64> = None;
             let mut export_queue_activated = export_csv_path.is_none(); // skip if no path
 
-            while let Some(message) = rx.blocking_recv() {
+            let mut self_tick_next = false;
+
+            'worker: loop {
                 if worker_shutdown.load(Ordering::Acquire) {
-                    break;
+                    break 'worker;
                 }
+
+                let message = if self_tick_next {
+                    match rx.try_recv() {
+                        Ok(msg) => msg,
+                        Err(_) => {
+                            // Channel empty; synthesize the next tick.
+                            self_tick_next = false;
+                            WorkerMsg::Apply {
+                                command: WorkerCommand::Domain(GameCommand::Tick),
+                                enqueued_at: Instant::now(),
+                                is_user_initiated: false,
+                            }
+                        }
+                    }
+                } else {
+                    match rx.blocking_recv() {
+                        Some(msg) => msg,
+                        None => break 'worker,
+                    }
+                };
 
                 let mode =
                     SimulationMode::from_atomic_u8(worker_sim_mode_state.load(Ordering::Acquire));
@@ -350,12 +372,30 @@ impl SimulationWorker {
                                 *shared_snapshot = RenderSnapshot { ui_snapshot };
                                 last_snapshot_published_at = Instant::now();
                             } else {
-                                break;
+                                break 'worker;
                             }
                         }
 
                         if is_tick {
-                            worker_tick_in_flight.store(false, Ordering::Release);
+                            let mode_now = SimulationMode::from_atomic_u8(
+                                worker_sim_mode_state.load(Ordering::Acquire),
+                            );
+                            let running = worker_phase_is_running.load(Ordering::Acquire);
+                            let unpaused = !worker_world_is_paused.load(Ordering::Acquire);
+                            let no_pending =
+                                worker_pending_user_commands.load(Ordering::Acquire) == 0;
+                            let alive = !worker_shutdown.load(Ordering::Acquire);
+
+                            if matches!(mode_now, SimulationMode::MaxSpeed)
+                                && running
+                                && unpaused
+                                && no_pending
+                                && alive
+                            {
+                                self_tick_next = true;
+                            } else {
+                                worker_tick_in_flight.store(false, Ordering::Release);
+                            }
                         }
                         if is_user_initiated {
                             worker_pending_user_commands.fetch_sub(1, Ordering::AcqRel);
@@ -400,13 +440,14 @@ impl SimulationWorker {
                             *shared_snapshot = RenderSnapshot { ui_snapshot };
                             last_snapshot_published_at = Instant::now();
                         } else {
-                            break;
+                            break 'worker;
                         }
                         let _ = ack_tx.send(());
                     }
-                    WorkerMsg::Shutdown => break,
+                    WorkerMsg::Shutdown => break 'worker,
                 }
             }
+            worker_tick_in_flight.store(false, Ordering::Release);
         });
 
         let clock_handle = if realtime_tick_rate > 0.0 {
@@ -471,7 +512,7 @@ impl SimulationWorker {
                             break;
                         }
                     } else if matches!(mode, SimulationMode::MaxSpeed) {
-                        thread::sleep(Duration::from_micros(50));
+                        thread::sleep(Duration::from_millis(1));
                     }
                 }
             }))
