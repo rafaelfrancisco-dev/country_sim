@@ -166,7 +166,10 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn apply_tariff_to_exporter(country: &mut crate::sim::country::Country, tariff_cents: i64) {
+    pub(in crate::sim::world) fn apply_tariff_to_exporter(
+        country: &mut crate::sim::country::Country,
+        tariff_cents: i64,
+    ) {
         if tariff_cents <= 0 {
             return;
         }
@@ -176,39 +179,22 @@ impl World {
         country.treasury_balance = round_cents(country.treasury_balance + amount);
     }
 
-    pub(in crate::sim::world) fn person_cash_cents(&self, buyer_country_idx: usize, person_idx: usize) -> i64 {
+    pub(in crate::sim::world) fn person_cash_cents(
+        &self,
+        buyer_country_idx: usize,
+        person_idx: usize,
+    ) -> i64 {
         self.countries
             .get(buyer_country_idx)
             .and_then(|country| country.people.get(person_idx))
             .map_or(0, |person| to_cents(person.cash_balance))
     }
 
-    pub(in crate::sim::world) fn mark_person_need_result(
+    pub(in crate::sim::world) fn bump_unmet_need_events(
         &mut self,
         buyer_country_idx: usize,
-        person_idx: usize,
-        good_id: GoodId,
-        need_met: bool,
-        need_unmet: bool,
+        count: u32,
     ) {
-        let bit = 1_u16 << good_id;
-
-        let Some(country) = self.countries.get_mut(buyer_country_idx) else {
-            return;
-        };
-        let Some(person) = country.people.get_mut(person_idx) else {
-            return;
-        };
-
-        if need_met {
-            person.last_month_needs_met_mask |= bit;
-        }
-        if need_unmet {
-            person.last_month_unmet_needs_mask |= bit;
-        }
-    }
-
-    pub(in crate::sim::world) fn bump_unmet_need_events(&mut self, buyer_country_idx: usize, count: u32) {
         if let Some(country) = self.countries.get_mut(buyer_country_idx) {
             country.monthly_unmet_need_events = country
                 .monthly_unmet_need_events
@@ -216,7 +202,11 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn bump_essential_debt_spending(&mut self, buyer_country_idx: usize, debt_cents: i64) {
+    pub(in crate::sim::world) fn bump_essential_debt_spending(
+        &mut self,
+        buyer_country_idx: usize,
+        debt_cents: i64,
+    ) {
         if debt_cents <= 0 {
             return;
         }
@@ -227,6 +217,3 @@ impl World {
         }
     }
 }
-
-
-

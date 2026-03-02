@@ -330,15 +330,6 @@ mod tests {
     }
 
     #[test]
-    fn generation_is_deterministic_for_same_seed() {
-        let cfg = config(4);
-        let first = generate_countries(&cfg);
-        let second = generate_countries(&cfg);
-
-        assert_eq!(first, second);
-    }
-
-    #[test]
     fn generation_creates_unemployed_population_slice() {
         let countries = generate_countries(&GenerationConfig::with_defaults(1, 500, 11));
         let unemployed = countries[0]

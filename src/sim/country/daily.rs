@@ -72,25 +72,18 @@ impl Country {
         let cached_daily_death_probabilities: [f64; 101] = std::array::from_fn(|age_years| {
             demographic.daily_death_probability_for_age_years(age_years as u8)
         });
-        let death_flags_by_chunk = self
-            .people
-            .par_chunks(PEOPLE_CHUNK_SIZE)
-            .map(|chunk| {
+        let mut death_flags = vec![false; self.people.len()];
+        death_flags
+            .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+            .zip(self.people.par_chunks(PEOPLE_CHUNK_SIZE))
+            .for_each(|(flags_chunk, people_chunk)| {
                 let mut rng = rand::thread_rng();
-                chunk
-                    .iter()
-                    .map(|person| {
-                        let death_probability = cached_daily_death_probabilities
-                            [usize::from(person.age_years().min(100))];
-                        rng.gen_bool(death_probability.clamp(0.0, 1.0))
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let death_flags = death_flags_by_chunk
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+                for (died_flag, person) in flags_chunk.iter_mut().zip(people_chunk.iter()) {
+                    let death_probability =
+                        cached_daily_death_probabilities[usize::from(person.age_years().min(100))];
+                    *died_flag = rng.gen_bool(death_probability.clamp(0.0, 1.0));
+                }
+            });
 
         let people = std::mem::take(&mut self.people);
         let mut deaths = 0_u32;

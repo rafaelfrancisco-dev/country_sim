@@ -20,25 +20,45 @@ impl World {
             .zip(self.countries.iter())
             .for_each(|(country_pending, country)| {
                 let country_id = country.id;
-                country_pending
-                    .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-                    .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
-                    .for_each(|(pending_chunk, people_chunk)| {
-                        for (pending, person) in pending_chunk.iter_mut().zip(people_chunk.iter()) {
-                            *pending = demand_units_for_person_good(
-                                day,
-                                country_id,
-                                person.id,
-                                person.name_seed,
-                                good_id,
-                                monthly_demand_factor,
-                            );
-                        }
-                    });
+                if country.people.len() <= PEOPLE_CHUNK_SIZE {
+                    for (pending, person) in country_pending.iter_mut().zip(country.people.iter()) {
+                        *pending = demand_units_for_person_good(
+                            day,
+                            country_id,
+                            person.id,
+                            person.name_seed,
+                            good_id,
+                            monthly_demand_factor,
+                        );
+                    }
+                } else {
+                    country_pending
+                        .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+                        .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
+                        .for_each(|(pending_chunk, people_chunk)| {
+                            for (pending, person) in
+                                pending_chunk.iter_mut().zip(people_chunk.iter())
+                            {
+                                *pending = demand_units_for_person_good(
+                                    day,
+                                    country_id,
+                                    person.id,
+                                    person.name_seed,
+                                    good_id,
+                                    monthly_demand_factor,
+                                );
+                            }
+                        });
+                }
             });
 
         let essential = necessity_rank <= ESSENTIAL_GOODS_COUNT;
         let mut round = 0_u64;
+        let needs_mask_bit = 1_u16 << good_id;
+        scratch
+            .planning
+            .buyer_slots
+            .reserve(scratch.max_people.saturating_mul(country_count));
 
         loop {
             scratch.planning.buyer_slots.clear();
@@ -144,17 +164,21 @@ impl World {
         }
 
         for country_idx in 0..country_count {
-            let person_count = scratch.pending_demands[country_idx].len();
-            for person_idx in 0..person_count {
-                let need_met = scratch.needs_met[country_idx][person_idx] != 0;
-                let need_unmet = scratch.needs_unmet[country_idx][person_idx] != 0;
-                self.mark_person_need_result(
-                    country_idx,
-                    person_idx,
-                    good_id,
-                    need_met,
-                    need_unmet,
-                );
+            let Some(country) = self.countries.get_mut(country_idx) else {
+                continue;
+            };
+            let needs_met = &scratch.needs_met[country_idx];
+            let needs_unmet = &scratch.needs_unmet[country_idx];
+            for (person_idx, person) in country.people.iter_mut().enumerate() {
+                if person_idx >= needs_met.len() || person_idx >= needs_unmet.len() {
+                    break;
+                }
+                if needs_met[person_idx] != 0 {
+                    person.last_month_needs_met_mask |= needs_mask_bit;
+                }
+                if needs_unmet[person_idx] != 0 {
+                    person.last_month_unmet_needs_mask |= needs_mask_bit;
+                }
             }
         }
     }
@@ -314,7 +338,11 @@ impl World {
         None
     }
 
-    pub(in crate::sim::world) fn seller_has_inventory(&self, seller_country_idx: usize, seller_company_idx: usize) -> bool {
+    pub(in crate::sim::world) fn seller_has_inventory(
+        &self,
+        seller_country_idx: usize,
+        seller_company_idx: usize,
+    ) -> bool {
         self.countries
             .get(seller_country_idx)
             .and_then(|country| country.companies.get(seller_company_idx))
@@ -346,8 +374,4 @@ impl World {
 
         suppliers_by_good
     }
-
 }
-
-
-
