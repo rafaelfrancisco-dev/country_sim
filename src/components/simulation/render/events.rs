@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_events_tab(
@@ -83,8 +83,11 @@ impl Simulation {
         };
 
         format!(
-            "Controls: [Tab/Shift+Tab] switch tab  [↑/↓] scroll  [{}]  [s] toggle sort  [Space] pause/resume  [q] quit | Events: {} | Sort: {}",
-            search_hint, world.events_total_count, world.events_sort_label,
+            "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort | Events: {} | Sort: {}",
+            hotkeys::GLOBAL_RUNNING_HINT,
+            search_hint,
+            world.events_total_count,
+            world.events_sort_label,
         )
     }
 }

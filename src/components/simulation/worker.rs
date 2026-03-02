@@ -254,29 +254,22 @@ impl SimulationWorker {
                         let export_rows = engine.drain_export_queue();
                         if !export_rows.is_empty() {
                             if export_seed.is_none() {
-                                export_seed =
-                                    export_rows.first().map(|r| r.generation_seed);
+                                export_seed = export_rows.first().map(|r| r.generation_seed);
                             }
-                            if let (Some(path), Some(seed)) =
-                                (&export_csv_path, export_seed)
-                            {
+                            if let (Some(path), Some(seed)) = (&export_csv_path, export_seed) {
                                 if csv_exporter.is_none() {
                                     match CsvExporter::new(path, seed) {
                                         Ok(e) => csv_exporter = Some(e),
-                                        Err(err) => tracing::error!(
-                                            "failed to open CSV export: {err}"
-                                        ),
+                                        Err(err) => {
+                                            tracing::error!("failed to open CSV export: {err}")
+                                        }
                                     }
                                 }
                                 if let Some(exporter) = &mut csv_exporter {
                                     for export_data in &export_rows {
                                         for country_data in &export_data.countries {
-                                            if let Err(err) =
-                                                exporter.write_row(country_data)
-                                            {
-                                                tracing::error!(
-                                                    "CSV write error: {err}"
-                                                );
+                                            if let Err(err) = exporter.write_row(country_data) {
+                                                tracing::error!("CSV write error: {err}");
                                             }
                                         }
                                     }
@@ -289,21 +282,18 @@ impl SimulationWorker {
                             let (stock_country_rows, stock_equity_rows) =
                                 engine.drain_stock_export_queues();
                             if !stock_country_rows.is_empty() {
-                                if let (Some(path), Some(seed)) =
-                                    (&export_csv_path, export_seed)
-                                {
+                                if let (Some(path), Some(seed)) = (&export_csv_path, export_seed) {
                                     if csv_exporter.is_none() {
                                         match CsvExporter::new(path, seed) {
                                             Ok(e) => csv_exporter = Some(e),
-                                            Err(err) => tracing::error!(
-                                                "failed to open CSV export: {err}"
-                                            ),
+                                            Err(err) => {
+                                                tracing::error!("failed to open CSV export: {err}")
+                                            }
                                         }
                                     }
                                     if let Some(exporter) = &mut csv_exporter {
                                         for row in &stock_country_rows {
-                                            if let Err(err) =
-                                                exporter.write_stock_country_row(row)
+                                            if let Err(err) = exporter.write_stock_country_row(row)
                                             {
                                                 tracing::error!(
                                                     "CSV stock country write error: {err}"
@@ -311,9 +301,7 @@ impl SimulationWorker {
                                             }
                                         }
                                         for row in &stock_equity_rows {
-                                            if let Err(err) =
-                                                exporter.write_stock_equity_row(row)
-                                            {
+                                            if let Err(err) = exporter.write_stock_equity_row(row) {
                                                 tracing::error!(
                                                     "CSV stock equity write error: {err}"
                                                 );

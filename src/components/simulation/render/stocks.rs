@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_stocks_tab(
@@ -28,7 +28,8 @@ impl Simulation {
         self.draw_stock_charts(frame, bottom, world);
 
         format!(
-            "Controls: [Tab/Shift+Tab] switch tab  [</>] cycle country  [←/→] focus country/table  [↑/↓] move row  [j/k] page  [Space] pause/resume  [q] quit | Listed: {}",
+            "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [PgUp/PgDn] page | Listed: {}",
+            hotkeys::GLOBAL_RUNNING_HINT,
             world.stock_rows.len()
         )
     }

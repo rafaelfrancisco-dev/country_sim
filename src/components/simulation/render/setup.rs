@@ -173,7 +173,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field, [0-9/.] edit numeric fields, [0-9/a-f/x/_] edit seed, [Backspace] erase, [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field  [0-9/.] edit numeric fields  [0-9/a-f/x/_] edit seed  [Backspace] erase  [Enter] start simulation",
             )
             .style(theme::muted_text()),
             help,

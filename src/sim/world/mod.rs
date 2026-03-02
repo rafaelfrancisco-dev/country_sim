@@ -4,8 +4,7 @@ mod history;
 mod stock_market;
 
 pub use export::{
-    CountryExportData, MonthlyExportData, StockDailyCountryExportData,
-    StockDailyEquityExportData,
+    CountryExportData, MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData,
 };
 
 use rayon::prelude::*;

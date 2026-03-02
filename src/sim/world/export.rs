@@ -445,23 +445,59 @@ impl EventCounts {
 
 fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
     match event {
-        SimEvent::PopBirth { country_name, day, .. } => (country_name, *day),
-        SimEvent::PopDeath { country_name, day, .. } => (country_name, *day),
-        SimEvent::LoanEmitted { country_name, day, .. } => (country_name, *day),
-        SimEvent::LoanEnded { country_name, day, .. } => (country_name, *day),
-        SimEvent::LoanWrittenOff { country_name, day, .. } => (country_name, *day),
-        SimEvent::DebtDistress { country_name, day, .. } => (country_name, *day),
-        SimEvent::GovTransfer { country_name, day, .. } => (country_name, *day),
-        SimEvent::GovCompanyFunded { country_name, day, .. } => (country_name, *day),
-        SimEvent::CompanyFounded { country_name, day, .. } => (country_name, *day),
-        SimEvent::CompanyWageCut { country_name, day, .. } => (country_name, *day),
-        SimEvent::CompanyLayoffs { country_name, day, .. } => (country_name, *day),
-        SimEvent::JobSwitched { country_name, day, .. } => (country_name, *day),
-        SimEvent::CompanyBankrupt { country_name, day, .. } => (country_name, *day),
-        SimEvent::StockIpo { country_name, day, .. } => (country_name, *day),
-        SimEvent::StockDividend { country_name, day, .. } => (country_name, *day),
-        SimEvent::StockMarginCall { country_name, day, .. } => (country_name, *day),
-        SimEvent::StockDelisted { country_name, day, .. } => (country_name, *day),
-        SimEvent::StockMarketClose { country_name, day, .. } => (country_name, *day),
+        SimEvent::PopBirth {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::PopDeath {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::LoanEmitted {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::LoanEnded {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::LoanWrittenOff {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::DebtDistress {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::GovTransfer {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::GovCompanyFunded {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::CompanyFounded {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::CompanyWageCut {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::CompanyLayoffs {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::JobSwitched {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::CompanyBankrupt {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::StockIpo {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::StockDividend {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::StockMarginCall {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::StockDelisted {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::StockMarketClose {
+            country_name, day, ..
+        } => (country_name, *day),
     }
 }

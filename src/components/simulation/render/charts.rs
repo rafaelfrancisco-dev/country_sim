@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
 use crate::sim::world::MetricPoint;
 
 impl Simulation {
@@ -102,7 +102,10 @@ impl Simulation {
             );
         }
 
-        "Controls: [Tab/Shift+Tab] switch tab  [t] toggle scope  [</>] cycle country  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit".to_string()
+        format!(
+            "Controls: {}  [t] toggle scope  [,/.] cycle country",
+            hotkeys::GLOBAL_RUNNING_HINT
+        )
     }
 
     fn draw_metric_chart<F>(

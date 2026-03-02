@@ -7,9 +7,9 @@ use crate::sim::{
     params::{GovernmentBackfillParams, SwitchCadence},
     stock_market::{ListedEquity, StockMarket},
 };
-use std::cmp::Ordering;
 #[cfg(feature = "bench-trace")]
 use crate::time_op;
+use std::cmp::Ordering;
 
 impl Country {
     #[cfg(test)]

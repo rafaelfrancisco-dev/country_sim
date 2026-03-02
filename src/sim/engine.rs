@@ -2,9 +2,7 @@ use super::{
     generator::{GenerationConfig, generate_countries},
     setup::{CITIZENS_PER_MILLION, SetupForm, SetupValues},
     tickable::Tickable,
-    world::{
-        MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData, World,
-    },
+    world::{MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData, World},
 };
 
 pub const DEFAULT_GENERATION_SEED: u64 = 0x5eed_c0de_u64;
@@ -74,7 +72,10 @@ impl GameEngine {
     /// Returns `(country_rows, equity_rows)`.
     pub fn drain_stock_export_queues(
         &mut self,
-    ) -> (Vec<StockDailyCountryExportData>, Vec<StockDailyEquityExportData>) {
+    ) -> (
+        Vec<StockDailyCountryExportData>,
+        Vec<StockDailyEquityExportData>,
+    ) {
         if let GamePhase::Running(world) = &mut self.phase {
             (
                 world.stock_country_export_queue.drain(..).collect(),
@@ -195,8 +196,8 @@ impl GameEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::{country::Country, person::Person};
     use crate::csv_export::CsvExporter;
+    use crate::sim::{country::Country, person::Person};
     use std::path::PathBuf;
 
     fn person(id: u32) -> Person {

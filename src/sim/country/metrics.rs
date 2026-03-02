@@ -75,8 +75,7 @@ impl Country {
                 let mut total_person_shares = 0_u64;
                 for portfolio in self.stock_market.person_portfolios.values() {
                     if let Some(pos) = portfolio.position(*cid) {
-                        total_person_shares =
-                            total_person_shares.saturating_add(pos.shares);
+                        total_person_shares = total_person_shares.saturating_add(pos.shares);
                     }
                 }
                 let bank_shares = self

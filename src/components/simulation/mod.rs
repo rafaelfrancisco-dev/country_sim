@@ -17,6 +17,7 @@ use crate::{
     sim::{GameCommand, GameEngine, SimulationMode, UiCommand, engine::DEFAULT_GENERATION_SEED},
 };
 
+mod hotkeys;
 mod input;
 mod monthly;
 mod render;
@@ -276,8 +277,13 @@ mod tests {
     #[ignore = "manual runtime probe for max-speed UI freshness and responsiveness"]
     fn observe_max_speed_ui_freshness_and_command_latency() {
         let sim_mode_state = Arc::new(AtomicU8::new(SimulationMode::MaxSpeed.as_atomic_u8()));
-        let mut simulation =
-            Simulation::with_runtime(4.0, 2.0, sim_mode_state.clone(), DEFAULT_GENERATION_SEED, None);
+        let mut simulation = Simulation::with_runtime(
+            4.0,
+            2.0,
+            sim_mode_state.clone(),
+            DEFAULT_GENERATION_SEED,
+            None,
+        );
         simulation.apply_command_and_wait(GameCommand::SetupEditChar('1'));
         simulation.apply_command_and_wait(GameCommand::SetupNextField);
         simulation.apply_command_and_wait(GameCommand::SetupEditChar('0'));

@@ -8,11 +8,20 @@ use ratatui::{
 
 use super::super::{Simulation, theme};
 use crate::{
+    components::simulation::hotkeys,
     components::simulation::snapshot::RunningSnapshot,
     components::simulation::ui_state::{DetailsView, RunningTab},
     seed::format_generation_seed,
     sim::SimulationMode,
 };
+
+const HEADER_MAX_LINES: usize = 4;
+const HEADER_SEPARATOR: &str = " | ";
+
+struct HeaderChunk {
+    spans: Vec<Span<'static>>,
+    width: usize,
+}
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_running(
@@ -30,93 +39,17 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
+        let header_lines = self.pack_running_header(world, inner.width, HEADER_MAX_LINES);
+        let header_height = header_lines.len().clamp(1, HEADER_MAX_LINES) as u16;
+
         let [header, body, footer] = Layout::vertical([
-            Constraint::Length(2),
+            Constraint::Length(header_height),
             Constraint::Min(10),
             Constraint::Length(2),
         ])
         .areas(inner);
 
-        let run_state = if world.paused { "Paused" } else { "Running" };
-        let state_style = if world.paused {
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD)
-        };
-        let header_line = Line::from(vec![
-            Span::styled("Day: ", theme::muted_text()),
-            Span::styled(world.day.to_string(), theme::primary_text()),
-            Span::styled(" | Month: ", theme::muted_text()),
-            Span::styled(
-                world.selected_country_month.to_string(),
-                theme::primary_text(),
-            ),
-            Span::styled(" | State: ", theme::muted_text()),
-            Span::styled(run_state, state_style),
-            Span::styled(" | Sim: ", theme::muted_text()),
-            Span::styled(
-                world.sim_mode.label(),
-                match world.sim_mode {
-                    SimulationMode::Realtime => Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                    SimulationMode::MaxSpeed => Style::default()
-                        .fg(Color::LightMagenta)
-                        .add_modifier(Modifier::BOLD),
-                },
-            ),
-            Span::styled(" | View: ", theme::muted_text()),
-            Span::styled(
-                self.active_tab_label(world.active_tab),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Tick/s: ", theme::muted_text()),
-            Span::styled(
-                format!("{:.1}", world.ticks_per_second),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Avg Tick (ms): ", theme::muted_text()),
-            Span::styled(
-                format!("{:.2}", world.avg_tick_duration_ms),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Queue: ", theme::muted_text()),
-            Span::styled(world.queue_depth.to_string(), theme::primary_text()),
-            Span::styled(" | Lag (ms): ", theme::muted_text()),
-            Span::styled(
-                format!("{:.2}", world.tick_queue_lag_ms),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Publishes: ", theme::muted_text()),
-            Span::styled(
-                world.snapshot_publish_count.to_string(),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Snap Build (ms): ", theme::muted_text()),
-            Span::styled(
-                format!("{:.2}", world.avg_snapshot_build_ms),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Max Snap Age (ms): ", theme::muted_text()),
-            Span::styled(
-                format!("{:.2}", world.max_snapshot_age_ms),
-                theme::primary_text(),
-            ),
-            Span::styled(" | Selected Country: ", theme::muted_text()),
-            Span::styled(world.selected_country_name.as_str(), theme::primary_text()),
-            Span::styled(" | Total Citizens: ", theme::muted_text()),
-            Span::styled(world.total_population.as_str(), theme::primary_text()),
-            Span::styled(" | Seed: ", theme::muted_text()),
-            Span::styled(
-                format_generation_seed(world.generation_seed),
-                theme::primary_text(),
-            ),
-        ]);
-        frame.render_widget(Paragraph::new(header_line), header);
+        frame.render_widget(Paragraph::new(header_lines), header);
 
         let mut footer_text = match world.active_tab {
             RunningTab::Main => self.draw_main_tab(frame, body, world),
@@ -151,7 +84,8 @@ impl Simulation {
                 self.draw_people_table(frame, people_area, world);
 
                 format!(
-                    "Controls: [Tab/Shift+Tab] switch tab  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [↑/↓] move row (focused list)  [j/k] page (focused list)  [Enter] details (focused row)  [q] quit | Country Page {}/{} | People Page {}/{}",
+                    "Controls: {}  [a/d] focus country/people  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] details (focused row) | Country Page {}/{} | People Page {}/{}",
+                    hotkeys::GLOBAL_RUNNING_HINT,
                     world.country_page + 1,
                     world.total_country_pages,
                     world.people_page + 1,
@@ -160,16 +94,178 @@ impl Simulation {
             }
             DetailsView::Person => {
                 self.draw_person_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to people list  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+                format!(
+                    "Controls: {}  [Esc] back to people list  [c] open employer company",
+                    hotkeys::GLOBAL_RUNNING_HINT
+                )
             }
             DetailsView::Country => {
                 self.draw_country_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [←/→] focus country/people  [j/k] page (focused list)  [q] quit".to_string()
+                format!(
+                    "Controls: {}  [Esc] back to lists",
+                    hotkeys::GLOBAL_RUNNING_HINT
+                )
             }
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);
-                "Controls: [Tab/Shift+Tab] switch tab  [Esc] back to lists  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit".to_string()
+                format!(
+                    "Controls: {}  [Esc] back to lists",
+                    hotkeys::GLOBAL_RUNNING_HINT
+                )
             }
+        }
+    }
+
+    fn pack_running_header(
+        &self,
+        world: &RunningSnapshot,
+        max_width: u16,
+        max_lines: usize,
+    ) -> Vec<Line<'static>> {
+        let mut chunks = self.running_header_chunks(world).into_iter().peekable();
+        let mut lines: Vec<(Vec<Span<'static>>, usize)> = Vec::new();
+        let limit = usize::from(max_width.max(1));
+        let separator = Span::styled(HEADER_SEPARATOR, theme::muted_text());
+        let separator_width = HEADER_SEPARATOR.len();
+
+        for _ in 0..max_lines {
+            let Some(first) = chunks.next() else {
+                break;
+            };
+            let mut line_spans = first.spans;
+            let mut line_width = first.width;
+
+            while let Some(next) = chunks.next_if(|chunk| {
+                line_width
+                    .saturating_add(separator_width)
+                    .saturating_add(chunk.width)
+                    <= limit
+            }) {
+                line_spans.push(separator.clone());
+                line_spans.extend(next.spans);
+                line_width = line_width
+                    .saturating_add(separator_width)
+                    .saturating_add(next.width);
+            }
+
+            lines.push((line_spans, line_width));
+        }
+
+        if chunks.next().is_some()
+            && let Some((spans, _)) = lines.last_mut()
+        {
+            spans.push(Span::styled(" ...", theme::muted_text()));
+        }
+
+        if lines.is_empty() {
+            lines.push((
+                vec![Span::styled("No running data", theme::muted_text())],
+                15,
+            ));
+        }
+
+        lines
+            .into_iter()
+            .map(|(spans, _)| Line::from(spans))
+            .collect()
+    }
+
+    fn running_header_chunks(&self, world: &RunningSnapshot) -> Vec<HeaderChunk> {
+        let run_state = if world.paused { "Paused" } else { "Running" };
+        let state_style = if world.paused {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD)
+        };
+        let sim_style = match world.sim_mode {
+            SimulationMode::Realtime => Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+            SimulationMode::MaxSpeed => Style::default()
+                .fg(Color::LightMagenta)
+                .add_modifier(Modifier::BOLD),
+        };
+
+        vec![
+            Self::header_chunk("Day", world.day.to_string(), theme::primary_text()),
+            Self::header_chunk(
+                "Month",
+                world.selected_country_month.to_string(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk("State", run_state.to_string(), state_style),
+            Self::header_chunk("Sim", world.sim_mode.label().to_string(), sim_style),
+            Self::header_chunk(
+                "View",
+                self.active_tab_label(world.active_tab).to_string(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Tick/s",
+                format!("{:.1}", world.ticks_per_second),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Avg Tick (ms)",
+                format!("{:.2}", world.avg_tick_duration_ms),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Queue",
+                world.queue_depth.to_string(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Lag (ms)",
+                format!("{:.2}", world.tick_queue_lag_ms),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Publishes",
+                world.snapshot_publish_count.to_string(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Snap Build (ms)",
+                format!("{:.2}", world.avg_snapshot_build_ms),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Max Snap Age (ms)",
+                format!("{:.2}", world.max_snapshot_age_ms),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Selected Country",
+                world.selected_country_name.clone(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Total Citizens",
+                world.total_population.clone(),
+                theme::primary_text(),
+            ),
+            Self::header_chunk(
+                "Seed",
+                format_generation_seed(world.generation_seed),
+                theme::primary_text(),
+            ),
+        ]
+    }
+
+    fn header_chunk(label: &str, value: String, value_style: Style) -> HeaderChunk {
+        let label_string = format!("{label}: ");
+        let width = label_string.len().saturating_add(value.len());
+        HeaderChunk {
+            spans: vec![
+                Span::styled(label_string, theme::muted_text()),
+                Span::styled(value, value_style),
+            ],
+            width,
         }
     }
 

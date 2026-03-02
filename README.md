@@ -12,25 +12,26 @@ Pass `--export-csv <DIR>` at startup to write one row per country per completed 
 | `country_metrics_<seed>.csv` | Fiscal and monetary aggregates |
 | `people_agg_<seed>.csv` | Population, employment, income, loan aggregates |
 | `company_agg_<seed>.csv` | Company-level production and profit aggregates |
-| `events_<seed>.csv` | Event counts (births, deaths, layoffs, IPOs, …) |
+| `events_<seed>.csv` | Event counts (births, deaths, layoffs, IPOs, ...) |
 
 Files are keyed by the world seed in hex so re-runs with different seeds never overwrite each other. The flag is opt-in: omitting it has zero runtime cost (the snapshot pass is completely skipped).
 
 See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage examples.
 
 ## Recent UI Additions
-- Four running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Charts`, `Events`
-- Monthly trend charts (3×2 grid):
+- Five running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Stocks`, `Charts`, `Events`
+- Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
+- Monthly trend charts (3x2 grid):
   - population
   - total money supply
   - created money outstanding
   - bank reserve
   - treasury balance
-  - budget balance (tax revenue − government spending)
+  - budget balance (tax revenue - government spending)
 - Events log with scrollable history of births, deaths, loans, debt distress, and government transfers
-  - `/` to search, `s` to toggle sort order (newest/oldest first)
+  - `/` to search, `o` to toggle sort order (newest/oldest first)
 - Government spending system:
-  - Monthly unemployment benefits paid to working-age (18–65) unemployed adults
+  - Monthly unemployment benefits paid to working-age (18-65) unemployed adults
   - Basic needs safety net tops up cash for people with unmet essential needs
   - Treasury balance, monthly gov spending, budget balance, and gov debt tracked per country
 
@@ -105,3 +106,4 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - On macOS, default mode is interactive attach so the TUI/game opens.
 - Force classic `cargo flamegraph` mode with: `MODE=cargo ./scripts/run-flamegraph.sh`
 - The script no longer auto-opens `flamegraph.svg` when profiling ends.
+

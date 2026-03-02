@@ -1020,7 +1020,10 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
     // List a company and give the person shares
     let equity = ListedEquity::new(0, "MCT".to_string(), 10.0, 1_000_000, 500);
     country.stock_market.listed.insert(0, equity);
-    country.stock_market.person_portfolio_mut(1).add_shares(0, 500, 10.0);
+    country
+        .stock_market
+        .person_portfolio_mut(1)
+        .add_shares(0, 500, 10.0);
 
     // Give the person a loan they cannot pay (monthly_payment >> cash)
     let mut loan_slot = None;

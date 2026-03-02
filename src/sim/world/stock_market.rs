@@ -161,10 +161,12 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
     let mut sell_orders: HashMap<u16, Vec<LimitOrder>> = HashMap::new();
 
     // --- Retail orders ---
-    let sampled_people = deterministic_sample_people_indices(people_count, sample_count, day, country.id);
+    let sampled_people =
+        deterministic_sample_people_indices(people_count, sample_count, day, country.id);
     for (slot, person_idx) in sampled_people.into_iter().enumerate() {
-        let slot_seed =
-            hash64(day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id) << 32) ^ slot as u64);
+        let slot_seed = hash64(
+            day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id) << 32) ^ slot as u64,
+        );
         let person = &country.people[person_idx];
         let person_id = person.id;
         let person_cash = person.cash_balance;
@@ -180,8 +182,7 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
                 continue;
             }
 
-            let max_order_by_float =
-                ((float_shares as f64 * max_float_frac).floor() as u64).max(1);
+            let max_order_by_float = ((float_shares as f64 * max_float_frac).floor() as u64).max(1);
 
             // MA20 trend signal
             let history = equity.price_history.as_slice();
@@ -250,8 +251,7 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
                         .max(1);
                     // Sell limit: slight discount below last (0–1%) for eager sellers
                     let disc = unit_interval(hash64(order_seed ^ 0x3333)) * 0.01;
-                    let limit_price =
-                        round_cents((last_price * (1.0 - disc)).max(0.01));
+                    let limit_price = round_cents((last_price * (1.0 - disc)).max(0.01));
                     sell_orders.entry(cid).or_default().push(LimitOrder {
                         trader: TraderId::Person(person_id),
                         company_id: cid,
@@ -262,8 +262,7 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
                     });
                 }
             } else if want_buy {
-                let investable =
-                    round_cents((person_cash - person_cash * reserve_ratio).max(0.0));
+                let investable = round_cents((person_cash - person_cash * reserve_ratio).max(0.0));
                 if investable < last_price {
                     continue;
                 }
@@ -292,8 +291,7 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
 
     // --- Bank maker orders ---
     let bank_equity_exposure = country.stock_market.bank_equity_exposure();
-    let bank_equity_budget =
-        params.bank_max_equity_reserve_fraction * country.bank.reserve_balance;
+    let bank_equity_budget = params.bank_max_equity_reserve_fraction * country.bank.reserve_balance;
     let bank_equity_headroom = (bank_equity_budget - bank_equity_exposure).max(0.0);
 
     for &cid in &listed_ids {
@@ -306,8 +304,7 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
         if last_price <= 0.0 || float_shares == 0 {
             continue;
         }
-        let max_order_by_float =
-            ((float_shares as f64 * max_float_frac).floor() as u64).max(1);
+        let max_order_by_float = ((float_shares as f64 * max_float_frac).floor() as u64).max(1);
 
         let half = spread_frac / 2.0;
         let bid_price = round_cents((last_price * (1.0 - half)).max(0.01));
@@ -366,7 +363,11 @@ fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64
             continue;
         }
 
-        let base = if prev_close > 0.0 { prev_close } else { last_price };
+        let base = if prev_close > 0.0 {
+            prev_close
+        } else {
+            last_price
+        };
         let max_price = round_cents(base * (1.0 + max_move));
         let min_price = round_cents((base * (1.0 - max_move)).max(0.01));
 
@@ -533,10 +534,11 @@ fn settle_fills(country: &mut crate::sim::country::Country, fills: &[TradeFill])
                 if let Some(person) = country.people.iter_mut().find(|p| p.id == pid) {
                     person.cash_balance = round_cents(person.cash_balance - cost);
                 }
-                country
-                    .stock_market
-                    .person_portfolio_mut(pid)
-                    .add_shares(cid, fill.shares, fill.price);
+                country.stock_market.person_portfolio_mut(pid).add_shares(
+                    cid,
+                    fill.shares,
+                    fill.price,
+                );
             }
             TraderId::Bank => {
                 country.bank.reserve_balance =
@@ -551,9 +553,7 @@ fn settle_fills(country: &mut crate::sim::country::Country, fills: &[TradeFill])
         // --- Seller: give up shares, receive cash / reserve ---
         match fill.seller {
             TraderId::Person(pid) => {
-                if let Some(portfolio) =
-                    country.stock_market.person_portfolios.get_mut(&pid)
-                {
+                if let Some(portfolio) = country.stock_market.person_portfolios.get_mut(&pid) {
                     portfolio.remove_shares(cid, fill.shares, fill.price);
                 }
                 if let Some(person) = country.people.iter_mut().find(|p| p.id == pid) {
@@ -565,8 +565,7 @@ fn settle_fills(country: &mut crate::sim::country::Country, fills: &[TradeFill])
                     .stock_market
                     .bank_portfolio
                     .remove_shares(cid, fill.shares, fill.price);
-                country.bank.reserve_balance =
-                    round_cents(country.bank.reserve_balance + proceeds);
+                country.bank.reserve_balance = round_cents(country.bank.reserve_balance + proceeds);
             }
         }
 
@@ -584,12 +583,7 @@ fn settle_fills(country: &mut crate::sim::country::Country, fills: &[TradeFill])
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::{
-        country::Country,
-        person::Person,
-        stock_market::ListedEquity,
-        world::World,
-    };
+    use crate::sim::{country::Country, person::Person, stock_market::ListedEquity, world::World};
 
     fn make_person(id: u32, cash: f64) -> Person {
         let mut p = Person::new(id, 30, 0, id + 1);
@@ -613,7 +607,10 @@ mod tests {
         let seller = make_person(0, 0.0);
         let buyer = make_person(1, 100_000.0);
         let mut world = make_world_with_listed(vec![seller, buyer], 10.0);
-        world.countries[0].sim_params.stock_market.retail_noise_trade_prob = 1.0;
+        world.countries[0]
+            .sim_params
+            .stock_market
+            .retail_noise_trade_prob = 1.0;
 
         // Manually give seller shares
         world.countries[0]

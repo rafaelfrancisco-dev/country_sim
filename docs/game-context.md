@@ -45,7 +45,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ### `World`
 - Engine state: `day`, `countries`, pause flag, and monthly histories.
-- Running views: `Main` and `Charts` (switched with `Tab` / `Shift+Tab`, no separate tabs panel).
+- Running views: `Main`, `Goods`, `Stocks`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
 
@@ -70,7 +70,10 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ### Running
 - `Main`: countries and people tables + details views
-- `Charts`: 2x2 monthly trend dashboard
+- `Goods`: company and goods market table + company details
+- `Stocks`: stock table + market summary + stock charts
+- `Charts`: 3x2 monthly trend dashboard
+- `Events`: scrollable event log with search and sorting
 - People table/details include demographic and labor state:
   - age
   - education/habilitation
