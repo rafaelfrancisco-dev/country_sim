@@ -1,12 +1,14 @@
+use super::*;
+
 #[derive(Debug, Copy, Clone)]
-struct JobSeekIntent {
-    person_idx: usize,
-    seek_seed: u64,
-    qualification: HabilitationLevel,
-    preferred: Option<(usize, JobTypeId)>,
+pub(super) struct JobSeekIntent {
+    pub(super) person_idx: usize,
+    pub(super) seek_seed: u64,
+    pub(super) qualification: HabilitationLevel,
+    pub(super) preferred: Option<(usize, JobTypeId)>,
 }
 
-fn select_matching_opening_from_snapshot(
+pub(super) fn select_matching_opening_from_snapshot(
     company_openings: &[Vec<JobOpening>],
     qualification: HabilitationLevel,
     seed: u64,
@@ -36,7 +38,7 @@ fn select_matching_opening_from_snapshot(
     Some((company_idx, job_type_id))
 }
 
-fn consume_opening_by_job_type(
+pub(super) fn consume_opening_by_job_type(
     company: &mut Company,
     job_type_id: JobTypeId,
 ) -> Option<(JobTypeId, f64)> {
@@ -47,7 +49,7 @@ fn consume_opening_by_job_type(
     company.consume_opening(opening_idx)
 }
 
-fn consume_matching_opening(
+pub(super) fn consume_matching_opening(
     companies: &mut [Company],
     qualification: HabilitationLevel,
     seed: u64,
@@ -78,3 +80,5 @@ fn consume_matching_opening(
     let (job_id, offered_salary) = company.consume_opening(opening_idx)?;
     Some((company_idx as u16, job_id, offered_salary))
 }
+
+

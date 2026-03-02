@@ -181,9 +181,12 @@ impl Tickable for Country {
     }
 }
 
-include!("job_market.rs");
-include!("random.rs");
+mod job_market;
+mod random;
+use job_market::*;
+use random::*;
 pub use tax::monthly_income_tax;
 
 #[cfg(test)]
 mod tests;
+
