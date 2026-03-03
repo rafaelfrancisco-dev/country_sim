@@ -99,7 +99,7 @@ impl Country {
             .collect()
     }
 
-    pub(super) fn create_public_essential_company(
+    pub(crate) fn create_public_essential_company(
         &mut self,
         good_id: u8,
         backfill: GovernmentBackfillParams,
@@ -128,11 +128,12 @@ impl Country {
         company.is_public_utility = true;
         company.is_essential_backfill = true;
 
-        let base_price_floor = good_by_id(good_id)
-            .map(|good| good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate))
-            .unwrap_or(0.0);
-        company.unit_price =
-            round_cents(self.average_price_for_good(good_id).max(base_price_floor));
+        let candidate_price = self.average_price_for_good(good_id);
+        if let Some((min_price, max_price)) = self.public_utility_price_bounds_for_good(good_id) {
+            company.unit_price = round_cents(candidate_price.clamp(min_price, max_price));
+        } else {
+            company.unit_price = round_cents(candidate_price.max(0.0));
+        }
 
         const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
         if manufacturing_openings > 0 {
@@ -225,12 +226,11 @@ impl Country {
         }
 
         let unemployment = self.labor_force_unemployment_rate();
-        let target_unemployment = (
-            self.sim_params
-                .company_distress
-                .countercyclical_layoff_unemployment_guard
-                + 0.08
-        )
+        let target_unemployment = (self
+            .sim_params
+            .company_distress
+            .countercyclical_layoff_unemployment_guard
+            + 0.08)
             .clamp(0.0, 0.20);
         if unemployment <= target_unemployment {
             return;
@@ -244,9 +244,9 @@ impl Country {
             .clamp(1, 30);
         let essential_span = u16::from(
             backfill
-            .essential_good_max_id_inclusive
-            .saturating_add(1)
-            .max(1),
+                .essential_good_max_id_inclusive
+                .saturating_add(1)
+                .max(1),
         );
 
         for offset in 0..companies_needed {

@@ -369,6 +369,7 @@ pub struct GovernmentBackfillParams {
     pub vacancy_escalation_rate: f64,
     pub max_wage_multiplier: f64,
     pub switch_incentive_buffer: f64,
+    pub public_utility_price_cap_multiplier: f64,
 }
 
 impl Default for GovernmentBackfillParams {
@@ -383,6 +384,7 @@ impl Default for GovernmentBackfillParams {
             vacancy_escalation_rate: 0.12,
             max_wage_multiplier: 1.8,
             switch_incentive_buffer: 0.05,
+            public_utility_price_cap_multiplier: 1.5,
         }
     }
 }

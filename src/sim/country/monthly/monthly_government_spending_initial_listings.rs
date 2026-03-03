@@ -3,11 +3,49 @@ use super::*;
 impl Country {
     pub(super) fn close_company_months(&mut self) {
         let market = self.sim_params.goods_market;
+        let dynamic_base_index = self.public_utility_dynamic_base_index();
+        let cap_multiplier = self
+            .sim_params
+            .government_backfill
+            .public_utility_price_cap_multiplier
+            .max(1.0);
+        let population = self.people.len().max(1) as f64;
+        let debt_per_capita = self.monthly_essential_debt_spending / population;
+        let unmet_events_per_capita = self.monthly_unmet_need_events as f64 / population;
+        let affordability_pressure = ((debt_per_capita / 80.0 + unmet_events_per_capita / 14.0)
+            * 0.5)
+            .clamp(0.0, 1.0);
         self.companies
             .par_chunks_mut(COMPANY_CHUNK_SIZE)
             .for_each(|chunk| {
                 for company in chunk {
                     company.close_month(&market);
+                    if !company.is_public_utility {
+                        continue;
+                    }
+
+                    let Some(good) = good_by_id(company.produced_good_id) else {
+                        continue;
+                    };
+                    let min_price =
+                        round_cents(good.base_unit_cost * (1.0 + market.min_margin_rate));
+                    let dynamic_base_cost = round_cents(good.base_unit_cost * dynamic_base_index);
+                    let max_price =
+                        round_cents((dynamic_base_cost * cap_multiplier).max(min_price));
+                    let anchor_price = round_cents((min_price + max_price) * 0.5);
+                    if company.unit_price > anchor_price {
+                        // Price relief intensifies under affordability stress, reducing runaway
+                        // debt while preserving endogenous month-to-month movement.
+                        let correction_strength = 0.10 + affordability_pressure * 0.25;
+                        let gap = company.unit_price - anchor_price;
+                        company.unit_price =
+                            round_cents(company.unit_price - gap * correction_strength);
+                    } else {
+                        // Mild upward drift when well below anchor to avoid hard pegging.
+                        let gap = anchor_price - company.unit_price;
+                        company.unit_price = round_cents(company.unit_price + gap * 0.05);
+                    }
+                    company.unit_price = round_cents(company.unit_price.clamp(min_price, max_price));
                 }
             });
     }
@@ -37,7 +75,9 @@ impl Country {
                     total_spent = round_cents(total_spent + payout);
                     total_recipients = total_recipients.saturating_add(1);
                 }
-            } else if person.cash_balance < basic_threshold
+            }
+
+            if person.cash_balance < basic_threshold
                 && (person.last_month_unmet_needs_mask & ESSENTIAL_NEEDS_MASK) != 0
             {
                 // Top up to basic_threshold for people with unmet essential needs

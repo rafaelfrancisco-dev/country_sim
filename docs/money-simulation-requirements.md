@@ -103,6 +103,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - After taxes are collected each month, the treasury distributes benefits to eligible people.
 - **Unemployment benefit**: each unemployed working-age adult (18–65) receives `unemployment_benefit_rate × median_income_reference` per month, funded from treasury.
 - **Basic needs safety net**: if a person has any unmet essential need (goods 0–4: water, food, housing, electricity, medicine) AND cash below `basic_needs_cash_threshold`, the treasury tops up their cash to that threshold.
+- Eligibility is cumulative: a person can receive unemployment benefit and then still receive a basic-needs top-up in the same month.
 - Both transfers are capped by the available treasury balance (no negative treasury).
 - Tracked fields per country: `monthly_gov_spending`, `monthly_budget_balance` (tax collected − gov spending), `gov_debt` (cumulative shortfalls).
 - A `GovTransfer` event is emitted each month when any benefit is paid.
@@ -113,6 +114,11 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - When labor-force unemployment rises above the countercyclical target band, the model can also spawn additional public-utility employers (cyclical backfill) to stabilize employment.
 - New public companies:
   - start with `is_public_utility=true` and `is_essential_backfill=true`
+  - initial unit price is clamped to `public_utility_price_bounds_for_good(good_id)`:
+    - `min_price = base_unit_cost × (1 + min_margin_rate)`
+    - `dynamic_base_index = sqrt(max(1, cpi_index) × max(1, expected_money_supply / initial_money_supply))`
+    - `dynamic_base_cost = base_unit_cost × dynamic_base_index`
+    - `max_price = dynamic_base_cost × max(1, public_utility_price_cap_multiplier)`
   - are seeded with openings (default `3`, with manufacturing-heavy split)
   - use high-attraction wage offers:
     - `offer = min(cap, max(catalog*base_multiplier, market_best*(1 + switch_raise_threshold + incentive_buffer)))`
@@ -130,6 +136,18 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - `unemployment_benefit_rate` (default: 0.5)
   - `median_income_reference` (default: $2,000 → $1,000/month benefit)
   - `basic_needs_cash_threshold` (default: $500)
+- Public-utility price cap multiplier is configurable via `GovernmentBackfillParams.public_utility_price_cap_multiplier` (default: `1.5`, runtime floor `1.0`).
+
+## Public Utility Price Dynamics (State-Owned Only)
+- Price bounds apply only to `is_public_utility=true` companies; private companies keep existing unconstrained repricing behavior.
+- During monthly close (`close_company_months`), each public utility is repriced and then adjusted toward a mid-band anchor:
+  - `anchor_price = (min_price + max_price) / 2`
+  - if `unit_price > anchor_price`, a downward correction is applied
+  - if `unit_price < anchor_price`, only a mild upward drift is applied
+- Downward correction strength increases with affordability pressure, using per-capita debt and unmet-need signals:
+  - `affordability_pressure = clamp(((debt_per_capita / 80) + (unmet_events_per_capita / 14)) / 2, 0, 1)`
+  - correction factor: `0.10 + affordability_pressure × 0.25`
+- Final monthly public-utility price is clamped to `[min_price, max_price]`.
 
 ## Consumption and Sales
 - Monthly household spending remains 5% to 15% of available cash.
@@ -256,7 +274,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 16. Public-utility wage adjustment.
 17. Monthly job-switch pass (same profession, minimum raise threshold).
 18. Recompute company headcounts again.
-19. Company month close (pricing history/profitability history side effects).
+19. Company month close (pricing history/profitability history side effects, plus state-owned utility cap + affordability-aware reversion).
 20. Stock dividends.
 21. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
 22. Month increment and aggregate recomputation.

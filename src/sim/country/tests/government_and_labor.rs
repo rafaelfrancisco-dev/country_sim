@@ -182,6 +182,31 @@ fn basic_needs_top_up_raises_cash_to_threshold_for_person_with_unmet_essential_n
 }
 
 #[test]
+fn unemployed_with_unmet_essential_needs_can_receive_benefit_and_top_up_in_same_month() {
+    let fiscal = FiscalParams {
+        unemployment_benefit_rate: 0.2, // 200/month with reference 1_000
+        median_income_reference: 1_000.0,
+        basic_needs_cash_threshold: 500.0,
+    };
+    let mut person = unemployed_adult(1, 100.0);
+    person.last_month_unmet_needs_mask = 1; // unmet water need (essential)
+    let mut country = make_gov_country(vec![person], 10_000.0, fiscal);
+
+    country.process_month_end();
+
+    assert!(
+        (country.people[0].cash_balance - 500.0).abs() < 0.01,
+        "expected stacked benefit+top-up to reach threshold; got {}",
+        country.people[0].cash_balance
+    );
+    assert!(
+        (country.monthly_gov_spending - 400.0).abs() < 0.01,
+        "expected 200 benefit + 200 top-up; got {}",
+        country.monthly_gov_spending
+    );
+}
+
+#[test]
 fn no_benefit_paid_when_treasury_is_empty() {
     let benefit = FiscalParams::default().monthly_unemployment_benefit();
     assert!(

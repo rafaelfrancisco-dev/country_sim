@@ -43,7 +43,9 @@ fn bankruptcy_physically_removes_company_and_remaps_employers() {
     };
     params.government_backfill.enabled = false;
     params.stock_market.enabled = false;
-    params.company_distress.countercyclical_layoff_unemployment_guard = 1.1;
+    params
+        .company_distress
+        .countercyclical_layoff_unemployment_guard = 1.1;
     params.company_distress.bankruptcy_min_loss_months = 6;
     params.company_distress.bankruptcy_missed_payment_threshold = 3;
 
@@ -118,7 +120,11 @@ fn startup_formation_creates_company_and_moves_founders() {
         startup_openings >= country.sim_params.company_formation.startup_openings_min
             && startup_openings <= country.sim_params.company_formation.startup_openings_max
     );
-    assert!(!country.companies[startup_id as usize].founder_stakes.is_empty());
+    assert!(
+        !country.companies[startup_id as usize]
+            .founder_stakes
+            .is_empty()
+    );
     assert!(
         country
             .pending_events
@@ -176,7 +182,9 @@ fn growth_ipo_lists_company_and_pays_founder_secondary_proceeds() {
         ..CompanyGrowthParams::default()
     };
     params.government_backfill.enabled = false;
-    params.company_distress.countercyclical_layoff_unemployment_guard = 1.1;
+    params
+        .company_distress
+        .countercyclical_layoff_unemployment_guard = 1.1;
     params.company_distress.bankruptcy_min_loss_months = 0;
     params.company_distress.bankruptcy_missed_payment_threshold = 3;
     params.company_distress.bankruptcy_missed_payment_threshold = 3;
@@ -186,14 +194,8 @@ fn growth_ipo_lists_company_and_pays_founder_secondary_proceeds() {
     params.stock_market.ipo_growth_max_cash_runway_months = 12.0;
     params.stock_market.ipo_max_new_listings_per_month = 2;
 
-    let mut country = Country::with_economy_and_params(
-        1,
-        "A".to_string(),
-        people,
-        companies,
-        0.0,
-        params,
-    );
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
     country.process_month_end();
 
     let ipo = country
@@ -205,7 +207,11 @@ fn growth_ipo_lists_company_and_pays_founder_secondary_proceeds() {
                 secondary_shares_sold,
                 founder_payout_total,
                 ..
-            } => Some((reason.clone(), *secondary_shares_sold, *founder_payout_total)),
+            } => Some((
+                reason.clone(),
+                *secondary_shares_sold,
+                *founder_payout_total,
+            )),
             _ => None,
         })
         .expect("expected growth IPO event");
@@ -248,7 +254,9 @@ fn distress_ipo_keeps_secondary_zero() {
         ..CompanyGrowthParams::default()
     };
     params.government_backfill.enabled = false;
-    params.company_distress.countercyclical_layoff_unemployment_guard = 1.1;
+    params
+        .company_distress
+        .countercyclical_layoff_unemployment_guard = 1.1;
     params.company_distress.bankruptcy_min_loss_months = 0;
     params.company_distress.bankruptcy_missed_payment_threshold = 3;
 
@@ -256,17 +264,14 @@ fn distress_ipo_keeps_secondary_zero() {
         Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
     country.process_month_end();
 
-    let maybe_ipo = country
-        .pending_events
-        .iter()
-        .find_map(|event| match event {
-            SimEvent::StockIpo {
-                reason,
-                secondary_shares_sold,
-                ..
-            } => Some((reason.clone(), *secondary_shares_sold)),
-            _ => None,
-        });
+    let maybe_ipo = country.pending_events.iter().find_map(|event| match event {
+        SimEvent::StockIpo {
+            reason,
+            secondary_shares_sold,
+            ..
+        } => Some((reason.clone(), *secondary_shares_sold)),
+        _ => None,
+    });
     assert!(
         maybe_ipo.is_some(),
         "expected distress IPO event; misses={} loss={} cash={} threshold={} guard={} events={:?}",
@@ -448,6 +453,120 @@ fn government_backfill_financing_uses_treasury_then_deficit() {
     assert!(country.bank.created_money_outstanding > 0.0);
     assert!(country.treasury_balance.abs() < 0.01);
     assert!(country.validate_money_invariants().is_empty());
+}
+
+#[test]
+fn public_backfill_creation_clamps_price_to_dynamic_macro_cap() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].produced_good_id = 0;
+    companies[0].unit_price = 10_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params
+        .government_backfill
+        .public_utility_price_cap_multiplier = 2.0;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![], companies, 10_000.0, params);
+    country.treasury_balance = 1_000_000.0;
+    country.cpi_index = 4.0;
+    country.expected_money_supply = 40_000.0;
+
+    country.create_public_essential_company(0, country.sim_params.government_backfill);
+
+    let created = country
+        .companies
+        .iter()
+        .find(|company| company.is_public_utility)
+        .expect("public utility should be created");
+    let base_cost = crate::sim::good::good_by_id(0)
+        .expect("water good should exist")
+        .base_unit_cost;
+    let expected_cap = round_cents(base_cost * (4.0_f64 * 4.0_f64).sqrt() * 2.0);
+
+    assert!(created.unit_price <= expected_cap + 0.01);
+    assert!(created.unit_price < 10_000.0);
+}
+
+#[test]
+fn monthly_close_clamps_public_utility_price_to_dynamic_macro_cap() {
+    let mut company = build_default_companies("A", 1).remove(0);
+    company.produced_good_id = 0;
+    company.is_public_utility = true;
+    company.is_essential_backfill = true;
+    company.unit_price = 10_000.0;
+    company.inventory_units = 0;
+    company.last_month_units_sold = 100;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params
+        .government_backfill
+        .public_utility_price_cap_multiplier = 2.0;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        vec![company],
+        10_000.0,
+        params,
+    );
+    country.cpi_index = 9.0;
+    country.expected_money_supply = 40_000.0;
+
+    country.process_month_end();
+
+    let base_cost = crate::sim::good::good_by_id(0)
+        .expect("water good should exist")
+        .base_unit_cost;
+    let expected_cap = round_cents(base_cost * (9.0_f64 * 4.0_f64).sqrt() * 2.0);
+    assert!(country.companies[0].unit_price <= expected_cap + 0.01);
+}
+
+#[test]
+fn monthly_close_applies_affordability_pressure_relief_to_public_utility_price() {
+    let mut company = build_default_companies("A", 1).remove(0);
+    company.produced_good_id = 0;
+    company.is_public_utility = true;
+    company.is_essential_backfill = true;
+    company.unit_price = 500.0;
+    company.inventory_units = 0;
+    company.last_month_units_sold = 100;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params
+        .government_backfill
+        .public_utility_price_cap_multiplier = 1.5;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        vec![company],
+        10_000.0,
+        params,
+    );
+    country.cpi_index = 1.2;
+    country.expected_money_supply = 12_000.0;
+    country.monthly_essential_debt_spending = 8_000.0;
+    country.monthly_unmet_need_events = 14;
+
+    let before = country.companies[0].unit_price;
+    country.process_month_end();
+    let after = country.companies[0].unit_price;
+
+    assert!(
+        after < before,
+        "price should be relieved under high affordability pressure: before={before}, after={after}"
+    );
 }
 
 #[test]

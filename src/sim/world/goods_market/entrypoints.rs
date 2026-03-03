@@ -216,6 +216,11 @@ impl World {
             let mut exported_units_by_good = [0_u32; GOODS_COUNT];
             let mut inventory_by_good = [0_u32; GOODS_COUNT];
             let mut unmet_need_by_good = [false; GOODS_COUNT];
+            let baseline_tariff = country
+                .sim_params
+                .goods_market
+                .tariff_rate
+                .clamp(0.0, MAX_DYNAMIC_TARIFF_RATE);
 
             for company in &country.companies {
                 let good_idx = company.produced_good_id as usize;
@@ -247,6 +252,15 @@ impl World {
                     country.export_tariffs_by_good[good_idx] =
                         (country.export_tariffs_by_good[good_idx] + DYNAMIC_TARIFF_INCREASE_STEP)
                             .min(MAX_DYNAMIC_TARIFF_RATE);
+                } else {
+                    let current = country.export_tariffs_by_good[good_idx];
+                    if current > baseline_tariff {
+                        country.export_tariffs_by_good[good_idx] =
+                            (current - DYNAMIC_TARIFF_DECREASE_STEP).max(baseline_tariff);
+                    } else if current < baseline_tariff {
+                        country.export_tariffs_by_good[good_idx] =
+                            (current + DYNAMIC_TARIFF_DECREASE_STEP).min(baseline_tariff);
+                    }
                 }
             }
         }

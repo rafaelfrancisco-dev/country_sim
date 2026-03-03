@@ -79,7 +79,9 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 At each 30-day boundary, `World::tick_day` runs the following steps in order:
 
 1. `Country::process_month_end` (parallel) — payroll, taxes, gov spending, loan repayments, company decisions; pushes events to `country.pending_events`
-2. `adjust_dynamic_country_tariffs` — world-level tariff rebalancing
+2. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
+   - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
+   - otherwise tariff mean-reverts toward the baseline tariff rate
 3. `capture_snapshot` — records `MetricPoint` into the rolling history window
 4. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
 5. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators

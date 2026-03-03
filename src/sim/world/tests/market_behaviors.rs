@@ -229,6 +229,32 @@ fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_u
 }
 
 #[test]
+fn tariff_decreases_toward_baseline_when_shortage_signal_is_absent() {
+    let mut companies = vec![Company::new(0, "Water".to_string(), vec![0, 5], 0)];
+    companies[0].inventory_units = 100;
+    companies[0].unit_price = 10.0;
+    companies[0].cash_balance = 1_000.0;
+
+    let country = Country::with_economy(
+        0,
+        "A".to_string(),
+        vec![unemployed_person(1, 300.0)],
+        companies,
+        1_300.0,
+    );
+    let mut world = World::new(vec![country]);
+    let baseline = world.countries[0].sim_params.goods_market.tariff_rate;
+    world.countries[0].export_tariffs_by_good[0] = 0.60;
+    let before = world.countries[0].export_tariffs_by_good[0];
+
+    world.adjust_dynamic_country_tariffs();
+
+    let after = world.countries[0].export_tariffs_by_good[0];
+    assert!(after < before);
+    assert!(after >= baseline - 1e-9);
+}
+
+#[test]
 fn scarce_supply_is_shared_across_countries_with_round_robin_allocation() {
     let mut exporter_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
     exporter_companies[0].inventory_units = 2;

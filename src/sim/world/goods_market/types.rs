@@ -4,6 +4,7 @@ use std::{cell::RefCell, sync::Arc};
 pub(in crate::sim::world) const PEOPLE_CHUNK_SIZE: usize = 2_048;
 pub(in crate::sim::world) const ESSENTIAL_GOODS_COUNT: u8 = 4;
 pub(in crate::sim::world) const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
+pub(in crate::sim::world) const DYNAMIC_TARIFF_DECREASE_STEP: f64 = 0.03;
 pub(in crate::sim::world) const MAX_DYNAMIC_TARIFF_RATE: f64 = 0.75;
 pub(in crate::sim::world) const SUPERFICIAL_GOOD_START_ID: GoodId = 10;
 pub(in crate::sim::world) const SUPERFICIAL_GOOD_IDS: [GoodId; SUPERFICIAL_GOOD_SLOT_COUNT] =

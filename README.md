@@ -30,7 +30,12 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - Government spending system:
   - Monthly unemployment benefits paid to working-age (18-65) unemployed adults
   - Basic needs safety net tops up cash for people with unmet essential needs
+  - Eligible people can receive both transfers in the same month (benefit first, then essential-needs top-up)
   - Treasury balance, monthly gov spending, budget balance, and gov debt tracked per country
+- Public utility pricing guardrails:
+  - Only state-owned/public-utility companies are price-capped (private firms remain uncapped)
+  - Cap base rises with both CPI and money-supply growth to avoid a fixed nominal anchor
+  - Public-utility monthly repricing includes affordability-pressure relief (allows downward movement under stress)
 
 ## Documentation
 - [Game context](docs/game-context.md)

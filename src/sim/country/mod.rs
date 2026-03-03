@@ -189,6 +189,46 @@ impl Country {
         )
     }
 
+    pub(super) fn public_utility_dynamic_base_index(&self) -> f64 {
+        let inflation_index = if self.cpi_index.is_finite() {
+            self.cpi_index.max(1.0)
+        } else {
+            1.0
+        };
+
+        let money_supply_index = if self.initial_money_supply > 0.0 {
+            if self.expected_money_supply.is_finite() {
+                (self.expected_money_supply / self.initial_money_supply).max(1.0)
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        };
+
+        let blended = (inflation_index * money_supply_index).sqrt();
+        if blended.is_finite() {
+            blended.max(1.0)
+        } else {
+            1.0
+        }
+    }
+
+    pub(super) fn public_utility_price_bounds_for_good(&self, good_id: u8) -> Option<(f64, f64)> {
+        let good = crate::sim::good::good_by_id(good_id)?;
+        let min_price =
+            round_cents(good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate));
+        let dynamic_base_cost =
+            round_cents(good.base_unit_cost * self.public_utility_dynamic_base_index());
+        let cap_multiplier = self
+            .sim_params
+            .government_backfill
+            .public_utility_price_cap_multiplier
+            .max(1.0);
+        let max_price = round_cents((dynamic_base_cost * cap_multiplier).max(min_price));
+        Some((min_price, max_price))
+    }
+
     pub fn company_name(&self, company_id: u16) -> Option<&str> {
         self.companies
             .get(company_id as usize)
