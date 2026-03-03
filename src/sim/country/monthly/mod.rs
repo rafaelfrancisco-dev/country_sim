@@ -12,15 +12,14 @@ use crate::time_op;
 use std::cmp::Ordering;
 
 mod prelude;
-mod impl_a1;
-mod impl_a2;
-mod impl_b1;
-mod impl_b2;
-mod impl_c1;
-mod impl_c2;
-mod impl_d1;
+mod monthly_orchestration_payroll_loans;
+mod monthly_company_distress_bankruptcy;
+mod monthly_growth_backfill_public_wages;
+mod monthly_startup_formation_pricing;
+mod monthly_government_spending_initial_listings;
+mod monthly_ipo_rescue_collateral_seizure;
+mod monthly_cpi_bonds;
 mod helpers;
 
 use helpers::*;
 use super::random::hash64;
-

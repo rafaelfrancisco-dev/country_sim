@@ -109,12 +109,12 @@ Interpretation:
 - Growth openings require profitability streak and cash threshold:
   - `src/sim/company.rs` lines 256-263 and 265-271
 - Monthly pipeline only creates openings through growth/startups/backfill:
-  - `src/sim/country/monthly/impl_b1.rs` lines 4-13
+  - `src/sim/country/monthly/monthly_growth_backfill_public_wages.rs` lines 4-13
 - In these runs, all companies are unprofitable each month; growth/startup gates never trigger.
 
 3) Distress path does not fire despite negative profits
 - Distress is keyed to missed loan payments, not low/negative profit directly:
-  - `src/sim/country/monthly/impl_a2.rs` lines 15-19
+  - `src/sim/country/monthly/monthly_company_distress_bankruptcy.rs` lines 15-19
 - With large initial cash buffers and no debt stress, layoffs/wage cuts are never reached.
 
 4) Stock liquidity is mechanically constrained
