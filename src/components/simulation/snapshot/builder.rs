@@ -25,7 +25,10 @@ impl UiSnapshot {
         Self { phase }
     }
 
-    pub(in crate::components::simulation) fn apply_runtime_stats(&mut self, runtime_stats: RuntimeStatsSnapshot) {
+    pub(in crate::components::simulation) fn apply_runtime_stats(
+        &mut self,
+        runtime_stats: RuntimeStatsSnapshot,
+    ) {
         if let SnapshotPhase::Running(world) = &mut self.phase {
             world.sim_mode = runtime_stats.mode;
             world.ticks_per_second = runtime_stats.ticks_per_second;
@@ -358,4 +361,3 @@ impl UiSnapshot {
         }
     }
 }
-

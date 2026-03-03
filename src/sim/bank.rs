@@ -253,7 +253,13 @@ mod tests {
         let mut bank = Bank::new();
         let mut loan = None;
 
-        let issued = bank.originate_loan(1_000.0, 4_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
+        let issued = bank.originate_loan(
+            1_000.0,
+            4_000.0,
+            DEFAULT_MAX_DEBT_TO_INCOME,
+            DEFAULT_LOAN_APR,
+            &mut loan,
+        );
 
         assert!(issued > 0.0);
         assert!(bank.created_money_outstanding >= issued);
@@ -264,7 +270,13 @@ mod tests {
     fn principal_repayment_reduces_created_money() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(1_000.0, 6_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
+        bank.originate_loan(
+            1_000.0,
+            6_000.0,
+            DEFAULT_MAX_DEBT_TO_INCOME,
+            DEFAULT_LOAN_APR,
+            &mut loan,
+        );
         let created_before = bank.created_money_outstanding;
         let mut cash = 5_000.0;
 
@@ -278,7 +290,13 @@ mod tests {
     fn missed_payment_is_capitalized_in_debt_balance() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
+        bank.originate_loan(
+            2_000.0,
+            5_000.0,
+            DEFAULT_MAX_DEBT_TO_INCOME,
+            DEFAULT_LOAN_APR,
+            &mut loan,
+        );
 
         let opening_debt = loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
         let mut cash = 0.0;
@@ -293,7 +311,13 @@ mod tests {
     fn write_off_reduces_created_money() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
+        bank.originate_loan(
+            2_000.0,
+            5_000.0,
+            DEFAULT_MAX_DEBT_TO_INCOME,
+            DEFAULT_LOAN_APR,
+            &mut loan,
+        );
         let before = bank.created_money_outstanding;
 
         let written_off = bank.write_off_loan(&mut loan);

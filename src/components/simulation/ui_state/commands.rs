@@ -192,6 +192,4 @@ impl UiState {
             .saturating_mul(COMPANY_PAGE_SIZE)
             .saturating_add(self.selected_company_row)
     }
-
 }
-

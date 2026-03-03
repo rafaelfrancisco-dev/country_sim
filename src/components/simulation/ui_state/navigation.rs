@@ -168,7 +168,4 @@ impl UiState {
         self.selection_focus = SelectionFocus::Company;
         self.selected_company_row = self.selected_company_row.saturating_sub(1);
     }
-
 }
-
-

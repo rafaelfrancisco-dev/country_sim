@@ -18,7 +18,7 @@ pub(super) enum WorkerMsg {
         enqueued_at: Instant,
         is_user_initiated: bool,
     },
-    #[cfg(test)]
+    #[cfg(any(test, feature = "manual-harness"))]
     ApplyAndAck(WorkerCommand, mpsc::Sender<()>),
     Shutdown,
 }
@@ -102,6 +102,3 @@ impl RuntimeStats {
         self.snapshot
     }
 }
-
-
-

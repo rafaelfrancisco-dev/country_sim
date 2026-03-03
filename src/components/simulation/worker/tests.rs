@@ -1,6 +1,24 @@
 use super::helpers::should_publish_snapshot_for_tick;
 use super::*;
 
+fn wait_for_running_phase(snapshot: &Arc<RwLock<RenderSnapshot>>) {
+    let deadline = Instant::now() + Duration::from_secs(1);
+    while Instant::now() < deadline {
+        let is_running = {
+            let current = snapshot.read().expect("snapshot lock poisoned");
+            matches!(
+                current.ui_snapshot.phase,
+                crate::components::simulation::snapshot::SnapshotPhase::Running(_)
+            )
+        };
+        if is_running {
+            return;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+    panic!("timed out waiting for running phase");
+}
+
 #[test]
 fn worker_applies_commands_in_order() {
     let initial_engine = GameEngine::default();
@@ -26,7 +44,9 @@ fn worker_applies_commands_in_order() {
     worker.send_and_wait(GameCommand::SetupEditChar('1'));
     worker.send_and_wait(GameCommand::SetupNextField);
     worker.send_and_wait(GameCommand::SetupEditChar('1'));
+    worker.send_and_wait(GameCommand::SetupEditChar('0'));
     worker.send_and_wait(GameCommand::SetupSubmit);
+    wait_for_running_phase(&snapshot);
     worker.send_and_wait(GameCommand::Tick);
     worker.send_and_wait(GameCommand::Tick);
 
@@ -61,6 +81,3 @@ fn max_speed_auto_tick_publish_is_cadenced() {
         Duration::from_millis(500)
     ));
 }
-
-
-

@@ -1,11 +1,7 @@
 use crate::{
-    components::simulation::ui_state::{
-        DetailsView, RunningTab, SelectionFocus,
-    },
+    components::simulation::ui_state::{DetailsView, RunningTab, SelectionFocus},
     sim::{
-        runtime::SimulationMode,
-        setup::SetupField,
-        stock_market::StockRowSnapshot,
+        runtime::SimulationMode, setup::SetupField, stock_market::StockRowSnapshot,
         world::MetricPoint,
     },
 };
@@ -171,4 +167,3 @@ impl RuntimeStatsSnapshot {
         }
     }
 }
-

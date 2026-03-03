@@ -2,9 +2,7 @@ use super::*;
 use crate::sim::{
     bank::DEFAULT_LOAN_APR,
     company::build_default_companies,
-    params::{
-        DemographicParams, FiscalParams, LaborParams, SimulationParams,
-    },
+    params::{DemographicParams, FiscalParams, LaborParams, SimulationParams},
     person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus},
 };
 use rayon::ThreadPoolBuilder;
@@ -309,7 +307,11 @@ pub(super) fn job_market_conflict_resolution_is_stable_by_person_index() {
 
 // -- Government spending helpers ----------------------------------------------
 
-pub(super) fn make_gov_country(people: Vec<Person>, treasury: f64, fiscal: FiscalParams) -> Country {
+pub(super) fn make_gov_country(
+    people: Vec<Person>,
+    treasury: f64,
+    fiscal: FiscalParams,
+) -> Country {
     let companies = build_default_companies("A", 1);
     // initial_money_supply = treasury so the money invariant starts clean
     let mut country = Country::with_economy(1, "A".to_string(), people, companies, treasury);
@@ -350,5 +352,3 @@ pub(super) fn employed_adult(id: u32, cash: f64) -> Person {
 }
 
 // -- Government spending tests -------------------------------------------------
-
-

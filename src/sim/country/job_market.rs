@@ -80,5 +80,3 @@ pub(super) fn consume_matching_opening(
     let (job_id, offered_salary) = company.consume_opening(opening_idx)?;
     Some((company_idx as u16, job_id, offered_salary))
 }
-
-

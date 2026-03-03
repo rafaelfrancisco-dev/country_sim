@@ -14,6 +14,5 @@ use std::collections::HashSet;
 
 mod helpers_and_invariants;
 use helpers_and_invariants::*;
-mod government_and_labor;
 mod company_dynamics;
-
+mod government_and_labor;

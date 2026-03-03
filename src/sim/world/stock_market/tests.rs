@@ -160,5 +160,3 @@ mod tests {
         assert_eq!(price1, price2, "non-deterministic price");
     }
 }
-
-

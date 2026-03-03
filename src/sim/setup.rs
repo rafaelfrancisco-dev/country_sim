@@ -126,8 +126,7 @@ impl SetupForm {
             .parse::<u32>()
             .map_err(|_| "Thousands per country must be a whole number.".to_string())?;
 
-        if !(MIN_THOUSANDS_PER_COUNTRY..=MAX_THOUSANDS_PER_COUNTRY)
-            .contains(&thousands_per_country)
+        if !(MIN_THOUSANDS_PER_COUNTRY..=MAX_THOUSANDS_PER_COUNTRY).contains(&thousands_per_country)
         {
             return Err(format!(
                 "Thousands per country must be between {} and {}.",

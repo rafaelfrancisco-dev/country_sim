@@ -6,6 +6,8 @@ pub mod event;
 pub mod generator;
 pub mod good;
 pub mod job;
+#[cfg(feature = "manual-harness")]
+pub mod manual_harness;
 pub mod money;
 pub mod names;
 pub mod params;

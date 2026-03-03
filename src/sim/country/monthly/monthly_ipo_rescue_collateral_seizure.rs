@@ -401,5 +401,3 @@ impl Country {
         }
     }
 }
-
-

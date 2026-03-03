@@ -20,5 +20,3 @@ pub(super) fn pick_weighted_job(seed: u64, weighted_jobs: &[(u8, u16)]) -> Optio
 
     weighted_jobs.last().map(|(job_id, _)| *job_id)
 }
-
-

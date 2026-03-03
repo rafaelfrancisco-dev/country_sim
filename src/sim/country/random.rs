@@ -18,5 +18,3 @@ pub(super) fn roll_probability(seed: u64, probability: f64) -> bool {
 
     unit_interval(seed) < probability
 }
-
-

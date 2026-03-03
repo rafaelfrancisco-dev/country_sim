@@ -243,4 +243,3 @@ pub(in crate::components::simulation) fn compact_count(n: impl Into<f64>) -> Str
 pub(in crate::components::simulation) fn money(amount: f64) -> String {
     compact_num(amount)
 }
-

@@ -183,8 +183,10 @@ impl Country {
 
     /// Current bank loan rate: policy rate + credit spread, clamped to [floor, ceiling].
     pub fn bank_loan_rate(&self) -> f64 {
-        (self.policy_rate + self.sim_params.monetary.credit_spread)
-            .clamp(self.sim_params.monetary.rate_floor, self.sim_params.monetary.rate_ceiling)
+        (self.policy_rate + self.sim_params.monetary.credit_spread).clamp(
+            self.sim_params.monetary.rate_floor,
+            self.sim_params.monetary.rate_ceiling,
+        )
     }
 
     pub fn company_name(&self, company_id: u16) -> Option<&str> {

@@ -9,9 +9,8 @@ fn setup_running_engine(days: usize) -> GameEngine {
     let mut engine = GameEngine::default();
     engine.apply(GameCommand::SetupEditChar('1'));
     engine.apply(GameCommand::SetupNextField);
-    engine.apply(GameCommand::SetupEditChar('0'));
-    engine.apply(GameCommand::SetupEditChar('.'));
     engine.apply(GameCommand::SetupEditChar('1'));
+    engine.apply(GameCommand::SetupEditChar('0'));
     engine.apply(GameCommand::SetupSubmit);
     for _ in 0..days {
         engine.apply(GameCommand::Tick);
@@ -24,8 +23,7 @@ fn running_snapshot_for_tab(engine: &GameEngine, active_tab: RunningTab) -> Runn
         active_tab,
         ..UiState::default()
     };
-    let snapshot =
-        UiSnapshot::from_phase_and_ui(engine.phase(), &mut ui_state, runtime_stats());
+    let snapshot = UiSnapshot::from_phase_and_ui(engine.phase(), &mut ui_state, runtime_stats());
     let SnapshotPhase::Running(world) = snapshot.phase else {
         panic!("running snapshot expected");
     };
@@ -53,4 +51,3 @@ fn inactive_tabs_skip_heavy_data() {
     let charts = running_snapshot_for_tab(&engine, RunningTab::Charts);
     assert_eq!(charts.chart_history.len(), expected_chart_points);
 }
-

@@ -1,7 +1,4 @@
-use crate::sim::{
-    good::GoodId,
-    person::SUPERFICIAL_GOOD_SLOT_COUNT,
-};
+use crate::sim::{good::GoodId, person::SUPERFICIAL_GOOD_SLOT_COUNT};
 use std::{cell::RefCell, sync::Arc};
 
 pub(in crate::sim::world) const PEOPLE_CHUNK_SIZE: usize = 2_048;
@@ -9,7 +6,8 @@ pub(in crate::sim::world) const ESSENTIAL_GOODS_COUNT: u8 = 4;
 pub(in crate::sim::world) const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
 pub(in crate::sim::world) const MAX_DYNAMIC_TARIFF_RATE: f64 = 0.75;
 pub(in crate::sim::world) const SUPERFICIAL_GOOD_START_ID: GoodId = 10;
-pub(in crate::sim::world) const SUPERFICIAL_GOOD_IDS: [GoodId; SUPERFICIAL_GOOD_SLOT_COUNT] = [10, 11, 12, 13, 14];
+pub(in crate::sim::world) const SUPERFICIAL_GOOD_IDS: [GoodId; SUPERFICIAL_GOOD_SLOT_COUNT] =
+    [10, 11, 12, 13, 14];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::sim::world) struct SellerQuote {
@@ -113,7 +111,10 @@ thread_local! {
 }
 
 impl RoundRobinScratch {
-    pub(in crate::sim::world) fn prepare_for_world(&mut self, countries: &[crate::sim::country::Country]) {
+    pub(in crate::sim::world) fn prepare_for_world(
+        &mut self,
+        countries: &[crate::sim::country::Country],
+    ) {
         let country_count = countries.len();
         self.pending_demands.resize_with(country_count, Vec::new);
         self.needs_met.resize_with(country_count, Vec::new);
@@ -148,9 +149,3 @@ impl RoundRobinScratch {
             .prepare_capacity(self.max_people, country_count);
     }
 }
-
-
-
-
-
-

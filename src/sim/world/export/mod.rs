@@ -6,10 +6,9 @@ use crate::sim::{
     person::EmploymentStatus,
 };
 
-mod stock_daily;
 mod monthly;
+mod stock_daily;
 
 pub use stock_daily::{
     CountryExportData, MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData,
 };
-

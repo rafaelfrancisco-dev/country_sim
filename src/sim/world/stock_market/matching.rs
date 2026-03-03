@@ -39,7 +39,10 @@ fn deterministic_sample_people_indices(
 // Main daily market function
 // ---------------------------------------------------------------------------
 
-pub(in crate::sim::world) fn run_country_stock_market(country: &mut crate::sim::country::Country, day: u64) {
+pub(in crate::sim::world) fn run_country_stock_market(
+    country: &mut crate::sim::country::Country,
+    day: u64,
+) {
     let params = country.sim_params.stock_market;
     let cap = params.daily_participant_cap;
     let reserve_ratio = params.investor_cash_reserve_ratio;

@@ -10,6 +10,7 @@ build = "build.rs"
 default = []
 bench-trace = []
 ui-diagnostics = []
+manual-harness = []
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -66,3 +67,15 @@ inherits = "release"
 debug = true
 strip = "none"
 split-debuginfo = "unpacked"
+
+[[bench]]
+name = "manual_ui_probe"
+harness = false
+
+[[bench]]
+name = "manual_export_csv"
+harness = false
+
+[[bench]]
+name = "manual_world_benchmark"
+harness = false

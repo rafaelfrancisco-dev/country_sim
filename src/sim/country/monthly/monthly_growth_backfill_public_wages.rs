@@ -60,7 +60,11 @@ impl Country {
             .collect()
     }
 
-    pub(super) fn create_public_essential_company(&mut self, good_id: u8, backfill: GovernmentBackfillParams) {
+    pub(super) fn create_public_essential_company(
+        &mut self,
+        good_id: u8,
+        backfill: GovernmentBackfillParams,
+    ) {
         if self.companies.len() >= u16::MAX as usize {
             return;
         }
@@ -170,7 +174,11 @@ impl Country {
         });
     }
 
-    pub(super) fn public_opening_offer(&self, job_id: u8, backfill: GovernmentBackfillParams) -> f64 {
+    pub(super) fn public_opening_offer(
+        &self,
+        job_id: u8,
+        backfill: GovernmentBackfillParams,
+    ) -> f64 {
         let catalog = salary_for_job(job_id);
         if catalog <= 0.0 {
             return 0.0;
@@ -246,6 +254,4 @@ impl Country {
             }
         }
     }
-
 }
-

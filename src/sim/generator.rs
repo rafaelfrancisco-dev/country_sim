@@ -261,7 +261,13 @@ fn randomize_company_prices(
 }
 
 fn fund_initial_bank_reserve(country: &mut Country) {
-    let target = round_cents(country.sim_params.stock_market.maker_bootstrap_reserve.max(0.0));
+    let target = round_cents(
+        country
+            .sim_params
+            .stock_market
+            .maker_bootstrap_reserve
+            .max(0.0),
+    );
     if target <= 0.0 || country.companies.is_empty() {
         return;
     }
@@ -357,7 +363,8 @@ mod tests {
         let countries = generate_countries(&config(3));
 
         for country in countries {
-            let non_household_cash = round_cents(country.company_cash_total + country.bank.reserve_balance);
+            let non_household_cash =
+                round_cents(country.company_cash_total + country.bank.reserve_balance);
             assert!((country.household_cash_total - non_household_cash).abs() <= 0.01);
             let expected_total = round_cents(country.initial_money_supply);
             assert!((country.total_money_supply - expected_total).abs() <= 0.01);

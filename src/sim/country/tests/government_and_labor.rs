@@ -329,5 +329,3 @@ fn first_missed_company_payment_applies_wage_cut_to_contracts_and_openings() {
             .any(|event| matches!(event, SimEvent::CompanyWageCut { .. }))
     );
 }
-
-

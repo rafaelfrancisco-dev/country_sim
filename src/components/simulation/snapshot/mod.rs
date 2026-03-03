@@ -1,7 +1,5 @@
 use crate::{
-    components::simulation::ui_state::{
-        ChartScope, EventsSort, RunningTab, UiState,
-    },
+    components::simulation::ui_state::{ChartScope, EventsSort, RunningTab, UiState},
     sim::{
         GameEngine, GamePhase,
         good::{common_goods, good_by_id},
@@ -12,14 +10,13 @@ use crate::{
     },
 };
 
-mod models;
 mod builder;
 mod details;
+mod models;
 mod stocks_and_charts;
 #[cfg(test)]
 mod tests;
 
-pub(in crate::components::simulation) use models::*;
 pub(in crate::components::simulation) use details::*;
+pub(in crate::components::simulation) use models::*;
 pub(in crate::components::simulation) use stocks_and_charts::*;
-

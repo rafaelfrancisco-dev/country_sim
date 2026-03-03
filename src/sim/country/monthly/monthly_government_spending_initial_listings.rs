@@ -227,7 +227,4 @@ impl Country {
             day: self.day,
         });
     }
-
 }
-
-

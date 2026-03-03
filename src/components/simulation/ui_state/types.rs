@@ -1,4 +1,4 @@
-﻿pub const PEOPLE_PAGE_SIZE: usize = 50;
+pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
 
@@ -79,4 +79,3 @@ impl Default for UiState {
         }
     }
 }
-

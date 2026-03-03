@@ -13,7 +13,7 @@ impl Country {
         self.ensure_company_payroll_liquidity();
         self.process_payroll_and_taxes();
         self.process_government_spending();
-        self.process_bond_coupon_and_maturity();   // [D]
+        self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
         self.recompute_company_profitability();
@@ -22,13 +22,13 @@ impl Country {
         self.update_company_growth_openings();
         self.process_startup_formation();
         self.process_essential_company_backfill();
-        self.maybe_issue_bonds();                  // [E]
+        self.maybe_issue_bonds(); // [E]
         self.adjust_public_utility_opening_wages();
         self.process_monthly_job_switches();
         self.recompute_company_headcounts();
         self.close_company_months();
         self.process_stock_dividends();
-        self.recompute_cpi();                      // [F]
+        self.recompute_cpi(); // [F]
 
         self.month = self.month.saturating_add(1);
         self.recompute_aggregates();
@@ -264,6 +264,4 @@ impl Country {
             }
         }
     }
-
 }
-

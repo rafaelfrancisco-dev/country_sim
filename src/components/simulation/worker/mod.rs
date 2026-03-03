@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(any(test, feature = "manual-harness"))]
 use std::sync::mpsc;
 use std::{
     fmt,
@@ -23,11 +23,10 @@ use crate::{
     sim::{GameCommand, GameEngine, GamePhase, SimulationMode, UiCommand},
 };
 
-mod types;
-mod runtime;
 mod helpers;
+mod runtime;
 #[cfg(test)]
 mod tests;
+mod types;
 
 pub(in crate::components::simulation) use types::{RenderSnapshot, SimulationWorker, WorkerError};
-

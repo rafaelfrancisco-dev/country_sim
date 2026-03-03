@@ -42,8 +42,7 @@ impl Country {
         }
 
         let bank_fraction = self.sim_params.monetary.bank_primary_dealer_fraction;
-        let monthly_coupon =
-            round_cents(self.bonds_outstanding * self.bond_coupon_rate / 12.0);
+        let monthly_coupon = round_cents(self.bonds_outstanding * self.bond_coupon_rate / 12.0);
         let bank_coupon = round_cents(monthly_coupon * bank_fraction);
         let retail_coupon = round_cents(monthly_coupon - bank_coupon);
 
@@ -80,8 +79,7 @@ impl Country {
                 self.treasury_balance = round_cents(self.treasury_balance - face_value);
                 let bank_repay = round_cents(face_value * bank_fraction);
                 let retail_repay = round_cents(face_value - bank_repay);
-                self.bank.reserve_balance =
-                    round_cents(self.bank.reserve_balance + bank_repay);
+                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + bank_repay);
                 if retail_repay > 0.0 {
                     self.distribute_to_top_n_people(retail_repay);
                 }
@@ -99,8 +97,7 @@ impl Country {
                 let total_paid = round_cents(available_treasury + monetized);
                 let bank_repay = round_cents(total_paid * bank_fraction);
                 let retail_repay = round_cents(total_paid - bank_repay);
-                self.bank.reserve_balance =
-                    round_cents(self.bank.reserve_balance + bank_repay);
+                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + bank_repay);
                 if retail_repay > 0.0 {
                     self.distribute_to_top_n_people(retail_repay);
                 }
@@ -112,8 +109,7 @@ impl Country {
                 });
             }
 
-            self.monthly_bonds_matured =
-                round_cents(self.monthly_bonds_matured + face_value);
+            self.monthly_bonds_matured = round_cents(self.monthly_bonds_matured + face_value);
             self.bonds_outstanding = 0.0;
             self.bond_coupon_rate = 0.0;
             self.bond_months_to_maturity = 0;
@@ -149,8 +145,7 @@ impl Country {
 
         // Bank provides its portion; reserve decreases
         let bank_funded = if self.bank.reserve_balance >= bank_portion {
-            self.bank.reserve_balance =
-                round_cents(self.bank.reserve_balance - bank_portion);
+            self.bank.reserve_balance = round_cents(self.bank.reserve_balance - bank_portion);
             bank_portion
         } else {
             let available = self.bank.reserve_balance.max(0.0);

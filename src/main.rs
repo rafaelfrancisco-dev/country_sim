@@ -1,24 +1,10 @@
 use clap::Parser;
-use cli::Cli;
-
-use crate::app::App;
-
-mod action;
-mod app;
-mod cli;
-mod components;
-mod config;
-mod csv_export;
-mod errors;
-mod logging;
-mod seed;
-mod sim;
-mod tui;
+use country_sim::{app::App, cli::Cli, errors, logging, seed};
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
-    crate::errors::init()?;
-    crate::logging::init()?;
+    errors::init()?;
+    logging::init()?;
 
     let args = Cli::parse();
     let random_seed = seed::random_generation_seed();

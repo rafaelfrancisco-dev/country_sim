@@ -8,11 +8,11 @@ use rand::Rng;
 use rayon::prelude::*;
 use std::sync::Arc;
 
-mod types;
-mod entrypoints;
-mod round_robin;
-mod quotes_and_tariffs;
 mod demand_sampling;
+mod entrypoints;
+mod quotes_and_tariffs;
+mod round_robin;
+mod types;
 
-pub(in crate::sim::world) use types::*;
 pub(in crate::sim::world) use demand_sampling::*;
+pub(in crate::sim::world) use types::*;

@@ -1,5 +1,5 @@
-use super::*;
 use super::types::WorkerMsg;
+use super::*;
 
 pub(in crate::components::simulation) fn update_phase_flags(
     engine: &GameEngine,
@@ -41,6 +41,3 @@ impl Drop for SimulationWorker {
         }
     }
 }
-
-
-

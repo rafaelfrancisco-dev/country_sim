@@ -36,6 +36,3 @@ pub(in crate::sim::world) fn hash64(mut value: u64) -> u64 {
 pub(in crate::sim::world) fn unit_interval(seed: u64) -> f64 {
     hash64(seed) as f64 / u64::MAX as f64
 }
-
-
-

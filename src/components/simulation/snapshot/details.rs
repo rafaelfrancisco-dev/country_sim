@@ -17,7 +17,10 @@ impl SetupSnapshot {
     }
 }
 
-pub(in crate::components::simulation) fn person_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+pub(in crate::components::simulation) fn person_details_lines(
+    world: &World,
+    ui: &UiState,
+) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
@@ -98,7 +101,10 @@ pub(in crate::components::simulation) fn person_details_lines(world: &World, ui:
     ]
 }
 
-pub(in crate::components::simulation) fn country_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+pub(in crate::components::simulation) fn country_details_lines(
+    world: &World,
+    ui: &UiState,
+) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
@@ -131,14 +137,8 @@ pub(in crate::components::simulation) fn country_details_lines(world: &World, ui
             money(country.monthly_budget_balance)
         ),
         format!("Monetized Debt: {}", money(country.gov_debt)),
-        format!(
-            "Bonds Outstanding: {}",
-            money(country.bonds_outstanding)
-        ),
-        format!(
-            "Bond Coupon Rate: {:.2}%",
-            country.bond_coupon_rate * 100.0
-        ),
+        format!("Bonds Outstanding: {}", money(country.bonds_outstanding)),
+        format!("Bond Coupon Rate: {:.2}%", country.bond_coupon_rate * 100.0),
         format!(
             "Bond Months to Maturity: {}",
             country.bond_months_to_maturity
@@ -174,7 +174,10 @@ pub(in crate::components::simulation) fn country_details_lines(world: &World, ui
     ]
 }
 
-pub(in crate::components::simulation) fn company_details_lines(world: &World, ui: &UiState) -> Vec<String> {
+pub(in crate::components::simulation) fn company_details_lines(
+    world: &World,
+    ui: &UiState,
+) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
@@ -266,7 +269,10 @@ pub(in crate::components::simulation) fn selected_company_histories(
     )
 }
 
-pub(in crate::components::simulation) fn country_goods_summary_lines(world: &World, ui: &UiState) -> Vec<String> {
+pub(in crate::components::simulation) fn country_goods_summary_lines(
+    world: &World,
+    ui: &UiState,
+) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
@@ -299,5 +305,3 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(world: &Wor
         ),
     ]
 }
-
-

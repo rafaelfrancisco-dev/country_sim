@@ -387,4 +387,3 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
         "expected either bank received liquidated shares ({bank_shares}) or person still holds all 500 ({person_shares})"
     );
 }
-

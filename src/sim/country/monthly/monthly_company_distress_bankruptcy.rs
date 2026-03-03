@@ -301,6 +301,4 @@ impl Country {
             self.stock_market.remap_company_ids(&old_to_new_map);
         }
     }
-
 }
-

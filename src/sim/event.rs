@@ -399,9 +399,7 @@ impl SimEvent {
                 total_coupon,
                 day,
             } => {
-                format!(
-                    "[COUP]  Day {day:>6} | {country_name}: Coupon paid ${total_coupon:.2}"
-                )
+                format!("[COUP]  Day {day:>6} | {country_name}: Coupon paid ${total_coupon:.2}")
             }
             Self::BondMatured {
                 country_name,

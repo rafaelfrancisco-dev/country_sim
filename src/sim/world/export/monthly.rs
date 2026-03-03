@@ -349,4 +349,3 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         } => (country_name, *day),
     }
 }
-

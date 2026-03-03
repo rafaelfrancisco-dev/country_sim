@@ -1,6 +1,6 @@
-use super::*;
 use super::helpers::{should_publish_snapshot_for_tick, update_phase_flags};
 use super::types::{RuntimeStats, WorkerCommand, WorkerMsg};
+use super::*;
 
 impl SimulationWorker {
     pub(in crate::components::simulation) fn new(
@@ -265,7 +265,7 @@ impl SimulationWorker {
                             worker_pending_user_commands.fetch_sub(1, Ordering::AcqRel);
                         }
                     }
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "manual-harness"))]
                     WorkerMsg::ApplyAndAck(command, ack_tx) => {
                         match command {
                             WorkerCommand::Domain(game_command) => {
@@ -442,15 +442,21 @@ impl SimulationWorker {
         Ok(())
     }
 
-    pub(in crate::components::simulation) fn send_domain(&self, command: GameCommand) -> Result<(), WorkerError> {
+    pub(in crate::components::simulation) fn send_domain(
+        &self,
+        command: GameCommand,
+    ) -> Result<(), WorkerError> {
         self.send_internal(WorkerCommand::Domain(command), true)
     }
 
-    pub(in crate::components::simulation) fn send_ui(&self, command: UiCommand) -> Result<(), WorkerError> {
+    pub(in crate::components::simulation) fn send_ui(
+        &self,
+        command: UiCommand,
+    ) -> Result<(), WorkerError> {
         self.send_internal(WorkerCommand::Ui(command), true)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "manual-harness"))]
     pub(in crate::components::simulation) fn send_and_wait(&self, command: GameCommand) {
         let (ack_tx, ack_rx) = mpsc::channel();
         if self
@@ -465,5 +471,3 @@ impl SimulationWorker {
         }
     }
 }
-
-
