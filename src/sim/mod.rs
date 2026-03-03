@@ -21,6 +21,6 @@ pub mod trace;
 pub mod ui_command;
 pub mod world;
 
-pub use engine::{GameCommand, GameEngine, GamePhase};
+pub use engine::{CountryPolicyOverrides, GameCommand, GameEngine, GamePhase};
 pub use runtime::SimulationMode;
 pub use ui_command::UiCommand;

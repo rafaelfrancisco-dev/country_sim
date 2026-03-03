@@ -4,10 +4,70 @@ pub const COMPANY_PAGE_SIZE: usize = 12;
 pub const CHART_PAGE_COUNT: usize = 3;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CountryPolicyField {
+    TaxBracket1Max,
+    TaxBracket2Max,
+    TaxRate1,
+    TaxRate2,
+    TaxRate3,
+    UnemploymentBenefitRate,
+    MedianIncomeReference,
+    BasicNeedsCashThreshold,
+}
+
+impl CountryPolicyField {
+    pub fn next(self) -> Self {
+        match self {
+            Self::TaxBracket1Max => Self::TaxBracket2Max,
+            Self::TaxBracket2Max => Self::TaxRate1,
+            Self::TaxRate1 => Self::TaxRate2,
+            Self::TaxRate2 => Self::TaxRate3,
+            Self::TaxRate3 => Self::UnemploymentBenefitRate,
+            Self::UnemploymentBenefitRate => Self::MedianIncomeReference,
+            Self::MedianIncomeReference => Self::BasicNeedsCashThreshold,
+            Self::BasicNeedsCashThreshold => Self::TaxBracket1Max,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::TaxBracket1Max => Self::BasicNeedsCashThreshold,
+            Self::TaxBracket2Max => Self::TaxBracket1Max,
+            Self::TaxRate1 => Self::TaxBracket2Max,
+            Self::TaxRate2 => Self::TaxRate1,
+            Self::TaxRate3 => Self::TaxRate2,
+            Self::UnemploymentBenefitRate => Self::TaxRate3,
+            Self::MedianIncomeReference => Self::UnemploymentBenefitRate,
+            Self::BasicNeedsCashThreshold => Self::MedianIncomeReference,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CountryPolicyFormState {
+    pub active_field: CountryPolicyField,
+    pub is_editing: bool,
+    pub draft_input: String,
+    pub validation_error: Option<String>,
+}
+
+impl Default for CountryPolicyFormState {
+    fn default() -> Self {
+        Self {
+            active_field: CountryPolicyField::TaxBracket1Max,
+            is_editing: false,
+            draft_input: String::new(),
+            validation_error: None,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DetailsView {
     List,
     Person,
     Country,
+    CountryPolicy,
     Company,
 }
 
@@ -97,6 +157,7 @@ pub struct UiState {
     pub events_search_query: String,
     pub stock_selected_row: usize,
     pub stock_page: usize,
+    pub country_policy_form: CountryPolicyFormState,
 }
 
 impl Default for UiState {
@@ -120,6 +181,7 @@ impl Default for UiState {
             events_search_query: String::new(),
             stock_selected_row: 0,
             stock_page: 0,
+            country_policy_form: CountryPolicyFormState::default(),
         }
     }
 }

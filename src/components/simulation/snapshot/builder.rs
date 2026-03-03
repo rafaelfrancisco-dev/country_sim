@@ -181,6 +181,11 @@ impl UiSnapshot {
         } else {
             Vec::new()
         };
+        let country_policy_lines = if is_main_tab {
+            country_policy_lines(world, ui)
+        } else {
+            Vec::new()
+        };
         let (
             company_details_lines,
             company_sold_history,
@@ -328,6 +333,8 @@ impl UiSnapshot {
             has_selected_country: selected_country.is_some(),
             person_details_lines,
             country_details_lines,
+            country_policy_lines,
+            country_policy_is_editing: ui.country_policy_form.is_editing,
             company_details_lines,
             company_sold_history,
             company_employee_history,

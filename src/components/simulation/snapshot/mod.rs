@@ -1,6 +1,6 @@
 use crate::{
     components::simulation::ui_state::{
-        ChartScope, EventsCategoryFilter, EventsSort, RunningTab, UiState,
+        ChartScope, CountryPolicyField, EventsCategoryFilter, EventsSort, RunningTab, UiState,
     },
     sim::{
         GameEngine, GamePhase,

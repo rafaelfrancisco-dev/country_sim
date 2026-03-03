@@ -100,7 +100,7 @@ impl SimulationWorker {
                             WorkerCommand::Ui(ui_command) => {
                                 Self::apply_ui_command(
                                     ui_command,
-                                    &engine,
+                                    &mut engine,
                                     &mut ui_state,
                                     &worker_sim_mode_state,
                                 );
@@ -274,7 +274,7 @@ impl SimulationWorker {
                             WorkerCommand::Ui(ui_command) => {
                                 Self::apply_ui_command(
                                     ui_command,
-                                    &engine,
+                                    &mut engine,
                                     &mut ui_state,
                                     &worker_sim_mode_state,
                                 );
@@ -395,7 +395,7 @@ impl SimulationWorker {
 
     fn apply_ui_command(
         ui_command: UiCommand,
-        engine: &GameEngine,
+        engine: &mut GameEngine,
         ui_state: &mut UiState,
         sim_mode_state: &AtomicU8,
     ) {
@@ -410,8 +410,16 @@ impl SimulationWorker {
             return;
         }
 
-        if let GamePhase::Running(world) = engine.phase() {
-            ui_state.apply(ui_command, world);
+        let domain_command = if let GamePhase::Running(world) = engine.phase() {
+            ui_state.apply(ui_command, world)
+        } else {
+            None
+        };
+        if let Some(domain_command) = domain_command {
+            let outcome = engine.apply(domain_command);
+            for warning in outcome.warnings {
+                warn!("simulation invariant warning: {warning}");
+            }
         }
     }
 

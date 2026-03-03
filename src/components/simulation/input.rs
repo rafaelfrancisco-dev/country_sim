@@ -264,6 +264,18 @@ impl Simulation {
         key: KeyEvent,
         input_state: RunningInputState,
     ) -> Option<SimulationCommand> {
+        if input_state.details_view == DetailsView::CountryPolicy {
+            return self.map_country_policy_key(key, input_state);
+        }
+
+        if input_state.details_view == DetailsView::Country
+            && matches!(key.code, KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'o'))
+        {
+            return Some(SimulationCommand::Ui(
+                UiCommand::OpenSelectedCountryPolicyDetails,
+            ));
+        }
+
         if input_state.details_view != DetailsView::List {
             if hotkeys::is_page_prev_key(key) {
                 return Some(SimulationCommand::Ui(UiCommand::DetailsPagePrev));
@@ -362,179 +374,42 @@ impl Simulation {
             _ => None,
         }
     }
+
+    fn map_country_policy_key(
+        &self,
+        key: KeyEvent,
+        input_state: RunningInputState,
+    ) -> Option<SimulationCommand> {
+        if input_state.country_policy_is_editing {
+            return match key.code {
+                KeyCode::Esc => Some(SimulationCommand::Ui(UiCommand::CountryPolicyCancelEdit)),
+                KeyCode::Enter => Some(SimulationCommand::Ui(UiCommand::CountryPolicySaveEdit)),
+                KeyCode::Backspace => {
+                    Some(SimulationCommand::Ui(UiCommand::CountryPolicyBackspace))
+                }
+                KeyCode::Char(c) if key.modifiers.is_empty() => {
+                    Some(SimulationCommand::Ui(UiCommand::CountryPolicyEditChar(c)))
+                }
+                _ => None,
+            };
+        }
+
+        match key.code {
+            KeyCode::Esc => Some(SimulationCommand::Ui(UiCommand::CloseCountryPolicyDetails)),
+            KeyCode::Enter => Some(SimulationCommand::Ui(UiCommand::CountryPolicyStartEdit)),
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'r') => {
+                Some(SimulationCommand::Ui(UiCommand::CountryPolicyResetManaged))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'w') => {
+                Some(SimulationCommand::Ui(UiCommand::CountryPolicyPrevField))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
+                Some(SimulationCommand::Ui(UiCommand::CountryPolicyNextField))
+            }
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn running_keymap_maps_tab_and_chart_controls() {
-        let simulation = Simulation::new();
-        let list_state = RunningInputState {
-            details_view: DetailsView::List,
-            selection_focus: SelectionFocus::Country,
-            active_tab: RunningTab::Main,
-            events_search_active: false,
-        };
-        let charts_state = RunningInputState {
-            active_tab: RunningTab::Charts,
-            ..list_state
-        };
-
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Tab), list_state),
-            Some(SimulationCommand::Ui(UiCommand::NextTab))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::BackTab), list_state),
-            Some(SimulationCommand::Ui(UiCommand::PrevTab))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('t')), list_state),
-            None
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('t')), charts_state),
-            Some(SimulationCommand::Ui(UiCommand::ToggleChartScope))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('m')), list_state),
-            Some(SimulationCommand::Ui(UiCommand::ToggleSimMode))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Left), list_state),
-            None
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('a')), list_state),
-            Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), list_state),
-            Some(SimulationCommand::Ui(UiCommand::SelectPrevCountryRow))
-        );
-    }
-
-    #[test]
-    fn running_keymap_maps_person_details_company_jump() {
-        let simulation = Simulation::new();
-        let state = RunningInputState {
-            details_view: DetailsView::Person,
-            selection_focus: SelectionFocus::People,
-            active_tab: RunningTab::Main,
-            events_search_active: false,
-        };
-
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('c')), state),
-            Some(SimulationCommand::Ui(UiCommand::JumpToEmployerCompany))
-        );
-    }
-
-    #[test]
-    fn chart_and_events_remap_applies_strict_keys() {
-        let simulation = Simulation::new();
-        let chart_state = RunningInputState {
-            details_view: DetailsView::List,
-            selection_focus: SelectionFocus::Country,
-            active_tab: RunningTab::Charts,
-            events_search_active: false,
-        };
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char(',')), chart_state),
-            Some(SimulationCommand::Ui(UiCommand::ChartPrevCountry))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('.')), chart_state),
-            Some(SimulationCommand::Ui(UiCommand::ChartNextCountry))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('<')), chart_state),
-            None
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageUp), chart_state),
-            Some(SimulationCommand::Ui(UiCommand::ChartPagePrev))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), chart_state),
-            Some(SimulationCommand::Ui(UiCommand::ChartPageNext))
-        );
-
-        let events_state = RunningInputState {
-            details_view: DetailsView::List,
-            selection_focus: SelectionFocus::Country,
-            active_tab: RunningTab::Events,
-            events_search_active: false,
-        };
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('o')), events_state),
-            Some(SimulationCommand::Ui(UiCommand::EventsToggleSort))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('f')), events_state),
-            Some(SimulationCommand::Ui(UiCommand::EventsNextCategory))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), events_state),
-            Some(SimulationCommand::Ui(UiCommand::EventsScrollDown))
-        );
-    }
-
-    #[test]
-    fn events_search_mode_keeps_characters_for_query() {
-        let simulation = Simulation::new();
-        let events_search_state = RunningInputState {
-            details_view: DetailsView::List,
-            selection_focus: SelectionFocus::Country,
-            active_tab: RunningTab::Events,
-            events_search_active: true,
-        };
-
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::Char('f')), events_search_state),
-            Some(SimulationCommand::Ui(UiCommand::EventsSearchChar('f')))
-        );
-    }
-
-    #[test]
-    fn detail_page_keys_map_in_main_and_goods_details_views() {
-        let simulation = Simulation::new();
-
-        let main_list = RunningInputState {
-            details_view: DetailsView::List,
-            selection_focus: SelectionFocus::People,
-            active_tab: RunningTab::Main,
-            events_search_active: false,
-        };
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), main_list),
-            Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
-        );
-
-        let main_person_details = RunningInputState {
-            details_view: DetailsView::Person,
-            ..main_list
-        };
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), main_person_details),
-            Some(SimulationCommand::Ui(UiCommand::DetailsPageNext))
-        );
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageUp), main_person_details),
-            Some(SimulationCommand::Ui(UiCommand::DetailsPagePrev))
-        );
-
-        let goods_company_details = RunningInputState {
-            details_view: DetailsView::Company,
-            selection_focus: SelectionFocus::Company,
-            active_tab: RunningTab::Goods,
-            events_search_active: false,
-        };
-        assert_eq!(
-            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), goods_company_details),
-            Some(SimulationCommand::Ui(UiCommand::DetailsPageNext))
-        );
-    }
-}
+mod tests;

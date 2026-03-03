@@ -97,6 +97,8 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub has_selected_country: bool,
     pub person_details_lines: Vec<String>,
     pub country_details_lines: Vec<String>,
+    pub country_policy_lines: Vec<String>,
+    pub country_policy_is_editing: bool,
     pub company_details_lines: Vec<String>,
     pub company_sold_history: Vec<f64>,
     pub company_employee_history: Vec<f64>,

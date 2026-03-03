@@ -102,9 +102,23 @@ impl Simulation {
             DetailsView::Country => {
                 self.draw_country_details(frame, body, world);
                 format!(
-                    "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page",
+                    "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page  [o] policy overrides",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
+            }
+            DetailsView::CountryPolicy => {
+                self.draw_country_policy_details(frame, body, world);
+                if world.country_policy_is_editing {
+                    format!(
+                        "Controls: {}  [Enter] save field  [Esc] cancel edit",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    )
+                } else {
+                    format!(
+                        "Controls: {}  [w/s] field  [Enter] edit field  [r] reset managed values  [Esc] back to country details",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    )
+                }
             }
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);

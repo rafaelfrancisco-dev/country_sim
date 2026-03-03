@@ -20,8 +20,6 @@ mod monthly;
 mod tax;
 
 pub const DAYS_PER_MONTH: u64 = 30;
-pub const TAX_BRACKET_1_MAX: f64 = 3_000.0;
-pub const TAX_BRACKET_2_MAX: f64 = 7_000.0;
 const PEOPLE_CHUNK_SIZE: usize = 2_048;
 const COMPANY_CHUNK_SIZE: usize = 16;
 
@@ -260,7 +258,7 @@ mod job_market;
 mod random;
 use job_market::*;
 use random::*;
-pub use tax::monthly_income_tax;
+pub use tax::{monthly_income_tax, monthly_income_tax_with_params};
 
 #[cfg(test)]
 mod tests;

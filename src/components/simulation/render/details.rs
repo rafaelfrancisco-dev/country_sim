@@ -90,6 +90,33 @@ impl Simulation {
             area,
         );
     }
+
+    pub(super) fn draw_country_policy_details(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+    ) {
+        let details = world
+            .country_policy_lines
+            .iter()
+            .map(|line| Line::from(line.as_str()))
+            .collect::<Vec<_>>();
+
+        frame.render_widget(
+            Paragraph::new(details)
+                .style(theme::primary_text())
+                .wrap(Wrap { trim: true })
+                .block(
+                    Block::default()
+                        .title(" Country Policy Overrides ")
+                        .borders(Borders::ALL)
+                        .border_style(theme::neutral_border())
+                        .title_style(theme::primary_text()),
+                ),
+            area,
+        );
+    }
 }
 
 #[cfg(test)]

@@ -28,6 +28,12 @@ The running UI uses one navigation convention across tabs:
 
 ## Tab-Specific Controls
 - `Main`: list navigation and person/country details; in person details, `c` jumps to employer company in Goods.
+  - In country details, `o` opens Country Policy Overrides.
+  - Country Policy Overrides form mode:
+    - `w` / `s`: previous/next editable field
+    - `Enter`: start editing focused field, then save
+    - `r`: reset all editable policy values to country-managed defaults
+    - `Esc`: cancel field edit; when not editing, return to country details
 - `Goods`: country/company navigation, company details panel.
 - `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.

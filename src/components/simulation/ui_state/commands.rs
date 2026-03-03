@@ -1,8 +1,10 @@
 use super::*;
+use crate::sim::{CountryPolicyOverrides, GameCommand};
 
 impl UiState {
-    pub fn apply(&mut self, command: UiCommand, world: &World) {
+    pub fn apply(&mut self, command: UiCommand, world: &World) -> Option<GameCommand> {
         self.ensure_valid(world);
+        let mut pending_domain_command = None;
         match command {
             UiCommand::FocusCountrySelection => self.selection_focus = SelectionFocus::Country,
             UiCommand::FocusPeopleSelection => self.selection_focus = SelectionFocus::People,
@@ -21,11 +23,98 @@ impl UiState {
             UiCommand::CompanyPagePrev => self.prev_company_page(world),
             UiCommand::OpenSelectedPersonDetails => self.open_selected_person_details(world),
             UiCommand::OpenSelectedCountryDetails => self.open_selected_country_details(world),
+            UiCommand::OpenSelectedCountryPolicyDetails => {
+                self.open_selected_country_policy_details(world);
+            }
             UiCommand::OpenSelectedCompanyDetails => self.open_selected_company_details(world),
             UiCommand::JumpToEmployerCompany => self.jump_to_employer_company(world),
+            UiCommand::CloseCountryPolicyDetails => {
+                if self.details_view == DetailsView::CountryPolicy {
+                    self.details_view = DetailsView::Country;
+                    self.details_page = 0;
+                    self.country_policy_form.is_editing = false;
+                    self.country_policy_form.draft_input.clear();
+                    self.country_policy_form.validation_error = None;
+                }
+            }
+            UiCommand::CountryPolicyPrevField => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && !self.country_policy_form.is_editing
+                {
+                    self.country_policy_form.active_field =
+                        self.country_policy_form.active_field.prev();
+                    self.country_policy_form.validation_error = None;
+                }
+            }
+            UiCommand::CountryPolicyNextField => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && !self.country_policy_form.is_editing
+                {
+                    self.country_policy_form.active_field =
+                        self.country_policy_form.active_field.next();
+                    self.country_policy_form.validation_error = None;
+                }
+            }
+            UiCommand::CountryPolicyStartEdit => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && !self.country_policy_form.is_editing
+                    && let Some(country) = self.selected_country(world)
+                {
+                    let value = Self::country_policy_field_value(
+                        country,
+                        self.country_policy_form.active_field,
+                    );
+                    self.country_policy_form.draft_input = Self::format_country_policy_value(
+                        self.country_policy_form.active_field,
+                        value,
+                    );
+                    self.country_policy_form.is_editing = true;
+                    self.country_policy_form.validation_error = None;
+                }
+            }
+            UiCommand::CountryPolicyEditChar(c) => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && self.country_policy_form.is_editing
+                    && (c.is_ascii_digit() || c == '.')
+                {
+                    self.country_policy_form.draft_input.push(c);
+                }
+            }
+            UiCommand::CountryPolicyBackspace => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && self.country_policy_form.is_editing
+                {
+                    self.country_policy_form.draft_input.pop();
+                }
+            }
+            UiCommand::CountryPolicySaveEdit => {
+                pending_domain_command = self.commit_country_policy_edit(world);
+            }
+            UiCommand::CountryPolicyCancelEdit => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && self.country_policy_form.is_editing
+                {
+                    self.country_policy_form.is_editing = false;
+                    self.country_policy_form.draft_input.clear();
+                    self.country_policy_form.validation_error = None;
+                }
+            }
+            UiCommand::CountryPolicyResetManaged => {
+                if self.details_view == DetailsView::CountryPolicy
+                    && !self.country_policy_form.is_editing
+                    && self.selected_country(world).is_some()
+                {
+                    self.country_policy_form.validation_error = None;
+                    pending_domain_command = Some(GameCommand::UpdateCountryPolicy {
+                        country_idx: self.selected_country,
+                        policy: CountryPolicyOverrides::managed_defaults(),
+                    });
+                }
+            }
             UiCommand::CloseDetails => {
                 self.details_view = DetailsView::List;
                 self.details_page = 0;
+                self.country_policy_form = CountryPolicyFormState::default();
             }
             UiCommand::DetailsPagePrev => {
                 self.details_page = self.details_page.saturating_sub(1);
@@ -93,6 +182,120 @@ impl UiState {
                 self.stock_page = self.stock_page.saturating_add(1);
                 self.stock_selected_row = 0;
             }
+        }
+
+        pending_domain_command
+    }
+
+    fn commit_country_policy_edit(&mut self, world: &World) -> Option<GameCommand> {
+        if self.details_view != DetailsView::CountryPolicy || !self.country_policy_form.is_editing {
+            return None;
+        }
+        let Some(country) = self.selected_country(world) else {
+            return None;
+        };
+
+        let field = self.country_policy_form.active_field;
+        let raw_input = self.country_policy_form.draft_input.trim();
+        let Ok(value) = raw_input.parse::<f64>() else {
+            self.country_policy_form.validation_error = Some("Value must be numeric.".to_string());
+            return None;
+        };
+        if !value.is_finite() {
+            self.country_policy_form.validation_error = Some("Value must be finite.".to_string());
+            return None;
+        }
+
+        let tax = country.sim_params.tax;
+        let is_valid = match field {
+            CountryPolicyField::TaxBracket1Max => value >= 0.0,
+            CountryPolicyField::TaxBracket2Max => value >= tax.bracket_1_max.max(0.0),
+            CountryPolicyField::TaxRate1
+            | CountryPolicyField::TaxRate2
+            | CountryPolicyField::TaxRate3
+            | CountryPolicyField::UnemploymentBenefitRate => (0.0..=1.0).contains(&value),
+            CountryPolicyField::MedianIncomeReference
+            | CountryPolicyField::BasicNeedsCashThreshold => value >= 0.0,
+        };
+        if !is_valid {
+            self.country_policy_form.validation_error =
+                Some(Self::country_policy_validation_message(field).to_string());
+            return None;
+        }
+
+        let mut policy = CountryPolicyOverrides::from_country(country);
+        match field {
+            CountryPolicyField::TaxBracket1Max => policy.bracket_1_max = value,
+            CountryPolicyField::TaxBracket2Max => policy.bracket_2_max = value,
+            CountryPolicyField::TaxRate1 => policy.rate_1 = value,
+            CountryPolicyField::TaxRate2 => policy.rate_2 = value,
+            CountryPolicyField::TaxRate3 => policy.rate_3 = value,
+            CountryPolicyField::UnemploymentBenefitRate => policy.unemployment_benefit_rate = value,
+            CountryPolicyField::MedianIncomeReference => policy.median_income_reference = value,
+            CountryPolicyField::BasicNeedsCashThreshold => {
+                policy.basic_needs_cash_threshold = value
+            }
+        }
+
+        self.country_policy_form.is_editing = false;
+        self.country_policy_form.draft_input.clear();
+        self.country_policy_form.validation_error = None;
+
+        Some(GameCommand::UpdateCountryPolicy {
+            country_idx: self.selected_country,
+            policy,
+        })
+    }
+
+    fn country_policy_validation_message(field: CountryPolicyField) -> &'static str {
+        match field {
+            CountryPolicyField::TaxBracket1Max => "Bracket 1 max must be >= 0.",
+            CountryPolicyField::TaxBracket2Max => "Bracket 2 max must be >= Bracket 1 max.",
+            CountryPolicyField::TaxRate1
+            | CountryPolicyField::TaxRate2
+            | CountryPolicyField::TaxRate3 => "Tax rates must be between 0 and 1.",
+            CountryPolicyField::UnemploymentBenefitRate => {
+                "Unemployment benefit rate must be between 0 and 1."
+            }
+            CountryPolicyField::MedianIncomeReference => "Median income reference must be >= 0.",
+            CountryPolicyField::BasicNeedsCashThreshold => {
+                "Basic-needs cash threshold must be >= 0."
+            }
+        }
+    }
+
+    fn country_policy_field_value(
+        country: &crate::sim::country::Country,
+        field: CountryPolicyField,
+    ) -> f64 {
+        match field {
+            CountryPolicyField::TaxBracket1Max => country.sim_params.tax.bracket_1_max,
+            CountryPolicyField::TaxBracket2Max => country.sim_params.tax.bracket_2_max,
+            CountryPolicyField::TaxRate1 => country.sim_params.tax.rate_1,
+            CountryPolicyField::TaxRate2 => country.sim_params.tax.rate_2,
+            CountryPolicyField::TaxRate3 => country.sim_params.tax.rate_3,
+            CountryPolicyField::UnemploymentBenefitRate => {
+                country.sim_params.fiscal.unemployment_benefit_rate
+            }
+            CountryPolicyField::MedianIncomeReference => {
+                country.sim_params.fiscal.median_income_reference
+            }
+            CountryPolicyField::BasicNeedsCashThreshold => {
+                country.sim_params.fiscal.basic_needs_cash_threshold
+            }
+        }
+    }
+
+    fn format_country_policy_value(field: CountryPolicyField, value: f64) -> String {
+        match field {
+            CountryPolicyField::TaxRate1
+            | CountryPolicyField::TaxRate2
+            | CountryPolicyField::TaxRate3
+            | CountryPolicyField::UnemploymentBenefitRate => format!("{value:.4}"),
+            CountryPolicyField::TaxBracket1Max
+            | CountryPolicyField::TaxBracket2Max
+            | CountryPolicyField::MedianIncomeReference
+            | CountryPolicyField::BasicNeedsCashThreshold => format!("{value:.2}"),
         }
     }
 
@@ -210,137 +413,4 @@ impl UiState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::sim::{country::Country, person::Person};
-
-    fn build_people(count: usize) -> Vec<Person> {
-        (0..count)
-            .map(|idx| Person::new(idx as u32, (idx % 10) as u8, 0, idx as u32 + 1))
-            .collect()
-    }
-
-    fn sample_world() -> World {
-        World::new(vec![Country::new(1, "A".to_string(), build_people(4))])
-    }
-
-    fn sample_world_two_countries() -> World {
-        World::new(vec![
-            Country::new(1, "A".to_string(), build_people(4)),
-            Country::new(2, "B".to_string(), build_people(3)),
-        ])
-    }
-
-    #[test]
-    fn chart_page_commands_clamp_to_valid_range() {
-        let world = sample_world();
-        let mut ui = UiState::default();
-
-        for _ in 0..16 {
-            ui.apply(UiCommand::ChartPageNext, &world);
-        }
-        assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
-
-        for _ in 0..16 {
-            ui.apply(UiCommand::ChartPagePrev, &world);
-        }
-        assert_eq!(ui.chart_page, 0);
-    }
-
-    #[test]
-    fn ensure_valid_clamps_chart_page() {
-        let world = sample_world();
-        let mut ui = UiState {
-            chart_page: CHART_PAGE_COUNT + 5,
-            ..UiState::default()
-        };
-
-        ui.ensure_valid(&world);
-        assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
-    }
-
-    #[test]
-    fn ensure_valid_resets_chart_page_when_world_is_empty() {
-        let world = World::new(vec![]);
-        let mut ui = UiState {
-            chart_page: 2,
-            ..UiState::default()
-        };
-
-        ui.ensure_valid(&world);
-        assert_eq!(ui.chart_page, 0);
-    }
-
-    #[test]
-    fn details_page_commands_adjust_and_close_resets() {
-        let world = sample_world();
-        let mut ui = UiState {
-            details_view: DetailsView::Person,
-            details_page: 0,
-            ..UiState::default()
-        };
-
-        ui.apply(UiCommand::DetailsPageNext, &world);
-        ui.apply(UiCommand::DetailsPageNext, &world);
-        assert_eq!(ui.details_page, 2);
-
-        ui.apply(UiCommand::DetailsPagePrev, &world);
-        assert_eq!(ui.details_page, 1);
-
-        ui.apply(UiCommand::CloseDetails, &world);
-        assert_eq!(ui.details_view, DetailsView::List);
-        assert_eq!(ui.details_page, 0);
-    }
-
-    #[test]
-    fn opening_details_resets_details_page() {
-        let world = sample_world();
-        let mut ui = UiState {
-            selection_focus: SelectionFocus::People,
-            details_page: 4,
-            ..UiState::default()
-        };
-
-        ui.apply(UiCommand::OpenSelectedPersonDetails, &world);
-        assert_eq!(ui.details_view, DetailsView::Person);
-        assert_eq!(ui.details_page, 0);
-    }
-
-    #[test]
-    fn changing_country_resets_details_page() {
-        let world = sample_world_two_countries();
-        let mut ui = UiState {
-            details_view: DetailsView::Country,
-            details_page: 6,
-            people_page: 1,
-            company_page: 1,
-            selected_country: 0,
-            ..UiState::default()
-        };
-
-        ui.apply(UiCommand::SelectNextCountryRow, &world);
-        assert_eq!(ui.selected_country, 1);
-        assert_eq!(ui.details_view, DetailsView::List);
-        assert_eq!(ui.details_page, 0);
-        assert_eq!(ui.people_page, 0);
-        assert_eq!(ui.company_page, 0);
-    }
-
-    #[test]
-    fn events_category_cycles_and_resets_scroll() {
-        let world = sample_world();
-        let mut ui = UiState {
-            events_scroll: 9,
-            ..UiState::default()
-        };
-
-        ui.apply(UiCommand::EventsNextCategory, &world);
-        assert_eq!(ui.events_category, EventsCategoryFilter::StockMarket);
-        assert_eq!(ui.events_scroll, 0);
-
-        for _ in 0..6 {
-            ui.apply(UiCommand::EventsNextCategory, &world);
-        }
-        assert_eq!(ui.events_category, EventsCategoryFilter::All);
-    }
-}
+mod tests;

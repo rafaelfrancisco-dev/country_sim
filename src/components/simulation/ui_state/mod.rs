@@ -6,6 +6,7 @@ mod types;
 mod views;
 
 pub use types::{
-    CHART_PAGE_COUNT, COMPANY_PAGE_SIZE, COUNTRY_PAGE_SIZE, ChartScope, DetailsView,
-    EventsCategoryFilter, EventsSort, PEOPLE_PAGE_SIZE, RunningTab, SelectionFocus, UiState,
+    CHART_PAGE_COUNT, COMPANY_PAGE_SIZE, COUNTRY_PAGE_SIZE, ChartScope, CountryPolicyField,
+    CountryPolicyFormState, DetailsView, EventsCategoryFilter, EventsSort, PEOPLE_PAGE_SIZE,
+    RunningTab, SelectionFocus, UiState,
 };

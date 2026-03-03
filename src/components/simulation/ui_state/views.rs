@@ -20,6 +20,21 @@ impl UiState {
         if self.selected_country(world).is_some() {
             self.details_view = DetailsView::Country;
             self.details_page = 0;
+            self.country_policy_form = CountryPolicyFormState::default();
+        }
+    }
+
+    pub(super) fn open_selected_country_policy_details(&mut self, world: &World) {
+        if self.details_view != DetailsView::Country {
+            return;
+        }
+
+        if self.selected_country(world).is_some() {
+            self.details_view = DetailsView::CountryPolicy;
+            self.details_page = 0;
+            self.country_policy_form.validation_error = None;
+            self.country_policy_form.is_editing = false;
+            self.country_policy_form.draft_input.clear();
         }
     }
 
@@ -93,6 +108,7 @@ impl UiState {
         self.selected_company_row = 0;
         self.details_view = DetailsView::List;
         self.details_page = 0;
+        self.country_policy_form = CountryPolicyFormState::default();
     }
 
     pub(super) fn clamp_selected_person_row(&mut self, world: &World) {

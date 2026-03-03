@@ -32,7 +32,7 @@ use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, RunningTab, SelectionFocus};
 use worker::{RenderSnapshot, SimulationWorker};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum SimulationCommand {
     Domain(GameCommand),
     Ui(UiCommand),
@@ -44,6 +44,7 @@ pub(super) struct RunningInputState {
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
     pub events_search_active: bool,
+    pub country_policy_is_editing: bool,
 }
 
 #[derive(Debug)]
@@ -108,6 +109,7 @@ impl Simulation {
                 selection_focus: SelectionFocus::Country,
                 active_tab: RunningTab::Main,
                 events_search_active: false,
+                country_policy_is_editing: false,
             },
             action_tx: None,
         }
@@ -139,6 +141,7 @@ impl Simulation {
                     selection_focus: world.selection_focus,
                     active_tab: world.active_tab,
                     events_search_active: world.events_search_active,
+                    country_policy_is_editing: world.country_policy_is_editing,
                 };
             }
         }

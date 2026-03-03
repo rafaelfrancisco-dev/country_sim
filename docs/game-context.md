@@ -69,7 +69,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Numeric validation with memory warning (non-blocking)
 
 ### Running
-- `Main`: countries and people tables + details views
+- `Main`: countries and people tables + details views, including country policy overrides
 - `Goods`: company and goods market table + company details
 - `Stocks`: stock table + market summary + stock charts
 - `Charts`: 3x2 monthly trend dashboard

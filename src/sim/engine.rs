@@ -13,7 +13,7 @@ pub enum GamePhase {
     Running(World),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameCommand {
     SetupEditChar(char),
     SetupBackspace,
@@ -22,7 +22,54 @@ pub enum GameCommand {
     SetupSubmit,
     TogglePause,
     StepOneDay,
+    UpdateCountryPolicy {
+        country_idx: usize,
+        policy: CountryPolicyOverrides,
+    },
     Tick,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct CountryPolicyOverrides {
+    pub bracket_1_max: f64,
+    pub bracket_2_max: f64,
+    pub rate_1: f64,
+    pub rate_2: f64,
+    pub rate_3: f64,
+    pub unemployment_benefit_rate: f64,
+    pub median_income_reference: f64,
+    pub basic_needs_cash_threshold: f64,
+}
+
+impl CountryPolicyOverrides {
+    pub fn from_country(country: &crate::sim::country::Country) -> Self {
+        let tax = country.sim_params.tax;
+        let fiscal = country.sim_params.fiscal;
+        Self {
+            bracket_1_max: tax.bracket_1_max,
+            bracket_2_max: tax.bracket_2_max,
+            rate_1: tax.rate_1,
+            rate_2: tax.rate_2,
+            rate_3: tax.rate_3,
+            unemployment_benefit_rate: fiscal.unemployment_benefit_rate,
+            median_income_reference: fiscal.median_income_reference,
+            basic_needs_cash_threshold: fiscal.basic_needs_cash_threshold,
+        }
+    }
+
+    pub fn managed_defaults() -> Self {
+        let params = crate::sim::params::SimulationParams::default();
+        Self {
+            bracket_1_max: params.tax.bracket_1_max,
+            bracket_2_max: params.tax.bracket_2_max,
+            rate_1: params.tax.rate_1,
+            rate_2: params.tax.rate_2,
+            rate_3: params.tax.rate_3,
+            unemployment_benefit_rate: params.fiscal.unemployment_benefit_rate,
+            median_income_reference: params.fiscal.median_income_reference,
+            basic_needs_cash_threshold: params.fiscal.basic_needs_cash_threshold,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -172,6 +219,29 @@ impl GameEngine {
                     world.tick_day();
                 }
             }
+            GameCommand::UpdateCountryPolicy {
+                country_idx,
+                policy,
+            } => {
+                let Some(country) = world.countries.get_mut(country_idx) else {
+                    return;
+                };
+
+                let bracket_1_max = policy.bracket_1_max.max(0.0);
+                let bracket_2_max = policy.bracket_2_max.max(bracket_1_max);
+                country.sim_params.tax.bracket_1_max = bracket_1_max;
+                country.sim_params.tax.bracket_2_max = bracket_2_max;
+                country.sim_params.tax.rate_1 = policy.rate_1.clamp(0.0, 1.0);
+                country.sim_params.tax.rate_2 = policy.rate_2.clamp(0.0, 1.0);
+                country.sim_params.tax.rate_3 = policy.rate_3.clamp(0.0, 1.0);
+
+                country.sim_params.fiscal.unemployment_benefit_rate =
+                    policy.unemployment_benefit_rate.clamp(0.0, 1.0);
+                country.sim_params.fiscal.median_income_reference =
+                    policy.median_income_reference.max(0.0);
+                country.sim_params.fiscal.basic_needs_cash_threshold =
+                    policy.basic_needs_cash_threshold.max(0.0);
+            }
             _ => {}
         }
     }
@@ -300,5 +370,73 @@ mod tests {
 
         let world = engine.world().expect("world should exist");
         assert_eq!(world.generation_seed, 0x123);
+    }
+
+    #[test]
+    fn update_country_policy_changes_only_target_country() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 2), country(2, "B", 2)])),
+            ..GameEngine::default()
+        };
+        let original_first = engine.world().expect("world exists").countries[0]
+            .sim_params
+            .clone();
+
+        let policy = CountryPolicyOverrides {
+            bracket_1_max: 2_500.0,
+            bracket_2_max: 6_000.0,
+            rate_1: 0.08,
+            rate_2: 0.18,
+            rate_3: 0.28,
+            unemployment_benefit_rate: 0.42,
+            median_income_reference: 2_400.0,
+            basic_needs_cash_threshold: 650.0,
+        };
+        engine.apply(GameCommand::UpdateCountryPolicy {
+            country_idx: 1,
+            policy,
+        });
+
+        let world = engine.world().expect("world exists");
+        let first = &world.countries[0];
+        let second = &world.countries[1];
+
+        assert_eq!(first.sim_params, original_first);
+        assert!((second.sim_params.tax.bracket_1_max - 2_500.0).abs() < f64::EPSILON);
+        assert!((second.sim_params.tax.bracket_2_max - 6_000.0).abs() < f64::EPSILON);
+        assert!((second.sim_params.tax.rate_1 - 0.08).abs() < f64::EPSILON);
+        assert!((second.sim_params.tax.rate_2 - 0.18).abs() < f64::EPSILON);
+        assert!((second.sim_params.tax.rate_3 - 0.28).abs() < f64::EPSILON);
+        assert!((second.sim_params.fiscal.unemployment_benefit_rate - 0.42).abs() < f64::EPSILON);
+        assert!((second.sim_params.fiscal.median_income_reference - 2_400.0).abs() < f64::EPSILON);
+        assert!((second.sim_params.fiscal.basic_needs_cash_threshold - 650.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn update_country_policy_ignores_out_of_bounds_country_index() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 1)])),
+            ..GameEngine::default()
+        };
+        let before = engine.world().expect("world exists").countries[0]
+            .sim_params
+            .clone();
+
+        engine.apply(GameCommand::UpdateCountryPolicy {
+            country_idx: 99,
+            policy: CountryPolicyOverrides {
+                bracket_1_max: 1_000.0,
+                bracket_2_max: 2_000.0,
+                rate_1: 0.05,
+                rate_2: 0.10,
+                rate_3: 0.15,
+                unemployment_benefit_rate: 0.10,
+                median_income_reference: 1_000.0,
+                basic_needs_cash_threshold: 100.0,
+            },
+        });
+
+        let after = &engine.world().expect("world exists").countries[0].sim_params;
+        assert_eq!(*after, before);
     }
 }

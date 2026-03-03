@@ -206,7 +206,7 @@ impl Country {
                 0.0
             };
 
-            let tax = monthly_income_tax(gross_pay).min(gross_pay);
+            let tax = monthly_income_tax_with_params(gross_pay, self.sim_params.tax).min(gross_pay);
             let net_pay = round_cents(gross_pay - tax);
 
             person.cash_balance = round_cents(person.cash_balance + net_pay);
