@@ -1,7 +1,10 @@
 use crate::{
-    components::simulation::ui_state::{ChartScope, EventsSort, RunningTab, UiState},
+    components::simulation::ui_state::{
+        ChartScope, EventsCategoryFilter, EventsSort, RunningTab, UiState,
+    },
     sim::{
         GameEngine, GamePhase,
+        event::EventCategory,
         good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,

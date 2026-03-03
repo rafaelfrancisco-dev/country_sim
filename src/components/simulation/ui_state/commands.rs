@@ -55,6 +55,10 @@ impl UiState {
                     EventsSort::OldestFirst => EventsSort::NewestFirst,
                 };
             }
+            UiCommand::EventsNextCategory => {
+                self.events_category = self.events_category.next();
+                self.events_scroll = 0;
+            }
             UiCommand::EventsToggleSearch => {
                 self.events_search_active = !self.events_search_active;
             }
@@ -320,5 +324,23 @@ mod tests {
         assert_eq!(ui.details_page, 0);
         assert_eq!(ui.people_page, 0);
         assert_eq!(ui.company_page, 0);
+    }
+
+    #[test]
+    fn events_category_cycles_and_resets_scroll() {
+        let world = sample_world();
+        let mut ui = UiState {
+            events_scroll: 9,
+            ..UiState::default()
+        };
+
+        ui.apply(UiCommand::EventsNextCategory, &world);
+        assert_eq!(ui.events_category, EventsCategoryFilter::StockMarket);
+        assert_eq!(ui.events_scroll, 0);
+
+        for _ in 0..6 {
+            ui.apply(UiCommand::EventsNextCategory, &world);
+        }
+        assert_eq!(ui.events_category, EventsCategoryFilter::All);
     }
 }

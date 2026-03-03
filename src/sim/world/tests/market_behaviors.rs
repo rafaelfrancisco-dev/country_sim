@@ -185,7 +185,10 @@ fn production_uses_only_manufacturing_workers() {
         world.countries[0].companies[0].manufacturing_employee_count,
         1
     );
-    assert_eq!(world.countries[0].companies[0].last_month_units_produced, 116);
+    assert_eq!(
+        world.countries[0].companies[0].last_month_units_produced,
+        116
+    );
 }
 
 #[test]

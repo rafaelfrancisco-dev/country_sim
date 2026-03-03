@@ -26,7 +26,9 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - page 2: fiscal and external-sector metrics (treasury/budget, taxes/spending, debt, trade flows)
   - page 3: prices, stress, and market-risk metrics (CPI/inflation/rates, unmet needs, stock risk)
 - Events log with scrollable history of births, deaths, loans, debt distress, and government transfers
-  - `/` to search, `o` to toggle sort order (newest/oldest first)
+  - `/` to search, `o` to toggle sort order (newest/oldest first), `f` to cycle category filter
+  - category filter options: `All`, `Stock Market`, `Births/Deaths`, `Bankruptcies & Distress`, `Loans & Debt`, `Companies & Labor`, `Government & Policy`
+  - search and category filters are combined (intersection)
 - Government spending system:
   - Monthly unemployment benefits paid to working-age (18-65) unemployed adults
   - Basic needs safety net tops up cash for people with unmet essential needs

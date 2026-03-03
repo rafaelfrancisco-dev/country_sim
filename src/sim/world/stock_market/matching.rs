@@ -249,7 +249,8 @@ fn append_retail_orders_for_person(
         if has_position && free_shares > 0 && !want_sell && !distress_sell {
             if let Some(pos) = position {
                 if pos.avg_cost > 0.0
-                    && context.last_price > pos.avg_cost * (1.0 + params.retail_take_profit_gain_threshold)
+                    && context.last_price
+                        > pos.avg_cost * (1.0 + params.retail_take_profit_gain_threshold)
                 {
                     profit_taking = true;
                     want_sell = true;
@@ -258,7 +259,9 @@ fn append_retail_orders_for_person(
         }
 
         if !want_buy && !want_sell {
-            if has_position && unit_interval(hash64(order_seed ^ 0x8888)) < params.retail_random_sell_prob {
+            if has_position
+                && unit_interval(hash64(order_seed ^ 0x8888)) < params.retail_random_sell_prob
+            {
                 want_sell = true;
             } else if !has_position && unit_interval(hash64(order_seed ^ 0x9999)) < 0.02 {
                 want_buy = true;
@@ -498,7 +501,11 @@ pub(in crate::sim::world) fn run_country_stock_market(
         } else {
             0.0
         };
-        let pressure_multiplier = if exposure_ratio > 1.0 { exposure_ratio.min(5.0) } else { 1.0 };
+        let pressure_multiplier = if exposure_ratio > 1.0 {
+            exposure_ratio.min(5.0)
+        } else {
+            1.0
+        };
         let ask_cap = ((context.max_order_by_float as f64 * pressure_multiplier).floor() as u64)
             .max(context.max_order_by_float);
         let ask_shares = bank_inventory.min(ask_cap);

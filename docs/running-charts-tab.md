@@ -32,7 +32,9 @@ The running UI uses one navigation convention across tabs:
 - `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
-- `Events`: `/` toggles search editing, `o` toggles sort order, `Ctrl+u` clears search query while editing.
+- `Events`: `/` toggles search editing, `o` toggles sort order, `f` cycles event category, `Ctrl+u` clears search query while editing.
+  - Category cycle order: `All` -> `Stock Market` -> `Births/Deaths` -> `Bankruptcies & Distress` -> `Loans & Debt` -> `Companies & Labor` -> `Government & Policy` -> `All`
+  - When both a search query and category are set, results must match both filters.
 
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 

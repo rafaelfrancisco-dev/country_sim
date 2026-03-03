@@ -35,6 +35,7 @@ pub enum UiCommand {
     EventsScrollUp,
     EventsScrollDown,
     EventsToggleSort,
+    EventsNextCategory,
     EventsToggleSearch,
     EventsSearchChar(char),
     EventsSearchBackspace,

@@ -10,8 +10,7 @@ impl Country {
         let Some(high_margin_good_id) = self.pick_startup_target_good(
             formation.high_margin_threshold,
             formation.necessity_startup_sales_floor,
-        )
-        else {
+        ) else {
             return false;
         };
 
@@ -65,8 +64,8 @@ impl Country {
             return false;
         }
 
-        let labor_slack = (self.labor_force_unemployment_rate() - formation.labor_slack_startup_trigger)
-            .max(0.0);
+        let labor_slack =
+            (self.labor_force_unemployment_rate() - formation.labor_slack_startup_trigger).max(0.0);
         let dynamic_openings = formation
             .startup_openings_min
             .saturating_add((labor_slack * 20.0).round() as u16);
@@ -196,7 +195,8 @@ impl Country {
         }
 
         let mut remaining = founder_capital_needed;
-        let mut founder_contributions: Vec<(usize, u32, f64)> = Vec::with_capacity(founder_pool.len());
+        let mut founder_contributions: Vec<(usize, u32, f64)> =
+            Vec::with_capacity(founder_pool.len());
         for (founder_idx, (_, _, investable)) in founder_pool.iter().copied().enumerate() {
             let contribution = if founder_idx + 1 == founder_pool.len() {
                 founder_capital_needed.min(remaining)
@@ -217,16 +217,17 @@ impl Country {
         startup.cash_balance = round_cents(founder_capital_needed + startup_loan);
         let founder_share_base = self.sim_params.stock_market.ipo_initial_shares.max(1);
         let mut remaining_shares = founder_share_base;
-        for (idx, (_, person_id, contribution)) in founder_contributions.iter().copied().enumerate() {
+        for (idx, (_, person_id, contribution)) in founder_contributions.iter().copied().enumerate()
+        {
             let shares_owned = if idx + 1 == founder_contributions.len() {
                 remaining_shares
             } else if founder_capital_needed <= 0.0 {
                 let even = founder_share_base / founder_contributions.len() as u64;
                 even.min(remaining_shares)
             } else {
-                let proportional =
-                    ((founder_share_base as f64) * (contribution / founder_capital_needed)).round()
-                        as u64;
+                let proportional = ((founder_share_base as f64)
+                    * (contribution / founder_capital_needed))
+                    .round() as u64;
                 proportional.max(1).min(remaining_shares)
             };
             remaining_shares = remaining_shares.saturating_sub(shares_owned);
@@ -279,7 +280,8 @@ impl Country {
             if good_idx >= GOODS_COUNT {
                 continue;
             }
-            sales_by_good[good_idx] = round_cents(sales_by_good[good_idx] + company.last_month_sales);
+            sales_by_good[good_idx] =
+                round_cents(sales_by_good[good_idx] + company.last_month_sales);
             profit_by_good[good_idx] =
                 round_cents(profit_by_good[good_idx] + company.last_month_profit);
             producer_count[good_idx] = producer_count[good_idx].saturating_add(1);
@@ -328,8 +330,14 @@ impl Country {
         let Some(good) = good_by_id(good_id) else {
             return observed_avg;
         };
-        let market_price = self.average_price_for_good(good_id).max(good.base_unit_cost);
-        let active_population = self.people.iter().filter(|person| person.can_seek_job()).count();
+        let market_price = self
+            .average_price_for_good(good_id)
+            .max(good.base_unit_cost);
+        let active_population = self
+            .people
+            .iter()
+            .filter(|person| person.can_seek_job())
+            .count();
         if active_population == 0 {
             return observed_avg;
         }

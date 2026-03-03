@@ -285,6 +285,7 @@ impl UiSnapshot {
             let mut event_log_lines: Vec<String> = world
                 .event_log
                 .iter()
+                .filter(|event| event_matches_category(event.category(), ui.events_category))
                 .map(|e| e.format())
                 .filter(|line| {
                     search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower)
@@ -302,6 +303,7 @@ impl UiSnapshot {
             EventsSort::NewestFirst => "Newest First",
             EventsSort::OldestFirst => "Oldest First",
         };
+        let events_category_label = ui.events_category.label();
 
         RunningSnapshot {
             day: world.day,
@@ -350,6 +352,7 @@ impl UiSnapshot {
             events_total_count,
             events_scroll: ui.events_scroll,
             events_sort_label,
+            events_category_label,
             events_search_active: ui.events_search_active,
             events_search_query: ui.events_search_query.clone(),
             stock_rows,
@@ -361,6 +364,26 @@ impl UiSnapshot {
             stock_page: ui.stock_page,
             stock_selected_row: ui.stock_selected_row,
             stock_person_details_lines,
+        }
+    }
+}
+
+fn event_matches_category(event_category: EventCategory, filter: EventsCategoryFilter) -> bool {
+    match filter {
+        EventsCategoryFilter::All => true,
+        EventsCategoryFilter::StockMarket => matches!(event_category, EventCategory::StockMarket),
+        EventsCategoryFilter::BirthsDeaths => {
+            matches!(event_category, EventCategory::BirthsDeaths)
+        }
+        EventsCategoryFilter::BankruptciesDistress => {
+            matches!(event_category, EventCategory::BankruptciesDistress)
+        }
+        EventsCategoryFilter::LoansDebt => matches!(event_category, EventCategory::LoansDebt),
+        EventsCategoryFilter::CompaniesLabor => {
+            matches!(event_category, EventCategory::CompaniesLabor)
+        }
+        EventsCategoryFilter::GovernmentPolicy => {
+            matches!(event_category, EventCategory::GovernmentPolicy)
         }
     }
 }

@@ -35,6 +35,43 @@ pub enum EventsSort {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum EventsCategoryFilter {
+    All,
+    StockMarket,
+    BirthsDeaths,
+    BankruptciesDistress,
+    LoansDebt,
+    CompaniesLabor,
+    GovernmentPolicy,
+}
+
+impl EventsCategoryFilter {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::StockMarket => "Stock Market",
+            Self::BirthsDeaths => "Births/Deaths",
+            Self::BankruptciesDistress => "Bankruptcies & Distress",
+            Self::LoansDebt => "Loans & Debt",
+            Self::CompaniesLabor => "Companies & Labor",
+            Self::GovernmentPolicy => "Government & Policy",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::All => Self::StockMarket,
+            Self::StockMarket => Self::BirthsDeaths,
+            Self::BirthsDeaths => Self::BankruptciesDistress,
+            Self::BankruptciesDistress => Self::LoansDebt,
+            Self::LoansDebt => Self::CompaniesLabor,
+            Self::CompaniesLabor => Self::GovernmentPolicy,
+            Self::GovernmentPolicy => Self::All,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ChartScope {
     SelectedCountry,
     WorldAggregate,
@@ -55,6 +92,7 @@ pub struct UiState {
     pub selected_company_row: usize,
     pub events_scroll: usize,
     pub events_sort: EventsSort,
+    pub events_category: EventsCategoryFilter,
     pub events_search_active: bool,
     pub events_search_query: String,
     pub stock_selected_row: usize,
@@ -77,6 +115,7 @@ impl Default for UiState {
             selected_company_row: 0,
             events_scroll: 0,
             events_sort: EventsSort::NewestFirst,
+            events_category: EventsCategoryFilter::All,
             events_search_active: false,
             events_search_query: String::new(),
             stock_selected_row: 0,

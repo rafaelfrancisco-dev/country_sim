@@ -73,7 +73,10 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - `Goods`: company and goods market table + company details
 - `Stocks`: stock table + market summary + stock charts
 - `Charts`: 3x2 monthly trend dashboard
-- `Events`: scrollable event log with search and sorting
+- `Events`: scrollable event log with search, sorting, and category filtering
+  - category filter key: `f`
+  - category options: `All`, `Stock Market`, `Births/Deaths`, `Bankruptcies & Distress`, `Loans & Debt`, `Companies & Labor`, `Government & Policy`
+  - search + category are applied as an intersection
 - People table/details include demographic and labor state:
   - age
   - education/habilitation

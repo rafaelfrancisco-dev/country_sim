@@ -154,6 +154,7 @@ pub struct ListedEquity {
     pub free_float_shares: u64,
     pub last_price: f64,
     pub prev_close: f64,
+    pub last_closed_day_pct_change: f64,
     pub day_volume: u64,
     pub day_turnover: f64,
     pub day_trades_count: u64,
@@ -179,6 +180,7 @@ impl ListedEquity {
             free_float_shares,
             last_price: initial_price,
             prev_close: initial_price,
+            last_closed_day_pct_change: 0.0,
             day_volume: 0,
             day_turnover: 0.0,
             day_trades_count: 0,
@@ -196,8 +198,13 @@ impl ListedEquity {
         (self.last_price - self.prev_close) / self.prev_close
     }
 
+    pub fn closed_day_pct_change(&self) -> f64 {
+        self.last_closed_day_pct_change
+    }
+
     /// Closes the day: archives history, resets daily accumulators.
     pub fn record_day_close(&mut self) {
+        self.last_closed_day_pct_change = self.day_pct_change();
         self.prev_close = self.last_price;
         self.market_cap = self.last_price * self.shares_outstanding as f64;
 
@@ -498,4 +505,22 @@ pub struct StockRowSnapshot {
     pub bank_pct: String,
     pub is_selected: bool,
     pub is_even: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ListedEquity;
+
+    #[test]
+    fn record_day_close_persists_completed_day_pct_change() {
+        let mut equity = ListedEquity::new(1, "TST".to_string(), 100.0, 10_000, 3_000);
+        equity.record_trade(100, 110.0);
+
+        assert!((equity.day_pct_change() - 0.10).abs() < f64::EPSILON);
+
+        equity.record_day_close();
+
+        assert!((equity.day_pct_change() - 0.0).abs() < f64::EPSILON);
+        assert!((equity.closed_day_pct_change() - 0.10).abs() < f64::EPSILON);
+    }
 }

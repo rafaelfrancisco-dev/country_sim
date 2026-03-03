@@ -83,11 +83,12 @@ impl Simulation {
         };
 
         format!(
-            "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort | Events: {} | Sort: {}",
+            "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
             hotkeys::GLOBAL_RUNNING_HINT,
             search_hint,
             world.events_total_count,
             world.events_sort_label,
+            world.events_category_label,
         )
     }
 }

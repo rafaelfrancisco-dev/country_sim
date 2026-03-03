@@ -359,7 +359,7 @@ pub(in crate::components::simulation) fn company_details_lines(
     let listed_label = listed_equity.map_or("No", |_| "Yes");
     let ticker_label = listed_equity.map_or("N/A".to_string(), |equity| equity.ticker.clone());
     let listing_price = listed_equity.map_or(0.0, |equity| equity.last_price);
-    let listing_day_pct = listed_equity.map_or(0.0, |equity| equity.day_pct_change());
+    let listing_day_pct = listed_equity.map_or(0.0, |equity| equity.closed_day_pct_change());
     let listing_market_cap = listed_equity.map_or(0.0, |equity| equity.market_cap);
     let listing_float_shares = listed_equity.map_or(0_u64, |equity| equity.free_float_shares);
     let bank_held_pct = listed_equity.map_or(0.0, |equity| {

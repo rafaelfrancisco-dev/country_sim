@@ -142,13 +142,16 @@ impl Country {
             founder_total_offer = company
                 .founder_stakes
                 .iter()
-                .map(|stake| ((stake.shares_owned as f64 * cap).floor() as u64).min(stake.shares_owned))
+                .map(|stake| {
+                    ((stake.shares_owned as f64 * cap).floor() as u64).min(stake.shares_owned)
+                })
                 .sum();
             secondary_shares_to_offer =
                 founder_total_offer.min((primary_shares_to_offer / 2).max(1));
         }
 
-        let total_shares_to_offer = primary_shares_to_offer.saturating_add(secondary_shares_to_offer);
+        let total_shares_to_offer =
+            primary_shares_to_offer.saturating_add(secondary_shares_to_offer);
         if total_shares_to_offer == 0 {
             return false;
         }
@@ -226,7 +229,8 @@ impl Country {
             }
         }
         if bank_alloc > 0 {
-            self.bank.reserve_balance = round_cents((self.bank.reserve_balance - bank_cost).max(0.0));
+            self.bank.reserve_balance =
+                round_cents((self.bank.reserve_balance - bank_cost).max(0.0));
             self.stock_market
                 .bank_portfolio
                 .add_shares(company_id, bank_alloc, price_per_share);
@@ -253,8 +257,8 @@ impl Country {
                         .iter()
                         .enumerate()
                         .map(|(idx, stake)| {
-                            let offered =
-                                ((stake.shares_owned as f64 * cap).floor() as u64).min(stake.shares_owned);
+                            let offered = ((stake.shares_owned as f64 * cap).floor() as u64)
+                                .min(stake.shares_owned);
                             (idx, stake.person_id, offered)
                         })
                         .filter(|(_, _, offered)| *offered > 0)
@@ -270,8 +274,8 @@ impl Country {
                 let sold_shares = if plan_idx + 1 == plan.len() {
                     remaining_shares
                 } else {
-                    (((secondary_shares_sold as f64) * (offered as f64 / offered_total as f64)).round()
-                        as u64)
+                    (((secondary_shares_sold as f64) * (offered as f64 / offered_total as f64))
+                        .round() as u64)
                         .min(remaining_shares)
                 };
                 if sold_shares == 0 {
@@ -301,14 +305,18 @@ impl Country {
         // Register retained founder shares in person_portfolios so founders can trade them.
         let mut total_retained_founder_shares = 0_u64;
         if let Some(company) = self.companies.get(company_idx) {
-            let stakes_snapshot: Vec<(u32, u64)> = company.founder_stakes.iter()
+            let stakes_snapshot: Vec<(u32, u64)> = company
+                .founder_stakes
+                .iter()
                 .filter(|s| s.shares_owned > 0)
                 .map(|s| (s.person_id, s.shares_owned))
                 .collect();
             for (person_id, retained) in stakes_snapshot {
-                self.stock_market.person_portfolio_mut(person_id)
+                self.stock_market
+                    .person_portfolio_mut(person_id)
                     .add_shares(company_id, retained, price_per_share);
-                total_retained_founder_shares = total_retained_founder_shares.saturating_add(retained);
+                total_retained_founder_shares =
+                    total_retained_founder_shares.saturating_add(retained);
             }
         }
 
@@ -320,12 +328,14 @@ impl Country {
             shares_outstanding,
             shares_sold,
         );
-        self.stock_market.insert_listing_preserve_index(company_id, equity);
+        self.stock_market
+            .insert_listing_preserve_index(company_id, equity);
 
         // Expand free float to include retained founder shares (now freely tradeable).
         if total_retained_founder_shares > 0 {
             if let Some(equity) = self.stock_market.listed.get_mut(&company_id) {
-                equity.free_float_shares = equity.free_float_shares
+                equity.free_float_shares = equity
+                    .free_float_shares
                     .saturating_add(total_retained_founder_shares);
             }
         }
@@ -335,7 +345,8 @@ impl Country {
             company.failed_ipo_attempts = 0;
             company.ipo_cooldown_months = 0;
         }
-        self.stock_market.ipo_raised_mtd = round_cents(self.stock_market.ipo_raised_mtd + total_raised);
+        self.stock_market.ipo_raised_mtd =
+            round_cents(self.stock_market.ipo_raised_mtd + total_raised);
         self.pending_events.push(SimEvent::StockIpo {
             country_name: self.name.clone(),
             company_id,

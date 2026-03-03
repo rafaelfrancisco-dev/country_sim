@@ -106,7 +106,7 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
                 ticker: equity.ticker.clone(),
                 company_name,
                 last_price: money(equity.last_price),
-                day_pct: format!("{:+.2}%", equity.day_pct_change() * 100.0),
+                day_pct: format!("{:+.2}%", equity.closed_day_pct_change() * 100.0),
                 market_cap: money(equity.market_cap),
                 volume: compact_count(equity.day_volume as f64),
                 float_shares: compact_count(equity.free_float_shares as f64),

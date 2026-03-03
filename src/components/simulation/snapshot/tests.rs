@@ -1,5 +1,12 @@
 use super::*;
-use crate::sim::{GameCommand, GameEngine, GamePhase, runtime::SimulationMode};
+use crate::sim::{
+    GameCommand, GameEngine, GamePhase,
+    country::Country,
+    event::{EntityKind, IpoReason, SimEvent},
+    person::Person,
+    runtime::SimulationMode,
+    world::World,
+};
 
 fn runtime_stats() -> RuntimeStatsSnapshot {
     RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0)
@@ -30,6 +37,15 @@ fn running_snapshot_for_tab(engine: &GameEngine, active_tab: RunningTab) -> Runn
     world
 }
 
+fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSnapshot {
+    let snapshot =
+        UiSnapshot::from_phase_and_ui(&GamePhase::Running(world), &mut ui_state, runtime_stats());
+    let SnapshotPhase::Running(world) = snapshot.phase else {
+        panic!("running snapshot expected");
+    };
+    world
+}
+
 #[test]
 fn inactive_tabs_skip_heavy_data() {
     let engine = setup_running_engine(35);
@@ -52,4 +68,85 @@ fn inactive_tabs_skip_heavy_data() {
     assert_eq!(charts.chart_history.len(), expected_chart_points);
     assert_eq!(charts.chart_page, 0);
     assert_eq!(charts.total_chart_pages, 3);
+}
+
+#[test]
+fn events_category_filter_limits_results() {
+    let people = vec![Person::new(1, 30, 0, 11)];
+    let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
+    world.event_log = vec![
+        SimEvent::PopBirth {
+            country_name: "A".to_string(),
+            count: 1,
+            day: 1,
+        },
+        SimEvent::StockIpo {
+            country_name: "A".to_string(),
+            company_id: 1,
+            company_name: "Comp".to_string(),
+            ticker: "CMP".to_string(),
+            reason: IpoReason::Growth,
+            shares_issued: 10,
+            primary_shares_issued: 8,
+            secondary_shares_sold: 2,
+            price_per_share: 1.0,
+            total_raised: 10.0,
+            primary_raised: 8.0,
+            secondary_raised: 2.0,
+            founder_payout_total: 1.0,
+            day: 1,
+        },
+        SimEvent::DebtDistress {
+            country_name: "A".to_string(),
+            entity_kind: EntityKind::Person,
+            entity_id: 1,
+            unpaid_amount: 5.0,
+            day: 1,
+        },
+    ];
+
+    let ui = UiState {
+        active_tab: RunningTab::Events,
+        events_category: EventsCategoryFilter::StockMarket,
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    assert_eq!(snapshot.events_total_count, 1);
+    assert_eq!(snapshot.events_category_label, "Stock Market");
+    assert!(snapshot.event_log_lines[0].starts_with("[IPO]"));
+}
+
+#[test]
+fn events_search_intersects_with_category_filter() {
+    let people = vec![Person::new(1, 30, 0, 11)];
+    let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
+    world.event_log = vec![
+        SimEvent::CompanyBankrupt {
+            country_name: "A".to_string(),
+            company_id: 1,
+            company_name: "Alpha".to_string(),
+            laid_off_count: 2,
+            principal_written_off: 10.0,
+            day: 2,
+        },
+        SimEvent::DebtDistress {
+            country_name: "A".to_string(),
+            entity_kind: EntityKind::Company,
+            entity_id: 1,
+            unpaid_amount: 3.0,
+            day: 2,
+        },
+    ];
+
+    let ui = UiState {
+        active_tab: RunningTab::Events,
+        events_category: EventsCategoryFilter::BankruptciesDistress,
+        events_search_query: "bankrupt".to_string(),
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    assert_eq!(snapshot.events_total_count, 1);
+    assert!(snapshot.event_log_lines[0].contains("bankrupt"));
 }

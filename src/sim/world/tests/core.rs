@@ -270,7 +270,10 @@ fn generated_world_3x15k_730_days_meets_stability_floor() {
         .map(labor_force_unemployment)
         .collect::<Vec<_>>();
     let avg = rates.iter().sum::<f64>() / rates.len() as f64;
-    assert!(avg <= 0.15, "expected avg labor-force unemployment <= 15%, got {avg:.4}");
+    assert!(
+        avg <= 0.15,
+        "expected avg labor-force unemployment <= 15%, got {avg:.4}"
+    );
     assert!(
         companies_founded_total > 0,
         "expected companies_founded_total > 0 over 730 days"

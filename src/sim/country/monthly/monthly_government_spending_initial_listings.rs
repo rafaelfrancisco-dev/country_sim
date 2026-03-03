@@ -12,9 +12,8 @@ impl Country {
         let population = self.people.len().max(1) as f64;
         let debt_per_capita = self.monthly_essential_debt_spending / population;
         let unmet_events_per_capita = self.monthly_unmet_need_events as f64 / population;
-        let affordability_pressure = ((debt_per_capita / 80.0 + unmet_events_per_capita / 14.0)
-            * 0.5)
-            .clamp(0.0, 1.0);
+        let affordability_pressure =
+            ((debt_per_capita / 80.0 + unmet_events_per_capita / 14.0) * 0.5).clamp(0.0, 1.0);
         self.companies
             .par_chunks_mut(COMPANY_CHUNK_SIZE)
             .for_each(|chunk| {
@@ -45,7 +44,8 @@ impl Country {
                         let gap = anchor_price - company.unit_price;
                         company.unit_price = round_cents(company.unit_price + gap * 0.05);
                     }
-                    company.unit_price = round_cents(company.unit_price.clamp(min_price, max_price));
+                    company.unit_price =
+                        round_cents(company.unit_price.clamp(min_price, max_price));
                 }
             });
     }

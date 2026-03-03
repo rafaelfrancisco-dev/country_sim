@@ -248,6 +248,9 @@ impl Simulation {
             KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
                 Some(SimulationCommand::Ui(UiCommand::EventsScrollDown))
             }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'f') => {
+                Some(SimulationCommand::Ui(UiCommand::EventsNextCategory))
+            }
             KeyCode::Char('/') => Some(SimulationCommand::Ui(UiCommand::EventsToggleSearch)),
             KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'o') => {
                 Some(SimulationCommand::Ui(UiCommand::EventsToggleSort))
@@ -470,8 +473,28 @@ mod tests {
             Some(SimulationCommand::Ui(UiCommand::EventsToggleSort))
         );
         assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('f')), events_state),
+            Some(SimulationCommand::Ui(UiCommand::EventsNextCategory))
+        );
+        assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), events_state),
             Some(SimulationCommand::Ui(UiCommand::EventsScrollDown))
+        );
+    }
+
+    #[test]
+    fn events_search_mode_keeps_characters_for_query() {
+        let simulation = Simulation::new();
+        let events_search_state = RunningInputState {
+            details_view: DetailsView::List,
+            selection_focus: SelectionFocus::Country,
+            active_tab: RunningTab::Events,
+            events_search_active: true,
+        };
+
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::Char('f')), events_search_state),
+            Some(SimulationCommand::Ui(UiCommand::EventsSearchChar('f')))
         );
     }
 

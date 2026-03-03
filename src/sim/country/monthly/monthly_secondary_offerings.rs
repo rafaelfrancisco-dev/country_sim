@@ -21,7 +21,11 @@ impl Country {
             if company.consecutive_missed_loan_payments < trigger {
                 continue;
             }
-            let last_price = self.stock_market.listed.get(&company_id).map_or(0.0, |e| e.last_price);
+            let last_price = self
+                .stock_market
+                .listed
+                .get(&company_id)
+                .map_or(0.0, |e| e.last_price);
             if last_price <= 0.0 {
                 continue;
             }
@@ -49,7 +53,8 @@ impl Country {
                 if shares_allocated >= total_to_offer {
                     break;
                 }
-                let investable = round_cents((person.cash_balance * (1.0 - reserve_ratio)).max(0.0));
+                let investable =
+                    round_cents((person.cash_balance * (1.0 - reserve_ratio)).max(0.0));
                 if investable < offer_price {
                     continue;
                 }

@@ -121,6 +121,7 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub events_total_count: usize,
     pub events_scroll: usize,
     pub events_sort_label: &'static str,
+    pub events_category_label: &'static str,
     pub events_search_active: bool,
     pub events_search_query: String,
     // Stocks tab
