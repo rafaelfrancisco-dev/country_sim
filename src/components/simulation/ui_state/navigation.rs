@@ -5,6 +5,7 @@ impl UiState {
         if world.countries.is_empty() {
             self.selected_country = 0;
             self.chart_page = 0;
+            self.details_page = 0;
             self.people_page = 0;
             self.selected_person_row = 0;
             self.company_page = 0;
@@ -27,11 +28,13 @@ impl UiState {
             && self.selected_person_on_page(world).is_none()
         {
             self.details_view = DetailsView::List;
+            self.details_page = 0;
         }
         if matches!(self.details_view, DetailsView::Company)
             && self.selected_company_on_page(world).is_none()
         {
             self.details_view = DetailsView::List;
+            self.details_page = 0;
         }
     }
 

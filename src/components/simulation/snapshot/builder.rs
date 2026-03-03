@@ -310,6 +310,7 @@ impl UiSnapshot {
             paused: world.paused,
             active_tab: ui.active_tab,
             details_view: ui.details_view,
+            details_page: ui.details_page,
             selection_focus: ui.selection_focus,
             selected_country_name,
             total_population: compact_count(world.total_population() as f64),

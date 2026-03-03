@@ -161,37 +161,45 @@ pub(in crate::components::simulation) fn stock_person_details_lines(
         return Vec::new();
     };
 
-    let market = &country.stock_market;
-    let Some(portfolio) = market.person_portfolios.get(&person.id) else {
-        return vec!["  No stock holdings.".to_string()];
-    };
+    person_stock_holdings_lines(country, person.id)
+        .into_iter()
+        .map(|line| format!("  {line}"))
+        .collect()
+}
 
+pub(in crate::components::simulation) fn person_stock_holdings_lines(
+    country: &crate::sim::country::Country,
+    person_id: u32,
+) -> Vec<String> {
+    let market = &country.stock_market;
+    let Some(portfolio) = market.person_portfolios.get(&person_id) else {
+        return vec!["Stock Holdings: None".to_string()];
+    };
     if portfolio.positions.is_empty() {
-        return vec!["  No stock holdings.".to_string()];
+        return vec!["Stock Holdings: None".to_string()];
     }
 
     let total_value = portfolio.total_equity_value(market);
     let mut lines = vec![
-        String::new(),
-        "-- Stock Holdings -----------------------------".to_string(),
-        format!("  Total Equity Value: {}", money(total_value)),
-        format!("  MTD Realized PnL: {}", money(portfolio.realized_pnl_mtd)),
-        format!("  MTD Dividends: {}", money(portfolio.dividends_mtd)),
+        "Stock Holdings:".to_string(),
+        format!("Total Equity Value: {}", money(total_value)),
+        format!("MTD Realized PnL: {}", money(portfolio.realized_pnl_mtd)),
+        format!("MTD Dividends: {}", money(portfolio.dividends_mtd)),
     ];
 
     for pos in &portfolio.positions {
         let equity = market.listed.get(&pos.company_id);
         let ticker = equity.map(|e| e.ticker.as_str()).unwrap_or("???");
         let last_price = equity.map_or(0.0, |e| e.last_price);
-        let value = pos.shares as f64 * last_price;
+        let value = pos.market_value(last_price);
         let unrealized = pos.unrealized_pnl(last_price);
         let pledged_note = if pos.pledged_shares > 0 {
-            format!(" ({}??)", pos.pledged_shares)
+            format!(" | pledged {}", pos.pledged_shares)
         } else {
             String::new()
         };
         lines.push(format!(
-            "  {ticker}: {} shares{pledged_note} @ avg ${:.2} | last ${:.2} | val {} | PnL {}",
+            "{ticker}: {} shares{pledged_note} @ avg ${:.2} | last ${:.2} | val {} | PnL {}",
             pos.shares,
             pos.avg_cost,
             last_price,

@@ -23,7 +23,16 @@ impl UiState {
             UiCommand::OpenSelectedCountryDetails => self.open_selected_country_details(world),
             UiCommand::OpenSelectedCompanyDetails => self.open_selected_company_details(world),
             UiCommand::JumpToEmployerCompany => self.jump_to_employer_company(world),
-            UiCommand::CloseDetails => self.details_view = DetailsView::List,
+            UiCommand::CloseDetails => {
+                self.details_view = DetailsView::List;
+                self.details_page = 0;
+            }
+            UiCommand::DetailsPagePrev => {
+                self.details_page = self.details_page.saturating_sub(1);
+            }
+            UiCommand::DetailsPageNext => {
+                self.details_page = self.details_page.saturating_add(1);
+            }
             UiCommand::ToggleSimMode => {}
             UiCommand::NextTab => self.next_tab(),
             UiCommand::PrevTab => self.prev_tab(),
@@ -211,6 +220,13 @@ mod tests {
         World::new(vec![Country::new(1, "A".to_string(), build_people(4))])
     }
 
+    fn sample_world_two_countries() -> World {
+        World::new(vec![
+            Country::new(1, "A".to_string(), build_people(4)),
+            Country::new(2, "B".to_string(), build_people(3)),
+        ])
+    }
+
     #[test]
     fn chart_page_commands_clamp_to_valid_range() {
         let world = sample_world();
@@ -249,5 +265,60 @@ mod tests {
 
         ui.ensure_valid(&world);
         assert_eq!(ui.chart_page, 0);
+    }
+
+    #[test]
+    fn details_page_commands_adjust_and_close_resets() {
+        let world = sample_world();
+        let mut ui = UiState {
+            details_view: DetailsView::Person,
+            details_page: 0,
+            ..UiState::default()
+        };
+
+        ui.apply(UiCommand::DetailsPageNext, &world);
+        ui.apply(UiCommand::DetailsPageNext, &world);
+        assert_eq!(ui.details_page, 2);
+
+        ui.apply(UiCommand::DetailsPagePrev, &world);
+        assert_eq!(ui.details_page, 1);
+
+        ui.apply(UiCommand::CloseDetails, &world);
+        assert_eq!(ui.details_view, DetailsView::List);
+        assert_eq!(ui.details_page, 0);
+    }
+
+    #[test]
+    fn opening_details_resets_details_page() {
+        let world = sample_world();
+        let mut ui = UiState {
+            selection_focus: SelectionFocus::People,
+            details_page: 4,
+            ..UiState::default()
+        };
+
+        ui.apply(UiCommand::OpenSelectedPersonDetails, &world);
+        assert_eq!(ui.details_view, DetailsView::Person);
+        assert_eq!(ui.details_page, 0);
+    }
+
+    #[test]
+    fn changing_country_resets_details_page() {
+        let world = sample_world_two_countries();
+        let mut ui = UiState {
+            details_view: DetailsView::Country,
+            details_page: 6,
+            people_page: 1,
+            company_page: 1,
+            selected_country: 0,
+            ..UiState::default()
+        };
+
+        ui.apply(UiCommand::SelectNextCountryRow, &world);
+        assert_eq!(ui.selected_country, 1);
+        assert_eq!(ui.details_view, DetailsView::List);
+        assert_eq!(ui.details_page, 0);
+        assert_eq!(ui.people_page, 0);
+        assert_eq!(ui.company_page, 0);
     }
 }

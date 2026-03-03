@@ -20,6 +20,8 @@ pub enum UiCommand {
     OpenSelectedCompanyDetails,
     JumpToEmployerCompany,
     CloseDetails,
+    DetailsPagePrev,
+    DetailsPageNext,
     ToggleSimMode,
     NextTab,
     PrevTab,

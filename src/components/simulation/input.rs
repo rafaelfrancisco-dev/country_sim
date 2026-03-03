@@ -86,6 +86,14 @@ impl Simulation {
         if hotkeys::is_country_next_key(key) {
             return Some(SimulationCommand::Ui(UiCommand::GoodsNextCountry));
         }
+        if input_state.details_view != DetailsView::List {
+            if hotkeys::is_page_prev_key(key) {
+                return Some(SimulationCommand::Ui(UiCommand::DetailsPagePrev));
+            }
+            if hotkeys::is_page_next_key(key) {
+                return Some(SimulationCommand::Ui(UiCommand::DetailsPageNext));
+            }
+        }
 
         match key.code {
             KeyCode::Char(c)
@@ -253,6 +261,15 @@ impl Simulation {
         key: KeyEvent,
         input_state: RunningInputState,
     ) -> Option<SimulationCommand> {
+        if input_state.details_view != DetailsView::List {
+            if hotkeys::is_page_prev_key(key) {
+                return Some(SimulationCommand::Ui(UiCommand::DetailsPagePrev));
+            }
+            if hotkeys::is_page_next_key(key) {
+                return Some(SimulationCommand::Ui(UiCommand::DetailsPageNext));
+            }
+        }
+
         match key.code {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
@@ -455,6 +472,46 @@ mod tests {
         assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), events_state),
             Some(SimulationCommand::Ui(UiCommand::EventsScrollDown))
+        );
+    }
+
+    #[test]
+    fn detail_page_keys_map_in_main_and_goods_details_views() {
+        let simulation = Simulation::new();
+
+        let main_list = RunningInputState {
+            details_view: DetailsView::List,
+            selection_focus: SelectionFocus::People,
+            active_tab: RunningTab::Main,
+            events_search_active: false,
+        };
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), main_list),
+            Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
+        );
+
+        let main_person_details = RunningInputState {
+            details_view: DetailsView::Person,
+            ..main_list
+        };
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), main_person_details),
+            Some(SimulationCommand::Ui(UiCommand::DetailsPageNext))
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageUp), main_person_details),
+            Some(SimulationCommand::Ui(UiCommand::DetailsPagePrev))
+        );
+
+        let goods_company_details = RunningInputState {
+            details_view: DetailsView::Company,
+            selection_focus: SelectionFocus::Company,
+            active_tab: RunningTab::Goods,
+            events_search_active: false,
+        };
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), goods_company_details),
+            Some(SimulationCommand::Ui(UiCommand::DetailsPageNext))
         );
     }
 }

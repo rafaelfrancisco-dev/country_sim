@@ -81,6 +81,7 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub paused: bool,
     pub active_tab: RunningTab,
     pub details_view: DetailsView,
+    pub details_page: usize,
     pub selection_focus: SelectionFocus,
     pub selected_country_name: String,
     pub total_population: String,

@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
+use super::details::paginate_detail_lines;
 use crate::components::simulation::{
     hotkeys,
     snapshot::RunningSnapshot,
@@ -43,7 +44,7 @@ impl Simulation {
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);
                 format!(
-                    "Controls: {}  [Esc] back to goods list",
+                    "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
@@ -182,8 +183,12 @@ impl Simulation {
         let [details_area, charts_area] =
             Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).areas(area);
 
-        let details = world
-            .company_details_lines
+        let (page_lines, page_idx, total_pages) = paginate_detail_lines(
+            &world.company_details_lines,
+            world.details_page,
+            details_area,
+        );
+        let details = page_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
             .collect::<Vec<_>>();
@@ -194,7 +199,11 @@ impl Simulation {
                 .wrap(Wrap { trim: true })
                 .block(
                     Block::default()
-                        .title(" Company Details ")
+                        .title(format!(
+                            " Company Details (Page {}/{}) ",
+                            page_idx + 1,
+                            total_pages
+                        ))
                         .borders(Borders::ALL)
                         .border_style(theme::neutral_border())
                         .title_style(theme::primary_text())

@@ -29,6 +29,7 @@ The running UI uses one navigation convention across tabs:
 ## Tab-Specific Controls
 - `Main`: list navigation and person/country details; in person details, `c` jumps to employer company in Goods.
 - `Goods`: country/company navigation, company details panel.
+- `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `Ctrl+u` clears search query while editing.

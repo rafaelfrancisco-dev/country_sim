@@ -12,11 +12,15 @@ use crate::{
 
 mod builder;
 mod details;
+#[cfg(test)]
+mod details_tests;
+mod goods_details;
 mod models;
 mod stocks_and_charts;
 #[cfg(test)]
 mod tests;
 
 pub(in crate::components::simulation) use details::*;
+pub(in crate::components::simulation) use goods_details::*;
 pub(in crate::components::simulation) use models::*;
 pub(in crate::components::simulation) use stocks_and_charts::*;

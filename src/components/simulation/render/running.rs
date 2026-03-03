@@ -95,21 +95,21 @@ impl Simulation {
             DetailsView::Person => {
                 self.draw_person_details(frame, body, world);
                 format!(
-                    "Controls: {}  [Esc] back to people list  [c] open employer company",
+                    "Controls: {}  [Esc] back to people list  [PgUp/PgDn] details page  [c] open employer company",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
             DetailsView::Country => {
                 self.draw_country_details(frame, body, world);
                 format!(
-                    "Controls: {}  [Esc] back to lists",
+                    "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world);
                 format!(
-                    "Controls: {}  [Esc] back to lists",
+                    "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
