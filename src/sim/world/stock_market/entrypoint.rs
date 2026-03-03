@@ -1,4 +1,7 @@
 use super::*;
+use rayon::prelude::*;
+
+const COUNTRY_PAR_RUN_THRESHOLD: usize = 2;
 
 impl World {
     /// Run the daily stock market for all countries after the goods market.
@@ -10,8 +13,24 @@ impl World {
             }
         }
 
-        for &idx in &active_country_indices {
-            run_country_stock_market(&mut self.countries[idx], self.day);
+        if active_country_indices.len() >= COUNTRY_PAR_RUN_THRESHOLD {
+            let mut active_mask = vec![false; self.countries.len()];
+            for &idx in &active_country_indices {
+                active_mask[idx] = true;
+            }
+            let day = self.day;
+            self.countries
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(idx, country)| {
+                    if active_mask[idx] {
+                        run_country_stock_market(country, day);
+                    }
+                });
+        } else {
+            for &idx in &active_country_indices {
+                run_country_stock_market(&mut self.countries[idx], self.day);
+            }
         }
         // Export must run before day-close reset so turnover/volume/day% reflect
         // today's actual trading activity.

@@ -1,13 +1,14 @@
 use super::{
-    company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies},
+    company::{Company, DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies},
     country::Country,
     good::good_by_id,
     job::{JobTypeId, common_job_types},
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
     params::SimulationParams,
-    person::{EmploymentStatus, Person},
+    person::{EmploymentStatus, HabilitationLevel, Person},
 };
+use rayon::prelude::*;
 
 pub const DEFAULT_MONEY_PER_CITIZEN: f64 = 50_000.0;
 
@@ -70,70 +71,167 @@ impl DeterministicRng {
     }
 }
 
-pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
-    let mut rng = DeterministicRng::new(config.seed);
-    let mut countries = Vec::with_capacity(config.country_count as usize);
+const HABILITATION_BUCKETS: usize = 4;
 
-    for country_idx in 0..config.country_count {
-        let country_seed = rng.next_u64() ^ ((country_idx as u64) << 32);
-        let country_name = country_name_from_seed(country_seed);
-        let mut companies = build_default_companies(&country_name, config.companies_per_country);
-        randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
-        let company_hiring_weights = build_company_hiring_weights(&companies, &mut rng);
+#[derive(Debug, Clone, Default)]
+struct EmployerPicker {
+    company_ids: Vec<u16>,
+    cumulative_weights: Vec<u64>,
+    total_weight: u64,
+}
 
-        let mut people = Vec::with_capacity(config.population_per_country as usize);
-        for person_id in 0..config.population_per_country {
-            let age_days = pick_initial_age_days(&mut rng);
-            let education_track = config.sim_params.education.pick_track(rng.next_f64());
-            let name_seed = rng.next_u32();
+#[derive(Debug, Clone)]
+struct JobSelectionCache {
+    job_ids_by_habilitation: [Vec<JobTypeId>; HABILITATION_BUCKETS],
+    cumulative_weights_by_habilitation: [Vec<u64>; HABILITATION_BUCKETS],
+    total_weights_by_habilitation: [u64; HABILITATION_BUCKETS],
+    employer_pickers: Vec<EmployerPicker>,
+}
 
-            let mut person = Person::new_with_profile(
-                person_id,
-                EmploymentStatus::Unemployed,
-                name_seed,
-                age_days,
-                education_track,
-            );
+fn mix_seed(mut value: u64) -> u64 {
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^ (value >> 31)
+}
 
-            if person.can_seek_job()
-                && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
-                && let Some(job_type_id) =
-                    pick_weighted_job_id_for_habilitation(&mut rng, person.habilitation)
-            {
-                let employer_company_id = pick_employer_for_job(
-                    job_type_id,
-                    &companies,
-                    &company_hiring_weights,
-                    &mut rng,
-                );
-                person.set_employment(employer_company_id, job_type_id);
-            }
+fn country_seed(base_seed: u64, country_idx: u16) -> u64 {
+    let country_salt = u64::from(country_idx)
+        .wrapping_add(1)
+        .wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    mix_seed(base_seed ^ country_salt)
+}
 
-            people.push(person);
+fn habilitation_bucket(level: HabilitationLevel) -> usize {
+    match level {
+        HabilitationLevel::NoSchoolYet => 0,
+        HabilitationLevel::BasicSchool => 1,
+        HabilitationLevel::HighSchool => 2,
+        HabilitationLevel::HigherLearning => 3,
+    }
+}
+
+fn build_job_selection_cache(
+    companies: &[Company],
+    rng: &mut DeterministicRng,
+) -> JobSelectionCache {
+    let jobs = common_job_types();
+    let mut job_ids_by_habilitation: [Vec<JobTypeId>; HABILITATION_BUCKETS] =
+        std::array::from_fn(|_| Vec::new());
+    let mut cumulative_weights_by_habilitation: [Vec<u64>; HABILITATION_BUCKETS] =
+        std::array::from_fn(|_| Vec::new());
+    let mut total_weights_by_habilitation = [0_u64; HABILITATION_BUCKETS];
+
+    for job in jobs {
+        let required_bucket = habilitation_bucket(job.required_habilitation);
+        for bucket in required_bucket..HABILITATION_BUCKETS {
+            total_weights_by_habilitation[bucket] = total_weights_by_habilitation[bucket]
+                .saturating_add(u64::from(job.assignment_weight));
+            job_ids_by_habilitation[bucket].push(job.id);
+            cumulative_weights_by_habilitation[bucket].push(total_weights_by_habilitation[bucket]);
         }
-
-        let total_supply =
-            round_cents(config.population_per_country as f64 * config.money_per_citizen);
-        let household_supply = round_cents(total_supply * 0.5);
-        let company_supply = round_cents(total_supply - household_supply);
-
-        seed_balances_to_people(&mut people, household_supply);
-        seed_balances_to_companies(&mut companies, company_supply);
-
-        let mut country = Country::with_economy_and_params(
-            country_idx,
-            country_name,
-            people,
-            companies,
-            total_supply,
-            config.sim_params.clone(),
-        );
-        fund_initial_bank_reserve(&mut country);
-        country.seed_initial_ipos();
-        countries.push(country);
     }
 
-    countries
+    let hiring_weights = build_company_hiring_weights(companies, rng);
+    let max_job_id = jobs.iter().map(|job| job.id as usize).max().unwrap_or(0);
+    let mut employer_pickers = vec![EmployerPicker::default(); max_job_id.saturating_add(1)];
+    for job in jobs {
+        let mut picker = EmployerPicker::default();
+        let mut cumulative = 0_u64;
+        for (company_idx, company) in companies.iter().enumerate() {
+            if !company.supports_job(job.id) {
+                continue;
+            }
+
+            let weight = hiring_weights
+                .get(company_idx)
+                .copied()
+                .map(u64::from)
+                .unwrap_or(1);
+            cumulative = cumulative.saturating_add(weight);
+            picker.company_ids.push(company_idx as u16);
+            picker.cumulative_weights.push(cumulative);
+        }
+        picker.total_weight = cumulative;
+        employer_pickers[job.id as usize] = picker;
+    }
+
+    JobSelectionCache {
+        job_ids_by_habilitation,
+        cumulative_weights_by_habilitation,
+        total_weights_by_habilitation,
+        employer_pickers,
+    }
+}
+
+pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
+    if config.country_count <= 1 {
+        return (0..config.country_count)
+            .map(|country_idx| generate_country(config, country_idx))
+            .collect();
+    }
+
+    (0..config.country_count as usize)
+        .into_par_iter()
+        .map(|country_idx| generate_country(config, country_idx as u16))
+        .collect()
+}
+
+fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
+    let mut rng = DeterministicRng::new(country_seed(config.seed, country_idx));
+    let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
+    let mut companies = build_default_companies(&country_name, config.companies_per_country);
+    randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
+    let job_cache = build_job_selection_cache(&companies, &mut rng);
+
+    let mut people = Vec::with_capacity(config.population_per_country as usize);
+    for person_id in 0..config.population_per_country {
+        let age_days = pick_initial_age_days(&mut rng);
+        let education_track = config.sim_params.education.pick_track(rng.next_f64());
+        let name_seed = rng.next_u32();
+
+        let mut person = Person::new_with_profile(
+            person_id,
+            EmploymentStatus::Unemployed,
+            name_seed,
+            age_days,
+            education_track,
+        );
+
+        if person.can_seek_job()
+            && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
+            && let Some(job_type_id) =
+                pick_weighted_job_id_for_habilitation(&mut rng, person.habilitation, &job_cache)
+        {
+            let employer_company_id = pick_employer_for_job(
+                job_type_id,
+                companies.len(),
+                &job_cache.employer_pickers,
+                &mut rng,
+            );
+            person.set_employment(employer_company_id, job_type_id);
+        }
+
+        people.push(person);
+    }
+
+    let total_supply = round_cents(config.population_per_country as f64 * config.money_per_citizen);
+    let household_supply = round_cents(total_supply * 0.5);
+    let company_supply = round_cents(total_supply - household_supply);
+
+    seed_balances_to_people(&mut people, household_supply);
+    seed_balances_to_companies(&mut companies, company_supply);
+
+    let mut country = Country::with_economy_and_params(
+        country_idx,
+        country_name,
+        people,
+        companies,
+        total_supply,
+        config.sim_params.clone(),
+    );
+    fund_initial_bank_reserve(&mut country);
+    country.seed_initial_ipos();
+    country
 }
 
 fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
@@ -158,79 +256,50 @@ fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
 
 fn pick_weighted_job_id_for_habilitation(
     rng: &mut DeterministicRng,
-    habilitation: super::person::HabilitationLevel,
+    habilitation: HabilitationLevel,
+    job_cache: &JobSelectionCache,
 ) -> Option<JobTypeId> {
-    let jobs = common_job_types();
-    let eligible_jobs = jobs
-        .iter()
-        .filter(|job| habilitation >= job.required_habilitation)
-        .collect::<Vec<_>>();
-
-    let total_weight: u64 = eligible_jobs
-        .iter()
-        .map(|job| u64::from(job.assignment_weight))
-        .sum();
-
+    let bucket = habilitation_bucket(habilitation);
+    let total_weight = job_cache.total_weights_by_habilitation[bucket];
     if total_weight == 0 {
         return None;
     }
 
-    let mut roll = rng.next_u64() % total_weight;
-    for job in eligible_jobs {
-        let weight = u64::from(job.assignment_weight);
-        if roll < weight {
-            return Some(job.id);
-        }
-        roll -= weight;
-    }
-
-    jobs.last().map(|job| job.id)
+    let roll = rng.next_u64() % total_weight;
+    let index = job_cache.cumulative_weights_by_habilitation[bucket]
+        .partition_point(|&weight| weight <= roll);
+    job_cache.job_ids_by_habilitation[bucket]
+        .get(index)
+        .copied()
+        .or_else(|| job_cache.job_ids_by_habilitation[bucket].last().copied())
 }
 
 fn pick_employer_for_job(
     job_type_id: JobTypeId,
-    companies: &[super::company::Company],
-    company_hiring_weights: &[u16],
+    companies_len: usize,
+    employer_pickers: &[EmployerPicker],
     rng: &mut DeterministicRng,
 ) -> u16 {
-    if companies.is_empty() {
+    if companies_len == 0 {
         return 0;
     }
 
-    let mut total_weight = 0_u64;
-    for (idx, company) in companies.iter().enumerate() {
-        if !company.supports_job(job_type_id) {
-            continue;
+    if let Some(picker) = employer_pickers.get(job_type_id as usize)
+        && picker.total_weight > 0
+    {
+        let roll = rng.next_u64() % picker.total_weight;
+        let index = picker
+            .cumulative_weights
+            .partition_point(|&weight| weight <= roll);
+        if let Some(&company_id) = picker.company_ids.get(index) {
+            return company_id;
         }
-        let weight = company_hiring_weights
-            .get(idx)
-            .copied()
-            .map(u64::from)
-            .unwrap_or(1);
-        total_weight = total_weight.saturating_add(weight);
+        if let Some(&company_id) = picker.company_ids.last() {
+            return company_id;
+        }
     }
 
-    if total_weight == 0 {
-        return (rng.next_u64() as usize % companies.len()) as u16;
-    }
-
-    let mut roll = rng.next_u64() % total_weight;
-    for (idx, company) in companies.iter().enumerate() {
-        if !company.supports_job(job_type_id) {
-            continue;
-        }
-        let weight = company_hiring_weights
-            .get(idx)
-            .copied()
-            .map(u64::from)
-            .unwrap_or(1);
-        if roll < weight {
-            return idx as u16;
-        }
-        roll -= weight;
-    }
-
-    (rng.next_u64() as usize % companies.len()) as u16
+    (rng.next_u64() as usize % companies_len) as u16
 }
 
 fn build_company_hiring_weights(

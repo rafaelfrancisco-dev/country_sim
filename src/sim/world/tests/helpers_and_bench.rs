@@ -7,8 +7,10 @@ use crate::sim::{
 use rayon::ThreadPoolBuilder;
 #[cfg(feature = "manual-harness")]
 use serde::Serialize;
+#[cfg(any(feature = "manual-harness", feature = "bench-trace"))]
+use std::env;
 #[cfg(feature = "manual-harness")]
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
 
 #[cfg(feature = "manual-harness")]
 pub(super) const DEFAULT_BENCH_SEED: u64 = 0x5eed_c0de;
