@@ -94,11 +94,11 @@ impl Default for LaborParams {
     fn default() -> Self {
         Self {
             baseline_unemployment_rate: 0.06,
-            seek_base: 0.006,
+            seek_base: 0.010,
             seek_age_slope: 0.0003,
-            seek_cash_pressure_scale: 0.03,
+            seek_cash_pressure_scale: 0.05,
             seek_cash_reference: 3_000.0,
-            seek_probability_cap: 0.08,
+            seek_probability_cap: 0.15,
         }
     }
 }
@@ -125,8 +125,8 @@ pub struct LaborDemandParams {
 impl Default for LaborDemandParams {
     fn default() -> Self {
         Self {
-            replacement_opening_rate: 0.018,
-            min_openings_per_active_company: 2,
+            replacement_opening_rate: 0.03,
+            min_openings_per_active_company: 3,
         }
     }
 }
@@ -155,10 +155,20 @@ impl Default for CompanyGrowthParams {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CompanyFormationParams {
     pub min_founders_same_profession: usize,
+    pub min_founders: usize,
+    pub max_founders: usize,
+    pub allow_unemployed_founders: bool,
     pub founder_personal_reserve_months: f64,
     pub startup_runway_months: f64,
     pub initial_openings_total: u16,
     pub initial_openings_founder_profession: u16,
+    pub startup_openings_min: u16,
+    pub startup_openings_max: u16,
+    pub startup_bank_loan_enabled: bool,
+    pub startup_bank_loan_max_fraction: f64,
+    pub startup_max_payroll_to_revenue: f64,
+    pub labor_slack_startup_trigger: f64,
+    pub necessity_startup_sales_floor: f64,
     pub high_margin_threshold: f64,
     pub max_startups_per_month: Option<u16>,
 }
@@ -167,12 +177,22 @@ impl Default for CompanyFormationParams {
     fn default() -> Self {
         Self {
             min_founders_same_profession: 5,
-            founder_personal_reserve_months: 3.0,
-            startup_runway_months: 6.0,
+            min_founders: 3,
+            max_founders: 6,
+            allow_unemployed_founders: true,
+            founder_personal_reserve_months: 0.5,
+            startup_runway_months: 2.0,
             initial_openings_total: 10,
             initial_openings_founder_profession: 7,
+            startup_openings_min: 6,
+            startup_openings_max: 24,
+            startup_bank_loan_enabled: true,
+            startup_bank_loan_max_fraction: 0.95,
+            startup_max_payroll_to_revenue: 1.00,
+            labor_slack_startup_trigger: 0.07,
+            necessity_startup_sales_floor: 50_000.0,
             high_margin_threshold: 0.25,
-            max_startups_per_month: None,
+            max_startups_per_month: Some(36),
         }
     }
 }
@@ -181,7 +201,10 @@ impl Default for CompanyFormationParams {
 pub struct CompanyDistressParams {
     pub wage_cut_rate: f64,
     pub layoff_rate: f64,
+    pub max_monthly_layoff_rate: f64,
     pub loss_distress_month_threshold: u8,
+    pub bankruptcy_min_loss_months: u8,
+    pub countercyclical_layoff_unemployment_guard: f64,
     pub loss_trigger_wage_cut_rate: f64,
     pub loss_trigger_layoff_rate: f64,
     pub bankruptcy_missed_payment_threshold: u8,
@@ -193,10 +216,13 @@ impl Default for CompanyDistressParams {
         Self {
             wage_cut_rate: 0.10,
             layoff_rate: 0.20,
+            max_monthly_layoff_rate: 0.01,
             loss_distress_month_threshold: 3,
+            bankruptcy_min_loss_months: 18,
+            countercyclical_layoff_unemployment_guard: 0.08,
             loss_trigger_wage_cut_rate: 0.04,
             loss_trigger_layoff_rate: 0.03,
-            bankruptcy_missed_payment_threshold: 3,
+            bankruptcy_missed_payment_threshold: 36,
             min_wage_floor_ratio_to_catalog: 0.70,
         }
     }
@@ -398,6 +424,28 @@ pub struct StockMarketParams {
     pub min_participants_per_listed: usize,
     /// Initial bank reserve injected (and removed from company cash) to enable maker liquidity.
     pub maker_bootstrap_reserve: f64,
+    /// Minimum private-company age in months before growth IPO eligibility.
+    pub ipo_min_company_age_months: u16,
+    /// Minimum profitable streak for growth IPO path.
+    pub ipo_growth_min_profitable_months: u8,
+    /// Minimum average monthly revenue for growth IPO path.
+    pub ipo_growth_min_monthly_revenue: f64,
+    /// Lower cash-runway bound for growth IPO candidates.
+    pub ipo_growth_min_cash_runway_months: f64,
+    /// Upper cash-runway bound for growth IPO candidates.
+    pub ipo_growth_max_cash_runway_months: f64,
+    /// Target payroll runway funded by primary raise in growth IPOs.
+    pub ipo_primary_raise_target_runway_months: f64,
+    /// Maximum fraction of founder holdings allowed for secondary sale.
+    pub ipo_founder_secondary_cap_fraction: f64,
+    /// Minimum subscription fill ratio for growth IPO success.
+    pub ipo_min_fill_ratio_growth: f64,
+    /// Minimum subscription fill ratio for distress IPO success.
+    pub ipo_min_fill_ratio_distress: f64,
+    /// Maximum number of new non-seed listings per month.
+    pub ipo_max_new_listings_per_month: u16,
+    /// Cooldown months after failed IPO attempts.
+    pub ipo_retry_cooldown_months: u8,
 }
 
 impl Default for StockMarketParams {
@@ -421,6 +469,17 @@ impl Default for StockMarketParams {
             participant_population_fraction: 0.004,
             min_participants_per_listed: 50,
             maker_bootstrap_reserve: 2_000_000.0,
+            ipo_min_company_age_months: 3,
+            ipo_growth_min_profitable_months: 1,
+            ipo_growth_min_monthly_revenue: 20_000.0,
+            ipo_growth_min_cash_runway_months: 0.0,
+            ipo_growth_max_cash_runway_months: 120.0,
+            ipo_primary_raise_target_runway_months: 4.0,
+            ipo_founder_secondary_cap_fraction: 0.15,
+            ipo_min_fill_ratio_growth: 0.50,
+            ipo_min_fill_ratio_distress: 0.80,
+            ipo_max_new_listings_per_month: 4,
+            ipo_retry_cooldown_months: 2,
         }
     }
 }

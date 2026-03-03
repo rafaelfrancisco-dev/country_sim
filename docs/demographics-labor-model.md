@@ -68,9 +68,9 @@ Converted to daily with:
 
 ### Daily Seek Probability
 For unemployed, eligible people:
-- `base = 0.002 + max(age - 18, 0) * 0.0002`
-- `cash_pressure = clamp((3000 - cash_balance)/3000, 0, 1) * 0.01`
-- `seek_prob = min(0.03, base + cash_pressure)`
+- `base = 0.010 + max(age - 18, 0) * 0.0003`
+- `cash_pressure = clamp((3000 - cash_balance)/3000, 0, 1) * 0.05`
+- `seek_prob = min(0.15, base + cash_pressure)`
 
 ### Hiring Behavior
 - If a seeker passes seek probability, they attempt to match any open slot.
@@ -100,24 +100,33 @@ Opening count:
 Openings are distributed across existing offered job types weighted by each job's assignment weight.
 
 ## Startup Formation (Monthly)
-- Founders come from currently employed workers sharing the same profession.
-- Eligibility: at least 5 founders with positive investable cash.
-- Investable cash per founder:
-  - `max(0, cash_balance - 3 * current_salary)`
-- Product gate: startup can only form if at least one local good has realized margin `>= 25%`.
-- Funding gate: pooled founder contributions must cover 6 months of payroll for planned 10 openings.
-- Opening mix is fixed:
-  - 7 founder-profession openings
-  - 3 weighted mixed-profession openings
-- Founders leave prior employers, old employers get replacement openings, and founders join the startup.
+- Founders can come from employed workers and qualified unemployed adults.
+- Team size is bounded (`3..6` by default).
+- Investable cash is reserve-adjusted and loan-aware:
+  - `investable = max(0, cash_balance - reserve_cash)`
+  - low-cash unemployed founders may still participate when startup lending is enabled.
+- Product gate:
+  - prefer essential goods with strong observed sales
+  - fallback to high-margin goods (`>= 25%`)
+- Viability gate:
+  - payroll for the opening plan must be affordable vs expected revenue for the target good
+  - expected revenue blends observed sales with a demand proxy
+- Funding stack:
+  - founder capital
+  - optional startup bank loan (capped fraction of required capital)
+- Founders leave prior employers, old employers receive replacement openings, founders join the startup, and founder equity stakes are recorded.
 
 ## Distress and Bankruptcy (Monthly)
 - Distress is tracked by consecutive missed company loan payments.
 - Escalation:
   - miss #1: 10% wage cut (employees + openings, floored to 70% catalog salary)
-  - miss #2: 20% deterministic layoffs (highest salary first, tie by lower person ID)
-  - miss #3+: bankruptcy only when cash is non-positive and no additional loan capacity exists
-- Bankruptcy removes companies physically and renumbers IDs; all person employment references are remapped.
+  - later misses/losses: deterministic layoffs are capped by `max_monthly_layoff_rate`
+  - bankruptcy requires deep sustained distress (missed-payment and loss duration gates), non-positive cash, and no additional loan capacity
+  - before bankruptcy, private firms attempt distress IPO rescue
+- Countercyclical brake:
+  - when labor-force unemployment is high, layoffs and bankruptcy escalation are throttled
+  - government can spawn additional public employers as a stability backstop
+- Bankruptcy removes companies physically and renumbers IDs; person employment references are remapped.
 
 ## Death Side Effects
 When a person dies:

@@ -10,6 +10,14 @@ impl Country {
     pub(super) fn process_company_distress(&mut self) {
         let params = self.sim_params.company_distress;
         let mut bankrupt_indices = Vec::new();
+        let labor_unemployment = self.labor_force_unemployment_rate();
+        let unemployment_guard = params.countercyclical_layoff_unemployment_guard.max(0.0);
+        let layoff_blocked = labor_unemployment >= unemployment_guard;
+        let bankruptcy_blocked = labor_unemployment >= unemployment_guard;
+        let miss_layoff_rate = params.layoff_rate.min(params.max_monthly_layoff_rate);
+        let loss_layoff_rate = params
+            .loss_trigger_layoff_rate
+            .min(params.max_monthly_layoff_rate);
 
         for company_idx in 0..self.companies.len() {
             let missed = self.companies[company_idx].missed_loan_payment_this_month;
@@ -27,15 +35,16 @@ impl Country {
                             day: self.day,
                         });
                     }
-                    let laid_off =
-                        self.layoff_people_by_rate(company_id, params.loss_trigger_layoff_rate);
-                    if laid_off > 0 {
-                        self.pending_events.push(SimEvent::CompanyLayoffs {
-                            country_name: self.name.clone(),
-                            company_id,
-                            laid_off_count: laid_off,
-                            day: self.day,
-                        });
+                    if !layoff_blocked {
+                        let laid_off = self.layoff_people_by_rate(company_id, loss_layoff_rate);
+                        if laid_off > 0 {
+                            self.pending_events.push(SimEvent::CompanyLayoffs {
+                                country_name: self.name.clone(),
+                                company_id,
+                                laid_off_count: laid_off,
+                                day: self.day,
+                            });
+                        }
                     }
                 }
                 continue;
@@ -61,22 +70,31 @@ impl Country {
             }
 
             if misses == 2 {
-                let laid_off = self.layoff_people_by_rate(company_id, params.layoff_rate);
-                if laid_off > 0 {
-                    self.pending_events.push(SimEvent::CompanyLayoffs {
-                        country_name: self.name.clone(),
-                        company_id,
-                        laid_off_count: laid_off,
-                        day: self.day,
-                    });
+                if !layoff_blocked {
+                    let laid_off = self.layoff_people_by_rate(company_id, miss_layoff_rate);
+                    if laid_off > 0 {
+                        self.pending_events.push(SimEvent::CompanyLayoffs {
+                            country_name: self.name.clone(),
+                            company_id,
+                            laid_off_count: laid_off,
+                            day: self.day,
+                        });
+                    }
                 }
                 continue;
             }
 
             if misses >= params.bankruptcy_missed_payment_threshold {
+                if bankruptcy_blocked {
+                    self.companies[company_idx].consecutive_missed_loan_payments =
+                        params.bankruptcy_missed_payment_threshold.saturating_sub(1);
+                    continue;
+                }
+
                 let company = &self.companies[company_idx];
                 let has_capacity = self.company_has_extra_loan_capacity(company);
-                if company.cash_balance <= 0.0 && !has_capacity {
+                let deep_losses = loss_months >= params.bankruptcy_min_loss_months;
+                if company.cash_balance <= 0.0 && !has_capacity && deep_losses {
                     // Attempt IPO rescue before bankruptcy
                     if self.sim_params.stock_market.enabled
                         && !self.stock_market.is_listed(company_id)
@@ -92,14 +110,16 @@ impl Country {
                     continue;
                 }
 
-                let laid_off = self.layoff_people_by_rate(company_id, params.layoff_rate);
-                if laid_off > 0 {
-                    self.pending_events.push(SimEvent::CompanyLayoffs {
-                        country_name: self.name.clone(),
-                        company_id,
-                        laid_off_count: laid_off,
-                        day: self.day,
-                    });
+                if !layoff_blocked {
+                    let laid_off = self.layoff_people_by_rate(company_id, miss_layoff_rate);
+                    if laid_off > 0 {
+                        self.pending_events.push(SimEvent::CompanyLayoffs {
+                            country_name: self.name.clone(),
+                            company_id,
+                            laid_off_count: laid_off,
+                            day: self.day,
+                        });
+                    }
                 }
             }
         }
@@ -299,6 +319,27 @@ impl Country {
                 .filter_map(|(old, new)| new.map(|n| (old as u16, n)))
                 .collect();
             self.stock_market.remap_company_ids(&old_to_new_map);
+        }
+    }
+
+    pub(super) fn labor_force_unemployment_rate(&self) -> f64 {
+        let mut labor_force = 0_usize;
+        let mut unemployed = 0_usize;
+
+        for person in &self.people {
+            if !person.is_labor_force_participant() {
+                continue;
+            }
+            labor_force += 1;
+            if !person.is_employed() {
+                unemployed += 1;
+            }
+        }
+
+        if labor_force == 0 {
+            0.0
+        } else {
+            unemployed as f64 / labor_force as f64
         }
     }
 }

@@ -59,27 +59,40 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 
 ## Company Formation, Distress, and Bankruptcy
 - **Startup formation (monthly)**:
-  - founders are currently employed workers in the same profession
-  - minimum founders per startup: `5`
-  - each founder keeps a personal reserve of `3 months` of current salary
-  - startup must fund `6 months` of planned opening payroll
-  - opening plan: `10` total (`7` in founder profession + `3` mixed weighted openings)
-  - startup good must be high-margin in-country:
-    - margin per good = `total_profit / total_sales`, where `total_sales > 0`
-    - required margin `>= 0.25`
-  - startup price starts at `5%` below country average for that good, floored by margin floor
-- **Distress escalation after missed company loan payments**:
-  - miss #1: wage cut (`10%`) on employee contracts and openings, with floor `0.70 × catalog salary`
-  - miss #2: layoffs (`20%`, ceil, min 1 when workforce > 0), highest salary first, tie by lower person ID
-  - miss #3+: bankruptcy only when both are true:
-    - `cash_balance <= 0`
-    - no additional loan capacity under bank affordability math
-  - on non-miss months, consecutive miss counter resets to `0`
+  - founder pool includes employed workers and qualified unemployed adults.
+  - founder team size is bounded (`min_founders..max_founders`, default `3..6`).
+  - founders keep a personal reserve (default `0.5` month of salary reference); low-cash unemployed founders can still participate when startup lending is enabled.
+  - opening plan is dynamic (`startup_openings_min..startup_openings_max`, default `6..24`) and expands under labor slack.
+  - viability gate uses expected demand/revenue and payroll affordability:
+    - expected revenue blends observed good-level sales with a demand proxy
+    - monthly opening payroll must stay under `startup_max_payroll_to_revenue` (default `1.0`)
+  - funding stack:
+    - founder capital first
+    - optional startup loan up to `startup_bank_loan_max_fraction` (default `95%`)
+  - each startup creates explicit `FounderStake` equity records (`person_id`, `shares_owned`, `cash_contributed`).
+- **Distress escalation**:
+  - missed-payment path:
+    - first miss: wage cut (`10%`) with floor `0.70 ×` catalog salary
+    - further misses: layoffs are capped by `max_monthly_layoff_rate` (default `1%`)
+  - loss-only path (no missed payment): applies mild wage/layoff pressure after sustained losses.
+  - countercyclical brake: when labor-force unemployment is elevated, layoffs and bankruptcy escalation are throttled.
+  - bankruptcy is last resort and requires sustained distress (defaults: `>=36` missed-payment months and `>=18` loss months), non-positive cash, and no additional loan capacity.
+  - before bankruptcy, private firms attempt IPO rescue.
 - **Bankruptcy handling**:
-  - all workers are laid off, openings cleared, loan principal written off, company cash forced to zero
-  - bankrupt companies are physically removed from the vector
-  - surviving company IDs are renumbered to contiguous indices
-  - person employment references are remapped to new IDs; references to removed companies become unemployed
+  - all workers are laid off, openings cleared, loans written off, and company cash reset.
+  - bankrupt companies are removed and IDs are remapped; person employment references are remapped accordingly.
+
+## IPO Mechanics
+- IPO attempts are unified under `attempt_ipo(company_idx, reason)` with reasons:
+  - `Seed`
+  - `Growth`
+  - `Distress`
+- Growth IPOs run monthly before distress escalation; distress IPOs run as rescue before bankruptcy.
+- Settlement is split into:
+  - **Primary issuance**: cash raised goes to `company.cash_balance`.
+  - **Secondary founder sales**: cash is transferred to founders pro-rata by sold founder shares.
+- IPO subscription funding uses existing household cash and bank reserves only.
+- IPO-time secondary payouts are pure transfers; no new money is created by the secondary leg.
 
 ## Country Revenue
 - Monthly payroll is paid only to employed people.
@@ -97,6 +110,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 ## Government Essential Backfill
 - After private startup formation each month, a country checks essential goods (`0..=4`) for local producer coverage.
 - For every missing essential good, the government creates one public-utility company for that good.
+- When labor-force unemployment rises above the countercyclical target band, the model can also spawn additional public-utility employers (cyclical backfill) to stabilize employment.
 - New public companies:
   - start with `is_public_utility=true` and `is_essential_backfill=true`
   - are seeded with openings (default `3`, with manufacturing-heavy split)
@@ -232,21 +246,22 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 6. Stock collateral seizure (margin calls).
 7. Loan repayment pass (people, then companies).
 8. Company profitability recomputation.
-9. Company distress escalation.
-10. End-of-month loan requests (at current `bank_loan_rate()`).
-11. Growth-driven opening creation.
-12. Startup formation pass.
-13. Essential company backfill.
-14. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
-15. Public-utility wage adjustment.
-16. Monthly job-switch pass (same profession, minimum 10% raise).
-17. Recompute company headcounts again.
-18. Company month close (pricing history/profitability history side effects).
-19. Stock dividends.
-20. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
-21. Month increment and aggregate recomputation.
+9. Growth IPO pass (non-distress listings).
+10. Company distress escalation (including IPO rescue path before bankruptcy).
+11. End-of-month loan requests (at current `bank_loan_rate()`).
+12. Growth-driven opening creation.
+13. Startup formation pass.
+14. Essential + countercyclical public-employer backfill.
+15. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
+16. Public-utility wage adjustment.
+17. Monthly job-switch pass (same profession, minimum raise threshold).
+18. Recompute company headcounts again.
+19. Company month close (pricing history/profitability history side effects).
+20. Stock dividends.
+21. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
+22. Month increment and aggregate recomputation.
 
-*World-level after all countries complete steps 1–21:*
+*World-level after all countries complete steps 1–22:*
 - Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
 - Monthly snapshot captured (picks up the new rate).
 - Monthly trackers reset.

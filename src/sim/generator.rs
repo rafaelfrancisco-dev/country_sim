@@ -1,7 +1,7 @@
 use super::{
     company::{Company, DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies},
     country::Country,
-    good::good_by_id,
+    good::{common_goods, good_by_id},
     job::{JobTypeId, common_job_types},
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
@@ -179,7 +179,12 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
 fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     let mut rng = DeterministicRng::new(country_seed(config.seed, country_idx));
     let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
-    let mut companies = build_default_companies(&country_name, config.companies_per_country);
+    let company_count = if config.companies_per_country == DEFAULT_COMPANIES_PER_COUNTRY {
+        derive_initial_company_count(config.population_per_country)
+    } else {
+        config.companies_per_country
+    };
+    let mut companies = build_default_companies(&country_name, company_count);
     randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
     let job_cache = build_job_selection_cache(&companies, &mut rng);
 
@@ -232,6 +237,20 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     fund_initial_bank_reserve(&mut country);
     country.seed_initial_ipos();
     country
+}
+
+fn derive_initial_company_count(population_per_country: u32) -> u16 {
+    let pop_scale = (population_per_country as f64 / 1_000.0).max(1.0);
+    let market_depth = pop_scale.sqrt();
+    let mut total = 0_u32;
+    for good in common_goods() {
+        let firms = ((market_depth * good.monthly_demand_factor) / 4.0).ceil() as u32;
+        total = total.saturating_add(firms.clamp(1, 5));
+    }
+    total
+        .clamp(15, u32::from(u16::MAX))
+        .try_into()
+        .unwrap_or(u16::MAX)
 }
 
 fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {

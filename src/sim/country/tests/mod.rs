@@ -1,8 +1,8 @@
 use super::*;
 use crate::sim::{
     bank::LoanAccount,
-    company::build_default_companies,
-    event::SimEvent,
+    company::{FounderStake, build_default_companies},
+    event::{IpoReason, SimEvent},
     money::round_cents,
     params::{
         CompanyGrowthParams, FiscalParams, GovernmentBackfillParams, LaborMobilityParams,

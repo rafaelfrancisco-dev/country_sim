@@ -4,10 +4,91 @@ impl Country {
     /// Attempt an IPO for a distressed company that cannot cover funding via
     /// debt. Returns true if the IPO succeeded and saved the company.
     pub(super) fn attempt_ipo_rescue(&mut self, company_idx: usize) -> bool {
+        self.attempt_ipo(company_idx, IpoReason::Distress)
+    }
+
+    pub(super) fn process_growth_ipos(&mut self) {
         let params = self.sim_params.stock_market;
+        if !params.enabled || params.ipo_max_new_listings_per_month == 0 {
+            return;
+        }
+
+        let mut candidates: Vec<(usize, f64)> = self
+            .companies
+            .iter()
+            .enumerate()
+            .filter_map(|(company_idx, company)| {
+                if self.stock_market.is_listed(company.id)
+                    || company.is_public_utility
+                    || company.age_months < params.ipo_min_company_age_months
+                    || company.ipo_cooldown_months > 0
+                {
+                    return None;
+                }
+                if company.consecutive_profitable_months < params.ipo_growth_min_profitable_months {
+                    return None;
+                }
+                let revenue = company.average_monthly_revenue();
+                if revenue < params.ipo_growth_min_monthly_revenue {
+                    return None;
+                }
+                let payroll = company.monthly_payroll_budget.max(1.0);
+                let runway = company.cash_balance.max(0.0) / payroll;
+                if runway < params.ipo_growth_min_cash_runway_months
+                    || runway > params.ipo_growth_max_cash_runway_months
+                {
+                    return None;
+                }
+
+                let score = revenue + company.last_month_profit.max(0.0) * 0.5 + payroll * 0.25;
+                Some((company_idx, score))
+            })
+            .collect();
+        if candidates.is_empty() {
+            candidates = self
+                .companies
+                .iter()
+                .enumerate()
+                .filter_map(|(company_idx, company)| {
+                    if self.stock_market.is_listed(company.id)
+                        || company.is_public_utility
+                        || company.age_months < params.ipo_min_company_age_months
+                        || company.ipo_cooldown_months > 0
+                    {
+                        return None;
+                    }
+                    let revenue = company.average_monthly_revenue();
+                    if revenue <= 0.0 {
+                        return None;
+                    }
+                    let score = revenue + company.cash_balance.max(0.0) * 0.05;
+                    Some((company_idx, score))
+                })
+                .collect();
+        }
+        candidates.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        candidates.truncate(params.ipo_max_new_listings_per_month as usize);
+
+        for (company_idx, _) in candidates {
+            let _ = self.attempt_ipo(company_idx, IpoReason::Growth);
+        }
+    }
+
+    pub(super) fn attempt_ipo(&mut self, company_idx: usize, reason: IpoReason) -> bool {
+        let params = self.sim_params.stock_market;
+        if !params.enabled || params.ipo_initial_shares == 0 {
+            return false;
+        }
         let Some(company) = self.companies.get(company_idx) else {
             return false;
         };
+        if self.stock_market.is_listed(company.id) || company.ipo_cooldown_months > 0 {
+            return false;
+        }
 
         let company_id = company.id;
         let company_name = company.name.clone();
@@ -15,17 +96,27 @@ impl Country {
         let last_month_profit = company.last_month_profit;
         let cash_balance = company.cash_balance;
         let debt_balance = company.loan.as_ref().map_or(0.0, |l| l.debt_balance);
-        let monthly_payroll = company.monthly_payroll_budget;
-
-        // How much fresh cash does the company need?
-        let funding_need = round_cents((-cash_balance).max(0.0).max(monthly_payroll * 2.0));
-        if funding_need <= 0.0 {
+        let monthly_payroll = company.monthly_payroll_budget.max(0.0);
+        let founder_shares_total: u64 = company.founder_stakes.iter().map(|s| s.shares_owned).sum();
+        let pre_ipo_shares = if founder_shares_total > 0 {
+            founder_shares_total
+        } else {
+            params.ipo_initial_shares
+        };
+        if pre_ipo_shares == 0 {
             return false;
         }
 
-        // Shares to issue (capped by dilution param)
-        let initial_shares = params.ipo_initial_shares;
-        if initial_shares == 0 {
+        let funding_need = match reason {
+            IpoReason::Distress => round_cents((-cash_balance).max(0.0).max(monthly_payroll * 2.0)),
+            IpoReason::Growth => round_cents(
+                (monthly_payroll * params.ipo_primary_raise_target_runway_months - cash_balance)
+                    .max(monthly_payroll * 0.75)
+                    .max(0.0),
+            ),
+            IpoReason::Seed => 0.0,
+        };
+        if !matches!(reason, IpoReason::Seed) && funding_need <= 0.0 {
             return false;
         }
 
@@ -34,129 +125,209 @@ impl Country {
             last_month_profit,
             cash_balance,
             debt_balance,
-            initial_shares,
+            pre_ipo_shares,
         );
-
-        // New shares = how many needed to raise `funding_need`
-        let max_new_shares = ((initial_shares as f64 * params.ipo_max_dilution) as u64).max(1);
-        let needed_shares = ((funding_need / price_per_share).ceil() as u64).max(1);
-        let shares_to_issue = needed_shares.min(max_new_shares);
-
-        let total_raise_target = round_cents(shares_to_issue as f64 * price_per_share);
-        if total_raise_target <= 0.0 {
+        if price_per_share <= 0.0 {
             return false;
         }
 
-        // Collect subscription from people (those with enough surplus cash)
-        let reserve_ratio = params.investor_cash_reserve_ratio;
-        let mut raised = 0.0_f64;
-        let mut shares_allocated = 0_u64;
-        let mut subscriptions: Vec<(u32, u64, f64)> = Vec::new(); // (person_id, shares, cost)
+        let max_primary = ((pre_ipo_shares as f64 * params.ipo_max_dilution) as u64).max(1);
+        let mut primary_shares_to_offer = ((funding_need / price_per_share).ceil() as u64).max(1);
+        primary_shares_to_offer = primary_shares_to_offer.min(max_primary);
 
-        let remaining_shares = shares_to_issue;
-        if remaining_shares > 0 {
-            let per_participant_max = (remaining_shares / 10).max(1);
-            for person in &self.people {
-                if shares_allocated >= remaining_shares {
-                    break;
-                }
-                let reserve = person.cash_balance * reserve_ratio;
-                let investable = round_cents((person.cash_balance - reserve).max(0.0));
-                if investable < price_per_share {
-                    continue;
-                }
-                let affordable_shares = (investable / price_per_share) as u64;
-                let want = affordable_shares.min(per_participant_max);
-                let available = remaining_shares - shares_allocated;
-                let alloc = want.min(available);
-                if alloc == 0 {
-                    continue;
-                }
-                let cost = round_cents(alloc as f64 * price_per_share);
-                subscriptions.push((person.id, alloc, cost));
-                shares_allocated += alloc;
-                raised = round_cents(raised + cost);
-            }
+        let mut secondary_shares_to_offer = 0_u64;
+        let mut founder_total_offer = 0_u64;
+        if matches!(reason, IpoReason::Growth) && founder_shares_total > 0 {
+            let cap = params.ipo_founder_secondary_cap_fraction.clamp(0.0, 1.0);
+            founder_total_offer = company
+                .founder_stakes
+                .iter()
+                .map(|stake| ((stake.shares_owned as f64 * cap).floor() as u64).min(stake.shares_owned))
+                .sum();
+            secondary_shares_to_offer =
+                founder_total_offer.min((primary_shares_to_offer / 2).max(1));
         }
 
-        // Bank may fill residual up to reserve headroom
+        let total_shares_to_offer = primary_shares_to_offer.saturating_add(secondary_shares_to_offer);
+        if total_shares_to_offer == 0 {
+            return false;
+        }
+        let offer_value_target = round_cents(total_shares_to_offer as f64 * price_per_share);
+        if offer_value_target <= 0.0 {
+            return false;
+        }
+
+        let reserve_ratio = params.investor_cash_reserve_ratio.clamp(0.0, 1.0);
+        let per_participant_max = (total_shares_to_offer / 10).max(1);
+        let mut subscriptions: Vec<(u32, u64, f64)> = Vec::new();
+        let mut shares_allocated = 0_u64;
+        let mut raised = 0.0_f64;
+
+        for person in &self.people {
+            if shares_allocated >= total_shares_to_offer {
+                break;
+            }
+            let investable = round_cents((person.cash_balance * (1.0 - reserve_ratio)).max(0.0));
+            if investable < price_per_share {
+                continue;
+            }
+            let affordable_shares = (investable / price_per_share) as u64;
+            let want = affordable_shares.min(per_participant_max);
+            let available = total_shares_to_offer - shares_allocated;
+            let alloc = want.min(available);
+            if alloc == 0 {
+                continue;
+            }
+            let cost = round_cents(alloc as f64 * price_per_share);
+            subscriptions.push((person.id, alloc, cost));
+            shares_allocated += alloc;
+            raised = round_cents(raised + cost);
+        }
+
         let bank_reserve = self.bank.reserve_balance;
         let bank_equity_exposure = self.stock_market.bank_equity_exposure();
         let bank_headroom = round_cents(
             (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure)
                 .max(0.0),
         );
-        if shares_allocated < shares_to_issue && bank_headroom >= price_per_share {
-            let remaining = shares_to_issue - shares_allocated;
+        let mut bank_alloc = 0_u64;
+        let mut bank_cost = 0.0_f64;
+        if shares_allocated < total_shares_to_offer && bank_headroom >= price_per_share {
+            let remaining = total_shares_to_offer - shares_allocated;
             let bank_affordable = (bank_headroom / price_per_share) as u64;
-            let bank_alloc = bank_affordable.min(remaining);
+            bank_alloc = bank_affordable.min(remaining);
             if bank_alloc > 0 {
-                let bank_cost = round_cents(bank_alloc as f64 * price_per_share);
+                bank_cost = round_cents(bank_alloc as f64 * price_per_share);
                 shares_allocated += bank_alloc;
                 raised = round_cents(raised + bank_cost);
-                // bank_portfolio add happens below after verifying success
-                let _ = bank_alloc; // used below in success path
-                let _ = bank_cost;
-                // Store separately so we can apply below
-                let bank_alloc_final = bank_alloc;
-                let bank_cost_final = bank_cost;
-
-                if raised >= total_raise_target * 0.8 {
-                    // IPO success — apply bank subscription
-                    self.bank.reserve_balance =
-                        round_cents(self.bank.reserve_balance - bank_cost_final);
-                    self.stock_market.bank_portfolio.add_shares(
-                        company_id,
-                        bank_alloc_final,
-                        price_per_share,
-                    );
-                }
             }
         }
 
-        // Require at least 80% subscribed to succeed
-        if raised < total_raise_target * 0.8 {
+        let fill_ratio = raised / offer_value_target;
+        let min_fill = match reason {
+            IpoReason::Growth => params.ipo_min_fill_ratio_growth,
+            IpoReason::Distress => params.ipo_min_fill_ratio_distress,
+            IpoReason::Seed => 1.0,
+        };
+        if fill_ratio + 1e-9 < min_fill {
+            if let Some(company) = self.companies.get_mut(company_idx) {
+                company.failed_ipo_attempts = company.failed_ipo_attempts.saturating_add(1);
+                company.ipo_cooldown_months = params.ipo_retry_cooldown_months;
+            }
             return false;
         }
 
-        // Apply person subscriptions
         for (person_id, alloc, cost) in &subscriptions {
             if let Some(person) = self.people.iter_mut().find(|p| p.id == *person_id) {
-                person.cash_balance = round_cents(person.cash_balance - cost);
+                person.cash_balance = round_cents((person.cash_balance - cost).max(0.0));
                 self.stock_market
                     .person_portfolio_mut(*person_id)
                     .add_shares(company_id, *alloc, price_per_share);
             }
         }
+        if bank_alloc > 0 {
+            self.bank.reserve_balance = round_cents((self.bank.reserve_balance - bank_cost).max(0.0));
+            self.stock_market
+                .bank_portfolio
+                .add_shares(company_id, bank_alloc, price_per_share);
+        }
 
-        // Register listing
-        let total_shares = initial_shares + shares_allocated;
+        let shares_sold = shares_allocated;
+        let primary_shares_sold = shares_sold.min(primary_shares_to_offer);
+        let secondary_shares_sold = shares_sold.saturating_sub(primary_shares_sold);
+        let primary_raised = round_cents(primary_shares_sold as f64 * price_per_share);
+        let secondary_raised = round_cents(secondary_shares_sold as f64 * price_per_share);
+        let total_raised = round_cents(primary_raised + secondary_raised);
+        let shares_outstanding = pre_ipo_shares.saturating_add(primary_shares_sold);
+
+        let mut founder_payout_total = 0.0_f64;
+        if secondary_shares_sold > 0 && founder_total_offer > 0 {
+            let cap = params.ipo_founder_secondary_cap_fraction.clamp(0.0, 1.0);
+            let mut remaining_shares = secondary_shares_sold;
+            let mut remaining_cash = secondary_raised;
+            let plan = self
+                .companies
+                .get(company_idx)
+                .map(|c| {
+                    c.founder_stakes
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, stake)| {
+                            let offered =
+                                ((stake.shares_owned as f64 * cap).floor() as u64).min(stake.shares_owned);
+                            (idx, stake.person_id, offered)
+                        })
+                        .filter(|(_, _, offered)| *offered > 0)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let offered_total: u64 = plan.iter().map(|(_, _, offered)| *offered).sum();
+
+            for (plan_idx, (stake_idx, person_id, offered)) in plan.iter().copied().enumerate() {
+                if remaining_shares == 0 || offered_total == 0 {
+                    break;
+                }
+                let sold_shares = if plan_idx + 1 == plan.len() {
+                    remaining_shares
+                } else {
+                    (((secondary_shares_sold as f64) * (offered as f64 / offered_total as f64)).round()
+                        as u64)
+                        .min(remaining_shares)
+                };
+                if sold_shares == 0 {
+                    continue;
+                }
+                let payout = if plan_idx + 1 == plan.len() {
+                    remaining_cash
+                } else {
+                    round_cents(sold_shares as f64 * price_per_share).min(remaining_cash)
+                };
+
+                if let Some(company) = self.companies.get_mut(company_idx)
+                    && let Some(stake) = company.founder_stakes.get_mut(stake_idx)
+                {
+                    stake.shares_owned = stake.shares_owned.saturating_sub(sold_shares);
+                }
+                if let Some(person) = self.people.iter_mut().find(|p| p.id == person_id) {
+                    person.cash_balance = round_cents(person.cash_balance + payout);
+                }
+
+                remaining_shares = remaining_shares.saturating_sub(sold_shares);
+                remaining_cash = round_cents((remaining_cash - payout).max(0.0));
+                founder_payout_total = round_cents(founder_payout_total + payout);
+            }
+        }
+
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
             company_id,
             ticker.clone(),
             price_per_share,
-            total_shares,
-            shares_allocated, // free float = newly issued shares
+            shares_outstanding,
+            shares_sold,
         );
-        self.stock_market
-            .insert_listing_preserve_index(company_id, equity);
+        self.stock_market.insert_listing_preserve_index(company_id, equity);
 
-        // Inject raised cash into company
         if let Some(company) = self.companies.get_mut(company_idx) {
-            company.cash_balance = round_cents(company.cash_balance + raised);
+            company.cash_balance = round_cents(company.cash_balance + primary_raised);
+            company.failed_ipo_attempts = 0;
+            company.ipo_cooldown_months = 0;
         }
-
-        self.stock_market.ipo_raised_mtd = round_cents(self.stock_market.ipo_raised_mtd + raised);
-
+        self.stock_market.ipo_raised_mtd = round_cents(self.stock_market.ipo_raised_mtd + total_raised);
         self.pending_events.push(SimEvent::StockIpo {
             country_name: self.name.clone(),
             company_id,
             company_name,
             ticker,
-            shares_issued: shares_allocated,
+            reason,
+            shares_issued: shares_sold,
+            primary_shares_issued: primary_shares_sold,
+            secondary_shares_sold,
             price_per_share,
-            total_raised: raised,
+            total_raised,
+            primary_raised,
+            secondary_raised,
+            founder_payout_total,
             day: self.day,
         });
 

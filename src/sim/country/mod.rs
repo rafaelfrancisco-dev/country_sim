@@ -2,8 +2,8 @@
 use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
     bank::{Bank, DEFAULT_MAX_DEBT_TO_INCOME},
-    company::{Company, JobOpening},
-    event::{EntityKind, SimEvent},
+    company::{Company, FounderStake, JobOpening},
+    event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
     job::{JobTypeId, job_is_eligible_for_habilitation},
     money::{from_cents, round_cents, to_cents},

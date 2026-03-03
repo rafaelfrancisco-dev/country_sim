@@ -1,4 +1,10 @@
 use super::*;
+use crate::sim::{
+    event::{IpoReason, SimEvent},
+    generator::{GenerationConfig, generate_countries},
+};
+use rayon::ThreadPoolBuilder;
+use std::collections::HashMap;
 
 #[test]
 fn world_tick_increments_day_and_ticks_countries() {
@@ -184,4 +190,116 @@ fn generated_world_hash_differs_for_different_seeds_at_day_zero() {
     let second = run_generated_world_in_pool(78, 5, 2_000, 0, 4);
 
     assert_ne!(world_state_hash(&first), world_state_hash(&second));
+}
+
+fn labor_force_unemployment(country: &Country) -> f64 {
+    let mut labor_force = 0_usize;
+    let mut unemployed = 0_usize;
+    for person in &country.people {
+        if !person.is_labor_force_participant() {
+            continue;
+        }
+        labor_force += 1;
+        if !person.is_employed() {
+            unemployed += 1;
+        }
+    }
+    if labor_force == 0 {
+        0.0
+    } else {
+        unemployed as f64 / labor_force as f64
+    }
+}
+
+fn run_generated_world_with_acceptance_metrics_in_pool(
+    seed: u64,
+    country_count: u16,
+    population_per_country: u32,
+    days: u64,
+    threads: usize,
+) -> (World, u64, HashMap<String, u64>) {
+    let pool = ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .expect("thread pool should build");
+
+    pool.install(|| {
+        let countries = generate_countries(&GenerationConfig::with_defaults(
+            country_count,
+            population_per_country,
+            seed,
+        ));
+        let mut world = World::new_with_generation_seed(countries, seed);
+        let mut companies_founded_total = 0_u64;
+        let mut growth_ipos_by_country: HashMap<String, u64> = HashMap::new();
+
+        for _ in 0..days {
+            world.tick_day();
+            for event in world.event_log.drain(..) {
+                match event {
+                    SimEvent::CompanyFounded { .. } => {
+                        companies_founded_total = companies_founded_total.saturating_add(1);
+                    }
+                    SimEvent::StockIpo {
+                        country_name,
+                        reason: IpoReason::Growth,
+                        ..
+                    } => {
+                        let entry = growth_ipos_by_country.entry(country_name).or_insert(0);
+                        *entry = entry.saturating_add(1);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        (world, companies_founded_total, growth_ipos_by_country)
+    })
+}
+
+#[test]
+#[ignore = "long-run stability scenario (730 days, 3 x 15k)"]
+fn generated_world_3x15k_730_days_meets_stability_floor() {
+    let (world, companies_founded_total, growth_ipos_by_country) =
+        run_generated_world_with_acceptance_metrics_in_pool(0x5eed_c0de, 3, 15_000, 730, 8);
+    assert!(world.validate_invariants().is_empty());
+
+    let rates = world
+        .countries
+        .iter()
+        .map(labor_force_unemployment)
+        .collect::<Vec<_>>();
+    let avg = rates.iter().sum::<f64>() / rates.len() as f64;
+    assert!(avg <= 0.15, "expected avg labor-force unemployment <= 15%, got {avg:.4}");
+    assert!(
+        companies_founded_total > 0,
+        "expected companies_founded_total > 0 over 730 days"
+    );
+    for country in &world.countries {
+        let growth_ipos = growth_ipos_by_country
+            .get(&country.name)
+            .copied()
+            .unwrap_or(0);
+        assert!(
+            growth_ipos > 0,
+            "expected at least one growth IPO for country {}",
+            country.name
+        );
+    }
+}
+
+#[test]
+#[ignore = "long-run stability scenario (1095 days, 3 x 15k)"]
+fn generated_world_3x15k_1095_days_keeps_country_unemployment_capped() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 3, 15_000, 1095, 8);
+    assert!(world.validate_invariants().is_empty());
+
+    for country in &world.countries {
+        let rate = labor_force_unemployment(country);
+        assert!(
+            rate <= 0.20,
+            "country {} unemployment exceeded 20%: {rate:.4}",
+            country.id
+        );
+    }
 }

@@ -17,22 +17,60 @@ impl Country {
 
     pub(super) fn process_startup_formation(&mut self) {
         let formation = self.sim_params.company_formation;
-        let mut startups_created = 0_u16;
+        let Some(limit) = formation.max_startups_per_month else {
+            return;
+        };
+        if limit == 0 {
+            return;
+        }
 
-        for job in common_job_types() {
-            loop {
-                if let Some(limit) = formation.max_startups_per_month
-                    && startups_created >= limit
-                {
-                    return;
-                }
-
-                let formed = self.try_form_startup_for_job(job.id);
-                if !formed {
-                    break;
-                }
-                startups_created = startups_created.saturating_add(1);
+        let mut labor_force = 0_usize;
+        for person in &self.people {
+            if person.is_labor_force_participant() {
+                labor_force = labor_force.saturating_add(1);
             }
+        }
+        if labor_force == 0 {
+            return;
+        }
+
+        let unemployment = self.labor_force_unemployment_rate();
+        let pressure = (unemployment - formation.labor_slack_startup_trigger).max(0.0);
+        let dynamic_budget =
+            1_u16.saturating_add(((pressure * labor_force as f64) / 100.0).round() as u16);
+        let mut startup_budget = dynamic_budget.min(limit);
+        if unemployment >= formation.labor_slack_startup_trigger + 0.03 {
+            startup_budget = startup_budget.saturating_add(6).min(limit);
+        }
+
+        if pressure <= f64::EPSILON {
+            startup_budget = startup_budget.min(1);
+        }
+        if startup_budget == 0 {
+            return;
+        }
+
+        let jobs = common_job_types();
+        if jobs.is_empty() {
+            return;
+        }
+
+        let mut startups_created = 0_u16;
+        let mut job_cursor = (self.month as usize) % jobs.len();
+        let mut failed_attempts = 0_usize;
+        let max_attempts = (startup_budget as usize)
+            .saturating_mul(jobs.len())
+            .max(jobs.len());
+
+        while startups_created < startup_budget && failed_attempts < max_attempts {
+            let job = jobs[job_cursor % jobs.len()];
+            if self.try_form_startup_for_job(job.id) {
+                startups_created = startups_created.saturating_add(1);
+                failed_attempts = 0;
+            } else {
+                failed_attempts = failed_attempts.saturating_add(1);
+            }
+            job_cursor = job_cursor.saturating_add(1);
         }
     }
 
@@ -46,6 +84,7 @@ impl Country {
         for good_id in missing_goods {
             self.create_public_essential_company(good_id, backfill);
         }
+        self.spawn_countercyclical_public_employers(backfill);
     }
 
     pub(super) fn missing_essential_goods(&self, max_good_id_inclusive: u8) -> Vec<u8> {
@@ -172,6 +211,51 @@ impl Country {
             deficit_funding,
             day: self.day,
         });
+    }
+
+    fn spawn_countercyclical_public_employers(&mut self, backfill: GovernmentBackfillParams) {
+        let mut labor_force = 0_usize;
+        for person in &self.people {
+            if person.is_labor_force_participant() {
+                labor_force = labor_force.saturating_add(1);
+            }
+        }
+        if labor_force == 0 {
+            return;
+        }
+
+        let unemployment = self.labor_force_unemployment_rate();
+        let target_unemployment = (
+            self.sim_params
+                .company_distress
+                .countercyclical_layoff_unemployment_guard
+                + 0.08
+        )
+            .clamp(0.0, 0.20);
+        if unemployment <= target_unemployment {
+            return;
+        }
+
+        let excess = (unemployment - target_unemployment).max(0.0);
+        let desired_jobs = ((labor_force as f64 * excess * 0.40).ceil() as u16).clamp(1, 600);
+        let openings_per_company = backfill.openings_total.max(1);
+        let companies_needed = ((f64::from(desired_jobs) / f64::from(openings_per_company)).ceil()
+            as u16)
+            .clamp(1, 30);
+        let essential_span = u16::from(
+            backfill
+            .essential_good_max_id_inclusive
+            .saturating_add(1)
+            .max(1),
+        );
+
+        for offset in 0..companies_needed {
+            if self.companies.len() >= u16::MAX as usize {
+                break;
+            }
+            let good_id = (offset % essential_span) as u8;
+            self.create_public_essential_company(good_id, backfill);
+        }
     }
 
     pub(super) fn public_opening_offer(

@@ -16,6 +16,13 @@ pub struct JobOpening {
     pub offered_monthly_salary: f64,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct FounderStake {
+    pub person_id: u32,
+    pub shares_owned: u64,
+    pub cash_contributed: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Company {
     pub id: u16,
@@ -25,6 +32,7 @@ pub struct Company {
     pub offered_job_types: Vec<JobTypeId>,
     pub produced_good_id: GoodId,
     pub open_positions: Vec<JobOpening>,
+    pub founder_stakes: Vec<FounderStake>,
     pub employee_count: u32,
     pub manufacturing_employee_count: u32,
     pub inventory_units: u32,
@@ -53,6 +61,9 @@ pub struct Company {
     pub price_history: Vec<f64>,
     pub loan_payment_history: Vec<f64>,
     pub cash_balance_history: Vec<f64>,
+    pub age_months: u16,
+    pub ipo_cooldown_months: u8,
+    pub failed_ipo_attempts: u8,
     pub loan: Option<LoanAccount>,
 }
 
@@ -75,6 +86,7 @@ impl Company {
             offered_job_types,
             produced_good_id,
             open_positions: Vec::new(),
+            founder_stakes: Vec::new(),
             employee_count: 0,
             manufacturing_employee_count: 0,
             inventory_units: 0,
@@ -103,6 +115,9 @@ impl Company {
             price_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             loan_payment_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             cash_balance_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            age_months: 0,
+            ipo_cooldown_months: 0,
+            failed_ipo_attempts: 0,
             loan: None,
         }
     }
@@ -182,6 +197,11 @@ impl Company {
     }
 
     pub fn close_month(&mut self, market: &GoodsMarketParams) {
+        self.age_months = self.age_months.saturating_add(1);
+        if self.ipo_cooldown_months > 0 {
+            self.ipo_cooldown_months -= 1;
+        }
+
         let available_units = self
             .inventory_units
             .saturating_add(self.last_month_units_sold)

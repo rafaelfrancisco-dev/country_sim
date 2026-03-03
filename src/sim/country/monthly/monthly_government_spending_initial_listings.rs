@@ -221,9 +221,15 @@ impl Country {
             company_id,
             company_name,
             ticker,
+            reason: IpoReason::Seed,
             shares_issued: shares_allocated,
+            primary_shares_issued: shares_allocated,
+            secondary_shares_sold: 0,
             price_per_share,
             total_raised: raised,
+            primary_raised: raised,
+            secondary_raised: 0.0,
+            founder_payout_total: 0.0,
             day: self.day,
         });
     }

@@ -7,6 +7,13 @@ pub enum EntityKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum IpoReason {
+    Seed,
+    Growth,
+    Distress,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum SimEvent {
     PopBirth {
         country_name: String,
@@ -101,9 +108,15 @@ pub enum SimEvent {
         company_id: u16,
         company_name: String,
         ticker: String,
+        reason: IpoReason,
         shares_issued: u64,
+        primary_shares_issued: u64,
+        secondary_shares_sold: u64,
         price_per_share: f64,
         total_raised: f64,
+        primary_raised: f64,
+        secondary_raised: f64,
+        founder_payout_total: f64,
         day: u64,
     },
     StockDividend {
@@ -313,13 +326,24 @@ impl SimEvent {
                 company_id,
                 company_name,
                 ticker,
+                reason,
                 shares_issued,
+                primary_shares_issued,
+                secondary_shares_sold,
                 price_per_share,
                 total_raised,
+                primary_raised,
+                secondary_raised,
+                founder_payout_total,
                 day,
             } => {
+                let reason_label = match reason {
+                    IpoReason::Seed => "seed",
+                    IpoReason::Growth => "growth",
+                    IpoReason::Distress => "distress",
+                };
                 format!(
-                    "[IPO]   Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) listed as {ticker}, {shares_issued} shares @ ${price_per_share:.2}, raised ${total_raised:.2}"
+                    "[IPO]   Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) listed as {ticker} [{reason_label}], {shares_issued} shares @ ${price_per_share:.2}, raised ${total_raised:.2} (primary ${primary_raised:.2}/{primary_shares_issued} sh, secondary ${secondary_raised:.2}/{secondary_shares_sold} sh, founder payout ${founder_payout_total:.2})"
                 )
             }
             Self::StockDividend {
