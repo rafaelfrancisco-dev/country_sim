@@ -18,6 +18,7 @@ mod monthly_government_spending_initial_listings;
 mod monthly_growth_backfill_public_wages;
 mod monthly_ipo_rescue_collateral_seizure;
 mod monthly_orchestration_payroll_loans;
+mod monthly_secondary_offerings;
 mod monthly_startup_formation_pricing;
 mod prelude;
 

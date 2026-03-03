@@ -40,6 +40,7 @@ pub struct CountryMonthlyTrace {
     pub close_company_months_ms: f64,
     pub dividends_ms: f64,
     pub cpi_ms: f64,
+    pub secondary_offerings_ms: f64,
     pub recompute_aggregates_ms: f64,
 }
 

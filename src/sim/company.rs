@@ -508,6 +508,6 @@ mod tests {
 
         company.close_month(&market);
 
-        assert!((company.unit_price - 25.10).abs() < 0.01);
+        assert!((company.unit_price - 24.38).abs() < 0.01);
     }
 }

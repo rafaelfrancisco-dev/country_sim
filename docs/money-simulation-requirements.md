@@ -93,6 +93,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - **Secondary founder sales**: cash is transferred to founders pro-rata by sold founder shares.
 - IPO subscription funding uses existing household cash and bank reserves only.
 - IPO-time secondary payouts are pure transfers; no new money is created by the secondary leg.
+- **Founder share registration**: after IPO settlement, each founder's remaining (unsold) stake is registered in `person_portfolios` at the IPO price, and `free_float_shares` is expanded by that count. Founder shares then participate in daily trading like any other retail position.
 
 ## Country Revenue
 - Monthly payroll is paid only to employed people.
@@ -302,13 +303,15 @@ The stock market runs once per day after the goods market. Each country's market
 2. **Signal computation**: Each sampled person × listed stock produces two signals:
    - *Trend*: `(last_price − MA20) / MA20` — positive means above recent average
    - *Value gap*: `(fundamental_anchor − last_price) / last_price` — positive means undervalued
-3. **Order placement rules**:
-   - Sell intent: has position AND (`value_gap < −2%` OR `trend > 5%` OR noise trade)
-   - Buy intent: `value_gap > 2%` OR `trend < −2%` OR no position AND below trend OR noise trade
+3. **Order placement rules** (evaluated in priority order):
+   - *Distress sell* (highest priority): if holder's `cash_balance < retail_distress_sell_cash_threshold`, sell 50–90% of free shares at up to 8% discount — forces liquidation regardless of signal
+   - *Profit-taking*: if `last_price > avg_cost × (1 + retail_take_profit_gain_threshold)`, sell 30–60% at up to 2% discount
+   - *Directional signal*: sell if signal < −sell_threshold; buy if signal > buy_threshold
+   - *Random noise*: if no directional intent, sell with probability `retail_random_sell_prob` (holders only) or buy with probability 0.02 (non-holders)
    - One order type per stock per slot; order size bounded by `max_order_fraction_of_float`
 4. **Bank maker orders**: For each listed symbol the bank quotes:
    - Bid at `last_price × (1 − maker_spread_bps / 20000)` — limited by equity headroom
-   - Ask at `last_price × (1 + maker_spread_bps / 20000)` — limited by bank inventory
+   - Ask at `last_price × (1 + maker_spread_bps / 20000)` — size scaled up by `(exposure / budget).min(5)` when bank is over its equity budget (pressure selling)
 5. **Price-time priority matching**: Buys sorted descending by limit, sells ascending. Fill at midpoint clamped to `[prev_close × (1 − max_daily_price_move_pct), prev_close × (1 + max_daily_price_move_pct)]`.
 6. **Settlement (strict, zero-synthetic)**:
    - Person buy: `cash_balance -= cost`, shares increase
@@ -319,6 +322,7 @@ The stock market runs once per day after the goods market. Each country's market
 
 ### Monthly Stock Events
 - **Margin calls** (step 5 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
+- **Secondary offerings** (step after growth IPOs): listed companies with `consecutive_missed_loan_payments >= secondary_offering_missed_payment_trigger` may raise equity capital by issuing up to `shares_outstanding × secondary_offering_max_dilution` new shares at `last_price × (1 − secondary_offering_discount)`. Retail + bank subscribers provide cash; `shares_outstanding` and `free_float_shares` increase by shares allocated; proceeds go to company cash. Emits `StockSecondaryOffering` event (`[SEC]` log tag).
 - **Dividends** (step 17): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
 
 ### Share Conservation Invariant
@@ -330,7 +334,13 @@ For every listed company: `Σ person_holdings + bank_holdings == free_float_shar
 | `daily_participant_cap` | 200 | Max traders sampled per day |
 | `maker_spread_bps` | 50 | Bank bid-ask spread (basis points) |
 | `max_daily_price_move_pct` | 0.08 | Hard ±8% daily price cap |
-| `retail_noise_trade_prob` | 0.01 | Noise trade probability per slot |
-| `max_order_fraction_of_float` | 0.01 | Max order size as fraction of float |
+| `retail_noise_trade_prob` | 0.12 | Noise amplitude for directional signal |
+| `retail_random_sell_prob` | 0.22 | Probability of random sell when signal is neutral and holding |
+| `retail_distress_sell_cash_threshold` | 500 | Cash floor that triggers urgent position liquidation |
+| `retail_take_profit_gain_threshold` | 0.40 | Unrealised gain ratio that triggers profit-taking (40%) |
+| `max_order_fraction_of_float` | 0.05 | Max order size as fraction of float |
 | `investor_cash_reserve_ratio` | 0.30 | Cash kept liquid before buying |
-| `bank_max_equity_reserve_fraction` | 0.10 | Bank equity cap (fraction of reserve) |
+| `bank_max_equity_reserve_fraction` | 0.15 | Bank equity cap (fraction of reserve) |
+| `secondary_offering_missed_payment_trigger` | 1 | Consecutive missed loan payments before secondary offering |
+| `secondary_offering_discount` | 0.10 | Discount to last price for secondary offering shares |
+| `secondary_offering_max_dilution` | 0.15 | Max new shares as fraction of shares outstanding |

@@ -347,5 +347,8 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::BondDefault {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::StockSecondaryOffering {
+            country_name, day, ..
+        } => (country_name, *day),
     }
 }

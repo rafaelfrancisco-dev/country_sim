@@ -178,6 +178,15 @@ pub enum SimEvent {
         monetized: f64,
         day: u64,
     },
+    StockSecondaryOffering {
+        country_name: String,
+        company_id: u16,
+        ticker: String,
+        shares_issued: u64,
+        price: f64,
+        total_raised: f64,
+        day: u64,
+    },
 }
 
 impl SimEvent {
@@ -442,6 +451,19 @@ impl SimEvent {
             } => {
                 format!(
                     "[BDFLT] Day {day:>6} | {country_name}: Bond default — shortfall ${shortfall:.2}, monetized ${monetized:.2}"
+                )
+            }
+            Self::StockSecondaryOffering {
+                country_name,
+                company_id: _,
+                ticker,
+                shares_issued,
+                price,
+                total_raised,
+                day,
+            } => {
+                format!(
+                    "[SEC]   Day {day:>6} | {country_name}: {ticker} secondary offering {shares_issued} shares @ ${price:.2}, raised ${total_raised:.2}"
                 )
             }
         }

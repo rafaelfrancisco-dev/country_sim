@@ -203,7 +203,7 @@ Discrete simulation event counts per country per month. Each column is the count
 
 **Usage notes**:
 - `|day_return_pct| ≤ max_daily_price_move_pct × 100` (default hard cap ±8%) by engine construction.
-- `free_float_shares` is constant between IPOs/delistings; share conservation invariant: `Σ person holdings + bank_position_shares == free_float_shares`.
+- `free_float_shares` changes at IPO (initial float + retained founder shares), on secondary offerings (new shares issued), and at delisting; share conservation invariant: `Σ person holdings + bank_position_shares == free_float_shares`.
 - Daily stock files are written each tick (not just month-end), so they can be significantly larger than the monthly CSVs for long runs.
 
 ---

@@ -18,6 +18,7 @@ impl Country {
         self.collect_monthly_loan_repayments();
         self.recompute_company_profitability();
         self.process_growth_ipos();
+        self.process_listed_company_secondary_offerings();
         self.process_company_distress();
         self.process_end_of_month_loan_requests();
         self.update_company_growth_openings();
@@ -48,6 +49,7 @@ impl Country {
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
         let profitability_ms = time_op!(self.recompute_company_profitability());
         let _growth_ipos_ms = time_op!(self.process_growth_ipos());
+        let secondary_offerings_ms = time_op!(self.process_listed_company_secondary_offerings());
         let company_distress_ms = time_op!(self.process_company_distress());
         let loan_requests_ms = time_op!(self.process_end_of_month_loan_requests());
         let growth_openings_ms = time_op!(self.update_company_growth_openings());
@@ -87,6 +89,7 @@ impl Country {
             close_company_months_ms,
             dividends_ms,
             cpi_ms,
+            secondary_offerings_ms,
             recompute_aggregates_ms,
         }
     }

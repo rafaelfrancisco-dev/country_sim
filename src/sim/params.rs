@@ -265,10 +265,10 @@ impl Default for GoodsMarketParams {
     fn default() -> Self {
         Self {
             tariff_rate: 0.15,
-            worker_effort_per_month: 24.0,
+            worker_effort_per_month: 300.0,
             min_margin_rate: 0.0,
-            price_raise_rate: 0.05,
-            price_cut_rate: 0.05,
+            price_raise_rate: 0.02,
+            price_cut_rate: 0.02,
             sell_through_raise_threshold: 0.90,
             sell_through_cut_threshold: 0.70,
             excess_inventory_months: 2.0,
@@ -344,7 +344,7 @@ impl Default for MonetaryPolicyParams {
             neutral_policy_rate: 0.04,
             inflation_coefficient: 1.5,
             unemployment_coefficient: 0.5,
-            natural_unemployment_rate: 0.05,
+            natural_unemployment_rate: 0.03,
             rate_floor: 0.0,
             rate_ceiling: 0.20,
             credit_spread: 0.03,
@@ -448,6 +448,12 @@ pub struct StockMarketParams {
     pub ipo_max_new_listings_per_month: u16,
     /// Cooldown months after failed IPO attempts.
     pub ipo_retry_cooldown_months: u8,
+    pub retail_distress_sell_cash_threshold: f64,
+    pub retail_take_profit_gain_threshold: f64,
+    pub retail_random_sell_prob: f64,
+    pub secondary_offering_missed_payment_trigger: u8,
+    pub secondary_offering_discount: f64,
+    pub secondary_offering_max_dilution: f64,
 }
 
 impl Default for StockMarketParams {
@@ -482,10 +488,15 @@ impl Default for StockMarketParams {
             ipo_min_fill_ratio_distress: 0.80,
             ipo_max_new_listings_per_month: 4,
             ipo_retry_cooldown_months: 2,
+            retail_distress_sell_cash_threshold: 500.0,
+            retail_take_profit_gain_threshold: 0.40,
+            retail_random_sell_prob: 0.22,
+            secondary_offering_missed_payment_trigger: 1,
+            secondary_offering_discount: 0.10,
+            secondary_offering_max_dilution: 0.15,
         }
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,

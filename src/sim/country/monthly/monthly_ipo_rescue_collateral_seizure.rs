@@ -298,6 +298,20 @@ impl Country {
             }
         }
 
+        // Register retained founder shares in person_portfolios so founders can trade them.
+        let mut total_retained_founder_shares = 0_u64;
+        if let Some(company) = self.companies.get(company_idx) {
+            let stakes_snapshot: Vec<(u32, u64)> = company.founder_stakes.iter()
+                .filter(|s| s.shares_owned > 0)
+                .map(|s| (s.person_id, s.shares_owned))
+                .collect();
+            for (person_id, retained) in stakes_snapshot {
+                self.stock_market.person_portfolio_mut(person_id)
+                    .add_shares(company_id, retained, price_per_share);
+                total_retained_founder_shares = total_retained_founder_shares.saturating_add(retained);
+            }
+        }
+
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
             company_id,
@@ -307,6 +321,14 @@ impl Country {
             shares_sold,
         );
         self.stock_market.insert_listing_preserve_index(company_id, equity);
+
+        // Expand free float to include retained founder shares (now freely tradeable).
+        if total_retained_founder_shares > 0 {
+            if let Some(equity) = self.stock_market.listed.get_mut(&company_id) {
+                equity.free_float_shares = equity.free_float_shares
+                    .saturating_add(total_retained_founder_shares);
+            }
+        }
 
         if let Some(company) = self.companies.get_mut(company_idx) {
             company.cash_balance = round_cents(company.cash_balance + primary_raised);

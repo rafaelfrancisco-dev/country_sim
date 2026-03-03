@@ -32,7 +32,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         id: 2,
         name: "Housing",
         necessity_rank: 3,
-        effort_per_unit: 12.0,
+        effort_per_unit: 8.0,
         monthly_demand_factor: 1.0,
         base_unit_cost: 520.0,
     },

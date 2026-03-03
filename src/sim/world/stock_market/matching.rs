@@ -201,10 +201,12 @@ fn append_retail_orders_for_person(
     slot: usize,
     person_idx: usize,
     symbol_contexts: &[SymbolContext],
-    reserve_ratio: f64,
-    noise_prob: f64,
+    params: &crate::sim::params::StockMarketParams,
     scratch: &mut CountryStockScratch,
 ) {
+    let reserve_ratio = params.investor_cash_reserve_ratio;
+    let noise_prob = params.retail_noise_trade_prob;
+
     let slot_seed =
         hash64(day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id) << 32) ^ slot as u64);
     let person = &country.people[person_idx];
@@ -220,6 +222,10 @@ fn append_retail_orders_for_person(
         let position = portfolio.and_then(|entry| entry.position(context.company_id));
         let has_position = position.map_or(false, |pos| pos.shares > 0);
         let free_shares = position.map_or(0, |pos| pos.shares.saturating_sub(pos.pledged_shares));
+
+        let distress_sell = has_position
+            && free_shares > 0
+            && person_cash < params.retail_distress_sell_cash_threshold;
 
         let order_seed = hash64(slot_seed ^ u64::from(context.company_id) ^ 0xf00d);
         let noise = (unit_interval(hash64(order_seed ^ 0x1111)) - 0.5) * 2.0 * noise_prob;
@@ -238,22 +244,49 @@ fn append_retail_orders_for_person(
         let sell_threshold = 0.03;
         let mut want_buy = directional > buy_threshold;
         let mut want_sell = has_position && directional < -sell_threshold;
+
+        let mut profit_taking = false;
+        if has_position && free_shares > 0 && !want_sell && !distress_sell {
+            if let Some(pos) = position {
+                if pos.avg_cost > 0.0
+                    && context.last_price > pos.avg_cost * (1.0 + params.retail_take_profit_gain_threshold)
+                {
+                    profit_taking = true;
+                    want_sell = true;
+                }
+            }
+        }
+
         if !want_buy && !want_sell {
-            if has_position && unit_interval(hash64(order_seed ^ 0x8888)) < 0.22 {
+            if has_position && unit_interval(hash64(order_seed ^ 0x8888)) < params.retail_random_sell_prob {
                 want_sell = true;
             } else if !has_position && unit_interval(hash64(order_seed ^ 0x9999)) < 0.02 {
                 want_buy = true;
             }
         }
 
-        if want_sell {
+        if distress_sell || want_sell {
             if free_shares > 0 {
-                let sell_frac = unit_interval(hash64(order_seed ^ 0x2222)) * 0.45 + 0.10;
+                let (sell_frac, disc) = if distress_sell {
+                    (
+                        unit_interval(hash64(order_seed ^ 0x2222)) * 0.40 + 0.50,
+                        unit_interval(hash64(order_seed ^ 0x3333)) * 0.08,
+                    )
+                } else if profit_taking {
+                    (
+                        unit_interval(hash64(order_seed ^ 0x2222)) * 0.30 + 0.30,
+                        unit_interval(hash64(order_seed ^ 0x3333)) * 0.02,
+                    )
+                } else {
+                    (
+                        unit_interval(hash64(order_seed ^ 0x2222)) * 0.45 + 0.10,
+                        unit_interval(hash64(order_seed ^ 0x3333)) * 0.03,
+                    )
+                };
                 let shares = ((free_shares as f64 * sell_frac).ceil() as u64)
                     .min(free_shares)
                     .min(context.max_order_by_float)
                     .max(1);
-                let disc = unit_interval(hash64(order_seed ^ 0x3333)) * 0.03;
                 let limit_price = round_cents((context.last_price * (1.0 - disc)).max(0.01));
                 scratch.push_sell(
                     symbol_idx,
@@ -353,9 +386,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
 ) {
     let params = country.sim_params.stock_market;
     let cap = params.daily_participant_cap;
-    let reserve_ratio = params.investor_cash_reserve_ratio;
     let spread_frac = params.maker_spread_bps as f64 / 10_000.0;
-    let noise_prob = params.retail_noise_trade_prob;
     let max_float_frac = params.max_order_fraction_of_float;
     let max_move = params.max_daily_price_move_pct;
 
@@ -394,8 +425,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
                         slot,
                         *person_idx,
                         &symbol_contexts,
-                        reserve_ratio,
-                        noise_prob,
+                        &params,
                         &mut local,
                     );
                     local
@@ -417,8 +447,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
                 slot,
                 person_idx,
                 &symbol_contexts,
-                reserve_ratio,
-                noise_prob,
+                &params,
                 &mut local,
             );
         }
@@ -463,7 +492,16 @@ pub(in crate::sim::world) fn run_country_stock_market(
             .bank_portfolio
             .position(context.company_id)
             .map_or(0, |position| position.shares);
-        let ask_shares = bank_inventory.min(context.max_order_by_float);
+        // Scale up ask size when bank is over its equity budget to actively reduce exposure.
+        let exposure_ratio = if bank_equity_budget > 0.0 {
+            bank_equity_exposure / bank_equity_budget
+        } else {
+            0.0
+        };
+        let pressure_multiplier = if exposure_ratio > 1.0 { exposure_ratio.min(5.0) } else { 1.0 };
+        let ask_cap = ((context.max_order_by_float as f64 * pressure_multiplier).floor() as u64)
+            .max(context.max_order_by_float);
+        let ask_shares = bank_inventory.min(ask_cap);
         if ask_shares > 0 {
             scratch.push_sell(
                 symbol_idx,
