@@ -24,7 +24,7 @@ pub(in crate::components::simulation) enum SnapshotPhase {
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct SetupSnapshot {
     pub country_count_input: String,
-    pub millions_per_country_input: String,
+    pub thousands_per_country_input: String,
     pub generation_seed_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,

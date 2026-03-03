@@ -1,6 +1,6 @@
 use super::{
     generator::{GenerationConfig, generate_countries},
-    setup::{CITIZENS_PER_MILLION, SetupForm, SetupValues},
+    setup::{CITIZENS_PER_THOUSAND, SetupForm, SetupValues},
     tickable::Tickable,
     world::{MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData, World},
 };
@@ -34,7 +34,7 @@ pub struct ApplyOutcome {
 pub struct GameEngine {
     phase: GamePhase,
     generation_seed: u64,
-    citizens_per_million: u32,
+    citizens_per_thousand: u32,
 }
 
 impl Default for GameEngine {
@@ -45,14 +45,14 @@ impl Default for GameEngine {
 
 impl GameEngine {
     pub fn new(generation_seed: u64) -> Self {
-        Self::with_population_scale(generation_seed, CITIZENS_PER_MILLION)
+        Self::with_population_scale(generation_seed, CITIZENS_PER_THOUSAND)
     }
 
-    pub fn with_population_scale(generation_seed: u64, citizens_per_million: u32) -> Self {
+    pub fn with_population_scale(generation_seed: u64, citizens_per_thousand: u32) -> Self {
         Self {
             phase: GamePhase::Setup(SetupForm::with_generation_seed(generation_seed)),
             generation_seed,
-            citizens_per_million: citizens_per_million.max(1),
+            citizens_per_thousand: citizens_per_thousand.max(1),
         }
     }
 
@@ -177,10 +177,9 @@ impl GameEngine {
     }
 
     fn build_world(&self, values: SetupValues) -> World {
-        let population_per_country = (values.millions_per_country
-            * f64::from(self.citizens_per_million))
-        .round()
-        .clamp(0.0, f64::from(u32::MAX)) as u32;
+        let population_per_country = values
+            .thousands_per_country
+            .saturating_mul(self.citizens_per_thousand);
 
         let config = GenerationConfig::with_defaults(
             values.country_count,
@@ -209,12 +208,12 @@ mod tests {
         Country::new(id, name.to_string(), people)
     }
 
-    fn submit_setup(engine: &mut GameEngine, countries: &str, millions: &str) {
+    fn submit_setup(engine: &mut GameEngine, countries: &str, thousands: &str) {
         for input in countries.chars() {
             engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupNextField);
-        for input in millions.chars() {
+        for input in thousands.chars() {
             engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupSubmit);
@@ -223,14 +222,14 @@ mod tests {
     fn submit_setup_with_seed(
         engine: &mut GameEngine,
         countries: &str,
-        millions: &str,
+        thousands: &str,
         seed: &str,
     ) {
         for input in countries.chars() {
             engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupNextField);
-        for input in millions.chars() {
+        for input in thousands.chars() {
             engine.apply(GameCommand::SetupEditChar(input));
         }
         engine.apply(GameCommand::SetupNextField);
@@ -247,7 +246,7 @@ mod tests {
     fn valid_setup_submit_transitions_to_running() {
         let mut engine = GameEngine::with_population_scale(7, 10);
 
-        submit_setup(&mut engine, "2", "1");
+        submit_setup(&mut engine, "2", "100");
 
         assert!(matches!(engine.phase(), GamePhase::Running(_)));
     }
@@ -256,7 +255,7 @@ mod tests {
     fn invalid_setup_submit_keeps_setup_and_sets_error() {
         let mut engine = GameEngine::default();
 
-        submit_setup(&mut engine, "0", "1");
+        submit_setup(&mut engine, "0", "100");
 
         assert!(matches!(engine.phase(), GamePhase::Setup(_)));
         let setup = engine.setup().expect("setup should still be active");
@@ -299,7 +298,7 @@ mod tests {
     #[test]
     fn setup_seed_field_overrides_engine_default_seed() {
         let mut engine = GameEngine::new(7);
-        submit_setup_with_seed(&mut engine, "1", "1", "0x123");
+        submit_setup_with_seed(&mut engine, "1", "100", "0x123");
 
         let world = engine.world().expect("world should exist");
         assert_eq!(world.generation_seed, 0x123);
@@ -318,7 +317,7 @@ mod tests {
         std::fs::create_dir_all(&out_dir).expect("create output dir");
 
         let mut engine = GameEngine::new(DEFAULT_GENERATION_SEED);
-        submit_setup(&mut engine, "1", "0.1");
+        submit_setup(&mut engine, "1", "100");
         engine.enable_export_queue();
 
         let mut exporter: Option<CsvExporter> = None;
@@ -363,16 +362,16 @@ mod tests {
                 .and_then(|s| s.parse::<u16>().ok())
                 .unwrap_or(default)
         }
-        fn env_f64(name: &str, default: f64) -> f64 {
+        fn env_u32(name: &str, default: u32) -> u32 {
             std::env::var(name)
                 .ok()
-                .and_then(|s| s.parse::<f64>().ok())
+                .and_then(|s| s.parse::<u32>().ok())
                 .unwrap_or(default)
         }
 
         let days = env_u64("STOCK_EXPORT_DAYS", 365);
         let country_count = env_u16("STOCK_EXPORT_COUNTRIES", 3);
-        let millions_per_country = env_f64("STOCK_EXPORT_MILLIONS", 0.1);
+        let thousands_per_country = env_u32("STOCK_EXPORT_THOUSANDS", 100);
 
         let out_dir = std::env::var("EXPORT_CSV_TEST_DIR")
             .map(PathBuf::from)
@@ -387,7 +386,7 @@ mod tests {
         submit_setup(
             &mut engine,
             &country_count.to_string(),
-            &format!("{millions_per_country:.3}"),
+            &thousands_per_country.to_string(),
         );
         engine.enable_export_queue();
 

@@ -7,7 +7,7 @@ impl SetupSnapshot {
     ) -> Self {
         Self {
             country_count_input: setup.country_count_input.clone(),
-            millions_per_country_input: setup.millions_per_country_input.clone(),
+            thousands_per_country_input: setup.thousands_per_country_input.clone(),
             generation_seed_input: setup.generation_seed_input.clone(),
             active_field: setup.active_field,
             validation_error: setup.validation_error.clone(),

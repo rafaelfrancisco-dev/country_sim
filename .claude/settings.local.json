@@ -8,7 +8,8 @@
       "Bash(cargo build:*)",
       "Bash(git add:*)",
       "Bash(cargo:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(grep:*)"
     ]
   }
 }

@@ -5,23 +5,23 @@ use crate::seed::{format_generation_seed, parse_generation_seed};
 
 pub const MIN_COUNTRIES: u16 = 1;
 pub const MAX_COUNTRIES: u16 = 50;
-pub const MIN_MILLIONS_PER_COUNTRY: f64 = 0.1;
-pub const MAX_MILLIONS_PER_COUNTRY: f64 = 20.0;
-pub const CITIZENS_PER_MILLION: u32 = 1_000_000;
+pub const MIN_THOUSANDS_PER_COUNTRY: u32 = 10;
+pub const MAX_THOUSANDS_PER_COUNTRY: u32 = 20_000;
+pub const CITIZENS_PER_THOUSAND: u32 = 1_000;
 pub const MEMORY_WARNING_THRESHOLD_BYTES: u64 = (2.5 * 1024.0 * 1024.0 * 1024.0) as u64;
 const DEFAULT_SETUP_GENERATION_SEED: u64 = 0x5eed_c0de;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SetupField {
     CountryCount,
-    MillionsPerCountry,
+    ThousandsPerCountry,
     GenerationSeed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SetupForm {
     pub country_count_input: String,
-    pub millions_per_country_input: String,
+    pub thousands_per_country_input: String,
     pub generation_seed_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,
@@ -31,7 +31,7 @@ pub struct SetupForm {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct SetupValues {
     pub country_count: u16,
-    pub millions_per_country: f64,
+    pub thousands_per_country: u32,
     pub generation_seed: u64,
     pub estimated_person_bytes: u64,
 }
@@ -40,7 +40,7 @@ impl Default for SetupForm {
     fn default() -> Self {
         Self {
             country_count_input: String::new(),
-            millions_per_country_input: String::new(),
+            thousands_per_country_input: String::new(),
             generation_seed_input: format_generation_seed(DEFAULT_SETUP_GENERATION_SEED),
             active_field: SetupField::CountryCount,
             validation_error: None,
@@ -63,13 +63,8 @@ impl SetupForm {
             SetupField::CountryCount if input.is_ascii_digit() => {
                 self.country_count_input.push(input);
             }
-            SetupField::MillionsPerCountry if input.is_ascii_digit() => {
-                self.millions_per_country_input.push(input);
-            }
-            SetupField::MillionsPerCountry
-                if input == '.' && !self.millions_per_country_input.contains('.') =>
-            {
-                self.millions_per_country_input.push(input);
+            SetupField::ThousandsPerCountry if input.is_ascii_digit() => {
+                self.thousands_per_country_input.push(input);
             }
             SetupField::GenerationSeed
                 if input.is_ascii_hexdigit() || matches!(input, 'x' | 'X' | '_') =>
@@ -87,8 +82,8 @@ impl SetupForm {
             SetupField::CountryCount => {
                 self.country_count_input.pop();
             }
-            SetupField::MillionsPerCountry => {
-                self.millions_per_country_input.pop();
+            SetupField::ThousandsPerCountry => {
+                self.thousands_per_country_input.pop();
             }
             SetupField::GenerationSeed => {
                 self.generation_seed_input.pop();
@@ -99,8 +94,8 @@ impl SetupForm {
 
     pub fn next_field(&mut self) {
         self.active_field = match self.active_field {
-            SetupField::CountryCount => SetupField::MillionsPerCountry,
-            SetupField::MillionsPerCountry => SetupField::GenerationSeed,
+            SetupField::CountryCount => SetupField::ThousandsPerCountry,
+            SetupField::ThousandsPerCountry => SetupField::GenerationSeed,
             SetupField::GenerationSeed => SetupField::CountryCount,
         };
     }
@@ -108,8 +103,8 @@ impl SetupForm {
     pub fn prev_field(&mut self) {
         self.active_field = match self.active_field {
             SetupField::CountryCount => SetupField::GenerationSeed,
-            SetupField::MillionsPerCountry => SetupField::CountryCount,
-            SetupField::GenerationSeed => SetupField::MillionsPerCountry,
+            SetupField::ThousandsPerCountry => SetupField::CountryCount,
+            SetupField::GenerationSeed => SetupField::ThousandsPerCountry,
         };
     }
 
@@ -126,15 +121,17 @@ impl SetupForm {
             ));
         }
 
-        let millions_per_country = self
-            .millions_per_country_input
-            .parse::<f64>()
-            .map_err(|_| "Millions per country must be a number.".to_string())?;
+        let thousands_per_country = self
+            .thousands_per_country_input
+            .parse::<u32>()
+            .map_err(|_| "Thousands per country must be a whole number.".to_string())?;
 
-        if !(MIN_MILLIONS_PER_COUNTRY..=MAX_MILLIONS_PER_COUNTRY).contains(&millions_per_country) {
+        if !(MIN_THOUSANDS_PER_COUNTRY..=MAX_THOUSANDS_PER_COUNTRY)
+            .contains(&thousands_per_country)
+        {
             return Err(format!(
-                "Millions per country must be between {:.1} and {:.1}.",
-                MIN_MILLIONS_PER_COUNTRY, MAX_MILLIONS_PER_COUNTRY
+                "Thousands per country must be between {} and {}.",
+                MIN_THOUSANDS_PER_COUNTRY, MAX_THOUSANDS_PER_COUNTRY
             ));
         }
 
@@ -142,12 +139,12 @@ impl SetupForm {
             .ok_or_else(|| "Generation seed must be decimal or 0x-prefixed hex.".to_string())?;
 
         let estimated_person_bytes =
-            estimate_person_storage_bytes(country_count, millions_per_country);
+            estimate_person_storage_bytes(country_count, thousands_per_country);
         self.memory_warning = build_memory_warning(estimated_person_bytes);
 
         Ok(SetupValues {
             country_count,
-            millions_per_country,
+            thousands_per_country,
             generation_seed,
             estimated_person_bytes,
         })
@@ -171,15 +168,15 @@ impl SetupForm {
 
     fn refresh_memory_warning(&mut self) {
         let parsed_country = self.country_count_input.parse::<u16>();
-        let parsed_millions = self.millions_per_country_input.parse::<f64>();
+        let parsed_thousands = self.thousands_per_country_input.parse::<u32>();
 
-        self.memory_warning = match (parsed_country, parsed_millions) {
-            (Ok(country_count), Ok(millions_per_country))
+        self.memory_warning = match (parsed_country, parsed_thousands) {
+            (Ok(country_count), Ok(thousands_per_country))
                 if (MIN_COUNTRIES..=MAX_COUNTRIES).contains(&country_count)
-                    && (MIN_MILLIONS_PER_COUNTRY..=MAX_MILLIONS_PER_COUNTRY)
-                        .contains(&millions_per_country) =>
+                    && (MIN_THOUSANDS_PER_COUNTRY..=MAX_THOUSANDS_PER_COUNTRY)
+                        .contains(&thousands_per_country) =>
             {
-                let bytes = estimate_person_storage_bytes(country_count, millions_per_country);
+                let bytes = estimate_person_storage_bytes(country_count, thousands_per_country);
                 build_memory_warning(bytes)
             }
             _ => None,
@@ -187,19 +184,14 @@ impl SetupForm {
     }
 }
 
-pub fn estimate_population(country_count: u16, millions_per_country: f64) -> u64 {
-    let estimate =
-        f64::from(country_count) * millions_per_country * f64::from(CITIZENS_PER_MILLION);
-
-    if !estimate.is_finite() || estimate <= 0.0 {
-        return 0;
-    }
-
-    estimate.round().min(u64::MAX as f64) as u64
+pub fn estimate_population(country_count: u16, thousands_per_country: u32) -> u64 {
+    u64::from(country_count)
+        .saturating_mul(u64::from(thousands_per_country))
+        .saturating_mul(u64::from(CITIZENS_PER_THOUSAND))
 }
 
-pub fn estimate_person_storage_bytes(country_count: u16, millions_per_country: f64) -> u64 {
-    estimate_population(country_count, millions_per_country)
+pub fn estimate_person_storage_bytes(country_count: u16, thousands_per_country: u32) -> u64 {
+    estimate_population(country_count, thousands_per_country)
         .saturating_mul(size_of::<Person>() as u64)
 }
 
@@ -223,35 +215,35 @@ mod tests {
     fn validate_accepts_valid_values() {
         let mut form = SetupForm {
             country_count_input: "4".to_string(),
-            millions_per_country_input: "2.5".to_string(),
+            thousands_per_country_input: "2500".to_string(),
             ..SetupForm::default()
         };
 
         let values = form.validate().expect("valid values must pass");
 
         assert_eq!(values.country_count, 4);
-        assert_eq!(values.millions_per_country, 2.5);
+        assert_eq!(values.thousands_per_country, 2500);
         assert_eq!(values.generation_seed, DEFAULT_SETUP_GENERATION_SEED);
     }
 
     #[test]
-    fn validate_accepts_minimum_decimal_millions() {
+    fn validate_accepts_minimum_thousands() {
         let mut form = SetupForm {
             country_count_input: "4".to_string(),
-            millions_per_country_input: "0.1".to_string(),
+            thousands_per_country_input: "10".to_string(),
             ..SetupForm::default()
         };
 
         let values = form.validate().expect("minimum value must pass");
 
-        assert_eq!(values.millions_per_country, 0.1);
+        assert_eq!(values.thousands_per_country, 10);
     }
 
     #[test]
     fn validate_rejects_non_numeric_country_count() {
         let mut form = SetupForm {
             country_count_input: "abc".to_string(),
-            millions_per_country_input: "2".to_string(),
+            thousands_per_country_input: "2".to_string(),
             ..SetupForm::default()
         };
 
@@ -264,7 +256,7 @@ mod tests {
     fn validate_rejects_out_of_range_country_count() {
         let mut form = SetupForm {
             country_count_input: "0".to_string(),
-            millions_per_country_input: "2".to_string(),
+            thousands_per_country_input: "2".to_string(),
             ..SetupForm::default()
         };
 
@@ -274,23 +266,23 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_out_of_range_millions() {
+    fn validate_rejects_out_of_range_thousands() {
         let mut form = SetupForm {
             country_count_input: "2".to_string(),
-            millions_per_country_input: "21".to_string(),
+            thousands_per_country_input: "9".to_string(),
             ..SetupForm::default()
         };
 
         let error = form.validate().unwrap_err();
 
-        assert_eq!(error, "Millions per country must be between 0.1 and 20.0.");
+        assert_eq!(error, "Thousands per country must be between 10 and 20000.");
     }
 
     #[test]
     fn memory_warning_is_non_blocking() {
         let mut form = SetupForm {
             country_count_input: "50".to_string(),
-            millions_per_country_input: "20".to_string(),
+            thousands_per_country_input: "20000".to_string(),
             ..SetupForm::default()
         };
 
@@ -304,7 +296,7 @@ mod tests {
     fn validate_rejects_invalid_generation_seed() {
         let mut form = SetupForm {
             country_count_input: "2".to_string(),
-            millions_per_country_input: "2".to_string(),
+            thousands_per_country_input: "2000".to_string(),
             generation_seed_input: "invalid".to_string(),
             ..SetupForm::default()
         };
@@ -320,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn estimate_population_uses_million_scale() {
-        assert_eq!(estimate_population(2, 3.5), 7_000_000);
+    fn estimate_population_uses_thousand_scale() {
+        assert_eq!(estimate_population(2, 3), 6_000);
     }
 }

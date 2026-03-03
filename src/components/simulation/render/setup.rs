@@ -25,7 +25,7 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let [intro, countries, millions, seed, status, help] = Layout::vertical([
+        let [intro, countries, thousands, seed, status, help] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
@@ -36,7 +36,7 @@ impl Simulation {
         .areas(inner);
 
         frame.render_widget(
-            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 0.1-20.0 million people per country.")
+            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 10-20000 thousand people per country.")
                 .style(theme::primary_text())
                 .wrap(Wrap { trim: true }),
             intro,
@@ -54,8 +54,8 @@ impl Simulation {
             inactive_style
         };
 
-        let million_style =
-            if setup.active_field == crate::sim::setup::SetupField::MillionsPerCountry {
+        let thousand_style =
+            if setup.active_field == crate::sim::setup::SetupField::ThousandsPerCountry {
                 active_style
             } else {
                 inactive_style
@@ -72,10 +72,10 @@ impl Simulation {
             setup.country_count_input.clone()
         };
 
-        let million_text = if setup.millions_per_country_input.is_empty() {
+        let thousand_text = if setup.thousands_per_country_input.is_empty() {
             "<enter number>".to_string()
         } else {
-            setup.millions_per_country_input.clone()
+            setup.thousands_per_country_input.clone()
         };
         let seed_text = if setup.generation_seed_input.is_empty() {
             "<enter decimal or 0xhex>".to_string()
@@ -103,14 +103,14 @@ impl Simulation {
         );
 
         frame.render_widget(
-            Paragraph::new(million_text)
+            Paragraph::new(thousand_text)
                 .block(
                     Block::default()
-                        .title(" Millions per Country ")
+                        .title(" Thousands per Country ")
                         .borders(Borders::ALL)
                         .border_style(
                             if setup.active_field
-                                == crate::sim::setup::SetupField::MillionsPerCountry
+                                == crate::sim::setup::SetupField::ThousandsPerCountry
                             {
                                 theme::active_border()
                             } else {
@@ -119,8 +119,8 @@ impl Simulation {
                         )
                         .title_style(theme::primary_text()),
                 )
-                .style(million_style),
-            millions,
+                .style(thousand_style),
+            thousands,
         );
 
         frame.render_widget(
@@ -173,7 +173,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field  [0-9/.] edit numeric fields  [0-9/a-f/x/_] edit seed  [Backspace] erase  [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field  [0-9] edit numeric fields  [0-9/a-f/x/_] edit seed  [Backspace] erase  [Enter] start simulation",
             )
             .style(theme::muted_text()),
             help,
