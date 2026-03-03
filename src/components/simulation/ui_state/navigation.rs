@@ -4,6 +4,7 @@ impl UiState {
     pub fn ensure_valid(&mut self, world: &World) {
         if world.countries.is_empty() {
             self.selected_country = 0;
+            self.chart_page = 0;
             self.people_page = 0;
             self.selected_person_row = 0;
             self.company_page = 0;
@@ -13,6 +14,7 @@ impl UiState {
         }
 
         self.selected_country = self.selected_country.min(world.countries.len() - 1);
+        self.chart_page = self.chart_page.min(CHART_PAGE_COUNT.saturating_sub(1));
         let people_pages = self.total_people_pages(world);
         self.people_page = self.people_page.min(people_pages.saturating_sub(1));
         self.clamp_selected_person_row(world);
@@ -167,5 +169,16 @@ impl UiState {
     pub(super) fn select_prev_company_row(&mut self, _world: &World) {
         self.selection_focus = SelectionFocus::Company;
         self.selected_company_row = self.selected_company_row.saturating_sub(1);
+    }
+
+    pub(super) fn next_chart_page(&mut self) {
+        let max_page = CHART_PAGE_COUNT.saturating_sub(1);
+        if self.chart_page < max_page {
+            self.chart_page += 1;
+        }
+    }
+
+    pub(super) fn prev_chart_page(&mut self) {
+        self.chart_page = self.chart_page.saturating_sub(1);
     }
 }

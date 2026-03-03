@@ -60,28 +60,59 @@ fn aggregate_history_matches_country_sums() {
             month: 0,
             population: 0.0,
             total_money_supply: 0.0,
+            household_cash_total: 0.0,
+            company_cash_total: 0.0,
+            expected_money_supply: 0.0,
+            money_supply_gap: 0.0,
             created_money_outstanding: 0.0,
             bank_reserve: 0.0,
             treasury_balance: 0.0,
             budget_balance: 0.0,
+            monthly_tax_collected: 0.0,
+            monthly_gov_spending: 0.0,
+            gov_debt: 0.0,
+            monthly_goods_import_spending: 0.0,
+            monthly_goods_export_revenue: 0.0,
+            monthly_unmet_need_events: 0.0,
+            monthly_essential_debt_spending: 0.0,
             cpi_index: 0.0,
             inflation_rate: 0.0,
             policy_rate: 0.0,
             bonds_outstanding: 0.0,
+            stock_market_cap: 0.0,
+            stock_bank_equity_exposure: 0.0,
         },
         |acc, point| MetricPoint {
             month: acc.month.max(point.month),
             population: acc.population + point.population,
             total_money_supply: acc.total_money_supply + point.total_money_supply,
+            household_cash_total: acc.household_cash_total + point.household_cash_total,
+            company_cash_total: acc.company_cash_total + point.company_cash_total,
+            expected_money_supply: acc.expected_money_supply + point.expected_money_supply,
+            money_supply_gap: acc.money_supply_gap + point.money_supply_gap,
             created_money_outstanding: acc.created_money_outstanding
                 + point.created_money_outstanding,
             bank_reserve: acc.bank_reserve + point.bank_reserve,
             treasury_balance: acc.treasury_balance + point.treasury_balance,
             budget_balance: acc.budget_balance + point.budget_balance,
+            monthly_tax_collected: acc.monthly_tax_collected + point.monthly_tax_collected,
+            monthly_gov_spending: acc.monthly_gov_spending + point.monthly_gov_spending,
+            gov_debt: acc.gov_debt + point.gov_debt,
+            monthly_goods_import_spending: acc.monthly_goods_import_spending
+                + point.monthly_goods_import_spending,
+            monthly_goods_export_revenue: acc.monthly_goods_export_revenue
+                + point.monthly_goods_export_revenue,
+            monthly_unmet_need_events: acc.monthly_unmet_need_events
+                + point.monthly_unmet_need_events,
+            monthly_essential_debt_spending: acc.monthly_essential_debt_spending
+                + point.monthly_essential_debt_spending,
             cpi_index: acc.cpi_index + point.cpi_index,
             inflation_rate: acc.inflation_rate + point.inflation_rate,
             policy_rate: acc.policy_rate + point.policy_rate,
             bonds_outstanding: acc.bonds_outstanding + point.bonds_outstanding,
+            stock_market_cap: acc.stock_market_cap + point.stock_market_cap,
+            stock_bank_equity_exposure: acc.stock_bank_equity_exposure
+                + point.stock_bank_equity_exposure,
         },
     );
 
@@ -95,6 +126,11 @@ fn aggregate_history_matches_country_sums() {
     assert!((aggregate.bank_reserve - country_sum.bank_reserve).abs() < f64::EPSILON);
     assert!((aggregate.treasury_balance - country_sum.treasury_balance).abs() < f64::EPSILON);
     assert!((aggregate.budget_balance - country_sum.budget_balance).abs() < f64::EPSILON);
+    assert!((aggregate.gov_debt - country_sum.gov_debt).abs() < f64::EPSILON);
+    assert!(
+        (aggregate.monthly_tax_collected - country_sum.monthly_tax_collected).abs() < f64::EPSILON
+    );
+    assert!((aggregate.stock_market_cap - country_sum.stock_market_cap).abs() < f64::EPSILON);
 }
 
 #[test]

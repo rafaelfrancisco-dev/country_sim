@@ -24,6 +24,8 @@ pub enum UiCommand {
     NextTab,
     PrevTab,
     ToggleChartScope,
+    ChartPagePrev,
+    ChartPageNext,
     ChartPrevCountry,
     ChartNextCountry,
     GoodsPrevCountry,

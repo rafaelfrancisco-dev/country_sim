@@ -1,6 +1,7 @@
 pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
+pub const CHART_PAGE_COUNT: usize = 3;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DetailsView {
@@ -45,6 +46,7 @@ pub struct UiState {
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
     pub chart_scope: ChartScope,
+    pub chart_page: usize,
     pub selected_country: usize,
     pub people_page: usize,
     pub selected_person_row: usize,
@@ -65,6 +67,7 @@ impl Default for UiState {
             selection_focus: SelectionFocus::Country,
             active_tab: RunningTab::Main,
             chart_scope: ChartScope::SelectedCountry,
+            chart_page: 0,
             selected_country: 0,
             people_page: 0,
             selected_person_row: 0,

@@ -65,6 +65,12 @@ impl Simulation {
         if hotkeys::is_country_next_key(key) {
             return Some(SimulationCommand::Ui(UiCommand::ChartNextCountry));
         }
+        if hotkeys::is_page_prev_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::ChartPagePrev));
+        }
+        if hotkeys::is_page_next_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::ChartPageNext));
+        }
 
         None
     }
@@ -426,6 +432,14 @@ mod tests {
         assert_eq!(
             simulation.map_running_key(KeyEvent::from(KeyCode::Char('<')), chart_state),
             None
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageUp), chart_state),
+            Some(SimulationCommand::Ui(UiCommand::ChartPagePrev))
+        );
+        assert_eq!(
+            simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), chart_state),
+            Some(SimulationCommand::Ui(UiCommand::ChartPageNext))
         );
 
         let events_state = RunningInputState {

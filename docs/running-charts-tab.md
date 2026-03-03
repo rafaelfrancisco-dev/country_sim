@@ -30,23 +30,36 @@ The running UI uses one navigation convention across tabs:
 - `Main`: list navigation and person/country details; in person details, `c` jumps to employer company in Goods.
 - `Goods`: country/company navigation, company details panel.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
-- `Charts`: `t` toggles scope between selected country and world aggregate.
+- `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `Ctrl+u` clears search query while editing.
 
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 
 ## Charts and Metrics
-The `Charts` tab renders eight charts in a 4×2 grid:
+The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `PageDown` to switch pages.
 
+### Page 1 — Liquidity & Balance Sheet
 | Row | Left | Right |
 |---|---|---|
 | 1 | Population | Total Money Supply |
-| 2 | Created Money Outstanding | Bank Reserve |
-| 3 | Treasury Balance | Budget Balance |
-| 4 | CPI Index | Policy Rate % |
+| 2 | Household Cash Total | Company Cash Total |
+| 3 | Created Money Outstanding | Bank Reserve |
+| 4 | Expected Money Supply | Money Supply Gap |
+
+### Page 2 — Fiscal & External Sector
+| Row | Left | Right |
+|---|---|---|
+| 1 | Treasury Balance | Budget Balance |
+| 2 | Monthly Tax Collected | Monthly Gov Spending |
+| 3 | Government Debt | Bonds Outstanding |
+| 4 | Monthly Goods Import Spending | Monthly Goods Export Revenue |
+
+### Page 3 — Prices, Stress & Market Risk
+| Row | Left | Right |
+|---|---|---|
+| 1 | CPI Index | Inflation Rate % |
+| 2 | Policy Rate % | Real Policy Rate % |
+| 3 | Monthly Unmet Need Events | Monthly Essential Debt Spending |
+| 4 | Stock Market Cap | Bank Equity Exposure |
 
 Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.
-
-**CPI Index** starts at `1.0` and drifts as goods prices move. Values above `1.0` indicate accumulated price-level growth.
-
-**Policy Rate %** shows the world-level central bank rate set by the Taylor Rule each month (displayed as percentage, e.g. `4.00` = 4%). Use `[t]` to toggle between selected country and world aggregate scope for all charts; the scope label appears in each chart title.

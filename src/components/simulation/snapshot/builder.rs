@@ -333,6 +333,8 @@ impl UiSnapshot {
             company_money_history,
             country_goods_summary_lines,
             chart_scope_label,
+            chart_page: ui.chart_page,
+            total_chart_pages: crate::components::simulation::ui_state::CHART_PAGE_COUNT,
             chart_history,
             sim_mode: runtime_stats.mode,
             ticks_per_second: runtime_stats.ticks_per_second,

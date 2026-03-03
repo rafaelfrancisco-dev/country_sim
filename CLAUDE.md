@@ -44,7 +44,7 @@ Trait-based UI components. The main `simulation/` component owns all game UI sta
 - **`params.rs`**: Simulation constants
 
 ### Rendering (`src/components/simulation/render/`)
-Multiple tabs rendered by separate modules: `running.rs` (main view), `charts.rs` (6-metric 3×2 grid), `events.rs` (searchable log), `goods.rs`, `stocks.rs`, `details.rs`. Setup screen in `setup.rs`.
+Multiple tabs rendered by separate modules: `running.rs` (main view), `charts.rs` (paginated 3-page 4×2 chart dashboard), `events.rs` (searchable log), `goods.rs`, `stocks.rs`, `details.rs`. Setup screen in `setup.rs`.
 
 ### TUI Layer (`src/tui.rs`)
 Crossterm terminal abstraction. Streams events (keyboard, mouse, resize) plus synthetic tick/render events. Frames rendered via Ratatui.

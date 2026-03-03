@@ -32,6 +32,26 @@ impl World {
             .iter()
             .map(|country| country.total_money_supply)
             .sum();
+        let household_cash_total = self
+            .countries
+            .iter()
+            .map(|country| country.household_cash_total)
+            .sum();
+        let company_cash_total = self
+            .countries
+            .iter()
+            .map(|country| country.company_cash_total)
+            .sum();
+        let expected_money_supply = self
+            .countries
+            .iter()
+            .map(|country| country.expected_money_supply)
+            .sum();
+        let money_supply_gap = self
+            .countries
+            .iter()
+            .map(|country| country.money_supply_gap)
+            .sum();
         let created_money_outstanding = self
             .countries
             .iter()
@@ -52,6 +72,37 @@ impl World {
             .iter()
             .map(|country| country.monthly_budget_balance)
             .sum();
+        let monthly_tax_collected = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_tax_collected)
+            .sum();
+        let monthly_gov_spending = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_gov_spending)
+            .sum();
+        let gov_debt = self.countries.iter().map(|country| country.gov_debt).sum();
+        let monthly_goods_import_spending = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_goods_import_spending)
+            .sum();
+        let monthly_goods_export_revenue = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_goods_export_revenue)
+            .sum();
+        let monthly_unmet_need_events = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_unmet_need_events as f64)
+            .sum();
+        let monthly_essential_debt_spending = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_essential_debt_spending)
+            .sum();
         let cpi_index = self
             .countries
             .iter()
@@ -69,19 +120,42 @@ impl World {
             .iter()
             .map(|country| country.bonds_outstanding)
             .sum();
+        let stock_market_cap = self
+            .countries
+            .iter()
+            .map(|country| country.stock_market.total_market_cap())
+            .sum();
+        let stock_bank_equity_exposure = self
+            .countries
+            .iter()
+            .map(|country| country.stock_market.bank_equity_exposure())
+            .sum();
 
         MetricPoint {
             month,
             population,
             total_money_supply,
+            household_cash_total,
+            company_cash_total,
+            expected_money_supply,
+            money_supply_gap,
             created_money_outstanding,
             bank_reserve,
             treasury_balance,
             budget_balance,
+            monthly_tax_collected,
+            monthly_gov_spending,
+            gov_debt,
+            monthly_goods_import_spending,
+            monthly_goods_export_revenue,
+            monthly_unmet_need_events,
+            monthly_essential_debt_spending,
             cpi_index,
             inflation_rate,
             policy_rate: self.policy_rate,
             bonds_outstanding,
+            stock_market_cap,
+            stock_bank_equity_exposure,
         }
     }
 
@@ -90,14 +164,27 @@ impl World {
             month: country.month,
             population: country.population() as f64,
             total_money_supply: country.total_money_supply,
+            household_cash_total: country.household_cash_total,
+            company_cash_total: country.company_cash_total,
+            expected_money_supply: country.expected_money_supply,
+            money_supply_gap: country.money_supply_gap,
             created_money_outstanding: country.bank.created_money_outstanding,
             bank_reserve: country.bank.reserve_balance,
             treasury_balance: country.treasury_balance,
             budget_balance: country.monthly_budget_balance,
+            monthly_tax_collected: country.monthly_tax_collected,
+            monthly_gov_spending: country.monthly_gov_spending,
+            gov_debt: country.gov_debt,
+            monthly_goods_import_spending: country.monthly_goods_import_spending,
+            monthly_goods_export_revenue: country.monthly_goods_export_revenue,
+            monthly_unmet_need_events: country.monthly_unmet_need_events as f64,
+            monthly_essential_debt_spending: country.monthly_essential_debt_spending,
             cpi_index: country.cpi_index,
             inflation_rate: country.monthly_inflation_rate,
             policy_rate: country.policy_rate,
             bonds_outstanding: country.bonds_outstanding,
+            stock_market_cap: country.stock_market.total_market_cap(),
+            stock_bank_equity_exposure: country.stock_market.bank_equity_exposure(),
         }
     }
 

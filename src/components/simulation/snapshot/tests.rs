@@ -50,4 +50,6 @@ fn inactive_tabs_skip_heavy_data() {
     };
     let charts = running_snapshot_for_tab(&engine, RunningTab::Charts);
     assert_eq!(charts.chart_history.len(), expected_chart_points);
+    assert_eq!(charts.chart_page, 0);
+    assert_eq!(charts.total_chart_pages, 3);
 }

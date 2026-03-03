@@ -21,13 +21,10 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 ## Recent UI Additions
 - Five running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Stocks`, `Charts`, `Events`
 - Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
-- Monthly trend charts (3x2 grid):
-  - population
-  - total money supply
-  - created money outstanding
-  - bank reserve
-  - treasury balance
-  - budget balance (tax revenue - government spending)
+- Monthly trend charts with pagination (4x2 per page, 3 pages total):
+  - page 1: liquidity and money-balance metrics (population, supply, cash totals, reserve/gap)
+  - page 2: fiscal and external-sector metrics (treasury/budget, taxes/spending, debt, trade flows)
+  - page 3: prices, stress, and market-risk metrics (CPI/inflation/rates, unmet needs, stock risk)
 - Events log with scrollable history of births, deaths, loans, debt distress, and government transfers
   - `/` to search, `o` to toggle sort order (newest/oldest first)
 - Government spending system:
@@ -106,4 +103,3 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - On macOS, default mode is interactive attach so the TUI/game opens.
 - Force classic `cargo flamegraph` mode with: `MODE=cargo ./scripts/run-flamegraph.sh`
 - The script no longer auto-opens `flamegraph.svg` when profiling ends.
-

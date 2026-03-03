@@ -28,6 +28,8 @@ impl UiState {
             UiCommand::NextTab => self.next_tab(),
             UiCommand::PrevTab => self.prev_tab(),
             UiCommand::ToggleChartScope => self.toggle_chart_scope(),
+            UiCommand::ChartPagePrev => self.prev_chart_page(),
+            UiCommand::ChartPageNext => self.next_chart_page(),
             UiCommand::ChartPrevCountry => self.select_prev_country_row(world),
             UiCommand::ChartNextCountry => self.select_next_country_row(world),
             UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
@@ -191,5 +193,61 @@ impl UiState {
         self.company_page
             .saturating_mul(COMPANY_PAGE_SIZE)
             .saturating_add(self.selected_company_row)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sim::{country::Country, person::Person};
+
+    fn build_people(count: usize) -> Vec<Person> {
+        (0..count)
+            .map(|idx| Person::new(idx as u32, (idx % 10) as u8, 0, idx as u32 + 1))
+            .collect()
+    }
+
+    fn sample_world() -> World {
+        World::new(vec![Country::new(1, "A".to_string(), build_people(4))])
+    }
+
+    #[test]
+    fn chart_page_commands_clamp_to_valid_range() {
+        let world = sample_world();
+        let mut ui = UiState::default();
+
+        for _ in 0..16 {
+            ui.apply(UiCommand::ChartPageNext, &world);
+        }
+        assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
+
+        for _ in 0..16 {
+            ui.apply(UiCommand::ChartPagePrev, &world);
+        }
+        assert_eq!(ui.chart_page, 0);
+    }
+
+    #[test]
+    fn ensure_valid_clamps_chart_page() {
+        let world = sample_world();
+        let mut ui = UiState {
+            chart_page: CHART_PAGE_COUNT + 5,
+            ..UiState::default()
+        };
+
+        ui.ensure_valid(&world);
+        assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
+    }
+
+    #[test]
+    fn ensure_valid_resets_chart_page_when_world_is_empty() {
+        let world = World::new(vec![]);
+        let mut ui = UiState {
+            chart_page: 2,
+            ..UiState::default()
+        };
+
+        ui.ensure_valid(&world);
+        assert_eq!(ui.chart_page, 0);
     }
 }

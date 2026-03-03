@@ -104,6 +104,8 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub company_money_history: Vec<f64>,
     pub country_goods_summary_lines: Vec<String>,
     pub chart_scope_label: String,
+    pub chart_page: usize,
+    pub total_chart_pages: usize,
     pub chart_history: Vec<MetricPoint>,
     pub sim_mode: SimulationMode,
     pub ticks_per_second: f64,
