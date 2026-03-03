@@ -67,6 +67,7 @@ impl Bank {
         desired_principal: f64,
         monthly_income: f64,
         debt_to_income_cap: f64,
+        annual_rate: f64,
         loan: &mut Option<LoanAccount>,
     ) -> f64 {
         let desired_principal = round_cents(desired_principal.max(0.0));
@@ -81,7 +82,7 @@ impl Bank {
 
         let existing_debt = loan.as_ref().map_or(0.0, |existing| existing.debt_balance);
         let max_total_debt =
-            max_principal_for_payment(max_payment, DEFAULT_LOAN_APR, DEFAULT_LOAN_TERM_MONTHS);
+            max_principal_for_payment(max_payment, annual_rate, DEFAULT_LOAN_TERM_MONTHS);
         let principal_capacity = round_cents((max_total_debt - existing_debt).max(0.0));
         let approved_principal = round_cents(desired_principal.min(principal_capacity));
 
@@ -94,7 +95,7 @@ impl Bank {
                 existing.debt_balance = round_cents(existing.debt_balance + approved_principal);
                 existing.created_principal_outstanding =
                     round_cents(existing.created_principal_outstanding + approved_principal);
-                existing.annual_rate = DEFAULT_LOAN_APR;
+                existing.annual_rate = annual_rate;
                 existing.term_months = DEFAULT_LOAN_TERM_MONTHS;
                 existing.months_remaining = DEFAULT_LOAN_TERM_MONTHS;
                 existing.monthly_payment = payment_for(
@@ -106,7 +107,7 @@ impl Bank {
             None => {
                 *loan = Some(LoanAccount::new(
                     approved_principal,
-                    DEFAULT_LOAN_APR,
+                    annual_rate,
                     DEFAULT_LOAN_TERM_MONTHS,
                 ));
             }
@@ -252,7 +253,7 @@ mod tests {
         let mut bank = Bank::new();
         let mut loan = None;
 
-        let issued = bank.originate_loan(1_000.0, 4_000.0, DEFAULT_MAX_DEBT_TO_INCOME, &mut loan);
+        let issued = bank.originate_loan(1_000.0, 4_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
 
         assert!(issued > 0.0);
         assert!(bank.created_money_outstanding >= issued);
@@ -263,7 +264,7 @@ mod tests {
     fn principal_repayment_reduces_created_money() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(1_000.0, 6_000.0, DEFAULT_MAX_DEBT_TO_INCOME, &mut loan);
+        bank.originate_loan(1_000.0, 6_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
         let created_before = bank.created_money_outstanding;
         let mut cash = 5_000.0;
 
@@ -277,7 +278,7 @@ mod tests {
     fn missed_payment_is_capitalized_in_debt_balance() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, &mut loan);
+        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
 
         let opening_debt = loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
         let mut cash = 0.0;
@@ -292,7 +293,7 @@ mod tests {
     fn write_off_reduces_created_money() {
         let mut bank = Bank::new();
         let mut loan = None;
-        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, &mut loan);
+        bank.originate_loan(2_000.0, 5_000.0, DEFAULT_MAX_DEBT_TO_INCOME, DEFAULT_LOAN_APR, &mut loan);
         let before = bank.created_money_outstanding;
 
         let written_off = bank.write_off_loan(&mut loan);

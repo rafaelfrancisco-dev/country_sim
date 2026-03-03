@@ -64,6 +64,10 @@ use super::*;
                 bank_reserve: 0.0,
                 treasury_balance: 0.0,
                 budget_balance: 0.0,
+                cpi_index: 0.0,
+                inflation_rate: 0.0,
+                policy_rate: 0.0,
+                bonds_outstanding: 0.0,
             },
             |acc, point| MetricPoint {
                 month: acc.month.max(point.month),
@@ -74,6 +78,10 @@ use super::*;
                 bank_reserve: acc.bank_reserve + point.bank_reserve,
                 treasury_balance: acc.treasury_balance + point.treasury_balance,
                 budget_balance: acc.budget_balance + point.budget_balance,
+                cpi_index: acc.cpi_index + point.cpi_index,
+                inflation_rate: acc.inflation_rate + point.inflation_rate,
+                policy_rate: acc.policy_rate + point.policy_rate,
+                bonds_outstanding: acc.bonds_outstanding + point.bonds_outstanding,
             },
         );
 

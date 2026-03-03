@@ -36,10 +36,11 @@ impl Simulation {
             );
             frame.render_widget(placeholder, body);
         } else {
-            let [row1, row2, row3] = Layout::vertical([
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(1, 3),
+            let [row1, row2, row3, row4] = Layout::vertical([
+                Constraint::Ratio(1, 4),
+                Constraint::Ratio(1, 4),
+                Constraint::Ratio(1, 4),
+                Constraint::Ratio(1, 4),
             ])
             .areas(body);
             let [population_area, supply_area] =
@@ -51,6 +52,9 @@ impl Simulation {
             let [treasury_area, budget_area] =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                     .areas(row3);
+            let [cpi_area, policy_rate_area] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(row4);
 
             self.draw_metric_chart(
                 frame,
@@ -99,6 +103,22 @@ impl Simulation {
                 &format!("Budget Balance ({scope_label})"),
                 Color::LightRed,
                 |point| point.budget_balance,
+            );
+            self.draw_metric_chart(
+                frame,
+                cpi_area,
+                history,
+                &format!("CPI Index ({scope_label})"),
+                Color::LightYellow,
+                |point| point.cpi_index,
+            );
+            self.draw_metric_chart(
+                frame,
+                policy_rate_area,
+                history,
+                &format!("Policy Rate % ({scope_label})"),
+                Color::LightCyan,
+                |point| point.policy_rate * 100.0,
             );
         }
 

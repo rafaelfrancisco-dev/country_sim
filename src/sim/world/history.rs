@@ -15,6 +15,7 @@ impl World {
     }
 
     fn aggregate_metric_point(&self) -> MetricPoint {
+        let count = self.countries.len().max(1) as f64;
         let month = self
             .countries
             .iter()
@@ -51,6 +52,23 @@ impl World {
             .iter()
             .map(|country| country.monthly_budget_balance)
             .sum();
+        let cpi_index = self
+            .countries
+            .iter()
+            .map(|country| country.cpi_index)
+            .sum::<f64>()
+            / count;
+        let inflation_rate = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_inflation_rate)
+            .sum::<f64>()
+            / count;
+        let bonds_outstanding = self
+            .countries
+            .iter()
+            .map(|country| country.bonds_outstanding)
+            .sum();
 
         MetricPoint {
             month,
@@ -60,6 +78,10 @@ impl World {
             bank_reserve,
             treasury_balance,
             budget_balance,
+            cpi_index,
+            inflation_rate,
+            policy_rate: self.policy_rate,
+            bonds_outstanding,
         }
     }
 
@@ -72,6 +94,10 @@ impl World {
             bank_reserve: country.bank.reserve_balance,
             treasury_balance: country.treasury_balance,
             budget_balance: country.monthly_budget_balance,
+            cpi_index: country.cpi_index,
+            inflation_rate: country.monthly_inflation_rate,
+            policy_rate: country.policy_rate,
+            bonds_outstanding: country.bonds_outstanding,
         }
     }
 

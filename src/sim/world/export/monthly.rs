@@ -221,6 +221,14 @@ fn collect_country_data(
         stock_ipos: events.stock_ipos,
         stock_delistings: events.stock_delistings,
         stock_margin_calls: events.stock_margin_calls,
+        bonds_outstanding: country.bonds_outstanding,
+        bond_coupon_rate: country.bond_coupon_rate,
+        monthly_coupon_paid: country.monthly_coupon_paid,
+        monthly_bonds_issued: country.monthly_bonds_issued,
+        monthly_bonds_matured: country.monthly_bonds_matured,
+        cpi_index: country.cpi_index,
+        inflation_rate: country.monthly_inflation_rate,
+        policy_rate: country.policy_rate,
     }
 }
 
@@ -322,6 +330,21 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::StockMarketClose {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::RatePolicyChange {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BondIssued {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::CouponPaid {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BondMatured {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BondDefault {
             country_name, day, ..
         } => (country_name, *day),
     }

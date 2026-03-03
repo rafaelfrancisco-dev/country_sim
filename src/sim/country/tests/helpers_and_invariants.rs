@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::{
+    bank::DEFAULT_LOAN_APR,
     company::build_default_companies,
     params::{
         DemographicParams, FiscalParams, LaborParams, SimulationParams,
@@ -208,6 +209,7 @@ pub(super) fn daily_deaths_remove_people_and_write_off_loans() {
         1_000.0,
         3_000.0,
         DEFAULT_MAX_DEBT_TO_INCOME,
+        DEFAULT_LOAN_APR,
         &mut country.people[0].loan,
     );
 

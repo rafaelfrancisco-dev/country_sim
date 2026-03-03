@@ -349,6 +349,7 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
         5_000.0,
         0.0,
         DEFAULT_LOAN_APR / DEFAULT_LOAN_TERM_MONTHS as f64 * 100.0,
+        DEFAULT_LOAN_APR,
         &mut loan_slot,
     );
     country.people[0].loan = loan_slot;

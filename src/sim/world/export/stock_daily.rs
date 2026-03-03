@@ -197,6 +197,16 @@ pub struct CountryExportData {
     pub stock_ipos: u64,
     pub stock_delistings: u64,
     pub stock_margin_calls: u64,
+
+    // monetary policy + bonds + CPI
+    pub bonds_outstanding: f64,
+    pub bond_coupon_rate: f64,
+    pub monthly_coupon_paid: f64,
+    pub monthly_bonds_issued: f64,
+    pub monthly_bonds_matured: f64,
+    pub cpi_index: f64,
+    pub inflation_rate: f64,
+    pub policy_rate: f64,
 }
 
 

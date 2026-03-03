@@ -51,6 +51,20 @@ pub struct Country {
     pub monthly_gov_spending: f64,
     pub monthly_budget_balance: f64,
     pub gov_debt: f64,
+    // Sovereign bond state
+    pub bonds_outstanding: f64,
+    pub bond_coupon_rate: f64,
+    pub bond_months_to_maturity: u8,
+    // Monthly bond trackers (reset each month)
+    pub monthly_coupon_paid: f64,
+    pub monthly_bonds_issued: f64,
+    pub monthly_bonds_matured: f64,
+    // Monetary policy (propagated from World each month)
+    pub policy_rate: f64,
+    // CPI / inflation tracking (persistent; not reset monthly)
+    pub cpi_index: f64,
+    pub last_month_cpi_index: f64,
+    pub monthly_inflation_rate: f64,
     pub stock_market: StockMarket,
     pub export_tariffs_by_good: [f64; GOODS_COUNT],
     pub pending_events: Vec<SimEvent>,
@@ -110,6 +124,7 @@ impl Country {
             .saturating_add(1);
         let mut export_tariffs_by_good = [0.0; GOODS_COUNT];
         export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
+        let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
 
         let mut country = Self {
             id,
@@ -136,6 +151,16 @@ impl Country {
             monthly_gov_spending: 0.0,
             monthly_budget_balance: 0.0,
             gov_debt: 0.0,
+            bonds_outstanding: 0.0,
+            bond_coupon_rate: 0.0,
+            bond_months_to_maturity: 0,
+            monthly_coupon_paid: 0.0,
+            monthly_bonds_issued: 0.0,
+            monthly_bonds_matured: 0.0,
+            policy_rate: initial_policy_rate,
+            cpi_index: 1.0,
+            last_month_cpi_index: 1.0,
+            monthly_inflation_rate: 0.0,
             stock_market: StockMarket::new(),
             export_tariffs_by_good,
             pending_events: Vec::new(),
@@ -154,6 +179,12 @@ impl Country {
 
     pub fn population(&self) -> usize {
         self.people.len()
+    }
+
+    /// Current bank loan rate: policy rate + credit spread, clamped to [floor, ceiling].
+    pub fn bank_loan_rate(&self) -> f64 {
+        (self.policy_rate + self.sim_params.monetary.credit_spread)
+            .clamp(self.sim_params.monetary.rate_floor, self.sim_params.monetary.rate_ceiling)
     }
 
     pub fn company_name(&self, company_id: u16) -> Option<&str> {

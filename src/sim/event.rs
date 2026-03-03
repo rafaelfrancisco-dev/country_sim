@@ -135,6 +135,36 @@ pub enum SimEvent {
         total_turnover: f64,
         listed_count: usize,
     },
+    RatePolicyChange {
+        country_name: String,
+        new_rate: f64,
+        old_rate: f64,
+        inflation_rate: f64,
+        unemployment_rate: f64,
+        day: u64,
+    },
+    BondIssued {
+        country_name: String,
+        face_value: f64,
+        coupon_rate: f64,
+        day: u64,
+    },
+    CouponPaid {
+        country_name: String,
+        total_coupon: f64,
+        day: u64,
+    },
+    BondMatured {
+        country_name: String,
+        face_value: f64,
+        day: u64,
+    },
+    BondDefault {
+        country_name: String,
+        shortfall: f64,
+        monetized: f64,
+        day: u64,
+    },
 }
 
 impl SimEvent {
@@ -335,6 +365,61 @@ impl SimEvent {
             } => {
                 format!(
                     "[STK]   Day {day:>6} | {country_name}: Market close — cap ${total_market_cap:.2}, turnover ${total_turnover:.2}, {listed_count} listed"
+                )
+            }
+            Self::RatePolicyChange {
+                country_name,
+                new_rate,
+                old_rate,
+                inflation_rate,
+                unemployment_rate,
+                day,
+            } => {
+                format!(
+                    "[RATE]  Day {day:>6} | {country_name}: Policy rate {:.2}% → {:.2}% (inflation {:.2}%, unemp {:.2}%)",
+                    old_rate * 100.0,
+                    new_rate * 100.0,
+                    inflation_rate * 100.0,
+                    unemployment_rate * 100.0,
+                )
+            }
+            Self::BondIssued {
+                country_name,
+                face_value,
+                coupon_rate,
+                day,
+            } => {
+                format!(
+                    "[BOND+] Day {day:>6} | {country_name}: Issued ${face_value:.2} bonds at {:.2}% coupon",
+                    coupon_rate * 100.0
+                )
+            }
+            Self::CouponPaid {
+                country_name,
+                total_coupon,
+                day,
+            } => {
+                format!(
+                    "[COUP]  Day {day:>6} | {country_name}: Coupon paid ${total_coupon:.2}"
+                )
+            }
+            Self::BondMatured {
+                country_name,
+                face_value,
+                day,
+            } => {
+                format!(
+                    "[BOND=] Day {day:>6} | {country_name}: Bond matured, repaid ${face_value:.2}"
+                )
+            }
+            Self::BondDefault {
+                country_name,
+                shortfall,
+                monetized,
+                day,
+            } => {
+                format!(
+                    "[BDFLT] Day {day:>6} | {country_name}: Bond default — shortfall ${shortfall:.2}, monetized ${monetized:.2}"
                 )
             }
         }

@@ -63,6 +63,14 @@ impl CsvExporter {
             "bank_created_money_outstanding",
             "expected_money_supply",
             "money_supply_gap",
+            "bonds_outstanding",
+            "bond_coupon_rate",
+            "monthly_coupon_paid",
+            "monthly_bonds_issued",
+            "monthly_bonds_matured",
+            "cpi_index",
+            "inflation_rate",
+            "policy_rate",
         ])?;
 
         people_agg.write_record([
@@ -213,6 +221,14 @@ impl CsvExporter {
             format!("{:.2}", data.bank_created_money_outstanding),
             format!("{:.2}", data.expected_money_supply),
             format!("{:.2}", data.money_supply_gap),
+            format!("{:.2}", data.bonds_outstanding),
+            format!("{:.6}", data.bond_coupon_rate),
+            format!("{:.2}", data.monthly_coupon_paid),
+            format!("{:.2}", data.monthly_bonds_issued),
+            format!("{:.2}", data.monthly_bonds_matured),
+            format!("{:.6}", data.cpi_index),
+            format!("{:.6}", data.inflation_rate),
+            format!("{:.6}", data.policy_rate),
         ])?;
 
         self.people_agg.write_record([

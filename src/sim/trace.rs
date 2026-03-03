@@ -24,6 +24,7 @@ pub struct CountryMonthlyTrace {
     pub payroll_liquidity_ms: f64,
     pub payroll_taxes_ms: f64,
     pub gov_spending_ms: f64,
+    pub bond_coupon_ms: f64,
     pub stock_collateral_ms: f64,
     pub loan_repayments_ms: f64,
     pub profitability_ms: f64,
@@ -32,11 +33,13 @@ pub struct CountryMonthlyTrace {
     pub growth_openings_ms: f64,
     pub startup_formation_ms: f64,
     pub essential_backfill_ms: f64,
+    pub bond_issuance_ms: f64,
     pub public_wage_adjust_ms: f64,
     pub job_switches_ms: f64,
     pub recompute_headcounts_after_ms: f64,
     pub close_company_months_ms: f64,
     pub dividends_ms: f64,
+    pub cpi_ms: f64,
     pub recompute_aggregates_ms: f64,
 }
 
@@ -51,6 +54,7 @@ pub struct DayTraceRow {
     pub world_monthly_total_ms: f64,
     pub world_monthly_process_countries_ms: f64,
     pub world_monthly_tariff_adjust_ms: f64,
+    pub world_monthly_rate_update_ms: f64,
     pub world_monthly_capture_snapshot_ms: f64,
     pub world_monthly_reset_trackers_ms: f64,
     pub world_drain_events_ms: f64,
@@ -67,6 +71,7 @@ pub struct DayTraceRow {
     pub country_monthly_payroll_liquidity_ms_sum: f64,
     pub country_monthly_payroll_taxes_ms_sum: f64,
     pub country_monthly_gov_spending_ms_sum: f64,
+    pub country_monthly_bond_coupon_ms_sum: f64,
     pub country_monthly_stock_collateral_ms_sum: f64,
     pub country_monthly_loan_repayments_ms_sum: f64,
     pub country_monthly_profitability_ms_sum: f64,
@@ -75,10 +80,12 @@ pub struct DayTraceRow {
     pub country_monthly_growth_openings_ms_sum: f64,
     pub country_monthly_startup_formation_ms_sum: f64,
     pub country_monthly_essential_backfill_ms_sum: f64,
+    pub country_monthly_bond_issuance_ms_sum: f64,
     pub country_monthly_public_wage_adjust_ms_sum: f64,
     pub country_monthly_job_switches_ms_sum: f64,
     pub country_monthly_close_company_months_ms_sum: f64,
     pub country_monthly_dividends_ms_sum: f64,
+    pub country_monthly_cpi_ms_sum: f64,
     pub country_monthly_recompute_aggregates_ms_sum: f64,
     pub country_count: usize,
     pub people_count: usize,
@@ -89,12 +96,12 @@ pub struct DayTraceRow {
 
 impl DayTraceRow {
     fn csv_header() -> &'static str {
-        "day,is_month_boundary,tick_total_ms,world_country_tick_ms,world_goods_ms,world_stock_ms,world_monthly_total_ms,world_monthly_process_countries_ms,world_monthly_tariff_adjust_ms,world_monthly_capture_snapshot_ms,world_monthly_reset_trackers_ms,world_drain_events_ms,country_daily_total_ms_sum,country_daily_age_ms_sum,country_daily_deaths_ms_sum,country_daily_births_ms_sum,country_daily_job_market_snapshot_ms_sum,country_daily_job_market_plan_ms_sum,country_daily_job_market_apply_ms_sum,country_daily_recompute_headcounts_ms_sum,country_daily_recompute_aggregates_ms_sum,country_monthly_total_ms_sum,country_monthly_payroll_liquidity_ms_sum,country_monthly_payroll_taxes_ms_sum,country_monthly_gov_spending_ms_sum,country_monthly_stock_collateral_ms_sum,country_monthly_loan_repayments_ms_sum,country_monthly_profitability_ms_sum,country_monthly_company_distress_ms_sum,country_monthly_loan_requests_ms_sum,country_monthly_growth_openings_ms_sum,country_monthly_startup_formation_ms_sum,country_monthly_essential_backfill_ms_sum,country_monthly_public_wage_adjust_ms_sum,country_monthly_job_switches_ms_sum,country_monthly_close_company_months_ms_sum,country_monthly_dividends_ms_sum,country_monthly_recompute_aggregates_ms_sum,country_count,people_count,company_count,open_positions_count,listed_equities_count"
+        "day,is_month_boundary,tick_total_ms,world_country_tick_ms,world_goods_ms,world_stock_ms,world_monthly_total_ms,world_monthly_process_countries_ms,world_monthly_tariff_adjust_ms,world_monthly_rate_update_ms,world_monthly_capture_snapshot_ms,world_monthly_reset_trackers_ms,world_drain_events_ms,country_daily_total_ms_sum,country_daily_age_ms_sum,country_daily_deaths_ms_sum,country_daily_births_ms_sum,country_daily_job_market_snapshot_ms_sum,country_daily_job_market_plan_ms_sum,country_daily_job_market_apply_ms_sum,country_daily_recompute_headcounts_ms_sum,country_daily_recompute_aggregates_ms_sum,country_monthly_total_ms_sum,country_monthly_payroll_liquidity_ms_sum,country_monthly_payroll_taxes_ms_sum,country_monthly_gov_spending_ms_sum,country_monthly_bond_coupon_ms_sum,country_monthly_stock_collateral_ms_sum,country_monthly_loan_repayments_ms_sum,country_monthly_profitability_ms_sum,country_monthly_company_distress_ms_sum,country_monthly_loan_requests_ms_sum,country_monthly_growth_openings_ms_sum,country_monthly_startup_formation_ms_sum,country_monthly_essential_backfill_ms_sum,country_monthly_bond_issuance_ms_sum,country_monthly_public_wage_adjust_ms_sum,country_monthly_job_switches_ms_sum,country_monthly_close_company_months_ms_sum,country_monthly_dividends_ms_sum,country_monthly_cpi_ms_sum,country_monthly_recompute_aggregates_ms_sum,country_count,people_count,company_count,open_positions_count,listed_equities_count"
     }
 
     fn to_csv_row(&self) -> String {
         format!(
-            "{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{},{},{},{},{}",
+            "{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{},{},{},{},{}",
             self.day,
             self.is_month_boundary,
             self.tick_total_ms,
@@ -104,6 +111,7 @@ impl DayTraceRow {
             self.world_monthly_total_ms,
             self.world_monthly_process_countries_ms,
             self.world_monthly_tariff_adjust_ms,
+            self.world_monthly_rate_update_ms,
             self.world_monthly_capture_snapshot_ms,
             self.world_monthly_reset_trackers_ms,
             self.world_drain_events_ms,
@@ -120,6 +128,7 @@ impl DayTraceRow {
             self.country_monthly_payroll_liquidity_ms_sum,
             self.country_monthly_payroll_taxes_ms_sum,
             self.country_monthly_gov_spending_ms_sum,
+            self.country_monthly_bond_coupon_ms_sum,
             self.country_monthly_stock_collateral_ms_sum,
             self.country_monthly_loan_repayments_ms_sum,
             self.country_monthly_profitability_ms_sum,
@@ -128,10 +137,12 @@ impl DayTraceRow {
             self.country_monthly_growth_openings_ms_sum,
             self.country_monthly_startup_formation_ms_sum,
             self.country_monthly_essential_backfill_ms_sum,
+            self.country_monthly_bond_issuance_ms_sum,
             self.country_monthly_public_wage_adjust_ms_sum,
             self.country_monthly_job_switches_ms_sum,
             self.country_monthly_close_company_months_ms_sum,
             self.country_monthly_dividends_ms_sum,
+            self.country_monthly_cpi_ms_sum,
             self.country_monthly_recompute_aggregates_ms_sum,
             self.country_count,
             self.people_count,

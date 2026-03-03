@@ -13,6 +13,7 @@ impl Country {
         self.ensure_company_payroll_liquidity();
         self.process_payroll_and_taxes();
         self.process_government_spending();
+        self.process_bond_coupon_and_maturity();   // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
         self.recompute_company_profitability();
@@ -21,11 +22,13 @@ impl Country {
         self.update_company_growth_openings();
         self.process_startup_formation();
         self.process_essential_company_backfill();
+        self.maybe_issue_bonds();                  // [E]
         self.adjust_public_utility_opening_wages();
         self.process_monthly_job_switches();
         self.recompute_company_headcounts();
         self.close_company_months();
         self.process_stock_dividends();
+        self.recompute_cpi();                      // [F]
 
         self.month = self.month.saturating_add(1);
         self.recompute_aggregates();
@@ -39,6 +42,7 @@ impl Country {
         let payroll_liquidity_ms = time_op!(self.ensure_company_payroll_liquidity());
         let payroll_taxes_ms = time_op!(self.process_payroll_and_taxes());
         let gov_spending_ms = time_op!(self.process_government_spending());
+        let bond_coupon_ms = time_op!(self.process_bond_coupon_and_maturity());
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
         let profitability_ms = time_op!(self.recompute_company_profitability());
@@ -47,11 +51,13 @@ impl Country {
         let growth_openings_ms = time_op!(self.update_company_growth_openings());
         let startup_formation_ms = time_op!(self.process_startup_formation());
         let essential_backfill_ms = time_op!(self.process_essential_company_backfill());
+        let bond_issuance_ms = time_op!(self.maybe_issue_bonds());
         let public_wage_adjust_ms = time_op!(self.adjust_public_utility_opening_wages());
         let job_switches_ms = time_op!(self.process_monthly_job_switches());
         let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
         let close_company_months_ms = time_op!(self.close_company_months());
         let dividends_ms = time_op!(self.process_stock_dividends());
+        let cpi_ms = time_op!(self.recompute_cpi());
 
         self.month = self.month.saturating_add(1);
 
@@ -63,6 +69,7 @@ impl Country {
             payroll_liquidity_ms,
             payroll_taxes_ms,
             gov_spending_ms,
+            bond_coupon_ms,
             stock_collateral_ms,
             loan_repayments_ms,
             profitability_ms,
@@ -71,11 +78,13 @@ impl Country {
             growth_openings_ms,
             startup_formation_ms,
             essential_backfill_ms,
+            bond_issuance_ms,
             public_wage_adjust_ms,
             job_switches_ms,
             recompute_headcounts_after_ms,
             close_company_months_ms,
             dividends_ms,
+            cpi_ms,
             recompute_aggregates_ms,
         }
     }
@@ -91,6 +100,9 @@ impl Country {
         self.monthly_hires_total = 0;
         self.monthly_gov_spending = 0.0;
         self.monthly_budget_balance = 0.0;
+        self.monthly_coupon_paid = 0.0;
+        self.monthly_bonds_issued = 0.0;
+        self.monthly_bonds_matured = 0.0;
         self.stock_market.reset_mtd_trackers();
 
         self.people
@@ -134,6 +146,8 @@ impl Country {
             }
         }
 
+        let loan_rate = self.bank_loan_rate();
+
         for (company_idx, company) in self.companies.iter_mut().enumerate() {
             let required_payroll = payroll_requirements_cents
                 .get(company_idx)
@@ -152,6 +166,7 @@ impl Country {
                 shortfall,
                 monthly_income,
                 DEFAULT_MAX_DEBT_TO_INCOME,
+                loan_rate,
                 &mut company.loan,
             );
             if issued > 0.0 {

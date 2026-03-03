@@ -1,6 +1,7 @@
 mod export;
 mod goods_market;
 mod history;
+mod monetary;
 mod stock_market;
 
 pub use export::{
@@ -29,6 +30,10 @@ pub struct MetricPoint {
     pub bank_reserve: f64,
     pub treasury_balance: f64,
     pub budget_balance: f64,
+    pub cpi_index: f64,
+    pub inflation_rate: f64,
+    pub policy_rate: f64,
+    pub bonds_outstanding: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,6 +42,7 @@ pub struct World {
     pub generation_seed: u64,
     pub countries: Vec<Country>,
     pub paused: bool,
+    pub policy_rate: f64,
     pub world_history: Vec<MetricPoint>,
     pub country_history: Vec<Vec<MetricPoint>>,
     pub event_log: Vec<SimEvent>,
@@ -60,11 +66,17 @@ impl World {
 
     pub fn new_with_generation_seed(countries: Vec<Country>, generation_seed: u64) -> Self {
         let country_count = countries.len();
+        let initial_policy_rate = countries
+            .first()
+            .map(|c| c.sim_params.monetary.neutral_policy_rate)
+            .unwrap_or(0.04);
+
         let mut world = Self {
             day: 0,
             generation_seed,
             countries,
             paused: false,
+            policy_rate: initial_policy_rate,
             world_history: Vec::with_capacity(HISTORY_LIMIT),
             country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
             event_log: Vec::with_capacity(EVENT_LOG_LIMIT),
@@ -161,6 +173,11 @@ impl Tickable for World {
                 .par_iter_mut()
                 .for_each(Country::process_month_end);
             self.adjust_dynamic_country_tariffs();
+            self.update_policy_rate();
+            let rate = self.policy_rate;
+            for country in &mut self.countries {
+                country.policy_rate = rate;
+            }
             self.capture_snapshot();
             if self.export_queue_active {
                 self.push_export_snapshot();
@@ -200,6 +217,7 @@ impl World {
         let mut world_monthly_total_ms = 0.0;
         let mut world_monthly_process_countries_ms = 0.0;
         let mut world_monthly_tariff_adjust_ms = 0.0;
+        let mut world_monthly_rate_update_ms = 0.0;
         let mut world_monthly_capture_snapshot_ms = 0.0;
         let mut world_monthly_reset_trackers_ms = 0.0;
 
@@ -219,6 +237,14 @@ impl World {
             let started = Instant::now();
             self.adjust_dynamic_country_tariffs();
             world_monthly_tariff_adjust_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+            let started = Instant::now();
+            self.update_policy_rate();
+            let rate = self.policy_rate;
+            for country in &mut self.countries {
+                country.policy_rate = rate;
+            }
+            world_monthly_rate_update_ms = crate::sim::trace::duration_ms(started.elapsed());
 
             let started = Instant::now();
             self.capture_snapshot();
@@ -273,6 +299,7 @@ impl World {
             country_monthly_payroll_liquidity_ms_sum,
             country_monthly_payroll_taxes_ms_sum,
             country_monthly_gov_spending_ms_sum,
+            country_monthly_bond_coupon_ms_sum,
             country_monthly_stock_collateral_ms_sum,
             country_monthly_loan_repayments_ms_sum,
             country_monthly_profitability_ms_sum,
@@ -281,14 +308,17 @@ impl World {
             country_monthly_growth_openings_ms_sum,
             country_monthly_startup_formation_ms_sum,
             country_monthly_essential_backfill_ms_sum,
+            country_monthly_bond_issuance_ms_sum,
             country_monthly_public_wage_adjust_ms_sum,
             country_monthly_job_switches_ms_sum,
             country_monthly_close_company_months_ms_sum,
             country_monthly_dividends_ms_sum,
+            country_monthly_cpi_ms_sum,
             country_monthly_recompute_aggregates_ms_sum,
         ) = monthly_traces.iter().fold(
             (
-                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0, 0.0,
             ),
             |acc, trace| {
                 (
@@ -296,19 +326,22 @@ impl World {
                     acc.1 + trace.payroll_liquidity_ms,
                     acc.2 + trace.payroll_taxes_ms,
                     acc.3 + trace.gov_spending_ms,
-                    acc.4 + trace.stock_collateral_ms,
-                    acc.5 + trace.loan_repayments_ms,
-                    acc.6 + trace.profitability_ms,
-                    acc.7 + trace.company_distress_ms,
-                    acc.8 + trace.loan_requests_ms,
-                    acc.9 + trace.growth_openings_ms,
-                    acc.10 + trace.startup_formation_ms,
-                    acc.11 + trace.essential_backfill_ms,
-                    acc.12 + trace.public_wage_adjust_ms,
-                    acc.13 + trace.job_switches_ms,
-                    acc.14 + trace.close_company_months_ms,
-                    acc.15 + trace.dividends_ms,
-                    acc.16 + trace.recompute_aggregates_ms,
+                    acc.4 + trace.bond_coupon_ms,
+                    acc.5 + trace.stock_collateral_ms,
+                    acc.6 + trace.loan_repayments_ms,
+                    acc.7 + trace.profitability_ms,
+                    acc.8 + trace.company_distress_ms,
+                    acc.9 + trace.loan_requests_ms,
+                    acc.10 + trace.growth_openings_ms,
+                    acc.11 + trace.startup_formation_ms,
+                    acc.12 + trace.essential_backfill_ms,
+                    acc.13 + trace.bond_issuance_ms,
+                    acc.14 + trace.public_wage_adjust_ms,
+                    acc.15 + trace.job_switches_ms,
+                    acc.16 + trace.close_company_months_ms,
+                    acc.17 + trace.dividends_ms,
+                    acc.18 + trace.cpi_ms,
+                    acc.19 + trace.recompute_aggregates_ms,
                 )
             },
         );
@@ -338,6 +371,7 @@ impl World {
             world_monthly_total_ms,
             world_monthly_process_countries_ms,
             world_monthly_tariff_adjust_ms,
+            world_monthly_rate_update_ms,
             world_monthly_capture_snapshot_ms,
             world_monthly_reset_trackers_ms,
             world_drain_events_ms,
@@ -354,6 +388,7 @@ impl World {
             country_monthly_payroll_liquidity_ms_sum,
             country_monthly_payroll_taxes_ms_sum,
             country_monthly_gov_spending_ms_sum,
+            country_monthly_bond_coupon_ms_sum,
             country_monthly_stock_collateral_ms_sum,
             country_monthly_loan_repayments_ms_sum,
             country_monthly_profitability_ms_sum,
@@ -362,10 +397,12 @@ impl World {
             country_monthly_growth_openings_ms_sum,
             country_monthly_startup_formation_ms_sum,
             country_monthly_essential_backfill_ms_sum,
+            country_monthly_bond_issuance_ms_sum,
             country_monthly_public_wage_adjust_ms_sum,
             country_monthly_job_switches_ms_sum,
             country_monthly_close_company_months_ms_sum,
             country_monthly_dividends_ms_sum,
+            country_monthly_cpi_ms_sum,
             country_monthly_recompute_aggregates_ms_sum,
             country_count,
             people_count,

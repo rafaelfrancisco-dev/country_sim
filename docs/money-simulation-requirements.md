@@ -121,6 +121,98 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Monthly household spending remains 5% to 15% of available cash.
 - Seller company is chosen within country companies.
 
+## Monetary Policy
+
+### Central Bank Policy Rate (Taylor Rule)
+The world holds a single `policy_rate` updated each month after all country month-ends complete.
+
+**Taylor Rule formula:**
+```
+r = r* + α × (π − π*) + β × (u* − u)
+```
+Where:
+- `r*` = `neutral_policy_rate` (default 4%)
+- `α` = `inflation_coefficient` (default 1.5)
+- `π` = current aggregate annualized inflation rate
+- `π*` = `target_inflation_rate` (default 2%)
+- `β` = `unemployment_coefficient` (default 0.5)
+- `u*` = `natural_unemployment_rate` (default 5%)
+- `u` = current aggregate unemployment rate
+
+The result is clamped to `[rate_floor, rate_ceiling]` (default 0%–20%). The new rate is propagated to every `Country.policy_rate` before the monthly snapshot is captured.
+
+A `RatePolicyChange` event is emitted if the rate moves by at least `rate_change_event_threshold` (default 0.5%).
+
+### CPI Basket
+Each month, after all production prices are set, `recompute_cpi()` calculates a weighted price index:
+- Basket: goods 0–7 (all essential and near-essential goods)
+- Weight: `base_unit_cost` of each good
+- Formula: `relative_price = avg_company_unit_price / base_unit_cost`
+- `cpi_index` = weighted average of relative prices across basket goods
+- Starts at `1.0`; drifts as company prices evolve
+- `monthly_inflation_rate = (new_cpi / old_cpi)^12 − 1` (annualized month-over-month)
+
+### Variable Loan Rate
+The bank loan rate adjusts with monetary policy:
+```
+bank_loan_rate = clamp(policy_rate + credit_spread, rate_floor, rate_ceiling)
+```
+Default `credit_spread` = 3%, so the starting effective rate is 7% (4% neutral + 3% spread).
+
+## Sovereign Bonds
+
+### Issuance
+Bonds are issued at month-end via `maybe_issue_bonds()` when both conditions hold:
+1. `treasury_balance ≤ bond_issuance_treasury_threshold` (default 0; i.e. treasury is at or below zero)
+2. `monthly_budget_balance < 0` (budget was in deficit this month)
+3. No bond currently outstanding (one bond at a time)
+
+**Face value**: `|monthly_budget_balance| + max(threshold − treasury_balance, 0)` — covers the deficit and restores treasury to the threshold.
+
+**Coupon rate**: `clamp(policy_rate + sovereign_spread, rate_floor, rate_ceiling)`, default spread = 1%.
+
+**Funding split**:
+- Bank primary dealer: `bank_primary_dealer_fraction` (default 50%) — bank reserve decreases, treasury increases.
+- Retail: top `bond_retail_top_n` (default 200) wealthiest people share the remainder; each person's cash is debited proportionally.
+
+### Coupon & Maturity
+Each month `process_bond_coupon_and_maturity()` runs before issuance:
+1. Monthly coupon = `bonds_outstanding × coupon_rate / 12`
+2. Bank receives its dealer fraction directly to reserve; top-N retail holders share the remainder from treasury.
+3. Treasury is debited the full coupon; `monthly_coupon_paid` is updated.
+4. `bond_months_to_maturity` decrements by 1 each coupon month.
+5. When it reaches 0: treasury repays full face value to bank (reserve) + retail (people cash).
+   - If treasury can't cover the shortfall: `fund_government_deficit(shortfall)` monetizes it → `gov_debt` increases → `BondDefault` event emitted.
+   - Otherwise: `BondMatured` event emitted.
+6. Bond state resets: `bonds_outstanding = 0`, `bond_coupon_rate = 0`, `bond_months_to_maturity = 0`.
+
+### Bond Events
+| Event | Tag | Description |
+|---|---|---|
+| `RatePolicyChange` | `[RATE]` | Policy rate changed by Taylor Rule |
+| `BondIssued` | `[BOND+]` | New bond issued; shows face value and coupon rate |
+| `CouponPaid` | `[COUP]` | Monthly coupon distributed |
+| `BondMatured` | `[BOND=]` | Bond repaid at maturity |
+| `BondDefault` | `[BDFLT]` | Treasury couldn't repay; shortfall monetized |
+
+### Configuration (`MonetaryPolicyParams`)
+| Field | Default | Description |
+|---|---|---|
+| `target_inflation_rate` | 0.02 | 2% annual CPI target |
+| `neutral_policy_rate` | 0.04 | Equilibrium policy rate |
+| `inflation_coefficient` | 1.5 | Taylor α |
+| `unemployment_coefficient` | 0.5 | Taylor β |
+| `natural_unemployment_rate` | 0.05 | NAIRU |
+| `rate_floor` | 0.0 | Zero lower bound |
+| `rate_ceiling` | 0.20 | 20% hard cap |
+| `credit_spread` | 0.03 | Bank loan rate premium over policy rate |
+| `sovereign_spread` | 0.01 | Bond coupon premium over policy rate |
+| `bond_issuance_treasury_threshold` | 0.0 | Issue bonds when treasury ≤ this |
+| `bank_primary_dealer_fraction` | 0.50 | Bank's share of each issuance |
+| `bond_maturity_months` | 12 | 1-year term (12 monthly coupons) |
+| `bond_retail_top_n` | 200 | Number of wealthiest people in retail tranche |
+| `rate_change_event_threshold` | 0.005 | Min 0.5% move to emit `RatePolicyChange` |
+
 ## Bank and Loans
 - Borrowers: people and companies.
 - Loan issuance creates money.
@@ -129,21 +221,35 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Affordability cap: monthly payment <= 35% of monthly income.
 - Unemployed people have zero monthly income for affordability checks.
 - On death, personal loans are written off and created principal outstanding is removed from bank-created money.
+- Loan interest rate = `bank_loan_rate()` = `policy_rate + credit_spread`, clamped to `[rate_floor, rate_ceiling]`.
 
 ## Monthly Processing Order
 1. Recompute company headcounts.
-2. Company payroll-liquidity check and pre-payroll loan request.
+2. Company payroll-liquidity check and pre-payroll loan request (at current `bank_loan_rate()`).
 3. Payroll from companies to employed people + income tax transfer to treasury.
 4. Government spending (unemployment benefits + basic needs top-up).
-5. Loan repayment pass (people, then companies).
-6. Company distress escalation.
-7. End-of-month loan requests.
-8. Growth-driven opening creation.
-9. Startup formation pass.
-10. Monthly job-switch pass (same profession, minimum 10% raise).
-11. Recompute company headcounts again.
-12. Company month close (pricing history/profitability history side effects).
-13. Month increment and aggregate recomputation.
+5. **Bond coupon & maturity** — distribute coupons; repay or default if `bond_months_to_maturity == 0`.
+6. Stock collateral seizure (margin calls).
+7. Loan repayment pass (people, then companies).
+8. Company profitability recomputation.
+9. Company distress escalation.
+10. End-of-month loan requests (at current `bank_loan_rate()`).
+11. Growth-driven opening creation.
+12. Startup formation pass.
+13. Essential company backfill.
+14. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
+15. Public-utility wage adjustment.
+16. Monthly job-switch pass (same profession, minimum 10% raise).
+17. Recompute company headcounts again.
+18. Company month close (pricing history/profitability history side effects).
+19. Stock dividends.
+20. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
+21. Month increment and aggregate recomputation.
+
+*World-level after all countries complete steps 1–21:*
+- Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
+- Monthly snapshot captured (picks up the new rate).
+- Monthly trackers reset.
 
 ## Invariants
 - Treasury inflows are from taxation and deceased-person cash transfer.

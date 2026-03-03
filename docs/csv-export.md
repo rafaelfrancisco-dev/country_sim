@@ -50,6 +50,14 @@ Fiscal and monetary state per country per month.
 | `bank_created_money_outstanding` | float | Principal of outstanding bank-created loans |
 | `expected_money_supply` | float | Initial money supply adjusted for created/destroyed money |
 | `money_supply_gap` | float | `total_money_supply − expected_money_supply` |
+| `bonds_outstanding` | float | Face value of sovereign bonds currently outstanding |
+| `bond_coupon_rate` | float | Annual coupon rate on current bond (0 if no bond) |
+| `monthly_coupon_paid` | float | Bond coupon distributed to bank + retail holders this month |
+| `monthly_bonds_issued` | float | Face value of bonds issued this month (0 if none) |
+| `monthly_bonds_matured` | float | Face value of bonds matured this month (0 if none) |
+| `cpi_index` | float | Consumer price index (basket of goods 0–7, base = 1.0 at generation) |
+| `inflation_rate` | float | Annualized month-over-month inflation: `(cpi_new/cpi_old)^12 − 1` |
+| `policy_rate` | float | Central bank policy rate propagated from World (Taylor Rule) |
 
 **Invariant check:** `total_money_supply ≈ household_cash_total + company_cash_total + bank_reserve_balance + treasury_balance` (small floating-point drift expected).
 
@@ -135,6 +143,11 @@ Discrete simulation event counts per country per month. Each column is the count
 | `stock_ipos` | integer | Companies that completed an IPO |
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
+| `rate_policy_changes` | integer | Central bank rate changes this month (`RatePolicyChange` events) |
+| `bonds_issued` | integer | Bond issuances this month (`BondIssued` events) |
+| `coupons_paid` | integer | Bond coupon payment events this month |
+| `bonds_matured` | integer | Bond maturity events this month |
+| `bond_defaults` | integer | Bond default events (treasury could not repay at maturity) |
 
 ---
 

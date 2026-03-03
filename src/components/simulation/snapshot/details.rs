@@ -130,7 +130,34 @@ pub(in crate::components::simulation) fn country_details_lines(world: &World, ui
             "MTD Budget Balance: {}",
             money(country.monthly_budget_balance)
         ),
-        format!("Gov Debt: {}", money(country.gov_debt)),
+        format!("Monetized Debt: {}", money(country.gov_debt)),
+        format!(
+            "Bonds Outstanding: {}",
+            money(country.bonds_outstanding)
+        ),
+        format!(
+            "Bond Coupon Rate: {:.2}%",
+            country.bond_coupon_rate * 100.0
+        ),
+        format!(
+            "Bond Months to Maturity: {}",
+            country.bond_months_to_maturity
+        ),
+        format!("MTD Coupon Paid: {}", money(country.monthly_coupon_paid)),
+        format!("MTD Bonds Issued: {}", money(country.monthly_bonds_issued)),
+        format!(
+            "MTD Bonds Matured: {}",
+            money(country.monthly_bonds_matured)
+        ),
+        String::new(),
+        format!("CPI Index: {:.4}", country.cpi_index),
+        format!(
+            "Inflation Rate (ann.): {:.2}%",
+            country.monthly_inflation_rate * 100.0
+        ),
+        format!("Policy Rate: {:.2}%", country.policy_rate * 100.0),
+        format!("Bank Loan Rate: {:.2}%", country.bank_loan_rate() * 100.0),
+        String::new(),
         format!(
             "MTD Household Spending: {}",
             money(country.monthly_household_spending)

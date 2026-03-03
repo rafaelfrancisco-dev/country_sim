@@ -280,6 +280,59 @@ impl FiscalParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct MonetaryPolicyParams {
+    /// Annual CPI inflation target (2% = 0.02).
+    pub target_inflation_rate: f64,
+    /// Equilibrium policy rate when inflation is on target and unemployment is at NAIRU.
+    pub neutral_policy_rate: f64,
+    /// Taylor Rule inflation coefficient (α). Typically > 1 (Taylor principle).
+    pub inflation_coefficient: f64,
+    /// Taylor Rule unemployment gap coefficient (β).
+    pub unemployment_coefficient: f64,
+    /// Natural rate of unemployment (NAIRU).
+    pub natural_unemployment_rate: f64,
+    /// Zero lower bound — policy rate cannot fall below this.
+    pub rate_floor: f64,
+    /// Hard cap on policy rate.
+    pub rate_ceiling: f64,
+    /// Spread added to policy rate for private bank loans (credit spread).
+    pub credit_spread: f64,
+    /// Spread added to policy rate for sovereign bond coupon.
+    pub sovereign_spread: f64,
+    /// Government issues bonds when treasury_balance falls at or below this level.
+    pub bond_issuance_treasury_threshold: f64,
+    /// Fraction of each bond issuance absorbed by the bank as primary dealer.
+    pub bank_primary_dealer_fraction: f64,
+    /// Bond term in months.
+    pub bond_maturity_months: u8,
+    /// Top-N wealthiest people who absorb the retail portion of bond issuances/coupons.
+    pub bond_retail_top_n: usize,
+    /// Minimum absolute rate change needed to emit a RatePolicyChange event.
+    pub rate_change_event_threshold: f64,
+}
+
+impl Default for MonetaryPolicyParams {
+    fn default() -> Self {
+        Self {
+            target_inflation_rate: 0.02,
+            neutral_policy_rate: 0.04,
+            inflation_coefficient: 1.5,
+            unemployment_coefficient: 0.5,
+            natural_unemployment_rate: 0.05,
+            rate_floor: 0.0,
+            rate_ceiling: 0.20,
+            credit_spread: 0.03,
+            sovereign_spread: 0.01,
+            bond_issuance_treasury_threshold: 0.0,
+            bank_primary_dealer_fraction: 0.50,
+            bond_maturity_months: 12,
+            bond_retail_top_n: 200,
+            rate_change_event_threshold: 0.005,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GovernmentBackfillParams {
     pub enabled: bool,
     pub essential_good_max_id_inclusive: u8,
@@ -386,6 +439,7 @@ pub struct SimulationParams {
     pub fiscal: FiscalParams,
     pub government_backfill: GovernmentBackfillParams,
     pub stock_market: StockMarketParams,
+    pub monetary: MonetaryPolicyParams,
 }
 
 #[cfg(test)]

@@ -36,12 +36,17 @@ The running UI uses one navigation convention across tabs:
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 
 ## Charts and Metrics
-The `Charts` tab renders six charts in a 3x2 grid:
-- Population
-- Total Money Supply
-- Created Money Outstanding
-- Bank Reserve
-- Treasury Balance
-- Budget Balance
+The `Charts` tab renders eight charts in a 4×2 grid:
+
+| Row | Left | Right |
+|---|---|---|
+| 1 | Population | Total Money Supply |
+| 2 | Created Money Outstanding | Bank Reserve |
+| 3 | Treasury Balance | Budget Balance |
+| 4 | CPI Index | Policy Rate % |
 
 Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.
+
+**CPI Index** starts at `1.0` and drifts as goods prices move. Values above `1.0` indicate accumulated price-level growth.
+
+**Policy Rate %** shows the world-level central bank rate set by the Taylor Rule each month (displayed as percentage, e.g. `4.00` = 4%). Use `[t]` to toggle between selected country and world aggregate scope for all charts; the scope label appears in each chart title.

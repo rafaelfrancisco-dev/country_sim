@@ -18,6 +18,7 @@ mod impl_b1;
 mod impl_b2;
 mod impl_c1;
 mod impl_c2;
+mod impl_d1;
 mod helpers;
 
 use helpers::*;
