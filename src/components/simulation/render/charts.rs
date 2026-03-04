@@ -419,36 +419,96 @@ impl Simulation {
         }
     }
 
-    fn metric_population(p: &MetricPoint) -> f64 { p.population }
-    fn metric_total_money_supply(p: &MetricPoint) -> f64 { p.total_money_supply }
-    fn metric_household_cash_total(p: &MetricPoint) -> f64 { p.household_cash_total }
-    fn metric_company_cash_total(p: &MetricPoint) -> f64 { p.company_cash_total }
-    fn metric_created_money_outstanding(p: &MetricPoint) -> f64 { p.created_money_outstanding }
-    fn metric_bank_reserve(p: &MetricPoint) -> f64 { p.bank_reserve }
-    fn metric_expected_money_supply(p: &MetricPoint) -> f64 { p.expected_money_supply }
-    fn metric_money_supply_gap(p: &MetricPoint) -> f64 { p.money_supply_gap }
-    fn metric_treasury_balance(p: &MetricPoint) -> f64 { p.treasury_balance }
-    fn metric_budget_balance(p: &MetricPoint) -> f64 { p.budget_balance }
-    fn metric_monthly_tax_collected(p: &MetricPoint) -> f64 { p.monthly_tax_collected }
-    fn metric_monthly_gov_spending(p: &MetricPoint) -> f64 { p.monthly_gov_spending }
-    fn metric_gov_debt(p: &MetricPoint) -> f64 { p.gov_debt }
-    fn metric_bonds_outstanding(p: &MetricPoint) -> f64 { p.bonds_outstanding }
-    fn metric_monthly_goods_import_spending(p: &MetricPoint) -> f64 { p.monthly_goods_import_spending }
-    fn metric_monthly_goods_export_revenue(p: &MetricPoint) -> f64 { p.monthly_goods_export_revenue }
-    fn metric_cpi_index(p: &MetricPoint) -> f64 { p.cpi_index }
-    fn metric_inflation_rate_pct(p: &MetricPoint) -> f64 { p.inflation_rate * 100.0 }
-    fn metric_policy_rate_pct(p: &MetricPoint) -> f64 { p.policy_rate * 100.0 }
-    fn metric_real_policy_rate_pct(p: &MetricPoint) -> f64 { (p.policy_rate - p.inflation_rate) * 100.0 }
-    fn metric_monthly_unmet_need_events(p: &MetricPoint) -> f64 { p.monthly_unmet_need_events }
-    fn metric_monthly_essential_debt_spending(p: &MetricPoint) -> f64 { p.monthly_essential_debt_spending }
-    fn metric_stock_market_cap(p: &MetricPoint) -> f64 { p.stock_market_cap }
-    fn metric_stock_bank_equity_exposure(p: &MetricPoint) -> f64 { p.stock_bank_equity_exposure }
-    fn metric_deposit_rate_pct(p: &MetricPoint) -> f64 { p.deposit_rate * 100.0 }
-    fn metric_loan_rate_pct(p: &MetricPoint) -> f64 { p.loan_rate * 100.0 }
-    fn metric_rate_spread_pct(p: &MetricPoint) -> f64 { (p.loan_rate - p.deposit_rate) * 100.0 }
-    fn metric_real_deposit_rate_pct(p: &MetricPoint) -> f64 { (p.deposit_rate - p.inflation_rate) * 100.0 }
-    fn metric_savings_interest_paid(p: &MetricPoint) -> f64 { p.monthly_savings_interest_paid }
-    fn metric_loan_book(p: &MetricPoint) -> f64 { p.created_money_outstanding }
+    fn metric_population(p: &MetricPoint) -> f64 {
+        p.population
+    }
+    fn metric_total_money_supply(p: &MetricPoint) -> f64 {
+        p.total_money_supply
+    }
+    fn metric_household_cash_total(p: &MetricPoint) -> f64 {
+        p.household_cash_total
+    }
+    fn metric_company_cash_total(p: &MetricPoint) -> f64 {
+        p.company_cash_total
+    }
+    fn metric_created_money_outstanding(p: &MetricPoint) -> f64 {
+        p.created_money_outstanding
+    }
+    fn metric_bank_reserve(p: &MetricPoint) -> f64 {
+        p.bank_reserve
+    }
+    fn metric_expected_money_supply(p: &MetricPoint) -> f64 {
+        p.expected_money_supply
+    }
+    fn metric_money_supply_gap(p: &MetricPoint) -> f64 {
+        p.money_supply_gap
+    }
+    fn metric_treasury_balance(p: &MetricPoint) -> f64 {
+        p.treasury_balance
+    }
+    fn metric_budget_balance(p: &MetricPoint) -> f64 {
+        p.budget_balance
+    }
+    fn metric_monthly_tax_collected(p: &MetricPoint) -> f64 {
+        p.monthly_tax_collected
+    }
+    fn metric_monthly_gov_spending(p: &MetricPoint) -> f64 {
+        p.monthly_gov_spending
+    }
+    fn metric_gov_debt(p: &MetricPoint) -> f64 {
+        p.gov_debt
+    }
+    fn metric_bonds_outstanding(p: &MetricPoint) -> f64 {
+        p.bonds_outstanding
+    }
+    fn metric_monthly_goods_import_spending(p: &MetricPoint) -> f64 {
+        p.monthly_goods_import_spending
+    }
+    fn metric_monthly_goods_export_revenue(p: &MetricPoint) -> f64 {
+        p.monthly_goods_export_revenue
+    }
+    fn metric_cpi_index(p: &MetricPoint) -> f64 {
+        p.cpi_index
+    }
+    fn metric_inflation_rate_pct(p: &MetricPoint) -> f64 {
+        p.inflation_rate * 100.0
+    }
+    fn metric_policy_rate_pct(p: &MetricPoint) -> f64 {
+        p.policy_rate * 100.0
+    }
+    fn metric_real_policy_rate_pct(p: &MetricPoint) -> f64 {
+        (p.policy_rate - p.inflation_rate) * 100.0
+    }
+    fn metric_monthly_unmet_need_events(p: &MetricPoint) -> f64 {
+        p.monthly_unmet_need_events
+    }
+    fn metric_monthly_essential_debt_spending(p: &MetricPoint) -> f64 {
+        p.monthly_essential_debt_spending
+    }
+    fn metric_stock_market_cap(p: &MetricPoint) -> f64 {
+        p.stock_market_cap
+    }
+    fn metric_stock_bank_equity_exposure(p: &MetricPoint) -> f64 {
+        p.stock_bank_equity_exposure
+    }
+    fn metric_deposit_rate_pct(p: &MetricPoint) -> f64 {
+        p.deposit_rate * 100.0
+    }
+    fn metric_loan_rate_pct(p: &MetricPoint) -> f64 {
+        p.loan_rate * 100.0
+    }
+    fn metric_rate_spread_pct(p: &MetricPoint) -> f64 {
+        (p.loan_rate - p.deposit_rate) * 100.0
+    }
+    fn metric_real_deposit_rate_pct(p: &MetricPoint) -> f64 {
+        (p.deposit_rate - p.inflation_rate) * 100.0
+    }
+    fn metric_savings_interest_paid(p: &MetricPoint) -> f64 {
+        p.monthly_savings_interest_paid
+    }
+    fn metric_loan_book(p: &MetricPoint) -> f64 {
+        p.created_money_outstanding
+    }
 
     fn expanded_axis_bounds(min: f64, max: f64) -> (f64, f64) {
         if !min.is_finite() || !max.is_finite() {

@@ -92,6 +92,30 @@ fn non_essentials_respect_discretionary_budget_cap() {
 }
 
 #[test]
+fn discretionary_budget_is_lower_when_policy_rate_is_higher() {
+    let mut companies = vec![Company::new(0, "Fun".to_string(), vec![0, 5], 14)];
+    companies[0].inventory_units = 20;
+    companies[0].unit_price = 50.0;
+    companies[0].cash_balance = 1_000.0;
+
+    let country = Country::with_economy(
+        0,
+        "A".to_string(),
+        vec![unemployed_person(1, 10_000.0)],
+        companies,
+        11_000.0,
+    );
+
+    let mut world = World::new(vec![country]);
+    world.countries[0].policy_rate = 0.01;
+    let low_rate_budget = world.initial_discretionary_budgets()[0][0];
+    world.countries[0].policy_rate = 0.15;
+    let high_rate_budget = world.initial_discretionary_budgets()[0][0];
+
+    assert!(low_rate_budget > high_rate_budget);
+}
+
+#[test]
 fn discretionary_superficial_purchase_requires_empty_stock() {
     let mut companies = vec![Company::new(0, "Fun".to_string(), vec![0, 5], 14)];
     companies[0].inventory_units = 500;

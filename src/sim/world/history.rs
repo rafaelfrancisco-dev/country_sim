@@ -115,14 +115,8 @@ impl World {
             .map(|country| country.monthly_inflation_rate)
             .sum::<f64>()
             / count;
-        let deposit_rate = self
-            .countries
-            .first()
-            .map_or(0.0, |c| c.deposit_rate());
-        let loan_rate = self
-            .countries
-            .first()
-            .map_or(0.0, |c| c.bank_loan_rate());
+        let deposit_rate = self.countries.first().map_or(0.0, |c| c.deposit_rate());
+        let loan_rate = self.countries.first().map_or(0.0, |c| c.bank_loan_rate());
         let monthly_savings_interest_paid = self
             .countries
             .iter()

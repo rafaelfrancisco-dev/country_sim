@@ -274,6 +274,7 @@ impl World {
             .map(|country| {
                 let month = country.month.saturating_add(1);
                 let country_id = country.id;
+                let spend_multiplier = country.discretionary_spend_multiplier();
                 let mut country_budgets = Vec::with_capacity(country.people.len());
 
                 for person in &country.people {
@@ -283,7 +284,7 @@ impl World {
                             ^ u64::from(person.id)
                             ^ u64::from(person.name_seed),
                     );
-                    let spend_percent = 5.0 + (budget_seed % 11) as f64;
+                    let spend_percent = (5.0 + (budget_seed % 11) as f64) * spend_multiplier;
                     country_budgets.push(to_cents(
                         person.cash_balance.max(0.0) * spend_percent / 100.0 / 30.0,
                     ));

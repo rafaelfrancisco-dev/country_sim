@@ -1,9 +1,7 @@
 use super::*;
 
 impl Country {
-    /// Recompute the CPI price index using the essential-goods basket (goods 0–7).
-    /// Updates `cpi_index`, `last_month_cpi_index`, and `monthly_inflation_rate`.
-    pub(super) fn recompute_cpi(&mut self) {
+    pub(in crate::sim::country) fn cpi_basket_index(&self) -> f64 {
         let mut weighted_sum = 0.0_f64;
         let mut weight_total = 0.0_f64;
 
@@ -20,18 +18,27 @@ impl Country {
             weight_total += good.base_unit_cost;
         }
 
-        let new_cpi = if weight_total > 0.0 {
+        if weight_total > 0.0 {
             weighted_sum / weight_total
         } else {
             1.0
-        };
+        }
+    }
+
+    /// Recompute the CPI price index using the essential-goods basket (goods 0–7).
+    /// Updates `cpi_index`, `last_month_cpi_index`, and `monthly_inflation_rate`.
+    pub(super) fn recompute_cpi(&mut self) {
+        let new_cpi = self.cpi_basket_index();
 
         let old_cpi = self.cpi_index;
         self.last_month_cpi_index = old_cpi;
         self.cpi_index = new_cpi;
         if old_cpi > 0.0 {
             // Annualized month-over-month rate
-            self.monthly_inflation_rate = (new_cpi / old_cpi).powf(12.0) - 1.0;
+            let raw_annualized = (new_cpi / old_cpi).powf(12.0) - 1.0;
+            let alpha = self.sim_params.monetary.inflation_ema_alpha.clamp(0.0, 1.0);
+            self.monthly_inflation_rate = self.monthly_inflation_rate
+                + (raw_annualized - self.monthly_inflation_rate) * alpha;
         }
     }
 

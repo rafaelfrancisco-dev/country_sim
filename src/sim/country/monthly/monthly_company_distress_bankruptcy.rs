@@ -217,13 +217,14 @@ impl Country {
             return false;
         }
 
-        let max_payment = round_cents(monthly_income * DEFAULT_MAX_DEBT_TO_INCOME.max(0.0));
+        let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
+        let max_payment = round_cents(monthly_income * debt_to_income_cap.max(0.0));
         if max_payment <= 0.0 {
             return false;
         }
 
         let max_total_debt =
-            max_principal_for_payment(max_payment, DEFAULT_LOAN_APR, DEFAULT_LOAN_TERM_MONTHS);
+            max_principal_for_payment(max_payment, self.bank_loan_rate(), DEFAULT_LOAN_TERM_MONTHS);
         let existing_debt = company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
         max_total_debt > existing_debt + 0.01
     }

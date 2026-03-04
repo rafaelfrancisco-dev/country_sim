@@ -2,7 +2,7 @@ use super::*;
 
 impl Country {
     pub(super) fn process_savings_interest(&mut self) {
-        let deposit_rate = (self.policy_rate - self.sim_params.monetary.deposit_spread).max(0.0);
+        let deposit_rate = self.deposit_rate();
         if deposit_rate <= 0.0 {
             return;
         }
@@ -73,7 +73,6 @@ impl Country {
             }
         }
 
-        self.monthly_savings_interest_paid =
-            round_cents(total_people_paid + total_companies_paid);
+        self.monthly_savings_interest_paid = round_cents(total_people_paid + total_companies_paid);
     }
 }

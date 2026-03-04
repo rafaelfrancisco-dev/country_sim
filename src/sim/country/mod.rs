@@ -172,6 +172,10 @@ impl Country {
             money_supply_gap: 0.0,
             bank: Bank::new(),
         };
+        let initial_cpi = country.cpi_basket_index();
+        country.cpi_index = initial_cpi;
+        country.last_month_cpi_index = initial_cpi;
+        country.monthly_inflation_rate = 0.0;
         country.recompute_company_headcounts();
         country.recompute_aggregates();
         country
@@ -192,6 +196,73 @@ impl Country {
     /// Current deposit rate: policy rate minus deposit spread, floored at zero.
     pub fn deposit_rate(&self) -> f64 {
         (self.policy_rate - self.sim_params.monetary.deposit_spread).max(0.0)
+    }
+
+    /// Loan-rate anchor used for policy transmission.
+    pub fn neutral_loan_rate(&self) -> f64 {
+        self.sim_params.monetary.neutral_policy_rate + self.sim_params.monetary.credit_spread
+    }
+
+    /// Normalized and clamped policy stance vs neutral loan rate.
+    pub fn rate_response_normalized_gap(&self) -> f64 {
+        let band = self.sim_params.monetary.rate_response_band.max(0.0001);
+        ((self.bank_loan_rate() - self.neutral_loan_rate()) / band).clamp(-1.0, 1.0)
+    }
+
+    fn response_multiplier(&self, strength: f64, min_value: f64, max_value: f64) -> f64 {
+        let normalized_gap = self.rate_response_normalized_gap();
+        let raw = 1.0 - normalized_gap * strength.max(0.0);
+        let floor = min_value.max(0.0);
+        let ceiling = max_value.max(floor);
+        raw.clamp(floor, ceiling)
+    }
+
+    pub fn loan_appetite_multiplier(&self) -> f64 {
+        let monetary = self.sim_params.monetary;
+        self.response_multiplier(
+            monetary.loan_appetite_strength,
+            monetary.loan_appetite_min,
+            monetary.loan_appetite_max,
+        )
+    }
+
+    pub fn discretionary_spend_multiplier(&self) -> f64 {
+        let monetary = self.sim_params.monetary;
+        self.response_multiplier(
+            monetary.discretionary_spend_strength,
+            monetary.discretionary_spend_min,
+            monetary.discretionary_spend_max,
+        )
+    }
+
+    pub fn expansion_multiplier(&self) -> f64 {
+        let monetary = self.sim_params.monetary;
+        self.response_multiplier(
+            monetary.expansion_strength,
+            monetary.expansion_min,
+            monetary.expansion_max,
+        )
+    }
+
+    pub fn price_pressure_multiplier(&self) -> f64 {
+        let monetary = self.sim_params.monetary;
+        self.response_multiplier(
+            monetary.price_pressure_strength,
+            monetary.price_pressure_min,
+            monetary.price_pressure_max,
+        )
+    }
+
+    pub fn sell_through_threshold_shift(&self) -> f64 {
+        let monetary = self.sim_params.monetary;
+        let raw_shift =
+            self.rate_response_normalized_gap() * monetary.sell_through_shift_strength.max(0.0);
+        let max_abs = monetary.sell_through_shift_max.max(0.0);
+        raw_shift.clamp(-max_abs, max_abs)
+    }
+
+    pub fn effective_debt_to_income_cap(&self, base_cap: f64) -> f64 {
+        (base_cap.max(0.0) * self.loan_appetite_multiplier()).clamp(0.01, 0.95)
     }
 
     pub(super) fn public_utility_dynamic_base_index(&self) -> f64 {

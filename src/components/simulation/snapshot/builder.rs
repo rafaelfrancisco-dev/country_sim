@@ -421,7 +421,11 @@ fn event_matches_person(event: &SimEvent, selected_country_name: &str, person_id
     }
 }
 
-fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_ids: &[u16]) -> bool {
+fn event_matches_company(
+    event: &SimEvent,
+    selected_country_name: &str,
+    company_ids: &[u16],
+) -> bool {
     if event_country_name(event) != selected_country_name {
         return false;
     }

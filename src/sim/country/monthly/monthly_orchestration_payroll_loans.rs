@@ -160,6 +160,7 @@ impl Country {
         }
 
         let loan_rate = self.bank_loan_rate();
+        let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
 
         for (company_idx, company) in self.companies.iter_mut().enumerate() {
             let required_payroll = payroll_requirements_cents
@@ -178,7 +179,7 @@ impl Country {
             let issued = self.bank.originate_loan(
                 shortfall,
                 monthly_income,
-                DEFAULT_MAX_DEBT_TO_INCOME,
+                debt_to_income_cap,
                 loan_rate,
                 &mut company.loan,
             );

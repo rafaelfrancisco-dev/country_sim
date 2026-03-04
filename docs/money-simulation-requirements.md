@@ -171,7 +171,9 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Final monthly public-utility price is clamped to `[min_price, max_price]`.
 
 ## Consumption and Sales
-- Monthly household spending remains 5% to 15% of available cash.
+- Monthly household discretionary spending starts from a 5% to 15% base propensity of available cash, then is scaled by the monetary transmission multiplier:
+  - low-rate regime => higher discretionary budget (households less conservative)
+  - high-rate regime => lower discretionary budget (households more conservative)
 - Seller company is chosen within country companies.
 
 ## Monetary Policy
@@ -204,8 +206,12 @@ Each month, after all production prices are set, `recompute_cpi()` calculates a 
 - Weight: `base_unit_cost` of each good
 - Formula: `relative_price = avg_company_unit_price / base_unit_cost`
 - `cpi_index` = weighted average of relative prices across basket goods
-- Starts at `1.0`; drifts as company prices evolve
-- `monthly_inflation_rate = (new_cpi / old_cpi)^12 − 1` (annualized month-over-month)
+- Initial country CPI baseline is seeded from the current basket (`cpi_basket_index`) at world creation to avoid artificial month-1 inflation spikes.
+- Raw annualized month-over-month inflation is:
+  - `raw = (new_cpi / old_cpi)^12 − 1`
+- Reported inflation uses EMA smoothing:
+  - `inflation_t = inflation_{t-1} + (raw - inflation_{t-1}) × inflation_ema_alpha`
+  - default `inflation_ema_alpha = 0.35`
 
 ### Deposit Rate & Savings Interest
 Each month, after loan repayments, depositors earn interest on their cash balances:
@@ -231,6 +237,42 @@ The bank loan rate adjusts with monetary policy:
 bank_loan_rate = clamp(policy_rate + credit_spread, rate_floor, rate_ceiling)
 ```
 Default `credit_spread` = 3%, so the starting effective rate is 7% (4% neutral + 3% spread).
+
+### Monetary Transmission to the Real Economy
+Policy now propagates into economy behavior through smooth, bounded multipliers centered on the neutral loan rate:
+
+```
+neutral_loan_rate = neutral_policy_rate + credit_spread
+normalized_gap = clamp((bank_loan_rate - neutral_loan_rate) / rate_response_band, -1, 1)
+multiplier = clamp(1 - normalized_gap * strength, min, max)
+```
+
+Channels:
+- **Credit channel**:
+  - Effective debt-to-income cap for private loans is scaled by `loan_appetite_multiplier`.
+  - Lower rates increase approved principal capacity; higher rates tighten it.
+  - This applies to payroll-liquidity loans, end-of-month household/company refinancing, startup loans, and distress loan-capacity checks.
+- **Demand channel**:
+  - Discretionary household budgets are scaled by `discretionary_spend_multiplier`.
+  - Higher rates reduce non-essential spending propensity; lower rates increase it.
+- **Business expansion channel**:
+  - Hiring-growth and startup aggressiveness are scaled by `expansion_multiplier`.
+  - Higher rates raise effective expansion hurdles; lower rates relax them.
+- **Price-setting channel**:
+  - Monthly repricing pressure is scaled by `price_pressure_multiplier`.
+  - Higher rates dampen raise rates and increase effective cut rates.
+  - Sell-through thresholds shift by a bounded `sell_through_threshold_shift`:
+    - higher rates make price hikes harder to trigger and price cuts easier
+    - lower rates do the inverse
+
+The tick order is unchanged: policy updates after month-end country processing, so behavior changes apply with a one-month lag.
+
+### Calibration Notes (2026-03-04)
+- Monetary transmission defaults were tightened for stronger disinflation under high rates:
+  - stronger loan/demand/expansion sensitivity
+  - stronger pricing-pressure sensitivity
+  - smaller sell-through threshold shift range to reduce jitter
+- Combined with CPI baseline seeding and inflation EMA smoothing, this yields smoother inflation cycles and removes the startup CPI spike artifact.
 
 ## Sovereign Bonds
 

@@ -3,7 +3,25 @@ use super::*;
 impl Country {
     pub(super) fn update_company_growth_openings(&mut self) {
         let month_seed = self.month.saturating_add(1);
-        let sim_params = self.sim_params.clone();
+        let mut sim_params = self.sim_params.clone();
+        let expansion_mult = self.expansion_multiplier().max(0.01);
+        let inverse_expansion = (1.0 / expansion_mult).max(0.01);
+        sim_params.company_growth.min_profitable_months =
+            ((sim_params.company_growth.min_profitable_months as f64 * inverse_expansion)
+                .round()
+                .clamp(1.0, u8::MAX as f64)) as u8;
+        sim_params.company_growth.min_cash_reserve =
+            round_cents((sim_params.company_growth.min_cash_reserve * inverse_expansion).max(0.0));
+        sim_params.company_growth.payroll_reserve_multiplier =
+            (sim_params.company_growth.payroll_reserve_multiplier * inverse_expansion).max(0.0);
+        sim_params.company_growth.profit_per_opening = round_cents(
+            (sim_params.company_growth.profit_per_opening * inverse_expansion).max(1.0),
+        );
+        sim_params.company_growth.max_monthly_openings =
+            ((sim_params.company_growth.max_monthly_openings as f64 * expansion_mult)
+                .round()
+                .clamp(1.0, u16::MAX as f64)) as u16;
+
         let labor_demand = self.sim_params.labor_demand;
         self.companies
             .par_chunks_mut(COMPANY_CHUNK_SIZE)
@@ -46,6 +64,9 @@ impl Country {
         if pressure <= f64::EPSILON {
             startup_budget = startup_budget.min(1);
         }
+        startup_budget = ((startup_budget as f64) * self.expansion_multiplier())
+            .round()
+            .clamp(0.0, limit as f64) as u16;
         if startup_budget == 0 {
             return;
         }

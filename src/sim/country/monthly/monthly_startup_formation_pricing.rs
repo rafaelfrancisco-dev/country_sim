@@ -5,6 +5,10 @@ mod labor_dynamics;
 impl Country {
     pub(super) fn try_form_startup_for_job(&mut self, founder_job_id: u8) -> bool {
         let formation = self.sim_params.company_formation;
+        let startup_loan_fraction = (formation.startup_bank_loan_max_fraction
+            * self.loan_appetite_multiplier())
+        .clamp(0.0, 1.0);
+        let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
         if self.companies.len() >= u16::MAX as usize {
             return false;
         }
@@ -130,7 +134,7 @@ impl Country {
             let required_capital =
                 round_cents(monthly_opening_payroll * formation.startup_runway_months);
             let max_loan = if formation.startup_bank_loan_enabled {
-                round_cents(required_capital * formation.startup_bank_loan_max_fraction.max(0.0))
+                round_cents(required_capital * startup_loan_fraction)
             } else {
                 0.0
             };
@@ -179,13 +183,13 @@ impl Country {
         let founder_required = round_cents(required_capital.min(total_investable));
         if founder_required + 0.01 < required_capital && formation.startup_bank_loan_enabled {
             let shortfall = round_cents(required_capital - founder_required);
-            let max_loan = round_cents(required_capital * formation.startup_bank_loan_max_fraction);
+            let max_loan = round_cents(required_capital * startup_loan_fraction);
             let desired_loan = shortfall.min(max_loan);
             if desired_loan > 0.0 {
                 startup_loan = self.bank.originate_loan(
                     desired_loan,
                     expected_revenue,
-                    DEFAULT_MAX_DEBT_TO_INCOME,
+                    debt_to_income_cap,
                     self.bank_loan_rate(),
                     &mut startup.loan,
                 );

@@ -418,6 +418,39 @@ pub struct MonetaryPolicyParams {
     pub deposit_spread: f64,
     /// Minimum cash balance (exclusive) required to earn deposit interest.
     pub savings_min_balance: f64,
+    /// Absolute annual-rate gap from neutral loan rate that maps to a full policy response.
+    pub rate_response_band: f64,
+    /// Slope for loan appetite response to the normalized rate gap.
+    pub loan_appetite_strength: f64,
+    /// Minimum loan appetite multiplier when rates are high.
+    pub loan_appetite_min: f64,
+    /// Maximum loan appetite multiplier when rates are low.
+    pub loan_appetite_max: f64,
+    /// Slope for discretionary spending response to the normalized rate gap.
+    pub discretionary_spend_strength: f64,
+    /// Minimum discretionary spending multiplier when rates are high.
+    pub discretionary_spend_min: f64,
+    /// Maximum discretionary spending multiplier when rates are low.
+    pub discretionary_spend_max: f64,
+    /// Slope for company expansion and startup response to the normalized rate gap.
+    pub expansion_strength: f64,
+    /// Minimum expansion multiplier when rates are high.
+    pub expansion_min: f64,
+    /// Maximum expansion multiplier when rates are low.
+    pub expansion_max: f64,
+    /// Slope for firm pricing pressure response to the normalized rate gap.
+    pub price_pressure_strength: f64,
+    /// Minimum pricing-pressure multiplier when rates are high.
+    pub price_pressure_min: f64,
+    /// Maximum pricing-pressure multiplier when rates are low.
+    pub price_pressure_max: f64,
+    /// Maximum absolute shift applied to sell-through pricing thresholds.
+    pub sell_through_shift_max: f64,
+    /// Slope for sell-through threshold shift response to the normalized rate gap.
+    pub sell_through_shift_strength: f64,
+    /// Exponential smoothing factor for annualized month-over-month inflation.
+    /// 1.0 = no smoothing, 0.0 = fully static.
+    pub inflation_ema_alpha: f64,
 }
 
 impl Default for MonetaryPolicyParams {
@@ -440,6 +473,22 @@ impl Default for MonetaryPolicyParams {
             policy_rate_step: 0.0025,
             deposit_spread: 0.01,
             savings_min_balance: 200.0,
+            rate_response_band: 0.06,
+            loan_appetite_strength: 0.55,
+            loan_appetite_min: 0.55,
+            loan_appetite_max: 1.35,
+            discretionary_spend_strength: 0.45,
+            discretionary_spend_min: 0.65,
+            discretionary_spend_max: 1.25,
+            expansion_strength: 0.60,
+            expansion_min: 0.45,
+            expansion_max: 1.45,
+            price_pressure_strength: 0.70,
+            price_pressure_min: 0.35,
+            price_pressure_max: 1.20,
+            sell_through_shift_max: 0.05,
+            sell_through_shift_strength: 0.04,
+            inflation_ema_alpha: 0.35,
         }
     }
 }

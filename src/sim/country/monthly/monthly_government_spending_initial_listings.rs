@@ -2,7 +2,20 @@ use super::*;
 
 impl Country {
     pub(super) fn close_company_months(&mut self) {
-        let market = self.sim_params.goods_market;
+        let mut market = self.sim_params.goods_market;
+        let price_pressure = self.price_pressure_multiplier().max(0.01);
+        market.price_raise_rate = (market.price_raise_rate * price_pressure).clamp(0.0, 1.0);
+        market.price_cut_rate = (market.price_cut_rate / price_pressure).clamp(0.0, 0.95);
+        let threshold_shift = self.sell_through_threshold_shift();
+        market.sell_through_raise_threshold =
+            (market.sell_through_raise_threshold + threshold_shift).clamp(0.0, 1.0);
+        market.sell_through_cut_threshold =
+            (market.sell_through_cut_threshold + threshold_shift).clamp(0.0, 1.0);
+        if market.sell_through_cut_threshold > market.sell_through_raise_threshold {
+            market.sell_through_cut_threshold =
+                (market.sell_through_raise_threshold - 0.01).max(0.0);
+        }
+
         let dynamic_base_index = self.public_utility_dynamic_base_index();
         let cap_multiplier = self
             .sim_params
