@@ -34,32 +34,33 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
     vec![
         format!("Country: {} (Month {})", country.name, country.month),
         format!(
             "MTD Household Goods Spending: {}",
-            money(country.monthly_household_spending)
+            money(country.monthly_household_spending, currency_symbol)
         ),
         format!(
             "MTD Imported Goods Spending: {}",
-            money(country.monthly_goods_import_spending)
+            money(country.monthly_goods_import_spending, currency_symbol)
         ),
         format!(
             "MTD Goods Export Revenue: {}",
-            money(country.monthly_goods_export_revenue)
+            money(country.monthly_goods_export_revenue, currency_symbol)
         ),
         format!(
             "MTD Tariffs Collected: {}",
-            money(country.monthly_tariff_collected)
+            money(country.monthly_tariff_collected, currency_symbol)
         ),
         format!(
             "MTD Essential Debt Spending: {}",
-            money(country.monthly_essential_debt_spending)
+            money(country.monthly_essential_debt_spending, currency_symbol)
         ),
         format!(
             "MTD Unmet Need Events: {}",
-            country.monthly_unmet_need_events
+            compact_count(country.monthly_unmet_need_events as f64)
         ),
     ]
 }

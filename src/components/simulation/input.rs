@@ -14,7 +14,7 @@ impl Simulation {
             KeyCode::BackTab => Some(SimulationCommand::Domain(GameCommand::SetupPrevField)),
             KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::SetupBackspace)),
             KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::SetupSubmit)),
-            KeyCode::Char(c) if c.is_ascii_alphanumeric() || matches!(c, '.' | '_') => {
+            KeyCode::Char(c) if !c.is_control() => {
                 Some(SimulationCommand::Domain(GameCommand::SetupEditChar(c)))
             }
             _ => None,

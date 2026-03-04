@@ -21,6 +21,8 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 ## Recent UI Additions
 - Five running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Stocks`, `Charts`, `Events`
 - Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
+- Setup now includes editable `Currency Symbol` (default `€`) so money displays can be customized per run
+- Money labels across tables, details, charts, stocks, and events now consistently include the selected currency symbol and compact large values (for example `11500` as `11.5k`)
 - Country policy overrides page in Main tab country details (`o`): editable tax brackets/rates and fiscal transfer thresholds per country (`r` resets to managed defaults)
 - Monthly trend charts with pagination (4x2 per page, 3 pages total):
   - page 1: liquidity and money-balance metrics (population, supply, cash totals, reserve/gap)

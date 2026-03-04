@@ -158,6 +158,7 @@ pub struct UiState {
     pub stock_selected_row: usize,
     pub stock_page: usize,
     pub country_policy_form: CountryPolicyFormState,
+    pub currency_symbol: String,
 }
 
 impl Default for UiState {
@@ -182,6 +183,7 @@ impl Default for UiState {
             stock_selected_row: 0,
             stock_page: 0,
             country_policy_form: CountryPolicyFormState::default(),
+            currency_symbol: crate::sim::setup::DEFAULT_CURRENCY_SYMBOL.to_string(),
         }
     }
 }

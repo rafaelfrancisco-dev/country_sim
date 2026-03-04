@@ -34,13 +34,14 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         body: Rect,
-        _world: &RunningSnapshot,
+        world: &RunningSnapshot,
         tab: &ChartsTabSnapshot,
     ) -> String {
         let scope_label = tab.chart_scope_label.as_str();
         let history: &[MetricPoint] = tab.chart_history.as_ref();
         let total_pages = tab.total_chart_pages.max(1);
         let page_idx = tab.chart_page.min(total_pages.saturating_sub(1));
+        let currency_symbol = world.currency_symbol.as_str();
 
         if history.is_empty() {
             let placeholder = Paragraph::new(
@@ -89,6 +90,7 @@ impl Simulation {
                     spec.color,
                     spec.value_fn,
                     spec.axis_format,
+                    currency_symbol,
                 );
             }
         }
@@ -269,6 +271,7 @@ impl Simulation {
         color: Color,
         value_fn: fn(&MetricPoint) -> f64,
         axis_format: AxisValueFormat,
+        currency_symbol: &str,
     ) {
         if history.is_empty() {
             frame.render_widget(
@@ -331,8 +334,8 @@ impl Simulation {
                     .style(theme::primary_text().bg(theme::PANEL_BG))
                     .bounds([y_min, y_max])
                     .labels(vec![
-                        Self::format_axis_label(axis_format, y_min),
-                        Self::format_axis_label(axis_format, y_max),
+                        Self::format_axis_label(axis_format, y_min, currency_symbol),
+                        Self::format_axis_label(axis_format, y_max, currency_symbol),
                     ]),
             )
             .block(
@@ -347,9 +350,13 @@ impl Simulation {
         frame.render_widget(chart, area);
     }
 
-    fn format_axis_label(axis_format: AxisValueFormat, value: f64) -> String {
+    fn format_axis_label(
+        axis_format: AxisValueFormat,
+        value: f64,
+        currency_symbol: &str,
+    ) -> String {
         match axis_format {
-            AxisValueFormat::Money => Self::money(value),
+            AxisValueFormat::Money => Self::money(value, currency_symbol),
             AxisValueFormat::Percent => format!("{value:.2}%"),
             AxisValueFormat::Index => format!("{value:.3}"),
             AxisValueFormat::Count => {

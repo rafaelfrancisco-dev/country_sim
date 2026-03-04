@@ -222,25 +222,11 @@ impl Simulation {
     }
 
     fn compact_num(n: f64) -> String {
-        let abs = n.abs();
-        let (divisor, suffix) = if abs >= 1_000_000.0 {
-            (1_000_000.0, "M")
-        } else if abs >= 10_000.0 {
-            (1_000.0, "k")
-        } else {
-            return format!("{n:.2}");
-        };
-        let scaled = n / divisor;
-        let r = (scaled * 10.0).round() / 10.0;
-        if r.fract() == 0.0 {
-            format!("{r:.0}{suffix}")
-        } else {
-            format!("{r:.1}{suffix}")
-        }
+        crate::components::simulation::snapshot::compact_num(n)
     }
 
-    fn money(amount: f64) -> String {
-        Self::compact_num(amount)
+    fn money(amount: f64, currency_symbol: &str) -> String {
+        crate::components::simulation::snapshot::money(amount, currency_symbol)
     }
 }
 

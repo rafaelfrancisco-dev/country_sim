@@ -111,12 +111,13 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &GoodsTabSnapshot,
     ) {
+        let avg_label = format!("Avg {}", world.currency_symbol);
         let header = Row::new([
             Cell::from("ID"),
             Cell::from("Company"),
             Cell::from("Good"),
             Cell::from("Price"),
-            Cell::from("Avg $"),
+            Cell::from(avg_label),
             Cell::from("Inv"),
             Cell::from("Prod"),
             Cell::from("Sold"),
@@ -260,6 +261,7 @@ impl Simulation {
             "Sold Units History",
             Color::Cyan,
             false,
+            world.currency_symbol.as_str(),
         );
         self.draw_company_history_chart(
             frame,
@@ -268,6 +270,7 @@ impl Simulation {
             "Employees History",
             Color::Green,
             false,
+            world.currency_symbol.as_str(),
         );
         self.draw_company_history_chart(
             frame,
@@ -276,6 +279,7 @@ impl Simulation {
             "Price History",
             Color::Yellow,
             true,
+            world.currency_symbol.as_str(),
         );
         self.draw_company_history_chart(
             frame,
@@ -284,6 +288,7 @@ impl Simulation {
             "Loan Payments History",
             Color::LightMagenta,
             true,
+            world.currency_symbol.as_str(),
         );
         self.draw_company_history_chart(
             frame,
@@ -292,6 +297,7 @@ impl Simulation {
             "Money History",
             Color::LightGreen,
             true,
+            world.currency_symbol.as_str(),
         );
         frame.render_widget(
             Paragraph::new("")
@@ -315,6 +321,7 @@ impl Simulation {
         title: &str,
         color: Color,
         as_money: bool,
+        currency_symbol: &str,
     ) {
         if history.is_empty() {
             frame.render_widget(
@@ -353,7 +360,10 @@ impl Simulation {
             });
         let (y_min, y_max) = Self::company_chart_axis_bounds(value_min, value_max);
         let y_labels = if as_money {
-            vec![Self::money(y_min), Self::money(y_max)]
+            vec![
+                Self::money(y_min, currency_symbol),
+                Self::money(y_max, currency_symbol),
+            ]
         } else {
             vec![compact_count_f64(y_min), compact_count_f64(y_max)]
         };

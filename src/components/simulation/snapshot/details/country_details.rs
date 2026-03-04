@@ -6,6 +6,7 @@ pub(in crate::components::simulation) fn country_details_lines(
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
     let company_count = country.companies.len();
     let public_utility_count = country
@@ -69,38 +70,74 @@ pub(in crate::components::simulation) fn country_details_lines(
         format!("Listed Companies: {}", compact_count(listed_count as f64)),
         String::new(),
         "Money & Fiscal:".to_string(),
-        format!("Household Cash: {}", money(country.household_cash_total)),
-        format!("Company Cash: {}", money(country.company_cash_total)),
-        format!("Treasury: {}", money(country.treasury_balance)),
-        format!("Bank Reserve: {}", money(country.bank.reserve_balance)),
+        format!(
+            "Household Cash: {}",
+            money(country.household_cash_total, currency_symbol)
+        ),
+        format!(
+            "Company Cash: {}",
+            money(country.company_cash_total, currency_symbol)
+        ),
+        format!(
+            "Treasury: {}",
+            money(country.treasury_balance, currency_symbol)
+        ),
+        format!(
+            "Bank Reserve: {}",
+            money(country.bank.reserve_balance, currency_symbol)
+        ),
         format!(
             "Loans Outstanding: {}",
-            money(country.bank.created_money_outstanding)
+            money(country.bank.created_money_outstanding, currency_symbol)
         ),
-        format!("Money Supply: {}", money(country.total_money_supply)),
-        format!("Expected Supply: {}", money(country.expected_money_supply)),
-        format!("Supply Gap: {}", money(country.money_supply_gap)),
+        format!(
+            "Money Supply: {}",
+            money(country.total_money_supply, currency_symbol)
+        ),
+        format!(
+            "Expected Supply: {}",
+            money(country.expected_money_supply, currency_symbol)
+        ),
+        format!(
+            "Supply Gap: {}",
+            money(country.money_supply_gap, currency_symbol)
+        ),
         format!(
             "MTD Tax Collected: {}",
-            money(country.monthly_tax_collected)
+            money(country.monthly_tax_collected, currency_symbol)
         ),
-        format!("MTD Gov Spending: {}", money(country.monthly_gov_spending)),
+        format!(
+            "MTD Gov Spending: {}",
+            money(country.monthly_gov_spending, currency_symbol)
+        ),
         format!(
             "MTD Budget Balance: {}",
-            money(country.monthly_budget_balance)
+            money(country.monthly_budget_balance, currency_symbol)
         ),
-        format!("Monetized Debt: {}", money(country.gov_debt)),
-        format!("Bonds Outstanding: {}", money(country.bonds_outstanding)),
+        format!(
+            "Monetized Debt: {}",
+            money(country.gov_debt, currency_symbol)
+        ),
+        format!(
+            "Bonds Outstanding: {}",
+            money(country.bonds_outstanding, currency_symbol)
+        ),
         format!("Bond Coupon Rate: {:.2}%", country.bond_coupon_rate * 100.0),
         format!(
             "Bond Months to Maturity: {}",
             country.bond_months_to_maturity
         ),
-        format!("MTD Coupon Paid: {}", money(country.monthly_coupon_paid)),
-        format!("MTD Bonds Issued: {}", money(country.monthly_bonds_issued)),
+        format!(
+            "MTD Coupon Paid: {}",
+            money(country.monthly_coupon_paid, currency_symbol)
+        ),
+        format!(
+            "MTD Bonds Issued: {}",
+            money(country.monthly_bonds_issued, currency_symbol)
+        ),
         format!(
             "MTD Bonds Matured: {}",
-            money(country.monthly_bonds_matured)
+            money(country.monthly_bonds_matured, currency_symbol)
         ),
         String::new(),
         "Prices & Rates:".to_string(),
@@ -115,17 +152,20 @@ pub(in crate::components::simulation) fn country_details_lines(
         "Trade & Tariffs:".to_string(),
         format!(
             "MTD Household Spending: {}",
-            money(country.monthly_household_spending)
+            money(country.monthly_household_spending, currency_symbol)
         ),
         format!(
             "MTD Imports / Exports: {} / {}",
-            money(country.monthly_goods_import_spending),
-            money(country.monthly_goods_export_revenue)
+            money(country.monthly_goods_import_spending, currency_symbol),
+            money(country.monthly_goods_export_revenue, currency_symbol)
         ),
-        format!("MTD Trade Balance: {}", money(trade_balance)),
+        format!(
+            "MTD Trade Balance: {}",
+            money(trade_balance, currency_symbol)
+        ),
         format!(
             "MTD Tariffs Collected: {}",
-            money(country.monthly_tariff_collected)
+            money(country.monthly_tariff_collected, currency_symbol)
         ),
         format!("Average Export Tariff: {:.2}%", avg_export_tariff * 100.0),
         format!(
@@ -134,10 +174,13 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         String::new(),
         "Market Risk:".to_string(),
-        format!("Stock Market Cap: {}", money(market_cap)),
+        format!("Stock Market Cap: {}", money(market_cap, currency_symbol)),
         format!("Stock Index: {:.2}", index_value),
-        format!("Bank Equity Exposure: {}", money(bank_equity_exposure)),
-        format!("Daily Turnover: {}", money(daily_turnover)),
+        format!(
+            "Bank Equity Exposure: {}",
+            money(bank_equity_exposure, currency_symbol)
+        ),
+        format!("Daily Turnover: {}", money(daily_turnover, currency_symbol)),
         format!(
             "Active Traders / Buy / Sell Orders: {} / {} / {}",
             compact_count(country.stock_market.day_active_traders_count as f64),
@@ -152,7 +195,7 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!(
             "MTD Essential Debt Spending: {}",
-            money(country.monthly_essential_debt_spending)
+            money(country.monthly_essential_debt_spending, currency_symbol)
         ),
         format!(
             "MTD Hires: {}",
@@ -179,6 +222,7 @@ pub(in crate::components::simulation) fn country_policy_lines(
     let Some(country) = ui.selected_country(world) else {
         return vec!["No country is currently selected.".to_string()];
     };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
     let form = &ui.country_policy_form;
     let fields = [
@@ -187,48 +231,56 @@ pub(in crate::components::simulation) fn country_policy_lines(
             "Tax Bracket 1 Max",
             country.sim_params.tax.bracket_1_max,
             false,
+            true,
         ),
         (
             CountryPolicyField::TaxBracket2Max,
             "Tax Bracket 2 Max",
             country.sim_params.tax.bracket_2_max,
             false,
+            true,
         ),
         (
             CountryPolicyField::TaxRate1,
             "Tax Rate 1",
             country.sim_params.tax.rate_1,
             true,
+            false,
         ),
         (
             CountryPolicyField::TaxRate2,
             "Tax Rate 2",
             country.sim_params.tax.rate_2,
             true,
+            false,
         ),
         (
             CountryPolicyField::TaxRate3,
             "Tax Rate 3",
             country.sim_params.tax.rate_3,
             true,
+            false,
         ),
         (
             CountryPolicyField::UnemploymentBenefitRate,
             "Unemployment Benefit Rate",
             country.sim_params.fiscal.unemployment_benefit_rate,
             true,
+            false,
         ),
         (
             CountryPolicyField::MedianIncomeReference,
             "Median Income Reference",
             country.sim_params.fiscal.median_income_reference,
             false,
+            true,
         ),
         (
             CountryPolicyField::BasicNeedsCashThreshold,
             "Basic Needs Cash Threshold",
             country.sim_params.fiscal.basic_needs_cash_threshold,
             false,
+            true,
         ),
     ];
 
@@ -241,11 +293,13 @@ pub(in crate::components::simulation) fn country_policy_lines(
         String::new(),
     ];
 
-    for (field, label, value, is_rate) in fields {
+    for (field, label, value, is_rate, is_money) in fields {
         let focused = form.active_field == field;
         let pointer = if focused { ">" } else { " " };
         let formatted_value = if is_rate {
             format!("{:.4}", value)
+        } else if is_money {
+            money(value, currency_symbol)
         } else {
             format!("{:.2}", value)
         };

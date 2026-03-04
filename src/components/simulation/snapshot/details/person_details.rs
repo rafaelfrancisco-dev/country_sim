@@ -12,6 +12,7 @@ pub(in crate::components::simulation) fn person_details_lines(
             "No person available for the current selection. Press [Esc] to return.".to_string(),
         ];
     };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
     let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
     let name = person_name_from_seed(name_seed);
@@ -42,30 +43,54 @@ pub(in crate::components::simulation) fn person_details_lines(
         format!("Employment: {employment_label}"),
         format!("Job: {job_label}"),
         format!("Employer: {employer_label}"),
-        format!("Monthly Salary: {}", money(person.monthly_salary())),
-        format!("Cash Balance: {}", money(person.cash_balance)),
+        format!(
+            "Monthly Salary: {}",
+            money(person.monthly_salary(), currency_symbol)
+        ),
+        format!(
+            "Cash Balance: {}",
+            money(person.cash_balance, currency_symbol)
+        ),
         format!(
             "Loan Debt: {}",
-            money(person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
+            money(
+                person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance),
+                currency_symbol
+            )
         ),
         String::new(),
-        format!("MTD Gross Pay: {}", money(person.last_month_gross_pay)),
-        format!("MTD Tax Paid: {}", money(person.last_month_tax_paid)),
-        format!("MTD Net Pay: {}", money(person.last_month_net_pay)),
-        format!("MTD Spending: {}", money(person.last_month_spending)),
+        format!(
+            "MTD Gross Pay: {}",
+            money(person.last_month_gross_pay, currency_symbol)
+        ),
+        format!(
+            "MTD Tax Paid: {}",
+            money(person.last_month_tax_paid, currency_symbol)
+        ),
+        format!(
+            "MTD Net Pay: {}",
+            money(person.last_month_net_pay, currency_symbol)
+        ),
+        format!(
+            "MTD Spending: {}",
+            money(person.last_month_spending, currency_symbol)
+        ),
         format!(
             "MTD Loan Payment: {}",
-            money(person.last_month_loan_payment)
+            money(person.last_month_loan_payment, currency_symbol)
         ),
-        format!("MTD New Loan: {}", money(person.last_month_new_loan)),
+        format!(
+            "MTD New Loan: {}",
+            money(person.last_month_new_loan, currency_symbol)
+        ),
         String::new(),
         format!(
             "MTD Goods Spending: {}",
-            money(person.last_month_goods_spending)
+            money(person.last_month_goods_spending, currency_symbol)
         ),
         format!(
             "MTD Imported Goods Spending: {}",
-            money(person.last_month_imported_goods_spending)
+            money(person.last_month_imported_goods_spending, currency_symbol)
         ),
         format!(
             "MTD Goods Units Bought: {}",
@@ -99,7 +124,11 @@ pub(in crate::components::simulation) fn person_details_lines(
         compact_count(total_superficial_units as f64)
     ));
     lines.push(String::new());
-    lines.extend(person_stock_holdings_lines(country, person.id));
+    lines.extend(person_stock_holdings_lines(
+        country,
+        person.id,
+        currency_symbol,
+    ));
     lines.push(String::new());
     lines.push("Press [c] to open employer company details in Goods tab.".to_string());
 

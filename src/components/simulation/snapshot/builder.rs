@@ -16,6 +16,8 @@ impl UiSnapshot {
     ) -> Self {
         let phase = match phase {
             GamePhase::Setup(setup) => {
+                ui_state.currency_symbol =
+                    normalized_currency_symbol(&setup.currency_symbol_input).to_string();
                 SnapshotPhase::Setup(Box::new(SetupSnapshot::from_setup_form(setup, false)))
             }
             GamePhase::Running(world) => SnapshotPhase::Running(Box::new(
@@ -47,6 +49,7 @@ impl UiSnapshot {
         runtime_stats: RuntimeStatsSnapshot,
     ) -> RunningSnapshot {
         ui.ensure_valid(world);
+        let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
         let selected_country = ui.selected_country(world);
         let selected_country_name = selected_country
@@ -76,10 +79,10 @@ impl UiSnapshot {
                         CountryRowSnapshot {
                             name: country.name.clone(),
                             population: compact_count(country.population() as f64),
-                            household_cash: money(country.household_cash_total),
-                            company_cash: money(country.company_cash_total),
-                            treasury: money(country.treasury_balance),
-                            loans: money(country.bank.created_money_outstanding),
+                            household_cash: money(country.household_cash_total, currency_symbol),
+                            company_cash: money(country.company_cash_total, currency_symbol),
+                            treasury: money(country.treasury_balance, currency_symbol),
+                            loans: money(country.bank.created_money_outstanding, currency_symbol),
                             is_selected: idx == ui.selected_country,
                             is_even: idx.is_multiple_of(2),
                         }
@@ -118,9 +121,12 @@ impl UiSnapshot {
                             education: person.habilitation.label().to_string(),
                             employment,
                             employer,
-                            salary: money(person.monthly_salary()),
-                            cash: money(person.cash_balance),
-                            loan: money(person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance)),
+                            salary: money(person.monthly_salary(), currency_symbol),
+                            cash: money(person.cash_balance, currency_symbol),
+                            loan: money(
+                                person.loan.as_ref().map_or(0.0, |loan| loan.debt_balance),
+                                currency_symbol,
+                            ),
                             is_selected: row_idx == ui.selected_person_row,
                             is_even: row_idx.is_multiple_of(2),
                         });
@@ -154,18 +160,18 @@ impl UiSnapshot {
                             .to_string();
 
                         let avg_price = if company.price_history.is_empty() {
-                            money(company.unit_price)
+                            money(company.unit_price, currency_symbol)
                         } else {
                             let avg = company.price_history.iter().sum::<f64>()
                                 / company.price_history.len() as f64;
-                            money(avg)
+                            money(avg, currency_symbol)
                         };
 
                         company_rows.push(CompanyRowSnapshot {
                             company_id: company.id.to_string(),
                             name: company.name.clone(),
                             good: good_name,
-                            price: money(company.unit_price),
+                            price: money(company.unit_price, currency_symbol),
                             avg_price,
                             inventory: compact_count(company.inventory_units),
                             produced: compact_count(company.last_month_units_produced),
@@ -179,7 +185,7 @@ impl UiSnapshot {
                                 company.last_month_domestic_units_sold,
                                 company.last_month_export_units_sold
                             ),
-                            sales: money(company.last_month_sales),
+                            sales: money(company.last_month_sales, currency_symbol),
                             is_selected: absolute_idx == ui.selected_company_absolute_index(),
                             is_even: row_idx.is_multiple_of(2),
                         });
@@ -214,7 +220,7 @@ impl UiSnapshot {
                     stock_selected_index_volume_history,
                     stock_country_index_history,
                     stock_bank_exposure_history,
-                ) = build_stock_tab_data(world, ui);
+                ) = build_stock_tab_data(world, ui, currency_symbol);
 
                 RunningTabSnapshot::Stocks(Box::new(StocksTabSnapshot {
                     stock_rows,
@@ -225,7 +231,11 @@ impl UiSnapshot {
                     stock_bank_exposure_history: stock_bank_exposure_history.into(),
                     stock_page: ui.stock_page,
                     stock_selected_row: ui.stock_selected_row,
-                    stock_person_details_lines: stock_person_details_lines(world, ui),
+                    stock_person_details_lines: stock_person_details_lines(
+                        world,
+                        ui,
+                        currency_symbol,
+                    ),
                 }))
             }
             RunningTab::Charts => {
@@ -255,6 +265,7 @@ impl UiSnapshot {
             core: RunningCoreSnapshot {
                 day: world.day,
                 generation_seed: world.generation_seed,
+                currency_symbol: currency_symbol.to_string(),
                 selected_country_month,
                 paused: world.paused,
                 active_tab: ui.active_tab,
@@ -315,12 +326,13 @@ where
     F: FnMut(&SimEvent) -> bool,
 {
     let search_lower = ui.events_search_query.to_ascii_lowercase();
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
     let mut event_log_lines: Vec<String> = world
         .event_log
         .iter()
         .filter(|event| include_event(event))
         .filter(|event| event_matches_category(event.category(), ui.events_category))
-        .map(SimEvent::format)
+        .map(|event| event.format_with_currency(currency_symbol))
         .filter(|line| search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower))
         .collect();
     if matches!(ui.events_sort, EventsSort::NewestFirst) {

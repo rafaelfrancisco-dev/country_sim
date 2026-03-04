@@ -77,3 +77,17 @@ fn event_category_mapping_covers_all_variant_groups() {
 
     assert!(seen.into_iter().all(|covered| covered));
 }
+
+#[test]
+fn event_money_format_uses_currency_and_compact_suffix() {
+    let event = SimEvent::LoanEmitted {
+        country_name: "A".to_string(),
+        entity_kind: EntityKind::Person,
+        entity_id: 7,
+        principal: 11_500.0,
+        day: 1,
+    };
+
+    let formatted = event.format_with_currency("£");
+    assert!(formatted.contains("£11.5k"));
+}

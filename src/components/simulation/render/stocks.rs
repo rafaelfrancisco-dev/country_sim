@@ -18,7 +18,7 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         body: Rect,
-        _world: &RunningSnapshot,
+        world: &RunningSnapshot,
         tab: &StocksTabSnapshot,
     ) -> String {
         let [top, bottom] =
@@ -29,7 +29,7 @@ impl Simulation {
 
         self.draw_stock_summary(frame, summary_area, tab);
         self.draw_stock_table(frame, table_area, tab);
-        self.draw_stock_charts(frame, bottom, tab);
+        self.draw_stock_charts(frame, bottom, tab, world.currency_symbol.as_str());
 
         format!(
             "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [PgUp/PgDn] page | Listed: {}",
@@ -133,7 +133,13 @@ impl Simulation {
         frame.render_widget(table, inner);
     }
 
-    fn draw_stock_charts(&self, frame: &mut Frame, area: Rect, tab: &StocksTabSnapshot) {
+    fn draw_stock_charts(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        tab: &StocksTabSnapshot,
+        currency_symbol: &str,
+    ) {
         let [left, right] =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(area);
@@ -150,6 +156,8 @@ impl Simulation {
             " Selected Stock Price ",
             tab.stock_selected_index_price_history.as_ref(),
             Color::Cyan,
+            true,
+            currency_symbol,
         );
         self.draw_stock_chart_f64(
             frame,
@@ -157,6 +165,8 @@ impl Simulation {
             " Selected Stock Volume ",
             tab.stock_selected_index_volume_history.as_ref(),
             Color::Yellow,
+            false,
+            currency_symbol,
         );
         self.draw_stock_chart_f64(
             frame,
@@ -164,6 +174,8 @@ impl Simulation {
             " Country Stock Index ",
             tab.stock_country_index_history.as_ref(),
             Color::Green,
+            false,
+            currency_symbol,
         );
         self.draw_stock_chart_f64(
             frame,
@@ -171,6 +183,8 @@ impl Simulation {
             " Bank Equity Exposure ",
             tab.stock_bank_exposure_history.as_ref(),
             Color::Magenta,
+            true,
+            currency_symbol,
         );
     }
 
@@ -181,6 +195,8 @@ impl Simulation {
         title: &str,
         data: &[f64],
         color: Color,
+        as_money: bool,
+        currency_symbol: &str,
     ) {
         let block = Block::default()
             .title(title)
@@ -219,10 +235,25 @@ impl Simulation {
             ratatui::text::Span::raw("0"),
             ratatui::text::Span::raw(data.len().to_string()),
         ];
-        let y_labels = vec![
-            ratatui::text::Span::raw(format!("{y_min:.0}")),
-            ratatui::text::Span::raw(format!("{y_max:.0}")),
-        ];
+        let y_labels = if as_money {
+            vec![
+                ratatui::text::Span::raw(Self::money(y_min, currency_symbol)),
+                ratatui::text::Span::raw(Self::money(y_max, currency_symbol)),
+            ]
+        } else {
+            vec![
+                ratatui::text::Span::raw(if y_min.abs() >= 10_000.0 {
+                    Self::compact_num(y_min)
+                } else {
+                    format!("{y_min:.0}")
+                }),
+                ratatui::text::Span::raw(if y_max.abs() >= 10_000.0 {
+                    Self::compact_num(y_max)
+                } else {
+                    format!("{y_max:.0}")
+                }),
+            ]
+        };
 
         let chart = Chart::new(vec![dataset])
             .block(block)

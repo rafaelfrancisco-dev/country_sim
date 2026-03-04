@@ -10,6 +10,7 @@ pub(in crate::components::simulation) fn company_details_lines(
     let Some(company) = ui.selected_company_on_page(world) else {
         return vec!["No company available for the current selection.".to_string()];
     };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
     let good_label = good_by_id(company.produced_good_id)
         .map_or("Unknown", |good| good.name)
@@ -31,7 +32,7 @@ pub(in crate::components::simulation) fn company_details_lines(
                 format!(
                     "{job_label}: {} @ {}",
                     opening.slots,
-                    money(opening.offered_monthly_salary)
+                    money(opening.offered_monthly_salary, currency_symbol)
                 )
             })
             .collect::<Vec<_>>()
@@ -101,12 +102,12 @@ pub(in crate::components::simulation) fn company_details_lines(
         format!("Ticker: {ticker_label}"),
         format!(
             "Stock Price / Day%: {} / {:+.2}%",
-            money(listing_price),
+            money(listing_price, currency_symbol),
             listing_day_pct * 100.0
         ),
         format!(
             "Market Cap / Float Shares: {} / {}",
-            money(listing_market_cap),
+            money(listing_market_cap, currency_symbol),
             compact_count(listing_float_shares as f64)
         ),
         format!("Bank-held Shares: {:.2}%", bank_held_pct),
@@ -126,7 +127,7 @@ pub(in crate::components::simulation) fn company_details_lines(
         format!("Openings +More: {}", compact_count(opening_overflow as f64)),
         String::new(),
         "Operations:".to_string(),
-        format!("Unit Price: {}", money(company.unit_price)),
+        format!("Unit Price: {}", money(company.unit_price, currency_symbol)),
         format!(
             "Inventory Units: {}",
             compact_count(company.inventory_units)
@@ -159,25 +160,40 @@ pub(in crate::components::simulation) fn company_details_lines(
         ),
         format!(
             "Avg Monthly Revenue (3M): {}",
-            money(company.average_monthly_revenue())
+            money(company.average_monthly_revenue(), currency_symbol)
         ),
         String::new(),
         "Finance & Stress:".to_string(),
-        format!("MTD Sales: {}", money(company.last_month_sales)),
+        format!(
+            "MTD Sales: {}",
+            money(company.last_month_sales, currency_symbol)
+        ),
         format!(
             "MTD Payroll Paid: {}",
-            money(company.last_month_payroll_paid)
+            money(company.last_month_payroll_paid, currency_symbol)
         ),
-        format!("MTD Profit: {}", money(company.last_month_profit)),
+        format!(
+            "MTD Profit: {}",
+            money(company.last_month_profit, currency_symbol)
+        ),
         format!(
             "MTD Loan Payment: {}",
-            money(company.last_month_loan_payment)
+            money(company.last_month_loan_payment, currency_symbol)
         ),
-        format!("MTD New Loan: {}", money(company.last_month_new_loan)),
-        format!("Current Money: {}", money(company.cash_balance)),
+        format!(
+            "MTD New Loan: {}",
+            money(company.last_month_new_loan, currency_symbol)
+        ),
+        format!(
+            "Current Money: {}",
+            money(company.cash_balance, currency_symbol)
+        ),
         format!(
             "Loan Debt: {}",
-            money(company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance))
+            money(
+                company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance),
+                currency_symbol
+            )
         ),
         format!(
             "Consecutive Missed Loan Payments: {}",

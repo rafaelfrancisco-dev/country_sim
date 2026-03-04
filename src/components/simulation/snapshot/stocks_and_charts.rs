@@ -39,6 +39,7 @@ pub(in crate::components::simulation) fn goods_mask_names(mask: u16) -> String {
 pub(in crate::components::simulation) fn build_stock_tab_data(
     world: &World,
     ui: &UiState,
+    currency_symbol: &str,
 ) -> StockTabData {
     let Some(country) = ui.selected_country(world) else {
         return (
@@ -56,17 +57,26 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
     // Summary panel
     let summary_lines = vec![
         format!("Country: {} (Month {})", country.name, country.month),
-        format!("Market Cap: {}", money(market.total_market_cap())),
+        format!(
+            "Market Cap: {}",
+            money(market.total_market_cap(), currency_symbol)
+        ),
         format!("Listed Companies: {}", market.listed_count()),
         format!(
             "Bank Equity Exposure: {}",
-            money(market.bank_equity_exposure())
+            money(market.bank_equity_exposure(), currency_symbol)
         ),
-        format!("MTD IPO Raised: {}", money(market.ipo_raised_mtd)),
-        format!("MTD Dividends Paid: {}", money(market.dividends_paid_mtd)),
+        format!(
+            "MTD IPO Raised: {}",
+            money(market.ipo_raised_mtd, currency_symbol)
+        ),
+        format!(
+            "MTD Dividends Paid: {}",
+            money(market.dividends_paid_mtd, currency_symbol)
+        ),
         format!(
             "MTD Forced Liquidations: {}",
-            money(market.forced_liquidations_mtd)
+            money(market.forced_liquidations_mtd, currency_symbol)
         ),
     ];
 
@@ -107,9 +117,9 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
             StockRowSnapshot {
                 ticker: equity.ticker.clone(),
                 company_name,
-                last_price: money(equity.last_price),
+                last_price: money(equity.last_price, currency_symbol),
                 day_pct: format!("{:+.2}%", equity.closed_day_pct_change() * 100.0),
-                market_cap: money(equity.market_cap),
+                market_cap: money(equity.market_cap, currency_symbol),
                 volume: compact_count(equity.day_volume as f64),
                 float_shares: compact_count(equity.free_float_shares as f64),
                 bank_pct: format!("{:.1}%", bank_pct),
@@ -155,6 +165,7 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
 pub(in crate::components::simulation) fn stock_person_details_lines(
     world: &World,
     ui: &UiState,
+    currency_symbol: &str,
 ) -> Vec<String> {
     let Some(country) = ui.selected_country(world) else {
         return Vec::new();
@@ -163,7 +174,7 @@ pub(in crate::components::simulation) fn stock_person_details_lines(
         return Vec::new();
     };
 
-    person_stock_holdings_lines(country, person.id)
+    person_stock_holdings_lines(country, person.id, currency_symbol)
         .into_iter()
         .map(|line| format!("  {line}"))
         .collect()
@@ -172,6 +183,7 @@ pub(in crate::components::simulation) fn stock_person_details_lines(
 pub(in crate::components::simulation) fn person_stock_holdings_lines(
     country: &crate::sim::country::Country,
     person_id: u32,
+    currency_symbol: &str,
 ) -> Vec<String> {
     let market = &country.stock_market;
     let Some(portfolio) = market.person_portfolios.get(&person_id) else {
@@ -184,9 +196,18 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
     let total_value = portfolio.total_equity_value(market);
     let mut lines = vec![
         "Stock Holdings:".to_string(),
-        format!("Total Equity Value: {}", money(total_value)),
-        format!("MTD Realized PnL: {}", money(portfolio.realized_pnl_mtd)),
-        format!("MTD Dividends: {}", money(portfolio.dividends_mtd)),
+        format!(
+            "Total Equity Value: {}",
+            money(total_value, currency_symbol)
+        ),
+        format!(
+            "MTD Realized PnL: {}",
+            money(portfolio.realized_pnl_mtd, currency_symbol)
+        ),
+        format!(
+            "MTD Dividends: {}",
+            money(portfolio.dividends_mtd, currency_symbol)
+        ),
     ];
 
     for pos in &portfolio.positions {
@@ -201,12 +222,12 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
             String::new()
         };
         lines.push(format!(
-            "{ticker}: {} shares{pledged_note} @ avg ${:.2} | last ${:.2} | val {} | PnL {}",
+            "{ticker}: {} shares{pledged_note} @ avg {} | last {} | val {} | PnL {}",
             pos.shares,
-            pos.avg_cost,
-            last_price,
-            money(value),
-            money(unrealized),
+            money(pos.avg_cost, currency_symbol),
+            money(last_price, currency_symbol),
+            money(value, currency_symbol),
+            money(unrealized, currency_symbol),
         ));
     }
 
@@ -250,6 +271,33 @@ pub(in crate::components::simulation) fn compact_count(n: impl Into<f64>) -> Str
     }
 }
 
-pub(in crate::components::simulation) fn money(amount: f64) -> String {
-    compact_num(amount)
+pub(in crate::components::simulation) fn normalized_currency_symbol(raw: &str) -> &str {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        crate::sim::setup::DEFAULT_CURRENCY_SYMBOL
+    } else {
+        trimmed
+    }
+}
+
+pub(in crate::components::simulation) fn money(amount: f64, currency_symbol: &str) -> String {
+    let symbol = normalized_currency_symbol(currency_symbol);
+    let sign = if amount < 0.0 { "-" } else { "" };
+    format!("{sign}{symbol}{}", compact_num(amount.abs()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn money_formats_with_currency_and_k_suffix() {
+        assert_eq!(money(11_500.0, "€"), "€11.5k");
+        assert_eq!(money(-11_500.0, "€"), "-€11.5k");
+    }
+
+    #[test]
+    fn money_falls_back_to_default_symbol_when_empty() {
+        assert_eq!(money(99.0, ""), "€99.00");
+    }
 }

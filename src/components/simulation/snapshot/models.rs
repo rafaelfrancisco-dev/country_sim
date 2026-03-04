@@ -24,6 +24,7 @@ pub(in crate::components::simulation) struct SetupSnapshot {
     pub country_count_input: String,
     pub thousands_per_country_input: String,
     pub generation_seed_input: String,
+    pub currency_symbol_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
@@ -93,6 +94,7 @@ impl Deref for RunningSnapshot {
 pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub day: u64,
     pub generation_seed: u64,
+    pub currency_symbol: String,
     pub selected_country_month: u64,
     pub paused: bool,
     pub active_tab: RunningTab,
