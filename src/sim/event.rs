@@ -110,6 +110,14 @@ pub enum SimEvent {
         laid_off_count: u16,
         day: u64,
     },
+    LaborChurnMonthly {
+        country_name: String,
+        quits: u32,
+        retirements: u32,
+        layoffs_non_distress: u32,
+        replacement_openings: u32,
+        day: u64,
+    },
     JobSwitched {
         country_name: String,
         person_id: u32,
@@ -223,6 +231,7 @@ impl SimEvent {
             Self::CompanyFounded { .. }
             | Self::CompanyWageCut { .. }
             | Self::CompanyLayoffs { .. }
+            | Self::LaborChurnMonthly { .. }
             | Self::JobSwitched { .. } => EventCategory::CompaniesLabor,
             Self::StockIpo { .. }
             | Self::StockDividend { .. }
@@ -354,6 +363,18 @@ impl SimEvent {
             } => {
                 format!(
                     "[LAYOF] Day {day:>6} | {country_name}: Company #{company_id} laid off {laid_off_count} worker(s)"
+                )
+            }
+            Self::LaborChurnMonthly {
+                country_name,
+                quits,
+                retirements,
+                layoffs_non_distress,
+                replacement_openings,
+                day,
+            } => {
+                format!(
+                    "[CHURN] Day {day:>6} | {country_name}: quits {quits}, retirements {retirements}, non-distress layoffs {layoffs_non_distress}, replacement openings {replacement_openings}"
                 )
             }
             Self::JobSwitched {

@@ -89,6 +89,25 @@ For unemployed, eligible people:
   - worker moves to target and adopts offered salary
   - prior employer receives a replacement opening at the worker's previous salary
 
+## Monthly Labor Churn + Separations
+Independent from the distress/bankruptcy path, month-end processing includes labor churn for employed workers:
+- `retirement`: sampled first, only for workers age 65+
+- `layoff` (non-distress): sampled second, independent from loan/distress state
+- `quit`: sampled third
+
+Behavior:
+- Each separated worker becomes `Unemployed`.
+- The former employer receives one replacement opening with the same `job_type_id` and the worker's prior contract salary.
+- A `LaborChurnMonthly` event is emitted with monthly counts:
+  - `quits`
+  - `retirements`
+  - `layoffs_non_distress`
+  - `replacement_openings`
+
+Notes:
+- Channel ordering is deterministic and mutually exclusive per worker in a given month.
+- Distress layoffs remain tracked separately via `CompanyLayoffs`.
+
 ## Company Growth Openings
 Openings are created monthly, only if both hold:
 - `consecutive_profitable_months >= 3`

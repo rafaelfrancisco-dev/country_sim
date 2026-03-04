@@ -130,7 +130,11 @@ Discrete simulation event counts per country per month. Each column is the count
 | `births` | integer | Total births (sum of `PopBirth.count`) |
 | `deaths` | integer | Total deaths (sum of `PopDeath.count`) |
 | `job_switches` | integer | Workers who changed employer |
-| `layoffs_total` | integer | Total workers laid off (sum of `CompanyLayoffs.laid_off_count`) |
+| `layoffs_total` | integer | Distress-driven layoffs only (sum of `CompanyLayoffs.laid_off_count`) |
+| `separations_quits` | integer | Monthly quits from `LaborChurnMonthly` |
+| `separations_retirements` | integer | Monthly retirements (age-gated 65+) from `LaborChurnMonthly` |
+| `separations_layoffs_non_distress` | integer | Monthly non-distress layoffs from `LaborChurnMonthly` |
+| `separations_total` | integer | `separations_quits + separations_retirements + separations_layoffs_non_distress` |
 | `companies_founded` | integer | New startups created |
 | `bankruptcies` | integer | Companies that went bankrupt |
 | `wage_cuts` | integer | Companies that issued a wage cut |
@@ -143,11 +147,6 @@ Discrete simulation event counts per country per month. Each column is the count
 | `stock_ipos` | integer | Companies that completed an IPO |
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
-| `rate_policy_changes` | integer | Central bank rate changes this month (`RatePolicyChange` events) |
-| `bonds_issued` | integer | Bond issuances this month (`BondIssued` events) |
-| `coupons_paid` | integer | Bond coupon payment events this month |
-| `bonds_matured` | integer | Bond maturity events this month |
-| `bond_defaults` | integer | Bond default events (treasury could not repay at maturity) |
 
 ---
 

@@ -249,6 +249,40 @@ impl Default for LaborMobilityParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LaborChurnParams {
+    /// Monthly quit probability applied to employed workers.
+    pub quit_rate_monthly: f64,
+    /// Monthly retirement probability applied to employed workers age 65+.
+    pub retirement_rate_monthly: f64,
+    /// Monthly layoff probability applied to employed workers, independent of distress/bankruptcy.
+    pub layoff_rate_monthly: f64,
+}
+
+impl Default for LaborChurnParams {
+    fn default() -> Self {
+        Self {
+            quit_rate_monthly: 0.01,
+            retirement_rate_monthly: 0.03,
+            layoff_rate_monthly: 0.005,
+        }
+    }
+}
+
+impl LaborChurnParams {
+    pub fn quit_probability(&self) -> f64 {
+        self.quit_rate_monthly.clamp(0.0, 1.0)
+    }
+
+    pub fn retirement_probability(&self) -> f64 {
+        self.retirement_rate_monthly.clamp(0.0, 1.0)
+    }
+
+    pub fn layoff_probability(&self) -> f64 {
+        self.layoff_rate_monthly.clamp(0.0, 1.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GoodsMarketParams {
     pub tariff_rate: f64,
     pub worker_effort_per_month: f64,
@@ -523,6 +557,7 @@ pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
+    pub labor_churn: LaborChurnParams,
     pub labor_demand: LaborDemandParams,
     pub company_growth: CompanyGrowthParams,
     pub company_formation: CompanyFormationParams,

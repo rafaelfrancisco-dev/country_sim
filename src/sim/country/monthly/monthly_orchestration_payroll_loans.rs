@@ -27,6 +27,7 @@ impl Country {
         self.maybe_issue_bonds(); // [E]
         self.adjust_public_utility_opening_wages();
         self.process_monthly_job_switches();
+        self.process_monthly_labor_churn();
         self.recompute_company_headcounts();
         self.close_company_months();
         self.process_stock_dividends();
@@ -58,6 +59,7 @@ impl Country {
         let bond_issuance_ms = time_op!(self.maybe_issue_bonds());
         let public_wage_adjust_ms = time_op!(self.adjust_public_utility_opening_wages());
         let job_switches_ms = time_op!(self.process_monthly_job_switches());
+        time_op!(self.process_monthly_labor_churn());
         let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
         let close_company_months_ms = time_op!(self.close_company_months());
         let dividends_ms = time_op!(self.process_stock_dividends());

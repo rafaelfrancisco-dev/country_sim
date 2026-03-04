@@ -12,7 +12,7 @@ Pass `--export-csv <DIR>` at startup to write one row per country per completed 
 | `country_metrics_<seed>.csv` | Fiscal and monetary aggregates |
 | `people_agg_<seed>.csv` | Population, employment, income, loan aggregates |
 | `company_agg_<seed>.csv` | Company-level production and profit aggregates |
-| `events_<seed>.csv` | Event counts (births, deaths, layoffs, IPOs, ...) |
+| `events_<seed>.csv` | Event counts (births, deaths, distress layoffs, quits/retirements, IPOs, ...) |
 
 Files are keyed by the world seed in hex so re-runs with different seeds never overwrite each other. The flag is opt-in: omitting it has zero runtime cost (the snapshot pass is completely skipped).
 

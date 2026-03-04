@@ -209,6 +209,10 @@ fn collect_country_data(
         deaths: events.deaths,
         job_switches: events.job_switches,
         layoffs_total: events.layoffs_total,
+        separations_quits: events.separations_quits,
+        separations_retirements: events.separations_retirements,
+        separations_layoffs_non_distress: events.separations_layoffs_non_distress,
+        separations_total: events.separations_total,
         companies_founded: events.companies_founded,
         bankruptcies: events.bankruptcies,
         wage_cuts: events.wage_cuts,
@@ -238,6 +242,10 @@ struct EventCounts {
     deaths: u64,
     job_switches: u64,
     layoffs_total: u64,
+    separations_quits: u64,
+    separations_retirements: u64,
+    separations_layoffs_non_distress: u64,
+    separations_total: u64,
     companies_founded: u64,
     bankruptcies: u64,
     wage_cuts: u64,
@@ -259,6 +267,18 @@ impl EventCounts {
             SimEvent::JobSwitched { .. } => self.job_switches += 1,
             SimEvent::CompanyLayoffs { laid_off_count, .. } => {
                 self.layoffs_total += u64::from(*laid_off_count)
+            }
+            SimEvent::LaborChurnMonthly {
+                quits,
+                retirements,
+                layoffs_non_distress,
+                ..
+            } => {
+                self.separations_quits += u64::from(*quits);
+                self.separations_retirements += u64::from(*retirements);
+                self.separations_layoffs_non_distress += u64::from(*layoffs_non_distress);
+                self.separations_total +=
+                    u64::from(*quits) + u64::from(*retirements) + u64::from(*layoffs_non_distress);
             }
             SimEvent::CompanyFounded { .. } => self.companies_founded += 1,
             SimEvent::CompanyBankrupt { .. } => self.bankruptcies += 1,
@@ -311,6 +331,9 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::CompanyLayoffs {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::LaborChurnMonthly {
+            country_name, day, ..
+        } => (country_name, *day),
         SimEvent::JobSwitched {
             country_name, day, ..
         } => (country_name, *day),
@@ -350,5 +373,32 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::StockSecondaryOffering {
             country_name, day, ..
         } => (country_name, *day),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sim::company::build_default_companies;
+
+    #[test]
+    fn monthly_export_counts_labor_churn_channels() {
+        let companies = build_default_companies("A", 1);
+        let mut country = Country::with_economy(1, "A".to_string(), Vec::new(), companies, 0.0);
+        country.pending_events.push(SimEvent::LaborChurnMonthly {
+            country_name: "A".to_string(),
+            quits: 4,
+            retirements: 2,
+            layoffs_non_distress: 1,
+            replacement_openings: 7,
+            day: 30,
+        });
+
+        let data = collect_country_data(&country, &[], 1, 1);
+
+        assert_eq!(data.separations_quits, 4);
+        assert_eq!(data.separations_retirements, 2);
+        assert_eq!(data.separations_layoffs_non_distress, 1);
+        assert_eq!(data.separations_total, 7);
     }
 }
