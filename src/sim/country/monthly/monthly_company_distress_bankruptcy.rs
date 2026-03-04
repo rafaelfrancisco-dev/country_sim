@@ -288,7 +288,11 @@ impl Country {
             if removed.get(old_idx).copied().unwrap_or(false) {
                 continue;
             }
+            let old_company_id = company.id;
             let new_id = self.companies.len() as u16;
+            if old_company_id != new_id {
+                company.remember_historical_id(old_company_id);
+            }
             company.id = new_id;
             old_to_new_vec[old_idx] = Some(new_id);
             self.companies.push(company);

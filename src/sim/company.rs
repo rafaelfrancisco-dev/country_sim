@@ -27,6 +27,7 @@ pub struct FounderStake {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Company {
     pub id: u16,
+    pub historical_ids: Vec<u16>,
     pub name: String,
     pub is_public_utility: bool,
     pub is_essential_backfill: bool,
@@ -82,6 +83,7 @@ impl Company {
 
         Self {
             id,
+            historical_ids: Vec::new(),
             name,
             is_public_utility: false,
             is_essential_backfill: false,
@@ -127,6 +129,17 @@ impl Company {
 
     pub fn supports_job(&self, job_id: JobTypeId) -> bool {
         self.offered_job_types.contains(&job_id)
+    }
+
+    pub fn remember_historical_id(&mut self, historical_id: u16) {
+        if historical_id == self.id || self.historical_ids.contains(&historical_id) {
+            return;
+        }
+        self.historical_ids.push(historical_id);
+    }
+
+    pub fn matches_event_company_id(&self, company_id: u16) -> bool {
+        self.id == company_id || self.historical_ids.contains(&company_id)
     }
 
     pub fn add_opening(&mut self, job_type_id: JobTypeId, slots: u16) {

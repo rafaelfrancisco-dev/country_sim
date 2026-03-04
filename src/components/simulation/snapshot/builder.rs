@@ -379,9 +379,11 @@ fn selected_company_related_events_snapshot(world: &World, ui: &UiState) -> Even
     };
 
     let country_name = country.name.as_str();
-    let company_id = company.id;
+    let mut company_ids = Vec::with_capacity(company.historical_ids.len() + 1);
+    company_ids.push(company.id);
+    company_ids.extend(company.historical_ids.iter().copied());
     build_events_tab_snapshot(world, ui, |event| {
-        event_matches_company(event, country_name, company_id)
+        event_matches_company(event, country_name, &company_ids)
     })
 }
 
@@ -419,7 +421,7 @@ fn event_matches_person(event: &SimEvent, selected_country_name: &str, person_id
     }
 }
 
-fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_id: u16) -> bool {
+fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_ids: &[u16]) -> bool {
     if event_country_name(event) != selected_country_name {
         return false;
     }
@@ -439,7 +441,12 @@ fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_
             entity_kind,
             entity_id,
             ..
-        } => matches!(entity_kind, EntityKind::Company) && *entity_id == u32::from(company_id),
+        } => {
+            matches!(entity_kind, EntityKind::Company)
+                && u16::try_from(*entity_id)
+                    .ok()
+                    .is_some_and(|event_company_id| company_ids.contains(&event_company_id))
+        }
         SimEvent::GovCompanyFunded {
             company_id: event_company_id,
             ..
@@ -475,12 +482,12 @@ fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_
         | SimEvent::StockSecondaryOffering {
             company_id: event_company_id,
             ..
-        } => *event_company_id == company_id,
+        } => company_ids.contains(event_company_id),
         SimEvent::JobSwitched {
             from_company_id,
             to_company_id,
             ..
-        } => *from_company_id == company_id || *to_company_id == company_id,
+        } => company_ids.contains(from_company_id) || company_ids.contains(to_company_id),
         _ => false,
     }
 }
