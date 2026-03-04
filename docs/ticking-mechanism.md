@@ -35,12 +35,25 @@ pub trait Tickable {
 Simulation commands are processed by a dedicated worker thread that owns the authoritative `GameEngine`.
 The worker is paired with a separate clock thread that schedules `GameCommand::Tick` independently from UI rendering.
 
+Worker internals are split by responsibility:
+- `command_processor`: applies `GameCommand`/`UiCommand` and emits warning events.
+- `export_pipeline`: drains export queues and writes CSV rows.
+- `snapshot_publisher`: handles publish cadence and snapshot build/publish.
+- `scheduler`: drives realtime/max-speed tick scheduling.
+- `health`: owns worker health state (`Healthy` / `Fatal`) and event queueing.
+
 Implications:
 - Daily and monthly writes remain totally ordered at command level (single worker applies commands sequentially).
 - Worker publishes an engine snapshot (`GamePhase` + runtime stats).
 - UI state (tabs, selection, details view) is owned by the UI component and applied locally from `UiCommand`.
 - Render cadence can be throttled (for max-speed mode) without changing simulation progression speed.
 - Simulation mode (`realtime` / `max-speed`) is shared through an atomic mode flag read by the clock thread.
+
+## Worker Health and Error Signaling
+- Worker exposes explicit health state and event queue to the simulation component.
+- Fatal internal failures (for example, poisoned snapshot lock) transition worker health to `Fatal`, emit a fatal worker event, and stop accepting new commands.
+- CSV/export failures are non-fatal: they are emitted as export-error events while simulation progression continues.
+- `Simulation` drains worker events during reconcile/update and forwards them through the existing `Action::Error` reporting path.
 
 Inside a single `World::tick_day`, country updates now run in parallel by deterministic country chunks via `rayon`.
 

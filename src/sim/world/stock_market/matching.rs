@@ -222,7 +222,7 @@ fn append_retail_orders_for_person(
         }
 
         let position = portfolio.and_then(|entry| entry.position(context.company_id));
-        let has_position = position.map_or(false, |pos| pos.shares > 0);
+        let has_position = position.is_some_and(|pos| pos.shares > 0);
         let free_shares = position.map_or(0, |pos| pos.shares.saturating_sub(pos.pledged_shares));
 
         let distress_sell = has_position
@@ -248,18 +248,17 @@ fn append_retail_orders_for_person(
         let mut want_sell = has_position && directional < -sell_threshold;
 
         let mut profit_taking = false;
-        if has_position && free_shares > 0 && !want_sell && !distress_sell {
-            if let Some(pos) = position {
-                if pos.avg_cost > 0.0
-                    && context.last_price
-                        > pos.avg_cost * (1.0 + params.retail_take_profit_gain_threshold)
-                {
-                    profit_taking = true;
-                    want_sell = true;
-                }
-            }
+        if has_position
+            && free_shares > 0
+            && !want_sell
+            && !distress_sell
+            && let Some(pos) = position
+            && pos.avg_cost > 0.0
+            && context.last_price > pos.avg_cost * (1.0 + params.retail_take_profit_gain_threshold)
+        {
+            profit_taking = true;
+            want_sell = true;
         }
-
         if !want_buy && !want_sell {
             if has_position
                 && unit_interval(hash64(order_seed ^ 0x8888)) < params.retail_random_sell_prob

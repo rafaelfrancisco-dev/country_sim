@@ -24,12 +24,12 @@ impl World {
                     continue;
                 }
 
-                if let Some(&last_sold) = company.sold_units_history.last() {
-                    if last_sold > 0 {
-                        let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
-                        if months_of_inventory > market.excess_inventory_months {
-                            continue;
-                        }
+                if let Some(&last_sold) = company.sold_units_history.last()
+                    && last_sold > 0
+                {
+                    let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
+                    if months_of_inventory > market.excess_inventory_months {
+                        continue;
                     }
                 }
 
@@ -235,10 +235,11 @@ impl World {
             }
 
             for person in &country.people {
-                for good_idx in 0..GOODS_COUNT {
+                for (good_idx, unmet) in unmet_need_by_good.iter_mut().enumerate().take(GOODS_COUNT)
+                {
                     let bit = 1_u16 << (good_idx as u8);
                     if person.last_month_unmet_needs_mask & bit != 0 {
-                        unmet_need_by_good[good_idx] = true;
+                        *unmet = true;
                     }
                 }
             }
@@ -327,8 +328,8 @@ impl World {
         let mut rates_by_good = vec![vec![0.0; country_count]; GOODS_COUNT];
 
         for (seller_country_idx, country) in self.countries.iter().enumerate() {
-            for good_idx in 0..GOODS_COUNT {
-                rates_by_good[good_idx][seller_country_idx] = country
+            for (good_idx, rates) in rates_by_good.iter_mut().enumerate().take(GOODS_COUNT) {
+                rates[seller_country_idx] = country
                     .export_tariffs_by_good
                     .get(good_idx)
                     .copied()

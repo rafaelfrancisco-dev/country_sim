@@ -1,5 +1,14 @@
 use super::*;
 
+type StockTabData = (
+    Vec<StockRowSnapshot>,
+    Vec<String>,
+    Vec<f64>,
+    Vec<f64>,
+    Vec<f64>,
+    Vec<f64>,
+);
+
 pub(in crate::components::simulation) fn chart_scope_label(world: &World, ui: &UiState) -> String {
     match ui.chart_scope {
         ChartScope::SelectedCountry => {
@@ -30,14 +39,7 @@ pub(in crate::components::simulation) fn goods_mask_names(mask: u16) -> String {
 pub(in crate::components::simulation) fn build_stock_tab_data(
     world: &World,
     ui: &UiState,
-) -> (
-    Vec<StockRowSnapshot>,
-    Vec<String>,
-    Vec<f64>,
-    Vec<f64>,
-    Vec<f64>,
-    Vec<f64>,
-) {
+) -> StockTabData {
     let Some(country) = ui.selected_country(world) else {
         return (
             Vec::new(),

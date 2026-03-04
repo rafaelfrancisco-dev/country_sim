@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 pub(in crate::components::simulation) struct RenderSnapshot {
@@ -32,6 +33,9 @@ impl WorkerError {
     pub(super) const CHANNEL_CLOSED: Self = Self {
         message: "worker channel is closed",
     };
+    pub(super) const WORKER_UNHEALTHY: Self = Self {
+        message: "worker is unhealthy",
+    };
 }
 
 impl fmt::Display for WorkerError {
@@ -47,6 +51,38 @@ pub(in crate::components::simulation) struct SimulationWorker {
     pub(super) clock_handle: Option<thread::JoinHandle<()>>,
     pub(super) shutdown: Arc<AtomicBool>,
     pub(super) pending_user_commands: Arc<AtomicUsize>,
+    pub(super) health: Arc<Mutex<WorkerHealth>>,
+    pub(super) events: Arc<Mutex<VecDeque<WorkerEvent>>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::components::simulation) enum WorkerHealth {
+    Healthy,
+    Fatal(WorkerFatalReason),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::components::simulation) enum WorkerFatalReason {
+    SnapshotLockPoisoned,
+    CommandChannelClosed,
+    InternalPanic(String),
+}
+
+impl WorkerFatalReason {
+    pub(in crate::components::simulation) fn as_message(&self) -> String {
+        match self {
+            Self::SnapshotLockPoisoned => "snapshot lock poisoned".to_string(),
+            Self::CommandChannelClosed => "worker command channel closed".to_string(),
+            Self::InternalPanic(message) => format!("worker panicked: {message}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::components::simulation) enum WorkerEvent {
+    Warning(String),
+    ExportError(String),
+    Fatal(String),
 }
 
 #[derive(Debug)]

@@ -1,7 +1,9 @@
 use super::Simulation;
 
 impl Simulation {
-    pub(super) fn reconcile_monthly_processing(&mut self) {}
+    pub(super) fn reconcile_monthly_processing(&mut self) {
+        self.refresh_worker_status();
+    }
 
     #[cfg(test)]
     pub(super) fn should_pause_daily_ticks_for_monthly_catchup(&self) -> bool {

@@ -12,6 +12,10 @@ pub(in crate::components::simulation) struct UiSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "setup and running snapshots share a single transport enum across rendering paths"
+)]
 pub(in crate::components::simulation) enum SnapshotPhase {
     Setup(SetupSnapshot),
     Running(RunningSnapshot),
@@ -151,6 +155,10 @@ pub(in crate::components::simulation) struct RuntimeStatsSnapshot {
 }
 
 impl RuntimeStatsSnapshot {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "constructor mirrors runtime stats payload fields"
+    )]
     pub(in crate::components::simulation) fn new(
         mode: SimulationMode,
         ticks_per_second: f64,

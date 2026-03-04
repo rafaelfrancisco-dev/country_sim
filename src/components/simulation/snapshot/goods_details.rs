@@ -1,9 +1,11 @@
 use super::*;
 
+type CompanyHistorySeries = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>);
+
 pub(in crate::components::simulation) fn selected_company_histories(
     world: &World,
     ui: &UiState,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+) -> CompanyHistorySeries {
     let Some(company) = ui.selected_company_on_page(world) else {
         return (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     };

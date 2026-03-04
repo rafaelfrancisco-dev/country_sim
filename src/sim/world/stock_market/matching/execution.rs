@@ -216,8 +216,8 @@ pub(in crate::sim::world) fn run_country_stock_market(
 // ---------------------------------------------------------------------------
 
 pub(in crate::sim::world) fn match_books(
-    buys: &mut Vec<LimitOrder>,
-    sells: &mut Vec<LimitOrder>,
+    buys: &mut [LimitOrder],
+    sells: &mut [LimitOrder],
     min_price: f64,
     max_price: f64,
     cid: u16,
@@ -296,7 +296,7 @@ fn settle_fills(
             TraderId::Person(pid) => person_index_lookup
                 .get(&pid)
                 .and_then(|idx| country.people.get(*idx))
-                .map_or(false, |person| person.cash_balance >= cost),
+                .is_some_and(|person| person.cash_balance >= cost),
             TraderId::Bank => country.bank.reserve_balance >= cost,
         };
 
@@ -306,12 +306,12 @@ fn settle_fills(
                 .person_portfolios
                 .get(&pid)
                 .and_then(|portfolio| portfolio.position(cid))
-                .map_or(false, |position| position.shares >= fill.shares),
+                .is_some_and(|position| position.shares >= fill.shares),
             TraderId::Bank => country
                 .stock_market
                 .bank_portfolio
                 .position(cid)
-                .map_or(false, |position| position.shares >= fill.shares),
+                .is_some_and(|position| position.shares >= fill.shares),
         };
 
         if !buyer_ok || !seller_ok {

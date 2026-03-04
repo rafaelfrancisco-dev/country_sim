@@ -334,12 +334,12 @@ impl Country {
             .insert_listing_preserve_index(company_id, equity);
 
         // Expand free float to include retained founder shares (now freely tradeable).
-        if total_retained_founder_shares > 0 {
-            if let Some(equity) = self.stock_market.listed.get_mut(&company_id) {
-                equity.free_float_shares = equity
-                    .free_float_shares
-                    .saturating_add(total_retained_founder_shares);
-            }
+        if total_retained_founder_shares > 0
+            && let Some(equity) = self.stock_market.listed.get_mut(&company_id)
+        {
+            equity.free_float_shares = equity
+                .free_float_shares
+                .saturating_add(total_retained_founder_shares);
         }
 
         if let Some(company) = self.companies.get_mut(company_idx) {

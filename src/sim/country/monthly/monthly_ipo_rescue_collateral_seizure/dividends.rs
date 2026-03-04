@@ -48,16 +48,16 @@ impl Country {
             // Collect all holders and their share counts
             let mut payments: Vec<(Option<u32>, u64)> = Vec::new(); // (Some(person_id) or None=bank, shares)
             for (&pid, portfolio) in &self.stock_market.person_portfolios {
-                if let Some(pos) = portfolio.position(company_id) {
-                    if pos.shares > 0 {
-                        payments.push((Some(pid), pos.shares));
-                    }
+                if let Some(pos) = portfolio.position(company_id)
+                    && pos.shares > 0
+                {
+                    payments.push((Some(pid), pos.shares));
                 }
             }
-            if let Some(pos) = self.stock_market.bank_portfolio.position(company_id) {
-                if pos.shares > 0 {
-                    payments.push((None, pos.shares));
-                }
+            if let Some(pos) = self.stock_market.bank_portfolio.position(company_id)
+                && pos.shares > 0
+            {
+                payments.push((None, pos.shares));
             }
 
             let mut total_paid = 0.0_f64;

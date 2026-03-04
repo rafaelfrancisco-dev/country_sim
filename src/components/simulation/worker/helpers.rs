@@ -15,20 +15,6 @@ pub(in crate::components::simulation) fn update_phase_flags(
     }
 }
 
-pub(in crate::components::simulation) fn should_publish_snapshot_for_tick(
-    mode: SimulationMode,
-    now: Instant,
-    last_snapshot_published_at: Instant,
-    max_speed_publish_interval: Duration,
-) -> bool {
-    match mode {
-        SimulationMode::Realtime => true,
-        SimulationMode::MaxSpeed => {
-            now.saturating_duration_since(last_snapshot_published_at) >= max_speed_publish_interval
-        }
-    }
-}
-
 impl Drop for SimulationWorker {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Release);

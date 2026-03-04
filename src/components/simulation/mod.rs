@@ -30,7 +30,7 @@ mod worker;
 
 use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, RunningTab, SelectionFocus};
-use worker::{RenderSnapshot, SimulationWorker};
+use worker::{RenderSnapshot, SimulationWorker, WorkerEvent, WorkerHealth};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum SimulationCommand {
@@ -52,6 +52,7 @@ pub struct Simulation {
     snapshot: Arc<RwLock<RenderSnapshot>>,
     last_snapshot: UiSnapshot,
     worker: SimulationWorker,
+    worker_fatal_notified: bool,
     phase_is_running: bool,
     setup_generation_in_progress: bool,
     running_input_state: RunningInputState,
@@ -102,6 +103,7 @@ impl Simulation {
             snapshot,
             last_snapshot: initial_snapshot,
             worker,
+            worker_fatal_notified: false,
             phase_is_running: false,
             setup_generation_in_progress: false,
             running_input_state: RunningInputState {
@@ -148,6 +150,10 @@ impl Simulation {
     }
 
     fn queue_domain_command(&mut self, command: GameCommand) -> bool {
+        self.refresh_worker_status();
+        if !matches!(self.worker.health(), WorkerHealth::Healthy) {
+            return false;
+        }
         if let Err(err) = self.worker.send_domain(command) {
             warn!("failed to enqueue domain command: {err}");
             self.report_worker_error(err.to_string());
@@ -157,6 +163,10 @@ impl Simulation {
     }
 
     fn queue_ui_command(&mut self, command: UiCommand) {
+        self.refresh_worker_status();
+        if !matches!(self.worker.health(), WorkerHealth::Healthy) {
+            return;
+        }
         if let Err(err) = self.worker.send_ui(command) {
             warn!("failed to enqueue ui command: {err}");
             self.report_worker_error(err.to_string());
@@ -166,6 +176,32 @@ impl Simulation {
     fn report_worker_error(&self, message: String) {
         if let Some(tx) = &self.action_tx {
             let _ = tx.send(Action::Error(format!("Simulation worker error: {message}")));
+        }
+    }
+
+    fn refresh_worker_status(&mut self) {
+        for event in self.worker.drain_events() {
+            match event {
+                WorkerEvent::Warning(message) => warn!("simulation worker warning: {message}"),
+                WorkerEvent::ExportError(message) => {
+                    warn!("simulation worker export error: {message}");
+                    self.report_worker_error(message);
+                }
+                WorkerEvent::Fatal(message) => {
+                    warn!("simulation worker fatal: {message}");
+                    if !self.worker_fatal_notified {
+                        self.worker_fatal_notified = true;
+                        self.report_worker_error(message);
+                    }
+                }
+            }
+        }
+
+        if let WorkerHealth::Fatal(reason) = self.worker.health()
+            && !self.worker_fatal_notified
+        {
+            self.worker_fatal_notified = true;
+            self.report_worker_error(reason.as_message());
         }
     }
 

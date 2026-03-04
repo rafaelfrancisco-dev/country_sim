@@ -64,7 +64,7 @@ impl Country {
 
         for person in &mut self.people {
             let age = person.age_years();
-            let is_working_age = age >= 18 && age <= 65;
+            let is_working_age = (18..=65).contains(&age);
 
             if !person.is_employed() && is_working_age && benefit_amount > 0.0 {
                 // Pay unemployment benefit from treasury

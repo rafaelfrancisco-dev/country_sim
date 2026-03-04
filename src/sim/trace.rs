@@ -1,5 +1,3 @@
-#![cfg(feature = "bench-trace")]
-
 use serde::Serialize;
 use std::{fs, io, path::Path, time::Duration};
 
@@ -233,7 +231,8 @@ pub fn summarize_slowdown(rows: &[DayTraceRow]) -> SlowdownSummary {
     let tick_last = avg(last, |r| r.tick_total_ms);
     let tick_ratio = safe_ratio(tick_last, tick_first);
 
-    let phases: [(&str, fn(&DayTraceRow) -> f64); 15] = [
+    type PhaseAccessor = fn(&DayTraceRow) -> f64;
+    let phases: [(&str, PhaseAccessor); 15] = [
         ("world_country_tick_ms", |r| r.world_country_tick_ms),
         ("world_goods_ms", |r| r.world_goods_ms),
         ("world_stock_ms", |r| r.world_stock_ms),

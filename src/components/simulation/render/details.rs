@@ -8,11 +8,11 @@ use ratatui::{
 use super::super::{Simulation, theme};
 use crate::components::simulation::snapshot::RunningSnapshot;
 
-pub(super) fn paginate_detail_lines<'a>(
-    lines: &'a [String],
+pub(super) fn paginate_detail_lines(
+    lines: &[String],
     requested_page: usize,
     area: Rect,
-) -> (&'a [String], usize, usize) {
+) -> (&[String], usize, usize) {
     if lines.is_empty() {
         return (&lines[0..0], 0, 1);
     }

@@ -252,6 +252,10 @@ impl Simulation {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "chart rendering requires explicit visual + accessor parameters"
+    )]
     fn draw_metric_chart(
         &self,
         frame: &mut Frame,

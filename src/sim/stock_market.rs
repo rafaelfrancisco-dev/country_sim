@@ -429,9 +429,7 @@ impl StockMarket {
 
     /// Get or create a person portfolio.
     pub fn person_portfolio_mut(&mut self, person_id: u32) -> &mut Portfolio {
-        self.person_portfolios
-            .entry(person_id)
-            .or_insert_with(Portfolio::default)
+        self.person_portfolios.entry(person_id).or_default()
     }
 
     /// Remove empty portfolios to save memory.

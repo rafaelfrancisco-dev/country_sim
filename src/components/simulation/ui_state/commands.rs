@@ -191,9 +191,7 @@ impl UiState {
         if self.details_view != DetailsView::CountryPolicy || !self.country_policy_form.is_editing {
             return None;
         }
-        let Some(country) = self.selected_country(world) else {
-            return None;
-        };
+        let country = self.selected_country(world)?;
 
         let field = self.country_policy_form.active_field;
         let raw_input = self.country_policy_form.draft_input.trim();

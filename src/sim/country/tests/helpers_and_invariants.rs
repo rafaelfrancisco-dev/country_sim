@@ -235,8 +235,8 @@ pub(super) fn country_parallel_paths_keep_invariants_with_random_daily_events() 
 
     assert_eq!(one_thread.day, many_threads.day);
     assert_eq!(one_thread.month, many_threads.month);
-    assert!(one_thread.people.len() > 0);
-    assert!(many_threads.people.len() > 0);
+    assert!(!one_thread.people.is_empty());
+    assert!(!many_threads.people.is_empty());
     assert!(one_thread.validate_money_invariants().is_empty());
     assert!(many_threads.validate_money_invariants().is_empty());
 }
