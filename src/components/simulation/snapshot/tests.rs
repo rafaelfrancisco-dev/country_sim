@@ -53,6 +53,12 @@ fn inactive_tabs_skip_heavy_data() {
     let main = running_snapshot_for_tab(&engine, RunningTab::Main);
     assert!(matches!(main.tab, RunningTabSnapshot::Main(_)));
 
+    let banks = running_snapshot_for_tab(&engine, RunningTab::Banks);
+    let RunningTabSnapshot::Banks(banks_tab) = banks.tab else {
+        panic!("banks tab payload expected");
+    };
+    assert!(!banks_tab.country_banks_summary_lines.is_empty());
+
     let stocks = running_snapshot_for_tab(&engine, RunningTab::Stocks);
     let RunningTabSnapshot::Stocks(stocks_tab) = stocks.tab else {
         panic!("stocks tab payload expected");
@@ -269,6 +275,45 @@ fn company_related_events_match_company_references_and_selected_country_only() {
         "Companies & Labor"
     );
     assert!(goods_tab.company_related_events.event_log_lines[0].contains("Company #0 -> #3"));
+}
+
+#[test]
+fn bank_related_events_match_selected_bank_only() {
+    let mut world = World::new(vec![Country::new(
+        1,
+        "A".to_string(),
+        vec![Person::new(1, 30, 0, 11)],
+    )]);
+    world.event_log = vec![
+        SimEvent::BankRunStarted {
+            country_name: "A".to_string(),
+            bank_id: 0,
+            bank_name: "A Public Bank".to_string(),
+            health: 0.42,
+            day: 5,
+        },
+        SimEvent::BankRunStarted {
+            country_name: "A".to_string(),
+            bank_id: 1,
+            bank_name: "A Private Bank 1".to_string(),
+            health: 0.31,
+            day: 5,
+        },
+    ];
+
+    let ui = UiState {
+        active_tab: RunningTab::Banks,
+        details_view: DetailsView::Bank,
+        events_category: EventsCategoryFilter::BankruptciesDistress,
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    let RunningTabSnapshot::Banks(banks_tab) = snapshot.tab else {
+        panic!("banks tab payload expected");
+    };
+    assert_eq!(banks_tab.bank_related_events.events_total_count, 1);
+    assert!(banks_tab.bank_related_events.event_log_lines[0].contains("Bank #0"));
 }
 
 #[test]

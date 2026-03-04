@@ -316,3 +316,67 @@ fn company_workers_page_uses_worker_scroll_controls() {
         Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollDown))
     );
 }
+
+#[test]
+fn banks_list_keymap_focuses_table_and_opens_details() {
+    let simulation = Simulation::new();
+    let banks_list_state = RunningInputState {
+        details_view: DetailsView::List,
+        details_page: 0,
+        selection_focus: SelectionFocus::Bank,
+        active_tab: RunningTab::Banks,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('a')), banks_list_state),
+        Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('d')), banks_list_state),
+        Some(SimulationCommand::Ui(UiCommand::FocusBankSelection))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), banks_list_state),
+        Some(SimulationCommand::Ui(UiCommand::SelectPrevBankRow))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), banks_list_state),
+        Some(SimulationCommand::Ui(UiCommand::BankPageNext))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Enter), banks_list_state),
+        Some(SimulationCommand::Ui(UiCommand::OpenSelectedBankDetails))
+    );
+}
+
+#[test]
+fn bank_detail_pages_map_events_and_depositor_scroll() {
+    let simulation = Simulation::new();
+    let bank_events_state = RunningInputState {
+        details_view: DetailsView::Bank,
+        details_page: 2,
+        selection_focus: SelectionFocus::Bank,
+        active_tab: RunningTab::Banks,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), bank_events_state),
+        Some(SimulationCommand::Ui(UiCommand::EventsScrollDown))
+    );
+
+    let bank_depositors_state = RunningInputState {
+        details_page: 3,
+        ..bank_events_state
+    };
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), bank_depositors_state),
+        Some(SimulationCommand::Ui(UiCommand::BankDepositorsScrollUp))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), bank_depositors_state),
+        Some(SimulationCommand::Ui(UiCommand::BankDepositorsScrollDown))
+    );
+}

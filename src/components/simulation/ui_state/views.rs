@@ -53,6 +53,20 @@ impl UiState {
         }
     }
 
+    pub(super) fn open_selected_bank_details(&mut self, world: &World) {
+        if self.details_view != DetailsView::List {
+            return;
+        }
+
+        if self.selected_bank_on_page(world).is_some() {
+            self.details_view = DetailsView::Bank;
+            self.active_tab = RunningTab::Banks;
+            self.selection_focus = SelectionFocus::Bank;
+            self.details_page = 0;
+            self.bank_depositors_scroll = 0;
+        }
+    }
+
     pub(super) fn jump_to_employer_company(&mut self, world: &World) {
         let Some(person) = self.selected_person_on_page(world) else {
             return;
@@ -81,7 +95,8 @@ impl UiState {
     pub(super) fn next_tab(&mut self) {
         self.active_tab = match self.active_tab {
             RunningTab::Main => RunningTab::Goods,
-            RunningTab::Goods => RunningTab::Stocks,
+            RunningTab::Goods => RunningTab::Banks,
+            RunningTab::Banks => RunningTab::Stocks,
             RunningTab::Stocks => RunningTab::Charts,
             RunningTab::Charts => RunningTab::Events,
             RunningTab::Events => RunningTab::Main,
@@ -92,7 +107,8 @@ impl UiState {
         self.active_tab = match self.active_tab {
             RunningTab::Main => RunningTab::Events,
             RunningTab::Goods => RunningTab::Main,
-            RunningTab::Stocks => RunningTab::Goods,
+            RunningTab::Banks => RunningTab::Goods,
+            RunningTab::Stocks => RunningTab::Banks,
             RunningTab::Charts => RunningTab::Stocks,
             RunningTab::Events => RunningTab::Charts,
         };
@@ -110,9 +126,12 @@ impl UiState {
         self.selected_person_row = 0;
         self.company_page = 0;
         self.selected_company_row = 0;
+        self.bank_page = 0;
+        self.selected_bank_row = 0;
         self.details_view = DetailsView::List;
         self.details_page = 0;
         self.company_workers_scroll = 0;
+        self.bank_depositors_scroll = 0;
         self.country_policy_form = CountryPolicyFormState::default();
     }
 
@@ -131,6 +150,15 @@ impl UiState {
             self.selected_company_row = 0;
         } else {
             self.selected_company_row = self.selected_company_row.min(len - 1);
+        }
+    }
+
+    pub(super) fn clamp_selected_bank_row(&mut self, world: &World) {
+        let len = self.selected_banks_page_len(world);
+        if len == 0 {
+            self.selected_bank_row = 0;
+        } else {
+            self.selected_bank_row = self.selected_bank_row.min(len - 1);
         }
     }
 }

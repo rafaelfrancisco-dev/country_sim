@@ -50,6 +50,7 @@ impl Simulation {
         match input_state.active_tab {
             RunningTab::Charts => self.map_chart_key(key),
             RunningTab::Goods => self.map_goods_key(key, input_state),
+            RunningTab::Banks => self.map_banks_key(key, input_state),
             RunningTab::Main => self.map_main_key(key, input_state),
             RunningTab::Stocks => self.map_stocks_key(key, input_state),
             RunningTab::Events => self.map_events_key(key, input_state),
@@ -144,7 +145,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::SelectPrevCompanyRow))
                     }
-                    SelectionFocus::People | SelectionFocus::Stock => None,
+                    SelectionFocus::People | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Char(c)
@@ -159,7 +160,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::SelectNextCompanyRow))
                     }
-                    SelectionFocus::People | SelectionFocus::Stock => None,
+                    SelectionFocus::People | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Enter
@@ -181,7 +182,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::CompanyPagePrev))
                     }
-                    SelectionFocus::People | SelectionFocus::Stock => None,
+                    SelectionFocus::People | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             _ if hotkeys::is_page_next_key(key)
@@ -194,7 +195,7 @@ impl Simulation {
                     SelectionFocus::Company => {
                         Some(SimulationCommand::Ui(UiCommand::CompanyPageNext))
                     }
-                    SelectionFocus::People | SelectionFocus::Stock => None,
+                    SelectionFocus::People | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             _ => None,
@@ -246,7 +247,7 @@ impl Simulation {
         }
     }
 
-    fn map_events_key(
+    pub(super) fn map_events_key(
         &self,
         key: KeyEvent,
         input_state: RunningInputState,
@@ -355,7 +356,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectPrevPersonRow))
                     }
-                    SelectionFocus::Company | SelectionFocus::Stock => None,
+                    SelectionFocus::Company | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Char(c)
@@ -370,7 +371,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::SelectNextPersonRow))
                     }
-                    SelectionFocus::Company | SelectionFocus::Stock => None,
+                    SelectionFocus::Company | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             KeyCode::Enter
@@ -398,7 +399,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePagePrev))
                     }
-                    SelectionFocus::Company | SelectionFocus::Stock => None,
+                    SelectionFocus::Company | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             _ if hotkeys::is_page_next_key(key)
@@ -411,7 +412,7 @@ impl Simulation {
                     SelectionFocus::People => {
                         Some(SimulationCommand::Ui(UiCommand::PeoplePageNext))
                     }
-                    SelectionFocus::Company | SelectionFocus::Stock => None,
+                    SelectionFocus::Company | SelectionFocus::Bank | SelectionFocus::Stock => None,
                 }
             }
             _ => None,
@@ -453,9 +454,10 @@ impl Simulation {
         }
     }
 
-    fn is_entity_related_events_page(&self, input_state: RunningInputState) -> bool {
+    pub(super) fn is_entity_related_events_page(&self, input_state: RunningInputState) -> bool {
         self.is_person_related_events_page(input_state)
             || self.is_company_related_events_page(input_state)
+            || self.is_bank_related_events_page(input_state)
     }
 
     fn is_person_related_events_page(&self, input_state: RunningInputState) -> bool {

@@ -1,12 +1,15 @@
+mod bank_history;
 mod export;
 mod goods_market;
 mod history;
+mod invariants;
 mod monetary;
 mod stock_market;
-
+pub use bank_history::BankMetricPoint;
 pub use export::{
     CountryExportData, MonthlyExportData, StockDailyCountryExportData, StockDailyEquityExportData,
 };
+pub use invariants::InvariantViolation;
 
 use rayon::prelude::*;
 #[cfg(feature = "bench-trace")]
@@ -61,17 +64,12 @@ pub struct World {
     pub policy_rate: f64,
     pub world_history: Vec<MetricPoint>,
     pub country_history: Vec<Vec<MetricPoint>>,
+    pub bank_history: std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>>,
     pub event_log: Vec<SimEvent>,
     pub export_queue: Vec<MonthlyExportData>,
     pub export_queue_active: bool,
     pub stock_country_export_queue: Vec<StockDailyCountryExportData>,
     pub stock_equity_export_queue: Vec<StockDailyEquityExportData>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InvariantViolation {
-    pub code: &'static str,
-    pub message: String,
 }
 
 impl World {
@@ -95,6 +93,7 @@ impl World {
             policy_rate: initial_policy_rate,
             world_history: Vec::with_capacity(HISTORY_LIMIT),
             country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
+            bank_history: std::collections::HashMap::new(),
             event_log: Vec::with_capacity(EVENT_LOG_LIMIT),
             export_queue: Vec::new(),
             export_queue_active: false,

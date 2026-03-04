@@ -1,9 +1,10 @@
 # Running UI Tabs
 
 ## Overview
-The running simulation UI has five tabs:
+The running simulation UI has six tabs:
 - `Main`: country/people navigation and details screens.
 - `Goods`: company and goods market view.
+- `Banks`: bank list and bank details view.
 - `Stocks`: listed equities and stock-market charts.
 - `Charts`: trend charts for core economy metrics.
 - `Events`: scrollable log of simulation events.
@@ -46,7 +47,15 @@ The running UI uses one navigation convention across tabs:
     - page 4: current employees table (`Name`, `Job`, `Tenure (mo)`, `Pay/mo`)
   - Company page 3 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
   - Company page 4 uses `w/s` to scroll employees.
-- `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
+- `Banks`: country/bank navigation, bank details panel.
+  - Bank details use fixed pages:
+    - page 1: bank overview details
+    - page 2: bank history charts (`Reserve`, `Deposits`, `Created Money`, `Equity`, `Run Intensity`)
+    - page 3: related events for that bank
+    - page 4: current depositors table (`Type`, `Entity`, `Balance`, `Share`)
+  - Bank page 3 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
+  - Bank page 4 uses `w/s` to scroll depositors.
+- `Main`/`Goods`/`Banks` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `f` cycles event category, `Ctrl+u` clears search query while editing.

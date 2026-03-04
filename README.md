@@ -19,7 +19,7 @@ Files are keyed by the world seed in hex so re-runs with different seeds never o
 See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage examples.
 
 ## Recent UI Additions
-- Five running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Stocks`, `Charts`, `Events`
+- Six running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `Charts`, `Events`
 - Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
 - Setup now includes editable `Currency Symbol` (default `€`) so money displays can be customized per run
 - Money labels across tables, details, charts, stocks, and events now consistently include the selected currency symbol and compact large values (for example `11500` as `11.5k`)
@@ -40,6 +40,11 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - page 2: company history charts
   - page 3: related events (shared Events search/filter/sort controls)
   - page 4: current employees table (`Name`, `Job`, `Tenure (mo)`, `Pay/mo`)
+- Bank details in Banks tab now use fixed four-page paging:
+  - page 1: detailed bank overview (liquidity, capital, run/resolution state)
+  - page 2: per-bank history charts (reserve, deposits, created money, equity, run intensity)
+  - page 3: related events (shared Events search/filter/sort controls)
+  - page 4: current depositors table (`Type`, `Entity`, `Balance`, `Share`)
 - Government spending system:
   - Monthly unemployment benefits paid to working-age (18-65) unemployed adults
   - Basic needs safety net tops up cash for people with unmet essential needs

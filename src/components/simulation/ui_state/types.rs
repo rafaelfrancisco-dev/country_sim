@@ -1,6 +1,7 @@
 pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
+pub const BANK_PAGE_SIZE: usize = 12;
 pub const CHART_PAGE_COUNT: usize = 4;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -69,6 +70,7 @@ pub enum DetailsView {
     Country,
     CountryPolicy,
     Company,
+    Bank,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -76,6 +78,7 @@ pub enum SelectionFocus {
     Country,
     People,
     Company,
+    Bank,
     Stock,
 }
 
@@ -83,6 +86,7 @@ pub enum SelectionFocus {
 pub enum RunningTab {
     Main,
     Goods,
+    Banks,
     Stocks,
     Charts,
     Events,
@@ -150,8 +154,11 @@ pub struct UiState {
     pub selected_person_row: usize,
     pub company_page: usize,
     pub selected_company_row: usize,
+    pub bank_page: usize,
+    pub selected_bank_row: usize,
     pub events_scroll: usize,
     pub company_workers_scroll: usize,
+    pub bank_depositors_scroll: usize,
     pub events_sort: EventsSort,
     pub events_category: EventsCategoryFilter,
     pub events_search_active: bool,
@@ -176,8 +183,11 @@ impl Default for UiState {
             selected_person_row: 0,
             company_page: 0,
             selected_company_row: 0,
+            bank_page: 0,
+            selected_bank_row: 0,
             events_scroll: 0,
             company_workers_scroll: 0,
+            bank_depositors_scroll: 0,
             events_sort: EventsSort::NewestFirst,
             events_category: EventsCategoryFilter::All,
             events_search_active: false,

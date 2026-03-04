@@ -10,7 +10,10 @@ impl UiState {
             self.selected_person_row = 0;
             self.company_page = 0;
             self.selected_company_row = 0;
+            self.bank_page = 0;
+            self.selected_bank_row = 0;
             self.company_workers_scroll = 0;
+            self.bank_depositors_scroll = 0;
             self.details_view = DetailsView::List;
             self.country_policy_form = CountryPolicyFormState::default();
             return;
@@ -25,6 +28,9 @@ impl UiState {
         let company_pages = self.total_company_pages(world);
         self.company_page = self.company_page.min(company_pages.saturating_sub(1));
         self.clamp_selected_company_row(world);
+        let bank_pages = self.total_bank_pages(world);
+        self.bank_page = self.bank_page.min(bank_pages.saturating_sub(1));
+        self.clamp_selected_bank_row(world);
 
         if matches!(self.details_view, DetailsView::Person)
             && self.selected_person_on_page(world).is_none()
@@ -39,6 +45,13 @@ impl UiState {
             self.details_view = DetailsView::List;
             self.details_page = 0;
             self.company_workers_scroll = 0;
+        }
+        if matches!(self.details_view, DetailsView::Bank)
+            && self.selected_bank_on_page(world).is_none()
+        {
+            self.details_view = DetailsView::List;
+            self.details_page = 0;
+            self.bank_depositors_scroll = 0;
         }
         if matches!(self.details_view, DetailsView::CountryPolicy)
             && self.selected_country(world).is_none()
@@ -188,6 +201,40 @@ impl UiState {
     pub(super) fn select_prev_company_row(&mut self, _world: &World) {
         self.selection_focus = SelectionFocus::Company;
         self.selected_company_row = self.selected_company_row.saturating_sub(1);
+    }
+
+    pub(super) fn next_bank_page(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Bank;
+        let max_page = self.total_bank_pages(world).saturating_sub(1);
+        if self.bank_page < max_page {
+            self.bank_page += 1;
+        }
+        self.clamp_selected_bank_row(world);
+    }
+
+    pub(super) fn prev_bank_page(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Bank;
+        self.bank_page = self.bank_page.saturating_sub(1);
+        self.clamp_selected_bank_row(world);
+    }
+
+    pub(super) fn select_next_bank_row(&mut self, world: &World) {
+        self.selection_focus = SelectionFocus::Bank;
+        let len = self.selected_banks_page_len(world);
+        if len == 0 {
+            self.selected_bank_row = 0;
+            return;
+        }
+
+        let max_row = len.saturating_sub(1);
+        if self.selected_bank_row < max_row {
+            self.selected_bank_row += 1;
+        }
+    }
+
+    pub(super) fn select_prev_bank_row(&mut self, _world: &World) {
+        self.selection_focus = SelectionFocus::Bank;
+        self.selected_bank_row = self.selected_bank_row.saturating_sub(1);
     }
 
     pub(super) fn next_chart_page(&mut self) {

@@ -99,6 +99,24 @@ fn company_details_page_commands_clamp_to_page_three() {
 }
 
 #[test]
+fn bank_details_page_commands_clamp_to_page_three() {
+    let world = sample_world();
+    let mut ui = UiState {
+        details_view: DetailsView::Bank,
+        details_page: 0,
+        ..UiState::default()
+    };
+
+    for _ in 0..8 {
+        ui.apply(UiCommand::DetailsPageNext, &world);
+    }
+    assert_eq!(ui.details_page, 3);
+
+    ui.apply(UiCommand::DetailsPagePrev, &world);
+    assert_eq!(ui.details_page, 2);
+}
+
+#[test]
 fn country_details_page_commands_remain_unbounded() {
     let world = sample_world();
     let mut ui = UiState {
@@ -130,6 +148,18 @@ fn opening_details_resets_details_page() {
 }
 
 #[test]
+fn opening_selected_bank_details_switches_to_banks_tab() {
+    let world = sample_world();
+    let mut ui = UiState::default();
+
+    ui.apply(UiCommand::OpenSelectedBankDetails, &world);
+    assert_eq!(ui.active_tab, RunningTab::Banks);
+    assert_eq!(ui.details_view, DetailsView::Bank);
+    assert_eq!(ui.selection_focus, SelectionFocus::Bank);
+    assert_eq!(ui.details_page, 0);
+}
+
+#[test]
 fn changing_country_resets_details_page() {
     let world = sample_world_two_countries();
     let mut ui = UiState {
@@ -137,6 +167,7 @@ fn changing_country_resets_details_page() {
         details_page: 6,
         people_page: 1,
         company_page: 1,
+        bank_page: 1,
         selected_country: 0,
         ..UiState::default()
     };
@@ -147,6 +178,7 @@ fn changing_country_resets_details_page() {
     assert_eq!(ui.details_page, 0);
     assert_eq!(ui.people_page, 0);
     assert_eq!(ui.company_page, 0);
+    assert_eq!(ui.bank_page, 0);
 }
 
 #[test]

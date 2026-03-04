@@ -12,7 +12,7 @@ use super::events::event_search_hint;
 use crate::{
     components::simulation::hotkeys,
     components::simulation::snapshot::{
-        GoodsTabSnapshot, MainTabSnapshot, RunningSnapshot, RunningTabSnapshot,
+        BanksTabSnapshot, GoodsTabSnapshot, MainTabSnapshot, RunningSnapshot, RunningTabSnapshot,
     },
     components::simulation::ui_state::{DetailsView, RunningTab},
     seed::format_generation_seed,
@@ -61,6 +61,9 @@ impl Simulation {
             }
             (RunningTab::Goods, RunningTabSnapshot::Goods(goods_tab)) => {
                 self.draw_goods_tab(frame, body, world, goods_tab)
+            }
+            (RunningTab::Banks, RunningTabSnapshot::Banks(banks_tab)) => {
+                self.draw_banks_tab(frame, body, world, banks_tab)
             }
             (RunningTab::Stocks, RunningTabSnapshot::Stocks(stocks_tab)) => {
                 self.draw_stocks_tab(frame, body, world, stocks_tab)
@@ -202,6 +205,57 @@ impl Simulation {
                     ),
                     _ => format!(
                         "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (4/4)  [w/s] scroll workers | Employees: 0",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
+                }
+            }
+            DetailsView::Bank => {
+                let empty_banks = BanksTabSnapshot {
+                    bank_rows: Vec::new(),
+                    bank_details_lines: Vec::new(),
+                    bank_related_events:
+                        crate::components::simulation::snapshot::EventsTabSnapshot {
+                            event_log_lines: Vec::new(),
+                            events_total_count: 0,
+                            events_scroll: 0,
+                            events_sort_label: tab.person_related_events.events_sort_label,
+                            events_category_label: tab.person_related_events.events_category_label,
+                            events_search_query: tab
+                                .person_related_events
+                                .events_search_query
+                                .clone(),
+                        },
+                    bank_depositor_rows: Vec::new(),
+                    bank_reserve_history: Arc::default(),
+                    bank_deposit_history: Arc::default(),
+                    bank_created_money_history: Arc::default(),
+                    bank_equity_history: Arc::default(),
+                    bank_run_intensity_history: Arc::default(),
+                    country_banks_summary_lines: Vec::new(),
+                };
+                self.draw_bank_details(frame, body, world, &empty_banks);
+                match world.details_page {
+                    0 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (1/4)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
+                    1 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (2/4)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
+                    2 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (3/4)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        event_search_hint(
+                            world.events_search_active,
+                            &tab.person_related_events.events_search_query
+                        ),
+                        0,
+                        tab.person_related_events.events_sort_label,
+                        tab.person_related_events.events_category_label,
+                    ),
+                    _ => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (4/4)  [w/s] scroll depositors | Depositors: 0",
                         hotkeys::GLOBAL_RUNNING_HINT
                     ),
                 }
@@ -366,6 +420,7 @@ impl Simulation {
         match active_tab {
             RunningTab::Main => "Main",
             RunningTab::Goods => "Goods",
+            RunningTab::Banks => "Banks",
             RunningTab::Stocks => "Stocks",
             RunningTab::Charts => "Charts",
             RunningTab::Events => "Events",

@@ -19,6 +19,7 @@ use crate::{
 
 mod hotkeys;
 mod input;
+mod input_banks;
 #[cfg(feature = "manual-harness")]
 pub mod manual_harness;
 mod monthly;

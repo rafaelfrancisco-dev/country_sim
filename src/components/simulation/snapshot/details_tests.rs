@@ -64,6 +64,23 @@ fn company_details_include_listing_and_financial_stress_metrics() {
 }
 
 #[test]
+fn bank_details_include_balance_sheet_and_stability_sections() {
+    let world = sample_world_with_stock();
+    let ui = UiState {
+        active_tab: RunningTab::Banks,
+        details_view: DetailsView::Bank,
+        ..UiState::default()
+    };
+    let lines = bank_details_lines(&world, &ui);
+    let text = lines.join("\n");
+
+    assert!(text.contains("Balance Sheet:"));
+    assert!(text.contains("Flow Metrics:"));
+    assert!(text.contains("Stability:"));
+    assert!(text.contains("Liquidity Ratio:"));
+}
+
+#[test]
 fn country_details_include_structural_trade_market_and_social_sections() {
     let world = sample_world_with_stock();
     let ui = UiState {

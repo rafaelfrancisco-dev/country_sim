@@ -9,24 +9,30 @@ impl UiState {
             UiCommand::FocusCountrySelection => self.selection_focus = SelectionFocus::Country,
             UiCommand::FocusPeopleSelection => self.selection_focus = SelectionFocus::People,
             UiCommand::FocusCompanySelection => self.selection_focus = SelectionFocus::Company,
+            UiCommand::FocusBankSelection => self.selection_focus = SelectionFocus::Bank,
             UiCommand::SelectPrevCountryRow => self.select_prev_country_row(world),
             UiCommand::SelectNextCountryRow => self.select_next_country_row(world),
             UiCommand::SelectPrevPersonRow => self.select_prev_person_row(world),
             UiCommand::SelectNextPersonRow => self.select_next_person_row(world),
             UiCommand::SelectPrevCompanyRow => self.select_prev_company_row(world),
             UiCommand::SelectNextCompanyRow => self.select_next_company_row(world),
+            UiCommand::SelectPrevBankRow => self.select_prev_bank_row(world),
+            UiCommand::SelectNextBankRow => self.select_next_bank_row(world),
             UiCommand::CountryPageNext => self.next_country_page(world),
             UiCommand::CountryPagePrev => self.prev_country_page(world),
             UiCommand::PeoplePageNext => self.next_people_page(world),
             UiCommand::PeoplePagePrev => self.prev_people_page(world),
             UiCommand::CompanyPageNext => self.next_company_page(world),
             UiCommand::CompanyPagePrev => self.prev_company_page(world),
+            UiCommand::BankPageNext => self.next_bank_page(world),
+            UiCommand::BankPagePrev => self.prev_bank_page(world),
             UiCommand::OpenSelectedPersonDetails => self.open_selected_person_details(world),
             UiCommand::OpenSelectedCountryDetails => self.open_selected_country_details(world),
             UiCommand::OpenSelectedCountryPolicyDetails => {
                 self.open_selected_country_policy_details(world);
             }
             UiCommand::OpenSelectedCompanyDetails => self.open_selected_company_details(world),
+            UiCommand::OpenSelectedBankDetails => self.open_selected_bank_details(world),
             UiCommand::JumpToEmployerCompany => self.jump_to_employer_company(world),
             UiCommand::CloseCountryPolicyDetails => {
                 if self.details_view == DetailsView::CountryPolicy {
@@ -115,6 +121,7 @@ impl UiState {
                 self.details_view = DetailsView::List;
                 self.details_page = 0;
                 self.company_workers_scroll = 0;
+                self.bank_depositors_scroll = 0;
                 self.country_policy_form = CountryPolicyFormState::default();
             }
             UiCommand::DetailsPagePrev => {
@@ -137,6 +144,8 @@ impl UiState {
             UiCommand::ChartNextCountry => self.select_next_country_row(world),
             UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
             UiCommand::GoodsNextCountry => self.select_next_country_row(world),
+            UiCommand::BanksPrevCountry => self.select_prev_country_row(world),
+            UiCommand::BanksNextCountry => self.select_next_country_row(world),
             UiCommand::EventsScrollUp => {
                 self.events_scroll = self.events_scroll.saturating_sub(1);
             }
@@ -171,6 +180,12 @@ impl UiState {
             UiCommand::CompanyWorkersScrollDown => {
                 self.company_workers_scroll = self.company_workers_scroll.saturating_add(1);
             }
+            UiCommand::BankDepositorsScrollUp => {
+                self.bank_depositors_scroll = self.bank_depositors_scroll.saturating_sub(1);
+            }
+            UiCommand::BankDepositorsScrollDown => {
+                self.bank_depositors_scroll = self.bank_depositors_scroll.saturating_add(1);
+            }
             UiCommand::StocksPrevCountry => self.select_prev_country_row(world),
             UiCommand::StocksNextCountry => self.select_next_country_row(world),
             UiCommand::StocksFocusCountry => {
@@ -202,6 +217,7 @@ impl UiState {
         match self.details_view {
             DetailsView::Person => Some(1),
             DetailsView::Company => Some(3),
+            DetailsView::Bank => Some(3),
             DetailsView::CountryPolicy | DetailsView::List => Some(0),
             DetailsView::Country => None,
         }
@@ -427,6 +443,56 @@ impl UiState {
         self.company_page
             .saturating_mul(COMPANY_PAGE_SIZE)
             .saturating_add(self.selected_company_row)
+    }
+
+    pub fn total_bank_pages(&self, world: &World) -> usize {
+        let Some(country) = self.selected_country(world) else {
+            return 1;
+        };
+        let total = country.banks.len().saturating_add(1);
+        if total == 0 {
+            1
+        } else {
+            total.div_ceil(BANK_PAGE_SIZE)
+        }
+    }
+
+    pub fn selected_banks_page_len(&self, world: &World) -> usize {
+        let Some(country) = self.selected_country(world) else {
+            return 0;
+        };
+        let total = country.banks.len().saturating_add(1);
+        if total == 0 {
+            return 0;
+        }
+        let start = self.bank_page.saturating_mul(BANK_PAGE_SIZE);
+        if start >= total {
+            return 0;
+        }
+        let end = (start + BANK_PAGE_SIZE).min(total);
+        end.saturating_sub(start)
+    }
+
+    pub fn selected_bank_on_page<'a>(&self, world: &'a World) -> Option<&'a Bank> {
+        self.selected_bank_by_absolute_index(world, self.selected_bank_absolute_index())
+    }
+
+    pub fn selected_bank_absolute_index(&self) -> usize {
+        self.bank_page
+            .saturating_mul(BANK_PAGE_SIZE)
+            .saturating_add(self.selected_bank_row)
+    }
+
+    pub fn selected_bank_by_absolute_index<'a>(
+        &self,
+        world: &'a World,
+        absolute_index: usize,
+    ) -> Option<&'a Bank> {
+        let country = self.selected_country(world)?;
+        if absolute_index == 0 {
+            return Some(&country.bank);
+        }
+        country.banks.get(absolute_index.saturating_sub(1))
     }
 }
 

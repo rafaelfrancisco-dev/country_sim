@@ -1,5 +1,7 @@
 use super::person::EducationTrack;
 pub use super::stock_market_params::StockMarketParams;
+mod monetary_banking;
+pub use monetary_banking::{BankingSystemParams, MonetaryPolicyParams};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct DemographicParams {
@@ -383,117 +385,6 @@ impl FiscalParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct MonetaryPolicyParams {
-    /// Annual CPI inflation target (2% = 0.02).
-    pub target_inflation_rate: f64,
-    /// Equilibrium policy rate when inflation is on target and unemployment is at NAIRU.
-    pub neutral_policy_rate: f64,
-    /// Taylor Rule inflation coefficient (α). Typically > 1 (Taylor principle).
-    pub inflation_coefficient: f64,
-    /// Taylor Rule unemployment gap coefficient (β).
-    pub unemployment_coefficient: f64,
-    /// Natural rate of unemployment (NAIRU).
-    pub natural_unemployment_rate: f64,
-    /// Zero lower bound — policy rate cannot fall below this.
-    pub rate_floor: f64,
-    /// Hard cap on policy rate.
-    pub rate_ceiling: f64,
-    /// Spread added to policy rate for private bank loans (credit spread).
-    pub credit_spread: f64,
-    /// Spread added to policy rate for sovereign bond coupon.
-    pub sovereign_spread: f64,
-    /// Government issues bonds when treasury_balance falls at or below this level.
-    pub bond_issuance_treasury_threshold: f64,
-    /// Fraction of each bond issuance absorbed by the bank as primary dealer.
-    pub bank_primary_dealer_fraction: f64,
-    /// Bond term in months.
-    pub bond_maturity_months: u8,
-    /// Top-N wealthiest people who absorb the retail portion of bond issuances/coupons.
-    pub bond_retail_top_n: usize,
-    /// Minimum absolute rate change needed to emit a RatePolicyChange event.
-    pub rate_change_event_threshold: f64,
-    /// Discrete step size for policy rate moves (0.0025 = 25 bps, like real central banks).
-    pub policy_rate_step: f64,
-    /// Deposit rate = max(0, policy_rate - deposit_spread). Models bank interest margin.
-    pub deposit_spread: f64,
-    /// Minimum cash balance (exclusive) required to earn deposit interest.
-    pub savings_min_balance: f64,
-    /// Absolute annual-rate gap from neutral loan rate that maps to a full policy response.
-    pub rate_response_band: f64,
-    /// Slope for loan appetite response to the normalized rate gap.
-    pub loan_appetite_strength: f64,
-    /// Minimum loan appetite multiplier when rates are high.
-    pub loan_appetite_min: f64,
-    /// Maximum loan appetite multiplier when rates are low.
-    pub loan_appetite_max: f64,
-    /// Slope for discretionary spending response to the normalized rate gap.
-    pub discretionary_spend_strength: f64,
-    /// Minimum discretionary spending multiplier when rates are high.
-    pub discretionary_spend_min: f64,
-    /// Maximum discretionary spending multiplier when rates are low.
-    pub discretionary_spend_max: f64,
-    /// Slope for company expansion and startup response to the normalized rate gap.
-    pub expansion_strength: f64,
-    /// Minimum expansion multiplier when rates are high.
-    pub expansion_min: f64,
-    /// Maximum expansion multiplier when rates are low.
-    pub expansion_max: f64,
-    /// Slope for firm pricing pressure response to the normalized rate gap.
-    pub price_pressure_strength: f64,
-    /// Minimum pricing-pressure multiplier when rates are high.
-    pub price_pressure_min: f64,
-    /// Maximum pricing-pressure multiplier when rates are low.
-    pub price_pressure_max: f64,
-    /// Maximum absolute shift applied to sell-through pricing thresholds.
-    pub sell_through_shift_max: f64,
-    /// Slope for sell-through threshold shift response to the normalized rate gap.
-    pub sell_through_shift_strength: f64,
-    /// Exponential smoothing factor for annualized month-over-month inflation.
-    /// 1.0 = no smoothing, 0.0 = fully static.
-    pub inflation_ema_alpha: f64,
-}
-
-impl Default for MonetaryPolicyParams {
-    fn default() -> Self {
-        Self {
-            target_inflation_rate: 0.02,
-            neutral_policy_rate: 0.04,
-            inflation_coefficient: 1.5,
-            unemployment_coefficient: 0.5,
-            natural_unemployment_rate: 0.03,
-            rate_floor: 0.0,
-            rate_ceiling: 0.20,
-            credit_spread: 0.03,
-            sovereign_spread: 0.01,
-            bond_issuance_treasury_threshold: 0.0,
-            bank_primary_dealer_fraction: 0.50,
-            bond_maturity_months: 12,
-            bond_retail_top_n: 200,
-            rate_change_event_threshold: 0.005,
-            policy_rate_step: 0.0025,
-            deposit_spread: 0.01,
-            savings_min_balance: 200.0,
-            rate_response_band: 0.06,
-            loan_appetite_strength: 0.55,
-            loan_appetite_min: 0.55,
-            loan_appetite_max: 1.35,
-            discretionary_spend_strength: 0.45,
-            discretionary_spend_min: 0.65,
-            discretionary_spend_max: 1.25,
-            expansion_strength: 0.60,
-            expansion_min: 0.45,
-            expansion_max: 1.45,
-            price_pressure_strength: 0.70,
-            price_pressure_min: 0.35,
-            price_pressure_max: 1.20,
-            sell_through_shift_max: 0.05,
-            sell_through_shift_strength: 0.04,
-            inflation_ema_alpha: 0.35,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GovernmentBackfillParams {
     pub enabled: bool,
     pub essential_good_max_id_inclusive: u8,
@@ -520,47 +411,6 @@ impl Default for GovernmentBackfillParams {
             max_wage_multiplier: 1.8,
             switch_incentive_buffer: 0.05,
             public_utility_price_cap_multiplier: 1.5,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct BankingSystemParams {
-    pub deposit_target_ratio: f64,
-    pub wallet_buffer_months_person: f64,
-    pub wallet_buffer_months_company: f64,
-    pub deposit_insurance_cap: f64,
-    pub uninsured_haircut_rate: f64,
-    pub run_health_threshold: f64,
-    pub run_withdraw_fraction: f64,
-    pub run_switch_fraction: f64,
-    pub public_bank_stability_bonus: f64,
-    pub private_bank_failure_sensitivity: f64,
-    pub min_private_bank_founders: usize,
-    pub min_private_bank_seed_capital: f64,
-    pub max_new_banks_per_month: u16,
-    pub public_bank_creation_unemployment_trigger: f64,
-    pub public_bank_creation_loss_trigger: f64,
-}
-
-impl Default for BankingSystemParams {
-    fn default() -> Self {
-        Self {
-            deposit_target_ratio: 0.85,
-            wallet_buffer_months_person: 0.20,
-            wallet_buffer_months_company: 0.25,
-            deposit_insurance_cap: 100_000.0,
-            uninsured_haircut_rate: 0.35,
-            run_health_threshold: 0.45,
-            run_withdraw_fraction: 0.40,
-            run_switch_fraction: 0.65,
-            public_bank_stability_bonus: 0.20,
-            private_bank_failure_sensitivity: 1.0,
-            min_private_bank_founders: 8,
-            min_private_bank_seed_capital: 500_000.0,
-            max_new_banks_per_month: 2,
-            public_bank_creation_unemployment_trigger: 0.15,
-            public_bank_creation_loss_trigger: 0.25,
         }
     }
 }

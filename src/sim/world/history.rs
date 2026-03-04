@@ -1,4 +1,5 @@
-use super::{HISTORY_LIMIT, MetricPoint, World};
+use super::{BankMetricPoint, HISTORY_LIMIT, MetricPoint, World};
+use crate::sim::bank::Bank;
 use crate::sim::country::Country;
 
 impl World {
@@ -7,6 +8,16 @@ impl World {
             let point = Self::country_metric_point(country);
             if let Some(history) = self.country_history.get_mut(idx) {
                 Self::push_metric_point(history, point);
+            }
+
+            for bank in std::iter::once(&country.bank).chain(country.banks.iter()) {
+                let key = (idx, bank.id);
+                let bank_point = Self::bank_metric_point(country.month, bank);
+                let history = self
+                    .bank_history
+                    .entry(key)
+                    .or_insert_with(|| Vec::with_capacity(HISTORY_LIMIT));
+                Self::push_bank_metric_point(history, bank_point);
             }
         }
 
@@ -222,6 +233,25 @@ impl World {
     }
 
     fn push_metric_point(history: &mut Vec<MetricPoint>, point: MetricPoint) {
+        history.push(point);
+        if history.len() > HISTORY_LIMIT {
+            history.remove(0);
+        }
+    }
+
+    fn bank_metric_point(month: u64, bank: &Bank) -> BankMetricPoint {
+        BankMetricPoint {
+            month,
+            reserve: bank.reserve_balance,
+            deposits: bank.deposit_liabilities,
+            created_money: bank.created_money_outstanding,
+            equity: bank.reserve_balance + bank.created_money_outstanding
+                - bank.deposit_liabilities,
+            run_intensity: bank.run_intensity,
+        }
+    }
+
+    fn push_bank_metric_point(history: &mut Vec<BankMetricPoint>, point: BankMetricPoint) {
         history.push(point);
         if history.len() > HISTORY_LIMIT {
             history.remove(0);

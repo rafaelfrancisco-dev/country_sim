@@ -85,6 +85,29 @@ pub(in crate::components::simulation) struct CompanyWorkerRowSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct BankRowSnapshot {
+    pub bank_id: String,
+    pub name: String,
+    pub kind: String,
+    pub reserve: String,
+    pub deposits: String,
+    pub created_money: String,
+    pub health: String,
+    pub run_intensity: String,
+    pub resolution: String,
+    pub is_selected: bool,
+    pub is_even: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct BankDepositorRowSnapshot {
+    pub entity_kind: String,
+    pub entity: String,
+    pub balance: String,
+    pub share: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct RunningSnapshot {
     pub core: RunningCoreSnapshot,
     pub tab: RunningTabSnapshot,
@@ -117,6 +140,8 @@ pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub total_people_pages: usize,
     pub company_page: usize,
     pub total_company_pages: usize,
+    pub bank_page: usize,
+    pub total_bank_pages: usize,
     pub country_policy_is_editing: bool,
     pub sim_mode: SimulationMode,
     pub ticks_per_second: f64,
@@ -129,12 +154,14 @@ pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub invariant_warnings: Vec<String>,
     pub events_search_active: bool,
     pub company_workers_scroll: usize,
+    pub bank_depositors_scroll: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) enum RunningTabSnapshot {
     Main(Box<MainTabSnapshot>),
     Goods(Box<GoodsTabSnapshot>),
+    Banks(Box<BanksTabSnapshot>),
     Stocks(Box<StocksTabSnapshot>),
     Charts(Box<ChartsTabSnapshot>),
     Events(Box<EventsTabSnapshot>),
@@ -163,6 +190,20 @@ pub(in crate::components::simulation) struct GoodsTabSnapshot {
     pub company_loan_payment_history: Arc<[f64]>,
     pub company_money_history: Arc<[f64]>,
     pub country_goods_summary_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct BanksTabSnapshot {
+    pub bank_rows: Vec<BankRowSnapshot>,
+    pub bank_details_lines: Vec<String>,
+    pub bank_related_events: EventsTabSnapshot,
+    pub bank_depositor_rows: Vec<BankDepositorRowSnapshot>,
+    pub bank_reserve_history: Arc<[f64]>,
+    pub bank_deposit_history: Arc<[f64]>,
+    pub bank_created_money_history: Arc<[f64]>,
+    pub bank_equity_history: Arc<[f64]>,
+    pub bank_run_intensity_history: Arc<[f64]>,
+    pub country_banks_summary_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

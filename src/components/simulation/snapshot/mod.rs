@@ -13,6 +13,8 @@ use crate::{
     },
 };
 
+mod banks_builder;
+mod banks_details;
 mod builder;
 mod details;
 #[cfg(test)]
@@ -23,6 +25,8 @@ mod stocks_and_charts;
 #[cfg(test)]
 mod tests;
 
+pub(in crate::components::simulation) use banks_builder::*;
+pub(in crate::components::simulation) use banks_details::*;
 pub(in crate::components::simulation) use details::*;
 pub(in crate::components::simulation) use goods_details::*;
 pub(in crate::components::simulation) use models::*;

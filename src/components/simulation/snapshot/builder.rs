@@ -214,6 +214,7 @@ impl UiSnapshot {
                     country_goods_summary_lines: country_goods_summary_lines(world, ui),
                 }))
             }
+            RunningTab::Banks => build_banks_tab_snapshot(world, ui, currency_symbol),
             RunningTab::Stocks => {
                 let (
                     stock_rows,
@@ -282,6 +283,8 @@ impl UiSnapshot {
                 total_people_pages: ui.total_people_pages(world),
                 company_page: ui.company_page,
                 total_company_pages: ui.total_company_pages(world),
+                bank_page: ui.bank_page,
+                total_bank_pages: ui.total_bank_pages(world),
                 country_policy_is_editing: ui.country_policy_form.is_editing,
                 sim_mode: runtime_stats.mode,
                 ticks_per_second: runtime_stats.ticks_per_second,
@@ -294,6 +297,7 @@ impl UiSnapshot {
                 invariant_warnings,
                 events_search_active: ui.events_search_active,
                 company_workers_scroll: ui.company_workers_scroll,
+                bank_depositors_scroll: ui.bank_depositors_scroll,
             },
             tab,
         }

@@ -24,6 +24,8 @@ fn world_starts_with_initial_history() {
     assert_eq!(world.world_history.len(), 1);
     assert_eq!(world.country_history.len(), 1);
     assert_eq!(world.country_history[0].len(), 1);
+    assert_eq!(world.bank_history.len(), 1);
+    assert_eq!(world.bank_history.get(&(0, 0)).map_or(0, Vec::len), 1);
     assert_eq!(world.world_history[0].month, 0);
 }
 
@@ -35,6 +37,7 @@ fn world_tick_advances_days_and_processes_monthly_boundaries() {
         world.tick_day();
     }
     assert_eq!(world.world_history.len(), 2);
+    assert_eq!(world.bank_history.get(&(0, 0)).map_or(0, Vec::len), 2);
     assert_eq!(world.countries[0].month, 1);
     assert_eq!(world.completed_month_boundaries(), 1);
 }
@@ -51,6 +54,33 @@ fn world_history_retains_only_latest_limit() {
 
     assert_eq!(world.world_history.len(), HISTORY_LIMIT);
     assert_eq!(world.country_history[0].len(), HISTORY_LIMIT);
+    assert_eq!(
+        world.bank_history.get(&(0, 0)).map_or(0, Vec::len),
+        HISTORY_LIMIT
+    );
+}
+
+#[test]
+fn bank_history_records_monthly_bank_metrics() {
+    let mut country = Country::new(1, "A".to_string(), build_people(2));
+    country.bank.reserve_balance = 25_000.0;
+    country.bank.deposit_liabilities = 40_000.0;
+    country.bank.created_money_outstanding = 18_000.0;
+    country.bank.run_intensity = 0.35;
+    let world = World::new(vec![country]);
+
+    let history = world
+        .bank_history
+        .get(&(0, 0))
+        .expect("bank history for primary bank should be present");
+    assert_eq!(history.len(), 1);
+    let point = history[0];
+    assert_eq!(point.month, 0);
+    assert!((point.reserve - 25_000.0).abs() < f64::EPSILON);
+    assert!((point.deposits - 40_000.0).abs() < f64::EPSILON);
+    assert!((point.created_money - 18_000.0).abs() < f64::EPSILON);
+    assert!((point.equity - 3_000.0).abs() < f64::EPSILON);
+    assert!((point.run_intensity - 0.35).abs() < f64::EPSILON);
 }
 
 #[test]
