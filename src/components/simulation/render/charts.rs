@@ -205,7 +205,7 @@ impl Simulation {
                     axis_format: AxisValueFormat::Money,
                 },
             ],
-            _ => [
+            2 => [
                 ChartSpec {
                     title: "CPI Index",
                     color: Color::Cyan,
@@ -253,6 +253,56 @@ impl Simulation {
                     color: Color::LightCyan,
                     value_fn: Self::metric_stock_bank_equity_exposure,
                     axis_format: AxisValueFormat::Money,
+                },
+            ],
+            _ => [
+                ChartSpec {
+                    title: "Policy Rate %",
+                    color: Color::Yellow,
+                    value_fn: Self::metric_policy_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Deposit Rate %",
+                    color: Color::Cyan,
+                    value_fn: Self::metric_deposit_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Loan Rate %",
+                    color: Color::LightRed,
+                    value_fn: Self::metric_loan_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Rate Spread %",
+                    color: Color::Magenta,
+                    value_fn: Self::metric_rate_spread_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Real Deposit Rate %",
+                    color: Color::LightGreen,
+                    value_fn: Self::metric_real_deposit_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Svgs Interest Paid",
+                    color: Color::LightYellow,
+                    value_fn: Self::metric_savings_interest_paid,
+                    axis_format: AxisValueFormat::Money,
+                },
+                ChartSpec {
+                    title: "Loan Book",
+                    color: Color::LightBlue,
+                    value_fn: Self::metric_loan_book,
+                    axis_format: AxisValueFormat::Money,
+                },
+                ChartSpec {
+                    title: "Inflation Rate %",
+                    color: Color::LightCyan,
+                    value_fn: Self::metric_inflation_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
                 },
             ],
         }
@@ -369,101 +419,36 @@ impl Simulation {
         }
     }
 
-    fn metric_population(point: &MetricPoint) -> f64 {
-        point.population
-    }
-
-    fn metric_total_money_supply(point: &MetricPoint) -> f64 {
-        point.total_money_supply
-    }
-
-    fn metric_household_cash_total(point: &MetricPoint) -> f64 {
-        point.household_cash_total
-    }
-
-    fn metric_company_cash_total(point: &MetricPoint) -> f64 {
-        point.company_cash_total
-    }
-
-    fn metric_created_money_outstanding(point: &MetricPoint) -> f64 {
-        point.created_money_outstanding
-    }
-
-    fn metric_bank_reserve(point: &MetricPoint) -> f64 {
-        point.bank_reserve
-    }
-
-    fn metric_expected_money_supply(point: &MetricPoint) -> f64 {
-        point.expected_money_supply
-    }
-
-    fn metric_money_supply_gap(point: &MetricPoint) -> f64 {
-        point.money_supply_gap
-    }
-
-    fn metric_treasury_balance(point: &MetricPoint) -> f64 {
-        point.treasury_balance
-    }
-
-    fn metric_budget_balance(point: &MetricPoint) -> f64 {
-        point.budget_balance
-    }
-
-    fn metric_monthly_tax_collected(point: &MetricPoint) -> f64 {
-        point.monthly_tax_collected
-    }
-
-    fn metric_monthly_gov_spending(point: &MetricPoint) -> f64 {
-        point.monthly_gov_spending
-    }
-
-    fn metric_gov_debt(point: &MetricPoint) -> f64 {
-        point.gov_debt
-    }
-
-    fn metric_bonds_outstanding(point: &MetricPoint) -> f64 {
-        point.bonds_outstanding
-    }
-
-    fn metric_monthly_goods_import_spending(point: &MetricPoint) -> f64 {
-        point.monthly_goods_import_spending
-    }
-
-    fn metric_monthly_goods_export_revenue(point: &MetricPoint) -> f64 {
-        point.monthly_goods_export_revenue
-    }
-
-    fn metric_cpi_index(point: &MetricPoint) -> f64 {
-        point.cpi_index
-    }
-
-    fn metric_inflation_rate_pct(point: &MetricPoint) -> f64 {
-        point.inflation_rate * 100.0
-    }
-
-    fn metric_policy_rate_pct(point: &MetricPoint) -> f64 {
-        point.policy_rate * 100.0
-    }
-
-    fn metric_real_policy_rate_pct(point: &MetricPoint) -> f64 {
-        (point.policy_rate - point.inflation_rate) * 100.0
-    }
-
-    fn metric_monthly_unmet_need_events(point: &MetricPoint) -> f64 {
-        point.monthly_unmet_need_events
-    }
-
-    fn metric_monthly_essential_debt_spending(point: &MetricPoint) -> f64 {
-        point.monthly_essential_debt_spending
-    }
-
-    fn metric_stock_market_cap(point: &MetricPoint) -> f64 {
-        point.stock_market_cap
-    }
-
-    fn metric_stock_bank_equity_exposure(point: &MetricPoint) -> f64 {
-        point.stock_bank_equity_exposure
-    }
+    fn metric_population(p: &MetricPoint) -> f64 { p.population }
+    fn metric_total_money_supply(p: &MetricPoint) -> f64 { p.total_money_supply }
+    fn metric_household_cash_total(p: &MetricPoint) -> f64 { p.household_cash_total }
+    fn metric_company_cash_total(p: &MetricPoint) -> f64 { p.company_cash_total }
+    fn metric_created_money_outstanding(p: &MetricPoint) -> f64 { p.created_money_outstanding }
+    fn metric_bank_reserve(p: &MetricPoint) -> f64 { p.bank_reserve }
+    fn metric_expected_money_supply(p: &MetricPoint) -> f64 { p.expected_money_supply }
+    fn metric_money_supply_gap(p: &MetricPoint) -> f64 { p.money_supply_gap }
+    fn metric_treasury_balance(p: &MetricPoint) -> f64 { p.treasury_balance }
+    fn metric_budget_balance(p: &MetricPoint) -> f64 { p.budget_balance }
+    fn metric_monthly_tax_collected(p: &MetricPoint) -> f64 { p.monthly_tax_collected }
+    fn metric_monthly_gov_spending(p: &MetricPoint) -> f64 { p.monthly_gov_spending }
+    fn metric_gov_debt(p: &MetricPoint) -> f64 { p.gov_debt }
+    fn metric_bonds_outstanding(p: &MetricPoint) -> f64 { p.bonds_outstanding }
+    fn metric_monthly_goods_import_spending(p: &MetricPoint) -> f64 { p.monthly_goods_import_spending }
+    fn metric_monthly_goods_export_revenue(p: &MetricPoint) -> f64 { p.monthly_goods_export_revenue }
+    fn metric_cpi_index(p: &MetricPoint) -> f64 { p.cpi_index }
+    fn metric_inflation_rate_pct(p: &MetricPoint) -> f64 { p.inflation_rate * 100.0 }
+    fn metric_policy_rate_pct(p: &MetricPoint) -> f64 { p.policy_rate * 100.0 }
+    fn metric_real_policy_rate_pct(p: &MetricPoint) -> f64 { (p.policy_rate - p.inflation_rate) * 100.0 }
+    fn metric_monthly_unmet_need_events(p: &MetricPoint) -> f64 { p.monthly_unmet_need_events }
+    fn metric_monthly_essential_debt_spending(p: &MetricPoint) -> f64 { p.monthly_essential_debt_spending }
+    fn metric_stock_market_cap(p: &MetricPoint) -> f64 { p.stock_market_cap }
+    fn metric_stock_bank_equity_exposure(p: &MetricPoint) -> f64 { p.stock_bank_equity_exposure }
+    fn metric_deposit_rate_pct(p: &MetricPoint) -> f64 { p.deposit_rate * 100.0 }
+    fn metric_loan_rate_pct(p: &MetricPoint) -> f64 { p.loan_rate * 100.0 }
+    fn metric_rate_spread_pct(p: &MetricPoint) -> f64 { (p.loan_rate - p.deposit_rate) * 100.0 }
+    fn metric_real_deposit_rate_pct(p: &MetricPoint) -> f64 { (p.deposit_rate - p.inflation_rate) * 100.0 }
+    fn metric_savings_interest_paid(p: &MetricPoint) -> f64 { p.monthly_savings_interest_paid }
+    fn metric_loan_book(p: &MetricPoint) -> f64 { p.created_money_outstanding }
 
     fn expanded_axis_bounds(min: f64, max: f64) -> (f64, f64) {
         if !min.is_finite() || !max.is_finite() {

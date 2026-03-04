@@ -84,6 +84,7 @@ pub struct Person {
     pub last_month_unmet_needs_mask: u16,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
+    pub last_month_savings_interest: f64,
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
     pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
 }
@@ -132,6 +133,7 @@ impl Person {
             last_month_unmet_needs_mask: 0,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
+            last_month_savings_interest: 0.0,
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
         };
@@ -297,6 +299,7 @@ impl Person {
         self.last_month_unmet_needs_mask = 0;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
+        self.last_month_savings_interest = 0.0;
     }
 }
 

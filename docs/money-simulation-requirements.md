@@ -192,7 +192,9 @@ Where:
 - `u*` = `natural_unemployment_rate` (default 5%)
 - `u` = current aggregate unemployment rate
 
-The result is clamped to `[rate_floor, rate_ceiling]` (default 0%–20%). The new rate is propagated to every `Country.policy_rate` before the monthly snapshot is captured.
+The Taylor Rule result is the *target* rate. The actual rate moves at most one `policy_rate_step` (default 0.0025 = 25 bps) per month toward the target, then snapped to the nearest step grid point and clamped to `[rate_floor, rate_ceiling]` (default 0%–20%). This mirrors real central bank practice of moving in discrete quarter-point increments.
+
+The new rate is propagated to every `Country.policy_rate` before the monthly snapshot is captured.
 
 A `RatePolicyChange` event is emitted if the rate moves by at least `rate_change_event_threshold` (default 0.5%).
 
@@ -204,6 +206,24 @@ Each month, after all production prices are set, `recompute_cpi()` calculates a 
 - `cpi_index` = weighted average of relative prices across basket goods
 - Starts at `1.0`; drifts as company prices evolve
 - `monthly_inflation_rate = (new_cpi / old_cpi)^12 − 1` (annualized month-over-month)
+
+### Deposit Rate & Savings Interest
+Each month, after loan repayments, depositors earn interest on their cash balances:
+
+```
+deposit_rate = max(0, policy_rate − deposit_spread)
+monthly_interest = cash_balance × (deposit_rate / 12)
+```
+
+- `deposit_spread` (default 1%) models the bank's intermediation margin between policy and deposit rates.
+- Only balances above `savings_min_balance` (default $200) earn interest.
+- Gross interest is computed in parallel across all people and companies.
+- The total is capped by available `bank.reserve_balance` (strict settlement — no synthetic credits).
+- If reserves are insufficient, all payments are scaled down proportionally.
+- Interest is added to each holder's `cash_balance`; `last_month_savings_interest` records the per-holder amount for display.
+- The country tracks `monthly_savings_interest_paid` (reset each month).
+
+When `deposit_rate ≤ 0` (policy rate ≤ spread), no payments are made.
 
 ### Variable Loan Rate
 The bank loan rate adjusts with monetary policy:
@@ -265,6 +285,9 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `bond_maturity_months` | 12 | 1-year term (12 monthly coupons) |
 | `bond_retail_top_n` | 200 | Number of wealthiest people in retail tranche |
 | `rate_change_event_threshold` | 0.005 | Min 0.5% move to emit `RatePolicyChange` |
+| `policy_rate_step` | 0.0025 | Discrete step size for rate moves (25 bps per month) |
+| `deposit_spread` | 0.01 | Deposit rate = `max(0, policy_rate − deposit_spread)` |
+| `savings_min_balance` | 200.0 | Minimum cash balance required to earn deposit interest |
 
 ## Bank and Loans
 - Borrowers: people and companies.
@@ -284,6 +307,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 5. **Bond coupon & maturity** — distribute coupons; repay or default if `bond_months_to_maturity == 0`.
 6. Stock collateral seizure (margin calls).
 7. Loan repayment pass (people, then companies).
+7a. **Savings interest** — deposit interest distributed from bank reserves to eligible cash holders.
 8. Company profitability recomputation.
 9. Annual market wage raise pass (cadence-gated).
 10. Growth IPO pass (non-distress listings).
@@ -314,6 +338,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 - Government transfers are balance-neutral: treasury decreases by the same amount household cash increases, leaving total money supply unchanged.
 - Net new money enters via loan issuance only.
 - Repaying or writing off created principal decreases created-money outstanding.
+- Savings interest is a redistribution from bank reserves to household/company cash; it increases total measured money supply by the same amount bank reserves decrease (bank reserves are part of the money supply).
 - Tracked money supply remains close to:
   - `initial_supply + created_money_outstanding`
 

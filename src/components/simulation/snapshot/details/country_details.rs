@@ -148,6 +148,11 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!("Policy Rate: {:.2}%", country.policy_rate * 100.0),
         format!("Bank Loan Rate: {:.2}%", country.bank_loan_rate() * 100.0),
+        format!("Deposit Rate:  {:.2}%", country.deposit_rate() * 100.0),
+        format!(
+            "MTD Svgs Int:  {}",
+            money(country.monthly_savings_interest_paid, currency_symbol)
+        ),
         String::new(),
         "Trade & Tariffs:".to_string(),
         format!(

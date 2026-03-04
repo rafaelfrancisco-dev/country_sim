@@ -52,6 +52,7 @@ pub struct Company {
     pub consecutive_loss_months: u8,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
+    pub last_month_savings_interest: f64,
     pub last_month_units_produced: u32,
     pub last_month_units_sold: u32,
     pub last_month_export_units_sold: u32,
@@ -108,6 +109,7 @@ impl Company {
             consecutive_loss_months: 0,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
+            last_month_savings_interest: 0.0,
             last_month_units_produced: 0,
             last_month_units_sold: 0,
             last_month_export_units_sold: 0,
@@ -204,6 +206,7 @@ impl Company {
         self.last_month_sales = 0.0;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
+        self.last_month_savings_interest = 0.0;
         self.missed_loan_payment_this_month = false;
         self.last_month_units_produced = 0;
         self.last_month_units_sold = 0;
@@ -475,7 +478,6 @@ mod tests {
 
         assert!((company.average_monthly_revenue() - 23.33).abs() < 0.01);
     }
-
     #[test]
     fn average_profit_over_months_requires_enough_history() {
         let mut company = Company::new(1, "Test".to_string(), vec![0, 1, 2], 1);
@@ -484,7 +486,6 @@ mod tests {
         assert!((company.average_profit_over_months(4) - 0.0).abs() < 0.01);
         assert!((company.average_profit_over_months(3) - 23.33).abs() < 0.01);
     }
-
     #[test]
     fn default_companies_offer_multiple_job_types() {
         let companies = build_default_companies("A", 2);
@@ -496,7 +497,6 @@ mod tests {
                 .all(|company| company.offered_job_types.len() > 1)
         );
     }
-
     #[test]
     fn default_companies_cover_goods_catalog_with_default_count() {
         let companies = build_default_companies("A", DEFAULT_COMPANIES_PER_COUNTRY);
@@ -510,7 +510,6 @@ mod tests {
         assert_eq!(companies.len(), DEFAULT_COMPANIES_PER_COUNTRY as usize);
         assert_eq!(goods.len(), 15);
     }
-
     #[test]
     fn growth_openings_require_profitability_and_reserve() {
         let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 2);
@@ -524,7 +523,6 @@ mod tests {
         assert!(created > 0);
         assert!(!company.open_positions.is_empty());
     }
-
     #[test]
     fn price_cut_with_excess_inventory_clamps_to_at_cost_floor() {
         let market = GoodsMarketParams::default();
@@ -537,7 +535,6 @@ mod tests {
 
         assert!((company.unit_price - 6.0).abs() < 0.01);
     }
-
     #[test]
     fn price_raise_has_no_upper_clamp() {
         let market = GoodsMarketParams::default();

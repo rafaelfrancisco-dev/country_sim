@@ -84,6 +84,9 @@ fn aggregate_history_matches_country_sums() {
             cpi_index: 0.0,
             inflation_rate: 0.0,
             policy_rate: 0.0,
+            deposit_rate: 0.0,
+            loan_rate: 0.0,
+            monthly_savings_interest_paid: 0.0,
             bonds_outstanding: 0.0,
             stock_market_cap: 0.0,
             stock_bank_equity_exposure: 0.0,
@@ -115,6 +118,10 @@ fn aggregate_history_matches_country_sums() {
             cpi_index: acc.cpi_index + point.cpi_index,
             inflation_rate: acc.inflation_rate + point.inflation_rate,
             policy_rate: acc.policy_rate + point.policy_rate,
+            deposit_rate: acc.deposit_rate + point.deposit_rate,
+            loan_rate: acc.loan_rate + point.loan_rate,
+            monthly_savings_interest_paid: acc.monthly_savings_interest_paid
+                + point.monthly_savings_interest_paid,
             bonds_outstanding: acc.bonds_outstanding + point.bonds_outstanding,
             stock_market_cap: acc.stock_market_cap + point.stock_market_cap,
             stock_bank_equity_exposure: acc.stock_bank_equity_exposure

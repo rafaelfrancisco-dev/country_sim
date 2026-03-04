@@ -82,4 +82,14 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 | 3 | Monthly Unmet Need Events | Monthly Essential Debt Spending |
 | 4 | Stock Market Cap | Bank Equity Exposure |
 
+### Page 4 — Interest Rates & Credit
+| Row | Left | Right |
+|---|---|---|
+| 1 | Policy Rate % | Deposit Rate % |
+| 2 | Loan Rate % | Rate Spread % |
+| 3 | Real Deposit Rate % | Svgs Interest Paid |
+| 4 | Loan Book | Inflation Rate % |
+
+This page shows the full interest rate story: the central bank sets the policy rate in discrete steps; banks add a spread to derive loan and deposit rates; the rate spread is the bank's gross intermediation margin; the real deposit rate is the deposit rate minus inflation (negative = financial repression); savings interest paid is the monthly cash distributed to depositors; the loan book tracks total money created via lending; inflation closes the feedback loop back to the Taylor Rule.
+
 Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.

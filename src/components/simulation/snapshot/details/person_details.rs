@@ -83,6 +83,10 @@ pub(in crate::components::simulation) fn person_details_lines(
             "MTD New Loan: {}",
             money(person.last_month_new_loan, currency_symbol)
         ),
+        format!(
+            "MTD Svgs Int: {}",
+            money(person.last_month_savings_interest, currency_symbol)
+        ),
         String::new(),
         format!(
             "MTD Goods Spending: {}",

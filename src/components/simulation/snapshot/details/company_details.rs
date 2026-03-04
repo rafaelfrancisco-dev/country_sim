@@ -210,6 +210,10 @@ pub(in crate::components::simulation) fn company_details_lines(
             money(company.last_month_new_loan, currency_symbol)
         ),
         format!(
+            "MTD Svgs Int: {}",
+            money(company.last_month_savings_interest, currency_symbol)
+        ),
+        format!(
             "Current Money: {}",
             money(company.cash_balance, currency_symbol)
         ),

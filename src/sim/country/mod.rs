@@ -57,6 +57,7 @@ pub struct Country {
     pub monthly_coupon_paid: f64,
     pub monthly_bonds_issued: f64,
     pub monthly_bonds_matured: f64,
+    pub monthly_savings_interest_paid: f64,
     // Monetary policy (propagated from World each month)
     pub policy_rate: f64,
     // CPI / inflation tracking (persistent; not reset monthly)
@@ -155,6 +156,7 @@ impl Country {
             monthly_coupon_paid: 0.0,
             monthly_bonds_issued: 0.0,
             monthly_bonds_matured: 0.0,
+            monthly_savings_interest_paid: 0.0,
             policy_rate: initial_policy_rate,
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,
@@ -185,6 +187,11 @@ impl Country {
             self.sim_params.monetary.rate_floor,
             self.sim_params.monetary.rate_ceiling,
         )
+    }
+
+    /// Current deposit rate: policy rate minus deposit spread, floored at zero.
+    pub fn deposit_rate(&self) -> f64 {
+        (self.policy_rate - self.sim_params.monetary.deposit_spread).max(0.0)
     }
 
     pub(super) fn public_utility_dynamic_base_index(&self) -> f64 {

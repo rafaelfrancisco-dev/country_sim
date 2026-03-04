@@ -115,6 +115,19 @@ impl World {
             .map(|country| country.monthly_inflation_rate)
             .sum::<f64>()
             / count;
+        let deposit_rate = self
+            .countries
+            .first()
+            .map_or(0.0, |c| c.deposit_rate());
+        let loan_rate = self
+            .countries
+            .first()
+            .map_or(0.0, |c| c.bank_loan_rate());
+        let monthly_savings_interest_paid = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_savings_interest_paid)
+            .sum();
         let bonds_outstanding = self
             .countries
             .iter()
@@ -153,6 +166,9 @@ impl World {
             cpi_index,
             inflation_rate,
             policy_rate: self.policy_rate,
+            deposit_rate,
+            loan_rate,
+            monthly_savings_interest_paid,
             bonds_outstanding,
             stock_market_cap,
             stock_bank_equity_exposure,
@@ -182,6 +198,9 @@ impl World {
             cpi_index: country.cpi_index,
             inflation_rate: country.monthly_inflation_rate,
             policy_rate: country.policy_rate,
+            deposit_rate: country.deposit_rate(),
+            loan_rate: country.bank_loan_rate(),
+            monthly_savings_interest_paid: country.monthly_savings_interest_paid,
             bonds_outstanding: country.bonds_outstanding,
             stock_market_cap: country.stock_market.total_market_cap(),
             stock_bank_equity_exposure: country.stock_market.bank_equity_exposure(),

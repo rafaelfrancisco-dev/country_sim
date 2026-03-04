@@ -49,12 +49,18 @@ impl World {
 
         let old_rate = self.policy_rate;
 
-        // Taylor Rule: r = r* + α*(π - π*) + β*(u* - u)
-        let new_rate = (params.neutral_policy_rate
+        // Taylor Rule computes unconstrained target
+        let target_rate = (params.neutral_policy_rate
             + params.inflation_coefficient * (avg_inflation - params.target_inflation_rate)
             + params.unemployment_coefficient
                 * (params.natural_unemployment_rate - avg_unemp_rate))
             .clamp(params.rate_floor, params.rate_ceiling);
+
+        // Move at most one step per month toward target, then snap to step grid
+        let step = params.policy_rate_step.max(0.0001);
+        let clamped_delta = (target_rate - old_rate).clamp(-step, step);
+        let new_rate = ((old_rate + clamped_delta) / step).round() * step;
+        let new_rate = new_rate.clamp(params.rate_floor, params.rate_ceiling);
 
         self.policy_rate = new_rate;
 

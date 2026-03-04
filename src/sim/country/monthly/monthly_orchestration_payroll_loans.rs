@@ -16,6 +16,7 @@ impl Country {
         self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
+        self.process_savings_interest();
         self.recompute_company_profitability();
         self.process_annual_wage_raises();
         self.process_growth_ipos();
@@ -49,6 +50,7 @@ impl Country {
         let bond_coupon_ms = time_op!(self.process_bond_coupon_and_maturity());
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
+        let savings_interest_ms = time_op!(self.process_savings_interest());
         let profitability_ms = time_op!(self.recompute_company_profitability());
         let _annual_wage_raise_ms = time_op!(self.process_annual_wage_raises());
         let _growth_ipos_ms = time_op!(self.process_growth_ipos());
@@ -80,6 +82,7 @@ impl Country {
             bond_coupon_ms,
             stock_collateral_ms,
             loan_repayments_ms,
+            savings_interest_ms,
             profitability_ms,
             company_distress_ms,
             loan_requests_ms,
@@ -112,6 +115,7 @@ impl Country {
         self.monthly_coupon_paid = 0.0;
         self.monthly_bonds_issued = 0.0;
         self.monthly_bonds_matured = 0.0;
+        self.monthly_savings_interest_paid = 0.0;
         self.stock_market.reset_mtd_trackers();
 
         self.people

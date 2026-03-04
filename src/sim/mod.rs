@@ -15,6 +15,7 @@ pub mod person;
 pub mod runtime;
 pub mod setup;
 pub mod stock_market;
+pub mod stock_market_params;
 pub mod tickable;
 #[cfg(feature = "bench-trace")]
 pub mod trace;
