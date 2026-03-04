@@ -8,6 +8,7 @@ use super::{
 
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
 const COMPANY_HISTORY_WINDOW: usize = 12;
+const PROFIT_HISTORY_WINDOW: usize = 12;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct JobOpening {
@@ -56,6 +57,7 @@ pub struct Company {
     pub last_month_domestic_units_sold: u32,
     pub last_month_sell_through: f64,
     pub sales_history: Vec<f64>,
+    pub profit_history: Vec<f64>,
     pub sold_units_history: Vec<u32>,
     pub employee_count_history: Vec<u32>,
     pub price_history: Vec<f64>,
@@ -110,6 +112,7 @@ impl Company {
             last_month_domestic_units_sold: 0,
             last_month_sell_through: 0.0,
             sales_history: Vec::with_capacity(3),
+            profit_history: Vec::with_capacity(PROFIT_HISTORY_WINDOW),
             sold_units_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             employee_count_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
             price_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
@@ -236,6 +239,11 @@ impl Company {
             self.sales_history.remove(0);
         }
         self.sales_history.push(round_cents(self.last_month_sales));
+        Self::push_history_f64(
+            &mut self.profit_history,
+            round_cents(self.last_month_profit),
+            PROFIT_HISTORY_WINDOW,
+        );
         Self::push_history_u32(
             &mut self.sold_units_history,
             self.last_month_units_sold,
@@ -284,6 +292,16 @@ impl Company {
             .max(payroll_reference * params.company_growth.payroll_reserve_multiplier);
         self.consecutive_profitable_months >= params.company_growth.min_profitable_months
             && self.cash_balance >= required_cash
+    }
+
+    pub fn average_profit_over_months(&self, months: usize) -> f64 {
+        if months == 0 || self.profit_history.len() < months {
+            return 0.0;
+        }
+
+        let start = self.profit_history.len() - months;
+        let total: f64 = self.profit_history[start..].iter().sum();
+        round_cents(total / months as f64)
     }
 
     pub fn open_positions_from_growth(
@@ -443,6 +461,15 @@ mod tests {
         company.sales_history = vec![10.0, 20.0, 40.0];
 
         assert!((company.average_monthly_revenue() - 23.33).abs() < 0.01);
+    }
+
+    #[test]
+    fn average_profit_over_months_requires_enough_history() {
+        let mut company = Company::new(1, "Test".to_string(), vec![0, 1, 2], 1);
+        company.profit_history = vec![10.0, 20.0, 40.0];
+
+        assert!((company.average_profit_over_months(4) - 0.0).abs() < 0.01);
+        assert!((company.average_profit_over_months(3) - 23.33).abs() < 0.01);
     }
 
     #[test]

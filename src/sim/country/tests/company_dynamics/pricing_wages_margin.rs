@@ -239,6 +239,227 @@ fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
     );
 }
 
+#[test]
+fn annual_market_raise_updates_contracts_and_openings_on_year_boundary() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+    companies[0].add_opening_with_salary(0, 1, 3_200.0);
+
+    let mut worker_a = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_a.set_employment_with_salary(0, 0, 3_200.0, 0);
+
+    let mut worker_b = Person::new_with_profile(
+        2,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 1,
+        },
+        202,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_b.set_employment_with_salary(1, 0, 5_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker_a, worker_b],
+        companies,
+        200_000.0,
+        params,
+    );
+    country.month = 11;
+    country.companies[0].profit_history = vec![1_000.0; 12];
+    country.companies[0].cash_balance = 50_000.0;
+    country.companies[1].profit_history = vec![1_000.0; 12];
+    country.companies[1].cash_balance = 50_000.0;
+
+    country.process_month_end();
+
+    assert!((country.people[0].monthly_salary() - 5_000.0).abs() < 0.01);
+    let raised_opening = country.companies[0]
+        .open_positions
+        .iter()
+        .find(|opening| opening.job_type_id == 0)
+        .expect("company should retain raised opening");
+    assert!((raised_opening.offered_monthly_salary - 5_000.0).abs() < 0.01);
+}
+
+#[test]
+fn annual_market_raise_skips_non_boundary_months() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+
+    let mut worker_a = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_a.set_employment_with_salary(0, 0, 3_200.0, 0);
+
+    let mut worker_b = Person::new_with_profile(
+        2,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 1,
+        },
+        202,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_b.set_employment_with_salary(1, 0, 5_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker_a, worker_b],
+        companies,
+        200_000.0,
+        params,
+    );
+    country.month = 10;
+    country.companies[0].profit_history = vec![1_000.0; 12];
+    country.companies[0].cash_balance = 50_000.0;
+
+    country.process_month_end();
+
+    assert!((country.people[0].monthly_salary() - 3_200.0).abs() < 0.01);
+}
+
+#[test]
+fn annual_market_raise_requires_min_profit_history() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+
+    let mut worker_a = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_a.set_employment_with_salary(0, 0, 3_200.0, 0);
+
+    let mut worker_b = Person::new_with_profile(
+        2,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 1,
+        },
+        202,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_b.set_employment_with_salary(1, 0, 5_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker_a, worker_b],
+        companies,
+        200_000.0,
+        params,
+    );
+    country.month = 11;
+    country.companies[0].profit_history = vec![1_000.0; 10];
+    country.companies[0].cash_balance = 50_000.0;
+
+    country.process_month_end();
+
+    assert!((country.people[0].monthly_salary() - 3_200.0).abs() < 0.01);
+}
+
+#[test]
+fn annual_market_raise_requires_cash_runway() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+
+    let mut worker_a = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_a.set_employment_with_salary(0, 0, 3_200.0, 0);
+
+    let mut worker_b = Person::new_with_profile(
+        2,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 1,
+        },
+        202,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker_b.set_employment_with_salary(1, 0, 5_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker_a, worker_b],
+        companies,
+        200_000.0,
+        params,
+    );
+    country.month = 11;
+    country.companies[0].profit_history = vec![1_000.0; 11];
+    country.companies[0].cash_balance = 10.0;
+
+    country.process_month_end();
+
+    assert!((country.people[0].monthly_salary() - 3_200.0).abs() < 0.01);
+}
+
 // ---------------------------------------------------------------------------
 // Stock market — margin call direction test
 // ---------------------------------------------------------------------------

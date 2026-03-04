@@ -20,7 +20,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Economic state: `cash_balance`, optional `loan`, monthly trackers.
 - Employment state: `EmploymentStatus` (`Unemployed` or `Employed { job_type_id, employer_company_id }`).
 - Employment tenure: `employment_start_day` (used to compute company-tenure months in UI worker rosters).
-- Contract state: `agreed_monthly_salary` (salary set at hire/switch time).
+- Contract state: `agreed_monthly_salary` (salary set at hire/switch and later adjusted by wage policy passes such as distress cuts and annual raises).
 - Demographics: `age_days`, `education_track`, `habilitation`.
 - Helpers:
   - `monthly_salary()` returns contract salary for employed people, `0` for unemployed.
@@ -30,6 +30,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Offers multiple existing job types.
 - Tracks open vacancies via `open_positions` with explicit offered salary.
 - Tracks monthly profitability and profitable streaks.
+- Tracks trailing profit history for annual raise eligibility checks.
 - Can expand hiring only when profitability and reserve conditions are met.
 - Tracks distress state (`consecutive_missed_loan_payments`, `missed_loan_payment_this_month`) and wage policy (`wage_offer_multiplier`).
 
@@ -41,7 +42,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   3. births using population-rate + carry model
   4. daily job-seeking and hiring against company vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, distress escalation, loan requests, growth openings, startup formation, job switching, bankruptcy cleanup, and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, job switching, churn), and close.
 - Maintains `next_startup_serial` so startup names remain unique across company removals.
 
 ### `World`

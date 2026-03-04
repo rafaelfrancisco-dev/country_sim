@@ -249,6 +249,27 @@ impl Default for LaborMobilityParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct AnnualWageRaiseParams {
+    pub enabled: bool,
+    pub cadence_months: u8,
+    pub min_history_months: u8,
+    pub min_cash_runway_months: f64,
+    pub max_raise_rate: Option<f64>,
+}
+
+impl Default for AnnualWageRaiseParams {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cadence_months: 12,
+            min_history_months: 12,
+            min_cash_runway_months: 2.0,
+            max_raise_rate: None,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct LaborChurnParams {
     /// Monthly quit probability applied to employed workers.
     pub quit_rate_monthly: f64,
@@ -557,6 +578,7 @@ pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
+    pub annual_wage_raise: AnnualWageRaiseParams,
     pub labor_churn: LaborChurnParams,
     pub labor_demand: LaborDemandParams,
     pub company_growth: CompanyGrowthParams,

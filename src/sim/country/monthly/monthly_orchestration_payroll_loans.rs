@@ -17,6 +17,7 @@ impl Country {
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
         self.recompute_company_profitability();
+        self.process_annual_wage_raises();
         self.process_growth_ipos();
         self.process_listed_company_secondary_offerings();
         self.process_company_distress();
@@ -49,6 +50,7 @@ impl Country {
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
         let profitability_ms = time_op!(self.recompute_company_profitability());
+        let _annual_wage_raise_ms = time_op!(self.process_annual_wage_raises());
         let _growth_ipos_ms = time_op!(self.process_growth_ipos());
         let secondary_offerings_ms = time_op!(self.process_listed_company_secondary_offerings());
         let company_distress_ms = time_op!(self.process_company_distress());

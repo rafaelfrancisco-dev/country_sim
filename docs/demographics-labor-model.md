@@ -118,6 +118,20 @@ Opening count:
 
 Openings are distributed across existing offered job types weighted by each job's assignment weight.
 
+## Annual Market Wage Raises
+- A cadence-gated raise pass runs yearly by default (`cadence_months = 12`).
+- Eligibility requires:
+  - positive payroll reference (`monthly_payroll_budget > 0`)
+  - sufficient trailing profit history window (`min_history_months`, default 12)
+  - positive average profit over that window
+  - enough cash runway: `cash_balance >= monthly_payroll_budget × min_cash_runway_months` (default `2.0`)
+- Raise size is market-following:
+  - internal reference salary per job = average incumbent contract salary (fallback to average opening salary)
+  - external benchmark salary per job = highest same-job salary among other companies (contracts and openings)
+  - company raise rate = maximum positive `(external / internal - 1)` across jobs
+  - optional cap via `max_raise_rate` (default no cap)
+- Applied to all contracts and openings in that company (and updates `wage_offer_multiplier` accordingly).
+
 ## Startup Formation (Monthly)
 - Founders can come from employed workers and qualified unemployed adults.
 - Team size is bounded (`3..6` by default).

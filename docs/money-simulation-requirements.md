@@ -57,6 +57,26 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - `min(8, 1 + floor(last_month_profit / 50_000))`
 - Openings are distributed among existing offered job types with weight by assignment weight.
 
+## Annual Market Wage Raises
+- A company-wide raise pass runs on a configurable yearly cadence (default every `12` months).
+- Raise eligibility requires all of:
+  - company payroll reference is positive (`monthly_payroll_budget > 0`)
+  - enough profit history is available for the configured window (default 12 months)
+  - trailing average profit is positive over that window
+  - cash runway is sufficient: `cash_balance >= monthly_payroll_budget × min_cash_runway_months` (default `2.0`)
+- Raise pressure is market-following (no fixed base raise):
+  - for each job, compute the company's internal pay reference:
+    - average contract salary of employed workers in that job
+    - fallback: average opening offer for that job when no incumbents exist
+  - external benchmark for that job is the highest salary for the same job in other companies (using both contracts and openings)
+  - job-level pressure ratio: `external / internal - 1`
+  - company raise rate is the maximum positive job-level pressure ratio
+  - optional cap can clamp this raise rate (`max_raise_rate`; default uncapped)
+- Applied effects:
+  - employee contract salaries are multiplied by `(1 + raise_rate)`
+  - open-position offered salaries are multiplied by `(1 + raise_rate)`
+  - `wage_offer_multiplier` is multiplied by `(1 + raise_rate)`
+
 ## Company Formation, Distress, and Bankruptcy
 - **Startup formation (monthly)**:
   - founder pool includes employed workers and qualified unemployed adults.
@@ -265,22 +285,25 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 6. Stock collateral seizure (margin calls).
 7. Loan repayment pass (people, then companies).
 8. Company profitability recomputation.
-9. Growth IPO pass (non-distress listings).
-10. Company distress escalation (including IPO rescue path before bankruptcy).
-11. End-of-month loan requests (at current `bank_loan_rate()`).
-12. Growth-driven opening creation.
-13. Startup formation pass.
-14. Essential + countercyclical public-employer backfill.
-15. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
-16. Public-utility wage adjustment.
-17. Monthly job-switch pass (same profession, minimum raise threshold).
-18. Recompute company headcounts again.
-19. Company month close (pricing history/profitability history side effects, plus state-owned utility cap + affordability-aware reversion).
-20. Stock dividends.
-21. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
-22. Month increment and aggregate recomputation.
+9. Annual market wage raise pass (cadence-gated).
+10. Growth IPO pass (non-distress listings).
+11. Secondary offering pass for listed distressed companies.
+12. Company distress escalation (including IPO rescue path before bankruptcy).
+13. End-of-month loan requests (at current `bank_loan_rate()`).
+14. Growth-driven opening creation.
+15. Startup formation pass.
+16. Essential + countercyclical public-employer backfill.
+17. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
+18. Public-utility wage adjustment.
+19. Monthly job-switch pass (same profession, minimum raise threshold).
+20. Monthly labor churn pass.
+21. Recompute company headcounts again.
+22. Company month close (pricing/history side effects, plus state-owned utility cap + affordability-aware reversion).
+23. Stock dividends.
+24. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
+25. Month increment and aggregate recomputation.
 
-*World-level after all countries complete steps 1–22:*
+*World-level after all countries complete steps 1–25:*
 - Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
 - Monthly snapshot captured (picks up the new rate).
 - Monthly trackers reset.
@@ -321,9 +344,9 @@ The stock market runs once per day after the goods market. Each country's market
 7. **One `record_day_close` per country** is called after all symbols settle.
 
 ### Monthly Stock Events
-- **Margin calls** (step 5 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
-- **Secondary offerings** (step after growth IPOs): listed companies with `consecutive_missed_loan_payments >= secondary_offering_missed_payment_trigger` may raise equity capital by issuing up to `shares_outstanding × secondary_offering_max_dilution` new shares at `last_price × (1 − secondary_offering_discount)`. Retail + bank subscribers provide cash; `shares_outstanding` and `free_float_shares` increase by shares allocated; proceeds go to company cash. Emits `StockSecondaryOffering` event (`[SEC]` log tag).
-- **Dividends** (step 17): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
+- **Margin calls** (step 6 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
+- **Secondary offerings** (step 11): listed companies with `consecutive_missed_loan_payments >= secondary_offering_missed_payment_trigger` may raise equity capital by issuing up to `shares_outstanding × secondary_offering_max_dilution` new shares at `last_price × (1 − secondary_offering_discount)`. Retail + bank subscribers provide cash; `shares_outstanding` and `free_float_shares` increase by shares allocated; proceeds go to company cash. Emits `StockSecondaryOffering` event (`[SEC]` log tag).
+- **Dividends** (step 23): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
 
 ### Share Conservation Invariant
 For every listed company: `Σ person_holdings + bank_holdings == free_float_shares`. This is checked by `Country::validate_money_invariants` in invariant-focused tests and in runtime builds compiled with `--features runtime-invariants`.
