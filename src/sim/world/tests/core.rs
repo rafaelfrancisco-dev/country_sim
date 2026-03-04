@@ -147,6 +147,32 @@ fn aggregate_history_matches_country_sums() {
 }
 
 #[test]
+fn aggregate_history_uses_population_weighted_rates() {
+    let mut country_a = Country::new(1, "A".to_string(), build_people(2));
+    country_a.policy_rate = 0.03;
+    country_a.sim_params.monetary.deposit_spread = 0.01;
+    country_a.sim_params.monetary.credit_spread = 0.04;
+
+    let mut country_b = Country::new(2, "B".to_string(), build_people(5));
+    country_b.policy_rate = 0.06;
+    country_b.sim_params.monetary.deposit_spread = 0.015;
+    country_b.sim_params.monetary.credit_spread = 0.02;
+
+    let expected_deposit_rate = (country_a.deposit_rate() * country_a.population() as f64
+        + country_b.deposit_rate() * country_b.population() as f64)
+        / (country_a.population() + country_b.population()) as f64;
+    let expected_loan_rate = (country_a.bank_loan_rate() * country_a.population() as f64
+        + country_b.bank_loan_rate() * country_b.population() as f64)
+        / (country_a.population() + country_b.population()) as f64;
+
+    let world = World::new(vec![country_a, country_b]);
+    let aggregate = world.world_history[0];
+
+    assert!((aggregate.deposit_rate - expected_deposit_rate).abs() < 1e-12);
+    assert!((aggregate.loan_rate - expected_loan_rate).abs() < 1e-12);
+}
+
+#[test]
 fn world_tick_parallel_paths_keep_invariants_small_world() {
     let single_thread = run_world_in_pool(2, 25, 120, 1);
     let multi_thread = run_world_in_pool(2, 25, 120, 4);

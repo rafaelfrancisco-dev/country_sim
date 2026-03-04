@@ -85,11 +85,11 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 ### Page 4 — Interest Rates & Credit
 | Row | Left | Right |
 |---|---|---|
-| 1 | Policy Rate % | Deposit Rate % |
-| 2 | Loan Rate % | Rate Spread % |
-| 3 | Real Deposit Rate % | Svgs Interest Paid |
-| 4 | Loan Book | Inflation Rate % |
+| 1 | Deposit Rate % | Loan Rate % |
+| 2 | Rate Spread % | Real Deposit Rate % |
+| 3 | Monthly Savings Interest Paid | Real Loan Rate % |
+| 4 | Credit-to-Money % | Reserve Coverage % |
 
-This page shows the full interest rate story: the central bank sets the policy rate in discrete steps; banks add a spread to derive loan and deposit rates; the rate spread is the bank's gross intermediation margin; the real deposit rate is the deposit rate minus inflation (negative = financial repression); savings interest paid is the monthly cash distributed to depositors; the loan book tracks total money created via lending; inflation closes the feedback loop back to the Taylor Rule.
+This page focuses on bank transmission and credit quality without repeating charts from page 3. Deposit and loan rates show policy passthrough; spread is the gross intermediation margin; real deposit and real loan rates adjust for inflation; monthly savings interest paid shows cash transfer to depositors; credit-to-money tracks leverage in the money stock; reserve coverage tracks liquid backing against the loan book.
 
 Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.

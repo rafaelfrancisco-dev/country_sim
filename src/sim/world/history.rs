@@ -115,8 +115,28 @@ impl World {
             .map(|country| country.monthly_inflation_rate)
             .sum::<f64>()
             / count;
-        let deposit_rate = self.countries.first().map_or(0.0, |c| c.deposit_rate());
-        let loan_rate = self.countries.first().map_or(0.0, |c| c.bank_loan_rate());
+        let total_population = self
+            .countries
+            .iter()
+            .map(|country| country.population() as f64)
+            .sum::<f64>();
+        let (deposit_rate, loan_rate) = if total_population > 0.0 {
+            let weighted_deposit = self
+                .countries
+                .iter()
+                .map(|country| country.deposit_rate() * country.population() as f64)
+                .sum::<f64>()
+                / total_population;
+            let weighted_loan = self
+                .countries
+                .iter()
+                .map(|country| country.bank_loan_rate() * country.population() as f64)
+                .sum::<f64>()
+                / total_population;
+            (weighted_deposit, weighted_loan)
+        } else {
+            (0.0, 0.0)
+        };
         let monthly_savings_interest_paid = self
             .countries
             .iter()

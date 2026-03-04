@@ -1,4 +1,6 @@
 mod charts;
+#[cfg(test)]
+mod charts_tests;
 mod details;
 mod events;
 mod goods;
