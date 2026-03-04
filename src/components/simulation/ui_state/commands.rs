@@ -114,24 +114,15 @@ impl UiState {
             UiCommand::CloseDetails => {
                 self.details_view = DetailsView::List;
                 self.details_page = 0;
+                self.company_workers_scroll = 0;
                 self.country_policy_form = CountryPolicyFormState::default();
             }
             UiCommand::DetailsPagePrev => {
-                if matches!(
-                    self.details_view,
-                    DetailsView::Person | DetailsView::Company
-                ) {
-                    self.details_page = 0;
-                } else {
-                    self.details_page = self.details_page.saturating_sub(1);
-                }
+                self.details_page = self.details_page.saturating_sub(1);
             }
             UiCommand::DetailsPageNext => {
-                if matches!(
-                    self.details_view,
-                    DetailsView::Person | DetailsView::Company
-                ) {
-                    self.details_page = 1;
+                if let Some(max_page) = self.max_details_page_for_view() {
+                    self.details_page = self.details_page.saturating_add(1).min(max_page);
                 } else {
                     self.details_page = self.details_page.saturating_add(1);
                 }
@@ -174,6 +165,12 @@ impl UiState {
             UiCommand::EventsSearchClear => {
                 self.events_search_query.clear();
             }
+            UiCommand::CompanyWorkersScrollUp => {
+                self.company_workers_scroll = self.company_workers_scroll.saturating_sub(1);
+            }
+            UiCommand::CompanyWorkersScrollDown => {
+                self.company_workers_scroll = self.company_workers_scroll.saturating_add(1);
+            }
             UiCommand::StocksPrevCountry => self.select_prev_country_row(world),
             UiCommand::StocksNextCountry => self.select_next_country_row(world),
             UiCommand::StocksFocusCountry => {
@@ -199,6 +196,15 @@ impl UiState {
         }
 
         pending_domain_command
+    }
+
+    pub(super) fn max_details_page_for_view(&self) -> Option<usize> {
+        match self.details_view {
+            DetailsView::Person => Some(1),
+            DetailsView::Company => Some(3),
+            DetailsView::CountryPolicy | DetailsView::List => Some(0),
+            DetailsView::Country => None,
+        }
     }
 
     fn commit_country_policy_edit(&mut self, world: &World) -> Option<GameCommand> {

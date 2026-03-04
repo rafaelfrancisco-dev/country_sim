@@ -274,7 +274,7 @@ fn monthly_job_switch_moves_worker_only_for_raise_and_backfills_old_opening() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    person.set_employment_with_salary(0, 0, 3_200.0);
+    person.set_employment_with_salary(0, 0, 3_200.0, 0);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;
@@ -325,7 +325,7 @@ fn first_missed_company_payment_applies_wage_cut_to_contracts_and_openings() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    person.set_employment_with_salary(0, 0, 4_000.0);
+    person.set_employment_with_salary(0, 0, 4_000.0, 0);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;

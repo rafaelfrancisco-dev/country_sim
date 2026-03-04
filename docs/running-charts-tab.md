@@ -40,9 +40,12 @@ The running UI uses one navigation convention across tabs:
     - `Esc`: cancel field edit; when not editing, return to country details
 - `Goods`: country/company navigation, company details panel.
   - Company details use fixed pages:
-    - page 1: company overview details + history charts
-    - page 2: related events for that company (charts hidden)
-  - Company page 2 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
+    - page 1: company overview details
+    - page 2: company history charts
+    - page 3: related events for that company
+    - page 4: current employees table (`Name`, `Job`, `Tenure (mo)`, `Pay/mo`)
+  - Company page 3 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
+  - Company page 4 uses `w/s` to scroll employees.
 - `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.

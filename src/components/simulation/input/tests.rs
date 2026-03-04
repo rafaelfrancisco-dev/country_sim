@@ -278,7 +278,7 @@ fn company_related_events_page_uses_events_controls() {
     let simulation = Simulation::new();
     let company_events_state = RunningInputState {
         details_view: DetailsView::Company,
-        details_page: 1,
+        details_page: 2,
         selection_focus: SelectionFocus::Company,
         active_tab: RunningTab::Goods,
         events_search_active: false,
@@ -292,5 +292,27 @@ fn company_related_events_page_uses_events_controls() {
     assert_eq!(
         simulation.map_running_key(KeyEvent::from(KeyCode::Char('o')), company_events_state),
         Some(SimulationCommand::Ui(UiCommand::EventsToggleSort))
+    );
+}
+
+#[test]
+fn company_workers_page_uses_worker_scroll_controls() {
+    let simulation = Simulation::new();
+    let workers_state = RunningInputState {
+        details_view: DetailsView::Company,
+        details_page: 3,
+        selection_focus: SelectionFocus::Company,
+        active_tab: RunningTab::Goods,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), workers_state),
+        Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollUp))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), workers_state),
+        Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollDown))
     );
 }

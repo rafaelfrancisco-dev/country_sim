@@ -77,6 +77,14 @@ pub(in crate::components::simulation) struct CompanyRowSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct CompanyWorkerRowSnapshot {
+    pub name: String,
+    pub job: String,
+    pub tenure_months: String,
+    pub salary: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct RunningSnapshot {
     pub core: RunningCoreSnapshot,
     pub tab: RunningTabSnapshot,
@@ -120,6 +128,7 @@ pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub max_snapshot_age_ms: f64,
     pub invariant_warnings: Vec<String>,
     pub events_search_active: bool,
+    pub company_workers_scroll: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,6 +155,7 @@ pub(in crate::components::simulation) struct MainTabSnapshot {
 pub(in crate::components::simulation) struct GoodsTabSnapshot {
     pub company_rows: Vec<CompanyRowSnapshot>,
     pub company_details_lines: Vec<String>,
+    pub company_worker_rows: Vec<CompanyWorkerRowSnapshot>,
     pub company_related_events: EventsTabSnapshot,
     pub company_sold_history: Arc<[f64]>,
     pub company_employee_history: Arc<[f64]>,

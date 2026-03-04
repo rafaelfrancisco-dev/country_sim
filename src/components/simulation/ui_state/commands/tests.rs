@@ -81,6 +81,24 @@ fn details_page_commands_adjust_and_close_resets() {
 }
 
 #[test]
+fn company_details_page_commands_clamp_to_page_three() {
+    let world = sample_world();
+    let mut ui = UiState {
+        details_view: DetailsView::Company,
+        details_page: 0,
+        ..UiState::default()
+    };
+
+    for _ in 0..8 {
+        ui.apply(UiCommand::DetailsPageNext, &world);
+    }
+    assert_eq!(ui.details_page, 3);
+
+    ui.apply(UiCommand::DetailsPagePrev, &world);
+    assert_eq!(ui.details_page, 2);
+}
+
+#[test]
 fn country_details_page_commands_remain_unbounded() {
     let world = sample_world();
     let mut ui = UiState {

@@ -147,7 +147,7 @@ impl Country {
             let floor_salary = salary_for_job(job_id) * floor_ratio;
             let next_salary =
                 round_cents((person.monthly_salary() * (1.0 - cut_rate)).max(floor_salary));
-            person.set_employment_with_salary(company_id, job_id, next_salary);
+            person.set_employment_with_salary(company_id, job_id, next_salary, self.day);
         }
 
         if let Some(company) = self.companies.get_mut(company_id as usize) {

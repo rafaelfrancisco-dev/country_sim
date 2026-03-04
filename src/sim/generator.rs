@@ -213,7 +213,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
                 &job_cache.employer_pickers,
                 &mut rng,
             );
-            person.set_employment(employer_company_id, job_type_id);
+            person.set_employment(employer_company_id, job_type_id, 0);
         }
 
         people.push(person);

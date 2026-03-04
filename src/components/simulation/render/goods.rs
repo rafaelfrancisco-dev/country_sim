@@ -44,14 +44,17 @@ impl Simulation {
         match world.details_view {
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world, tab);
-                if world.details_page == 0 {
-                    format!(
-                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (1/2)",
+                match world.details_page {
+                    0 => format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (1/4)",
                         hotkeys::GLOBAL_RUNNING_HINT
-                    )
-                } else {
-                    format!(
-                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (2/2)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                    ),
+                    1 => format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (2/4)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
+                    2 => format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (3/4)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
                         hotkeys::GLOBAL_RUNNING_HINT,
                         event_search_hint(
                             world.events_search_active,
@@ -60,7 +63,12 @@ impl Simulation {
                         tab.company_related_events.events_total_count,
                         tab.company_related_events.events_sort_label,
                         tab.company_related_events.events_category_label,
-                    )
+                    ),
+                    _ => format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (4/4)  [w/s] scroll workers | Employees: {}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        tab.company_worker_rows.len(),
+                    ),
                 }
             }
             _ => {
@@ -203,114 +211,192 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &GoodsTabSnapshot,
     ) {
-        if world.details_page > 0 {
-            self.draw_event_log_panel(
-                frame,
-                area,
-                world,
-                &tab.company_related_events,
-                "Company Related Events",
-            );
-            return;
+        match world.details_page {
+            0 => {
+                let details = tab
+                    .company_details_lines
+                    .iter()
+                    .map(|line| Line::from(line.as_str()))
+                    .collect::<Vec<_>>();
+
+                frame.render_widget(
+                    Paragraph::new(details)
+                        .style(theme::primary_text().bg(theme::PANEL_BG))
+                        .wrap(Wrap { trim: true })
+                        .block(
+                            Block::default()
+                                .title(" Company Details (Page 1/4) ")
+                                .borders(Borders::ALL)
+                                .border_style(theme::neutral_border())
+                                .title_style(theme::primary_text())
+                                .style(Style::default().bg(theme::PANEL_BG)),
+                        ),
+                    area,
+                );
+            }
+            1 => {
+                let [charts_top, charts_mid, charts_bottom] = Layout::vertical([
+                    Constraint::Percentage(34),
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(33),
+                ])
+                .areas(area);
+                let [sold_area, employee_area] =
+                    Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                        .areas(charts_top);
+                let [price_area, loan_area] =
+                    Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                        .areas(charts_mid);
+                let [money_area, spare_area] =
+                    Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                        .areas(charts_bottom);
+
+                self.draw_company_history_chart(
+                    frame,
+                    sold_area,
+                    tab.company_sold_history.as_ref(),
+                    "Sold Units History (Page 2/4)",
+                    Color::Cyan,
+                    false,
+                    world.currency_symbol.as_str(),
+                );
+                self.draw_company_history_chart(
+                    frame,
+                    employee_area,
+                    tab.company_employee_history.as_ref(),
+                    "Employees History (Page 2/4)",
+                    Color::Green,
+                    false,
+                    world.currency_symbol.as_str(),
+                );
+                self.draw_company_history_chart(
+                    frame,
+                    price_area,
+                    tab.company_price_history.as_ref(),
+                    "Price History (Page 2/4)",
+                    Color::Yellow,
+                    true,
+                    world.currency_symbol.as_str(),
+                );
+                self.draw_company_history_chart(
+                    frame,
+                    loan_area,
+                    tab.company_loan_payment_history.as_ref(),
+                    "Loan Payments History (Page 2/4)",
+                    Color::LightMagenta,
+                    true,
+                    world.currency_symbol.as_str(),
+                );
+                self.draw_company_history_chart(
+                    frame,
+                    money_area,
+                    tab.company_money_history.as_ref(),
+                    "Money History (Page 2/4)",
+                    Color::LightGreen,
+                    true,
+                    world.currency_symbol.as_str(),
+                );
+                frame.render_widget(
+                    Paragraph::new("")
+                        .style(theme::muted_text().bg(theme::PANEL_BG))
+                        .block(
+                            Block::default()
+                                .title(" Company Charts (Page 2/4) ")
+                                .borders(Borders::ALL)
+                                .border_style(theme::neutral_border())
+                                .style(Style::default().bg(theme::PANEL_BG)),
+                        ),
+                    spare_area,
+                );
+            }
+            2 => {
+                self.draw_event_log_panel(
+                    frame,
+                    area,
+                    world,
+                    &tab.company_related_events,
+                    "Company Related Events (Page 3/4)",
+                );
+            }
+            _ => self.draw_company_workers_table(frame, area, world, tab),
         }
+    }
 
-        let [details_area, charts_area] =
-            Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).areas(area);
-
-        let details = tab
-            .company_details_lines
+    fn draw_company_workers_table(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+        tab: &GoodsTabSnapshot,
+    ) {
+        let total = tab.company_worker_rows.len();
+        let max_scroll = total.saturating_sub(1);
+        let scroll = world.company_workers_scroll.min(max_scroll);
+        let list_height = usize::from(area.height.saturating_sub(3));
+        let visible_rows = tab
+            .company_worker_rows
             .iter()
-            .map(|line| Line::from(line.as_str()))
-            .collect::<Vec<_>>();
+            .skip(scroll)
+            .take(list_height)
+            .enumerate()
+            .map(|(idx, row)| {
+                let style = if idx.is_multiple_of(2) {
+                    Style::default().fg(theme::TEXT_PRIMARY)
+                } else {
+                    Style::default()
+                        .fg(theme::TEXT_PRIMARY)
+                        .bg(Color::Rgb(23, 31, 48))
+                };
+                Row::new([
+                    Cell::from(row.name.clone()),
+                    Cell::from(row.job.clone()),
+                    Cell::from(row.tenure_months.clone()),
+                    Cell::from(row.salary.clone()),
+                ])
+                .style(style)
+            });
 
-        frame.render_widget(
-            Paragraph::new(details)
-                .style(theme::primary_text().bg(theme::PANEL_BG))
-                .wrap(Wrap { trim: true })
-                .block(
-                    Block::default()
-                        .title(" Company Details (Page 1/2) ")
-                        .borders(Borders::ALL)
-                        .border_style(theme::neutral_border())
-                        .title_style(theme::primary_text())
-                        .style(Style::default().bg(theme::PANEL_BG)),
-                ),
-            details_area,
-        );
-
-        let [charts_top, charts_mid, charts_bottom] = Layout::vertical([
-            Constraint::Percentage(34),
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
+        let start = if total == 0 { 0 } else { scroll + 1 };
+        let end = if total == 0 {
+            0
+        } else {
+            (scroll + list_height).min(total)
+        };
+        let pay_label = format!("Pay ({})", world.currency_symbol);
+        let header = Row::new([
+            Cell::from("Name"),
+            Cell::from("Job"),
+            Cell::from("Tenure (mo)"),
+            Cell::from(pay_label),
         ])
-        .areas(charts_area);
-        let [sold_area, employee_area] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(charts_top);
-        let [price_area, loan_area] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(charts_mid);
-        let [money_area, spare_area] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(charts_bottom);
+        .style(
+            Style::default()
+                .fg(Color::Yellow)
+                .bg(Color::Rgb(27, 39, 61))
+                .add_modifier(Modifier::BOLD),
+        );
+        let widths = [
+            Constraint::Length(28),
+            Constraint::Length(20),
+            Constraint::Length(12),
+            Constraint::Length(16),
+        ];
 
-        self.draw_company_history_chart(
-            frame,
-            sold_area,
-            tab.company_sold_history.as_ref(),
-            "Sold Units History",
-            Color::Cyan,
-            false,
-            world.currency_symbol.as_str(),
-        );
-        self.draw_company_history_chart(
-            frame,
-            employee_area,
-            tab.company_employee_history.as_ref(),
-            "Employees History",
-            Color::Green,
-            false,
-            world.currency_symbol.as_str(),
-        );
-        self.draw_company_history_chart(
-            frame,
-            price_area,
-            tab.company_price_history.as_ref(),
-            "Price History",
-            Color::Yellow,
-            true,
-            world.currency_symbol.as_str(),
-        );
-        self.draw_company_history_chart(
-            frame,
-            loan_area,
-            tab.company_loan_payment_history.as_ref(),
-            "Loan Payments History",
-            Color::LightMagenta,
-            true,
-            world.currency_symbol.as_str(),
-        );
-        self.draw_company_history_chart(
-            frame,
-            money_area,
-            tab.company_money_history.as_ref(),
-            "Money History",
-            Color::LightGreen,
-            true,
-            world.currency_symbol.as_str(),
-        );
-        frame.render_widget(
-            Paragraph::new("")
-                .style(theme::muted_text().bg(theme::PANEL_BG))
-                .block(
-                    Block::default()
-                        .title(" ")
-                        .borders(Borders::ALL)
-                        .border_style(theme::neutral_border())
-                        .style(Style::default().bg(theme::PANEL_BG)),
-                ),
-            spare_area,
-        );
+        let table = Table::new(visible_rows, widths)
+            .header(header)
+            .column_spacing(1)
+            .block(
+                Block::default()
+                    .title(format!(
+                        " Company Employees (Page 4/4) ({}-{} of {}) ",
+                        start, end, total
+                    ))
+                    .borders(Borders::ALL)
+                    .border_style(theme::neutral_border())
+                    .title_style(theme::primary_text()),
+            );
+
+        frame.render_widget(table, area);
     }
 
     fn draw_company_history_chart(

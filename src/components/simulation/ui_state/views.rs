@@ -9,6 +9,7 @@ impl UiState {
         if self.selected_person_on_page(world).is_some() {
             self.details_view = DetailsView::Person;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
         }
     }
 
@@ -48,6 +49,7 @@ impl UiState {
             self.active_tab = RunningTab::Goods;
             self.selection_focus = SelectionFocus::Company;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
         }
     }
 
@@ -62,6 +64,7 @@ impl UiState {
         self.active_tab = RunningTab::Goods;
         self.selection_focus = SelectionFocus::Company;
         self.details_page = 0;
+        self.company_workers_scroll = 0;
 
         let absolute_index = employer_company_id as usize;
         self.company_page = absolute_index / COMPANY_PAGE_SIZE;
@@ -71,6 +74,7 @@ impl UiState {
         if self.selected_company_on_page(world).is_some() {
             self.details_view = DetailsView::Company;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
         }
     }
 
@@ -108,6 +112,7 @@ impl UiState {
         self.selected_company_row = 0;
         self.details_view = DetailsView::List;
         self.details_page = 0;
+        self.company_workers_scroll = 0;
         self.country_policy_form = CountryPolicyFormState::default();
     }
 

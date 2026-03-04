@@ -65,6 +65,7 @@ pub enum EmploymentStatus {
 pub struct Person {
     pub id: u32,
     pub employment: EmploymentStatus,
+    pub employment_start_day: Option<u64>,
     pub agreed_monthly_salary: f64,
     pub cash_balance: f64,
     pub name_seed: u32,
@@ -112,6 +113,7 @@ impl Person {
         let mut person = Self {
             id,
             employment,
+            employment_start_day: None,
             agreed_monthly_salary: 0.0,
             cash_balance: 0.0,
             name_seed,
@@ -135,6 +137,7 @@ impl Person {
         };
         if let EmploymentStatus::Employed { job_type_id, .. } = person.employment {
             person.agreed_monthly_salary = salary_for_job(job_type_id);
+            person.employment_start_day = Some(0);
         }
         person.refresh_habilitation_from_age();
         person
@@ -166,11 +169,17 @@ impl Person {
         }
     }
 
-    pub fn set_employment(&mut self, employer_company_id: u16, job_type_id: JobTypeId) {
+    pub fn set_employment(
+        &mut self,
+        employer_company_id: u16,
+        job_type_id: JobTypeId,
+        current_day: u64,
+    ) {
         self.set_employment_with_salary(
             employer_company_id,
             job_type_id,
             salary_for_job(job_type_id),
+            current_day,
         );
     }
 
@@ -179,11 +188,22 @@ impl Person {
         employer_company_id: u16,
         job_type_id: JobTypeId,
         salary: f64,
+        current_day: u64,
     ) {
+        let next_start_day = match self.employment {
+            EmploymentStatus::Employed {
+                job_type_id: current_job_id,
+                employer_company_id: current_employer_id,
+            } if current_job_id == job_type_id && current_employer_id == employer_company_id => {
+                self.employment_start_day.or(Some(current_day))
+            }
+            _ => Some(current_day),
+        };
         self.employment = EmploymentStatus::Employed {
             job_type_id,
             employer_company_id,
         };
+        self.employment_start_day = next_start_day;
         self.agreed_monthly_salary = salary.max(0.0);
     }
 
@@ -200,6 +220,7 @@ impl Person {
     pub fn clear_employment(&mut self) -> Option<(u16, JobTypeId)> {
         let previous = self.employment;
         self.employment = EmploymentStatus::Unemployed;
+        self.employment_start_day = None;
         self.agreed_monthly_salary = 0.0;
         match previous {
             EmploymentStatus::Unemployed => None,
@@ -319,6 +340,41 @@ mod tests {
         assert!((person.last_month_tax_paid - 0.0).abs() < f64::EPSILON);
         assert!((person.last_month_goods_spending - 0.0).abs() < f64::EPSILON);
         assert_eq!(person.superficial_stock_units[0], 3);
+    }
+
+    #[test]
+    fn employment_start_day_tracks_employment_lifecycle() {
+        let mut person = Person::new_with_profile(
+            1,
+            EmploymentStatus::Unemployed,
+            42,
+            22 * DAYS_PER_YEAR,
+            EducationTrack::Bachelor,
+        );
+
+        assert_eq!(person.employment_start_day, None);
+
+        person.set_employment_with_salary(3, 1, 4_200.0, 88);
+        assert_eq!(person.employment_start_day, Some(88));
+
+        person.clear_employment();
+        assert_eq!(person.employment_start_day, None);
+    }
+
+    #[test]
+    fn salary_update_keeps_existing_employment_start_day() {
+        let mut person = Person::new_with_profile(
+            1,
+            EmploymentStatus::Unemployed,
+            42,
+            22 * DAYS_PER_YEAR,
+            EducationTrack::Bachelor,
+        );
+
+        person.set_employment_with_salary(3, 1, 4_200.0, 20);
+        person.set_employment_with_salary(3, 1, 4_500.0, 90);
+
+        assert_eq!(person.employment_start_day, Some(20));
     }
 
     #[test]

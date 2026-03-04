@@ -253,7 +253,7 @@ impl Country {
             {
                 old_company.add_opening_with_salary(old_job_id, 1, previous_salary);
             }
-            person.set_employment_with_salary(company_id, founder_job_id, founder_salary);
+            person.set_employment_with_salary(company_id, founder_job_id, founder_salary, self.day);
         }
 
         self.pending_events.push(SimEvent::CompanyFounded {

@@ -39,6 +39,19 @@ pub(in crate::components::simulation) fn company_details_lines(
             .join(" | ")
     };
     let opening_overflow = company.open_positions.len().saturating_sub(4);
+    let mut active_employee_count = 0_u64;
+    let mut active_monthly_payroll = 0.0_f64;
+    for person in &country.people {
+        if person.employer_company_id() == Some(company.id) {
+            active_employee_count = active_employee_count.saturating_add(1);
+            active_monthly_payroll += person.monthly_salary();
+        }
+    }
+    let average_monthly_pay = if active_employee_count > 0 {
+        active_monthly_payroll / active_employee_count as f64
+    } else {
+        0.0
+    };
     let inventory_runway_months = if company.last_month_units_sold > 0 {
         company.inventory_units as f64 / company.last_month_units_sold as f64
     } else if company.inventory_units > 0 {
@@ -115,8 +128,20 @@ pub(in crate::components::simulation) fn company_details_lines(
         "Hiring:".to_string(),
         format!("Employees: {}", company.employee_count),
         format!(
+            "Active Employees (People Registry): {}",
+            compact_count(active_employee_count as f64)
+        ),
+        format!(
             "Manufacturing Employees: {}",
             company.manufacturing_employee_count
+        ),
+        format!(
+            "Current Monthly Payroll (Employees): {}",
+            money(active_monthly_payroll, currency_symbol)
+        ),
+        format!(
+            "Avg Monthly Pay / Employee: {}",
+            money(average_monthly_pay, currency_symbol)
         ),
         format!("Open Positions: {}", company.open_positions.len()),
         format!(

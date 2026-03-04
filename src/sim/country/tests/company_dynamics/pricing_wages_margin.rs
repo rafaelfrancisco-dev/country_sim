@@ -201,7 +201,7 @@ fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    person.set_employment_with_salary(0, 5, 3_900.0);
+    person.set_employment_with_salary(0, 5, 3_900.0, 0);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;

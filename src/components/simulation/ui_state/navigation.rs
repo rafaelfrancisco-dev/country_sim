@@ -10,6 +10,7 @@ impl UiState {
             self.selected_person_row = 0;
             self.company_page = 0;
             self.selected_company_row = 0;
+            self.company_workers_scroll = 0;
             self.details_view = DetailsView::List;
             self.country_policy_form = CountryPolicyFormState::default();
             return;
@@ -30,19 +31,26 @@ impl UiState {
         {
             self.details_view = DetailsView::List;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
         }
         if matches!(self.details_view, DetailsView::Company)
             && self.selected_company_on_page(world).is_none()
         {
             self.details_view = DetailsView::List;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
         }
         if matches!(self.details_view, DetailsView::CountryPolicy)
             && self.selected_country(world).is_none()
         {
             self.details_view = DetailsView::List;
             self.details_page = 0;
+            self.company_workers_scroll = 0;
             self.country_policy_form = CountryPolicyFormState::default();
+        }
+
+        if let Some(max_page) = self.max_details_page_for_view() {
+            self.details_page = self.details_page.min(max_page);
         }
     }
 

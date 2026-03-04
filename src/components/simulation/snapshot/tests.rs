@@ -270,3 +270,44 @@ fn company_related_events_match_company_references_and_selected_country_only() {
     );
     assert!(goods_tab.company_related_events.event_log_lines[0].contains("Company #0 -> #3"));
 }
+
+#[test]
+fn company_workers_rows_include_tenure_and_sort_by_longest_tenure() {
+    use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
+
+    let mut long_tenure = Person::new_with_profile(
+        1,
+        EmploymentStatus::Unemployed,
+        111,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    long_tenure.set_employment_with_salary(0, 0, 2_900.0, 10);
+
+    let mut short_tenure = Person::new_with_profile(
+        2,
+        EmploymentStatus::Unemployed,
+        222,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    short_tenure.set_employment_with_salary(0, 1, 4_200.0, 70);
+
+    let country = Country::new(1, "A".to_string(), vec![short_tenure, long_tenure]);
+    let mut world = World::new(vec![country]);
+    world.day = 100;
+
+    let ui = UiState {
+        active_tab: RunningTab::Goods,
+        details_view: DetailsView::Company,
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
+        panic!("goods tab payload expected");
+    };
+    assert_eq!(goods_tab.company_worker_rows.len(), 2);
+    assert_eq!(goods_tab.company_worker_rows[0].tenure_months, "3");
+    assert_eq!(goods_tab.company_worker_rows[1].tenure_months, "1");
+}

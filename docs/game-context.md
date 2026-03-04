@@ -19,6 +19,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 ### `Person`
 - Economic state: `cash_balance`, optional `loan`, monthly trackers.
 - Employment state: `EmploymentStatus` (`Unemployed` or `Employed { job_type_id, employer_company_id }`).
+- Employment tenure: `employment_start_day` (used to compute company-tenure months in UI worker rosters).
 - Contract state: `agreed_monthly_salary` (salary set at hire/switch time).
 - Demographics: `age_days`, `education_track`, `habilitation`.
 - Helpers:
@@ -71,6 +72,11 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 ### Running
 - `Main`: countries and people tables + details views, including country policy overrides
 - `Goods`: company and goods market table + company details
+  - Company details pages:
+    - page 1: company overview
+    - page 2: company charts
+    - page 3: company-related events
+    - page 4: employed workers table with tenure and pay
 - `Stocks`: stock table + market summary + stock charts
 - `Charts`: 3x2 monthly trend dashboard
 - `Events`: scrollable event log with search, sorting, and category filtering

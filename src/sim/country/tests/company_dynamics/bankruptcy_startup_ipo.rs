@@ -20,7 +20,7 @@ fn bankruptcy_physically_removes_company_and_remaps_employers() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    p0.set_employment_with_salary(0, 0, 3_200.0);
+    p0.set_employment_with_salary(0, 0, 3_200.0, 0);
 
     let mut p1 = Person::new_with_profile(
         2,
@@ -32,7 +32,7 @@ fn bankruptcy_physically_removes_company_and_remaps_employers() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    p1.set_employment_with_salary(1, 0, 3_200.0);
+    p1.set_employment_with_salary(1, 0, 3_200.0, 0);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;
@@ -84,7 +84,7 @@ fn startup_formation_creates_company_and_moves_founders() {
             30 * DAYS_PER_YEAR,
             EducationTrack::HighSchool,
         );
-        person.set_employment_with_salary(0, 0, 3_200.0);
+        person.set_employment_with_salary(0, 0, 3_200.0, 0);
         person.cash_balance = 100_000.0;
         people.push(person);
     }
@@ -157,7 +157,7 @@ fn growth_ipo_lists_company_and_pays_founder_secondary_proceeds() {
         30 * DAYS_PER_YEAR,
         EducationTrack::HighSchool,
     );
-    founder.set_employment_with_salary(0, 0, 3_200.0);
+    founder.set_employment_with_salary(0, 0, 3_200.0, 0);
     founder.cash_balance = 2_000.0;
 
     let founder_cash_before = founder.cash_balance;

@@ -52,7 +52,12 @@ impl Country {
                     continue;
                 }
 
-                person.set_employment_with_salary(target_company_idx as u16, job_id, new_salary);
+                person.set_employment_with_salary(
+                    target_company_idx as u16,
+                    job_id,
+                    new_salary,
+                    self.day,
+                );
                 self.pending_events.push(SimEvent::JobSwitched {
                     country_name: self.name.clone(),
                     person_id,

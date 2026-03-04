@@ -238,7 +238,12 @@ impl Country {
                     && let Some((job_id, offered_salary)) =
                         consume_opening_by_job_type(company, job_type_id)
                 {
-                    person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
+                    person.set_employment_with_salary(
+                        company_idx as u16,
+                        job_id,
+                        offered_salary,
+                        self.day,
+                    );
                     hires_total = hires_total.saturating_add(1);
                     continue;
                 }
@@ -246,7 +251,7 @@ impl Country {
                 if let Some((company_id, job_id, offered_salary)) =
                     consume_matching_opening(companies, intent.qualification, intent.seek_seed)
                 {
-                    person.set_employment_with_salary(company_id, job_id, offered_salary);
+                    person.set_employment_with_salary(company_id, job_id, offered_salary, self.day);
                     hires_total = hires_total.saturating_add(1);
                 }
             }
@@ -333,7 +338,12 @@ impl Country {
                     && let Some((job_id, offered_salary)) =
                         consume_opening_by_job_type(company, job_type_id)
                 {
-                    person.set_employment_with_salary(company_idx as u16, job_id, offered_salary);
+                    person.set_employment_with_salary(
+                        company_idx as u16,
+                        job_id,
+                        offered_salary,
+                        self.day,
+                    );
                     hires_total = hires_total.saturating_add(1);
                     continue;
                 }
@@ -341,7 +351,7 @@ impl Country {
                 if let Some((company_id, job_id, offered_salary)) =
                     consume_matching_opening(companies, intent.qualification, intent.seek_seed)
                 {
-                    person.set_employment_with_salary(company_id, job_id, offered_salary);
+                    person.set_employment_with_salary(company_id, job_id, offered_salary, self.day);
                     hires_total = hires_total.saturating_add(1);
                 }
             }

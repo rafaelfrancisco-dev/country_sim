@@ -106,6 +106,20 @@ impl Simulation {
         match key.code {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
+                    && c.eq_ignore_ascii_case(&'w')
+                    && self.is_company_workers_page(input_state) =>
+            {
+                Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollUp))
+            }
+            KeyCode::Char(c)
+                if key.modifiers.is_empty()
+                    && c.eq_ignore_ascii_case(&'s')
+                    && self.is_company_workers_page(input_state) =>
+            {
+                Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollDown))
+            }
+            KeyCode::Char(c)
+                if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'a')
                     && input_state.details_view == DetailsView::List =>
             {
@@ -303,6 +317,20 @@ impl Simulation {
         match key.code {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
+                    && c.eq_ignore_ascii_case(&'w')
+                    && self.is_company_workers_page(input_state) =>
+            {
+                Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollUp))
+            }
+            KeyCode::Char(c)
+                if key.modifiers.is_empty()
+                    && c.eq_ignore_ascii_case(&'s')
+                    && self.is_company_workers_page(input_state) =>
+            {
+                Some(SimulationCommand::Ui(UiCommand::CompanyWorkersScrollDown))
+            }
+            KeyCode::Char(c)
+                if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'a')
                     && input_state.details_view == DetailsView::List =>
             {
@@ -426,10 +454,20 @@ impl Simulation {
     }
 
     fn is_entity_related_events_page(&self, input_state: RunningInputState) -> bool {
-        matches!(
-            input_state.details_view,
-            DetailsView::Person | DetailsView::Company
-        ) && input_state.details_page > 0
+        self.is_person_related_events_page(input_state)
+            || self.is_company_related_events_page(input_state)
+    }
+
+    fn is_person_related_events_page(&self, input_state: RunningInputState) -> bool {
+        matches!(input_state.details_view, DetailsView::Person) && input_state.details_page == 1
+    }
+
+    fn is_company_related_events_page(&self, input_state: RunningInputState) -> bool {
+        matches!(input_state.details_view, DetailsView::Company) && input_state.details_page == 2
+    }
+
+    fn is_company_workers_page(&self, input_state: RunningInputState) -> bool {
+        matches!(input_state.details_view, DetailsView::Company) && input_state.details_page == 3
     }
 }
 

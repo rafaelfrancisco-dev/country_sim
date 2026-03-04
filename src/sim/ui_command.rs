@@ -50,6 +50,8 @@ pub enum UiCommand {
     EventsSearchChar(char),
     EventsSearchBackspace,
     EventsSearchClear,
+    CompanyWorkersScrollUp,
+    CompanyWorkersScrollDown,
     StocksPrevCountry,
     StocksNextCountry,
     StocksFocusCountry,

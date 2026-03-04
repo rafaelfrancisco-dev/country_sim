@@ -159,6 +159,7 @@ impl Simulation {
                 let empty_goods = GoodsTabSnapshot {
                     company_rows: Vec::new(),
                     company_details_lines: Vec::new(),
+                    company_worker_rows: Vec::new(),
                     company_related_events:
                         crate::components::simulation::snapshot::EventsTabSnapshot {
                             event_log_lines: Vec::new(),
@@ -179,14 +180,17 @@ impl Simulation {
                     country_goods_summary_lines: Vec::new(),
                 };
                 self.draw_company_details(frame, body, world, &empty_goods);
-                if world.details_page == 0 {
-                    format!(
-                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (1/2)",
+                match world.details_page {
+                    0 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (1/4)",
                         hotkeys::GLOBAL_RUNNING_HINT
-                    )
-                } else {
-                    format!(
-                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (2/2)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                    ),
+                    1 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (2/4)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
+                    2 => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (3/4)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
                         hotkeys::GLOBAL_RUNNING_HINT,
                         event_search_hint(
                             world.events_search_active,
@@ -195,7 +199,11 @@ impl Simulation {
                         0,
                         tab.person_related_events.events_sort_label,
                         tab.person_related_events.events_category_label,
-                    )
+                    ),
+                    _ => format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (4/4)  [w/s] scroll workers | Employees: 0",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    ),
                 }
             }
         }

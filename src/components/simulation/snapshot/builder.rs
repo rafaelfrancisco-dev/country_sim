@@ -199,10 +199,12 @@ impl UiSnapshot {
                     company_loan_payment_history,
                     company_money_history,
                 ) = selected_company_histories(world, ui);
+                let company_worker_rows = selected_company_worker_rows(world, ui, currency_symbol);
 
                 RunningTabSnapshot::Goods(Box::new(GoodsTabSnapshot {
                     company_rows,
                     company_details_lines: company_details_lines(world, ui),
+                    company_worker_rows,
                     company_related_events: selected_company_related_events_snapshot(world, ui),
                     company_sold_history: company_sold_history.into(),
                     company_employee_history: company_employee_history.into(),
@@ -291,6 +293,7 @@ impl UiSnapshot {
                 max_snapshot_age_ms: runtime_stats.max_snapshot_age_ms,
                 invariant_warnings,
                 events_search_active: ui.events_search_active,
+                company_workers_scroll: ui.company_workers_scroll,
             },
             tab,
         }

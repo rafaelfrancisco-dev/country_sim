@@ -32,9 +32,13 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - `/` to search, `o` to toggle sort order (newest/oldest first), `f` to cycle category filter
   - category filter options: `All`, `Stock Market`, `Births/Deaths`, `Bankruptcies & Distress`, `Loans & Debt`, `Companies & Labor`, `Government & Policy`
   - search and category filters are combined (intersection)
-- Person and company details now include a fixed page 2 with related events for the selected entity
+- Person details use fixed two-page paging (`Page 1: details`, `Page 2: related events`)
   - uses the same shared events filter/search/sort state as the Events tab
-  - person/company details use fixed two-page paging (`Page 1: details`, `Page 2: related events`)
+- Company details in Goods tab now use fixed four-page paging:
+  - page 1: detailed company overview
+  - page 2: company history charts
+  - page 3: related events (shared Events search/filter/sort controls)
+  - page 4: current employees table (`Name`, `Job`, `Tenure (mo)`, `Pay/mo`)
 - Government spending system:
   - Monthly unemployment benefits paid to working-age (18-65) unemployed adults
   - Basic needs safety net tops up cash for people with unmet essential needs
