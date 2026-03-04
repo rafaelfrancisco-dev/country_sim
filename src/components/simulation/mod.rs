@@ -41,6 +41,7 @@ enum SimulationCommand {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(super) struct RunningInputState {
     pub details_view: DetailsView,
+    pub details_page: usize,
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
     pub events_search_active: bool,
@@ -111,6 +112,7 @@ impl Simulation {
             setup_generation_in_progress: false,
             running_input_state: RunningInputState {
                 details_view: DetailsView::List,
+                details_page: 0,
                 selection_focus: SelectionFocus::Country,
                 active_tab: RunningTab::Main,
                 events_search_active: false,
@@ -142,6 +144,7 @@ impl Simulation {
                 self.setup_generation_in_progress = false;
                 self.running_input_state = RunningInputState {
                     details_view: world.details_view,
+                    details_page: world.details_page,
                     selection_focus: world.selection_focus,
                     active_tab: world.active_tab,
                     events_search_active: world.events_search_active,

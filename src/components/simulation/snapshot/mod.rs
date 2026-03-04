@@ -4,7 +4,7 @@ use crate::{
     },
     sim::{
         GameEngine, GamePhase,
-        event::EventCategory,
+        event::{EntityKind, EventCategory, SimEvent},
         good::{common_goods, good_by_id},
         job::job_by_id,
         names::person_name_from_seed,

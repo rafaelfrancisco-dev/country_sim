@@ -8,6 +8,7 @@ use ratatui::{
 use std::sync::Arc;
 
 use super::super::{Simulation, theme};
+use super::events::event_search_hint;
 use crate::{
     components::simulation::hotkeys,
     components::simulation::snapshot::{
@@ -114,10 +115,24 @@ impl Simulation {
             }
             DetailsView::Person => {
                 self.draw_person_details(frame, body, world, tab);
-                format!(
-                    "Controls: {}  [Esc] back to people list  [PgUp/PgDn] details page  [c] open employer company",
-                    hotkeys::GLOBAL_RUNNING_HINT
-                )
+                if world.details_page == 0 {
+                    format!(
+                        "Controls: {}  [Esc] back to people list  [PgUp/PgDn] details page (1/2)  [c] open employer company",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    )
+                } else {
+                    format!(
+                        "Controls: {}  [Esc] back to people list  [PgUp/PgDn] details page (2/2)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        event_search_hint(
+                            world.events_search_active,
+                            &tab.person_related_events.events_search_query
+                        ),
+                        tab.person_related_events.events_total_count,
+                        tab.person_related_events.events_sort_label,
+                        tab.person_related_events.events_category_label,
+                    )
+                }
             }
             DetailsView::Country => {
                 self.draw_country_details(frame, body, world, tab);
@@ -144,6 +159,18 @@ impl Simulation {
                 let empty_goods = GoodsTabSnapshot {
                     company_rows: Vec::new(),
                     company_details_lines: Vec::new(),
+                    company_related_events:
+                        crate::components::simulation::snapshot::EventsTabSnapshot {
+                            event_log_lines: Vec::new(),
+                            events_total_count: 0,
+                            events_scroll: 0,
+                            events_sort_label: tab.person_related_events.events_sort_label,
+                            events_category_label: tab.person_related_events.events_category_label,
+                            events_search_query: tab
+                                .person_related_events
+                                .events_search_query
+                                .clone(),
+                        },
                     company_sold_history: Arc::default(),
                     company_employee_history: Arc::default(),
                     company_price_history: Arc::default(),
@@ -152,10 +179,24 @@ impl Simulation {
                     country_goods_summary_lines: Vec::new(),
                 };
                 self.draw_company_details(frame, body, world, &empty_goods);
-                format!(
-                    "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page",
-                    hotkeys::GLOBAL_RUNNING_HINT
-                )
+                if world.details_page == 0 {
+                    format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (1/2)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    )
+                } else {
+                    format!(
+                        "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page (2/2)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        event_search_hint(
+                            world.events_search_active,
+                            &tab.person_related_events.events_search_query
+                        ),
+                        0,
+                        tab.person_related_events.events_sort_label,
+                        tab.person_related_events.events_category_label,
+                    )
+                }
             }
         }
     }

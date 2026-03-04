@@ -28,13 +28,21 @@ The running UI uses one navigation convention across tabs:
 
 ## Tab-Specific Controls
 - `Main`: list navigation and person/country details; in person details, `c` jumps to employer company in Goods.
-  - In country details, `o` opens Country Policy Overrides.
+  - Person details use fixed pages:
+    - page 1: person overview details
+    - page 2: related events for that person
+  - Person page 2 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
+- In country details, `o` opens Country Policy Overrides.
   - Country Policy Overrides form mode:
     - `w` / `s`: previous/next editable field
     - `Enter`: start editing focused field, then save
     - `r`: reset all editable policy values to country-managed defaults
     - `Esc`: cancel field edit; when not editing, return to country details
 - `Goods`: country/company navigation, company details panel.
+  - Company details use fixed pages:
+    - page 1: company overview details + history charts
+    - page 2: related events for that company (charts hidden)
+  - Company page 2 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
 - `Main`/`Goods` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.

@@ -135,6 +135,7 @@ pub(in crate::components::simulation) struct MainTabSnapshot {
     pub people_rows: Vec<PersonRowSnapshot>,
     pub has_selected_country: bool,
     pub person_details_lines: Vec<String>,
+    pub person_related_events: EventsTabSnapshot,
     pub country_details_lines: Vec<String>,
     pub country_policy_lines: Vec<String>,
 }
@@ -143,6 +144,7 @@ pub(in crate::components::simulation) struct MainTabSnapshot {
 pub(in crate::components::simulation) struct GoodsTabSnapshot {
     pub company_rows: Vec<CompanyRowSnapshot>,
     pub company_details_lines: Vec<String>,
+    pub company_related_events: EventsTabSnapshot,
     pub company_sold_history: Arc<[f64]>,
     pub company_employee_history: Arc<[f64]>,
     pub company_price_history: Arc<[f64]>,

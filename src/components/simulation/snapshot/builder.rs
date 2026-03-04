@@ -132,6 +132,7 @@ impl UiSnapshot {
                     people_rows,
                     has_selected_country: selected_country.is_some(),
                     person_details_lines: person_details_lines(world, ui),
+                    person_related_events: selected_person_related_events_snapshot(world, ui),
                     country_details_lines: country_details_lines(world, ui),
                     country_policy_lines: country_policy_lines(world, ui),
                 }))
@@ -196,6 +197,7 @@ impl UiSnapshot {
                 RunningTabSnapshot::Goods(Box::new(GoodsTabSnapshot {
                     company_rows,
                     company_details_lines: company_details_lines(world, ui),
+                    company_related_events: selected_company_related_events_snapshot(world, ui),
                     company_sold_history: company_sold_history.into(),
                     company_employee_history: company_employee_history.into(),
                     company_price_history: company_price_history.into(),
@@ -245,34 +247,7 @@ impl UiSnapshot {
                 }))
             }
             RunningTab::Events => {
-                let search_lower = ui.events_search_query.to_ascii_lowercase();
-                let mut event_log_lines: Vec<String> = world
-                    .event_log
-                    .iter()
-                    .filter(|event| event_matches_category(event.category(), ui.events_category))
-                    .map(|e| e.format())
-                    .filter(|line| {
-                        search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower)
-                    })
-                    .collect();
-                if matches!(ui.events_sort, EventsSort::NewestFirst) {
-                    event_log_lines.reverse();
-                }
-                let events_total_count = event_log_lines.len();
-                let events_sort_label = match ui.events_sort {
-                    EventsSort::NewestFirst => "Newest First",
-                    EventsSort::OldestFirst => "Oldest First",
-                };
-                let events_category_label = ui.events_category.label();
-
-                RunningTabSnapshot::Events(Box::new(EventsTabSnapshot {
-                    event_log_lines,
-                    events_total_count,
-                    events_scroll: ui.events_scroll,
-                    events_sort_label,
-                    events_category_label,
-                    events_search_query: ui.events_search_query.clone(),
-                }))
+                RunningTabSnapshot::Events(Box::new(build_events_tab_snapshot(world, ui, |_| true)))
             }
         };
 
@@ -328,5 +303,199 @@ fn event_matches_category(event_category: EventCategory, filter: EventsCategoryF
         EventsCategoryFilter::GovernmentPolicy => {
             matches!(event_category, EventCategory::GovernmentPolicy)
         }
+    }
+}
+
+fn build_events_tab_snapshot<F>(
+    world: &World,
+    ui: &UiState,
+    mut include_event: F,
+) -> EventsTabSnapshot
+where
+    F: FnMut(&SimEvent) -> bool,
+{
+    let search_lower = ui.events_search_query.to_ascii_lowercase();
+    let mut event_log_lines: Vec<String> = world
+        .event_log
+        .iter()
+        .filter(|event| include_event(event))
+        .filter(|event| event_matches_category(event.category(), ui.events_category))
+        .map(SimEvent::format)
+        .filter(|line| search_lower.is_empty() || line.to_ascii_lowercase().contains(&search_lower))
+        .collect();
+    if matches!(ui.events_sort, EventsSort::NewestFirst) {
+        event_log_lines.reverse();
+    }
+
+    EventsTabSnapshot {
+        events_total_count: event_log_lines.len(),
+        event_log_lines,
+        events_scroll: ui.events_scroll,
+        events_sort_label: match ui.events_sort {
+            EventsSort::NewestFirst => "Newest First",
+            EventsSort::OldestFirst => "Oldest First",
+        },
+        events_category_label: ui.events_category.label(),
+        events_search_query: ui.events_search_query.clone(),
+    }
+}
+
+fn selected_person_related_events_snapshot(world: &World, ui: &UiState) -> EventsTabSnapshot {
+    let Some(country) = ui.selected_country(world) else {
+        return build_events_tab_snapshot(world, ui, |_| false);
+    };
+    let Some(person) = ui.selected_person_on_page(world) else {
+        return build_events_tab_snapshot(world, ui, |_| false);
+    };
+
+    let country_name = country.name.as_str();
+    let person_id = person.id;
+    build_events_tab_snapshot(world, ui, |event| {
+        event_matches_person(event, country_name, person_id)
+    })
+}
+
+fn selected_company_related_events_snapshot(world: &World, ui: &UiState) -> EventsTabSnapshot {
+    let Some(country) = ui.selected_country(world) else {
+        return build_events_tab_snapshot(world, ui, |_| false);
+    };
+    let Some(company) = ui.selected_company_on_page(world) else {
+        return build_events_tab_snapshot(world, ui, |_| false);
+    };
+
+    let country_name = country.name.as_str();
+    let company_id = company.id;
+    build_events_tab_snapshot(world, ui, |event| {
+        event_matches_company(event, country_name, company_id)
+    })
+}
+
+fn event_matches_person(event: &SimEvent, selected_country_name: &str, person_id: u32) -> bool {
+    if event_country_name(event) != selected_country_name {
+        return false;
+    }
+
+    match event {
+        SimEvent::LoanEmitted {
+            entity_kind,
+            entity_id,
+            ..
+        }
+        | SimEvent::LoanEnded {
+            entity_kind,
+            entity_id,
+            ..
+        }
+        | SimEvent::DebtDistress {
+            entity_kind,
+            entity_id,
+            ..
+        } => matches!(entity_kind, EntityKind::Person) && *entity_id == person_id,
+        SimEvent::LoanWrittenOff { entity_id, .. } => *entity_id == person_id,
+        SimEvent::JobSwitched {
+            person_id: switched_person_id,
+            ..
+        }
+        | SimEvent::StockMarginCall {
+            person_id: switched_person_id,
+            ..
+        } => *switched_person_id == person_id,
+        _ => false,
+    }
+}
+
+fn event_matches_company(event: &SimEvent, selected_country_name: &str, company_id: u16) -> bool {
+    if event_country_name(event) != selected_country_name {
+        return false;
+    }
+
+    match event {
+        SimEvent::LoanEmitted {
+            entity_kind,
+            entity_id,
+            ..
+        }
+        | SimEvent::LoanEnded {
+            entity_kind,
+            entity_id,
+            ..
+        }
+        | SimEvent::DebtDistress {
+            entity_kind,
+            entity_id,
+            ..
+        } => matches!(entity_kind, EntityKind::Company) && *entity_id == u32::from(company_id),
+        SimEvent::GovCompanyFunded {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::CompanyFounded {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::CompanyWageCut {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::CompanyLayoffs {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::CompanyBankrupt {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::StockIpo {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::StockDividend {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::StockDelisted {
+            company_id: event_company_id,
+            ..
+        }
+        | SimEvent::StockSecondaryOffering {
+            company_id: event_company_id,
+            ..
+        } => *event_company_id == company_id,
+        SimEvent::JobSwitched {
+            from_company_id,
+            to_company_id,
+            ..
+        } => *from_company_id == company_id || *to_company_id == company_id,
+        _ => false,
+    }
+}
+
+fn event_country_name(event: &SimEvent) -> &str {
+    match event {
+        SimEvent::PopBirth { country_name, .. }
+        | SimEvent::PopDeath { country_name, .. }
+        | SimEvent::LoanEmitted { country_name, .. }
+        | SimEvent::LoanEnded { country_name, .. }
+        | SimEvent::LoanWrittenOff { country_name, .. }
+        | SimEvent::DebtDistress { country_name, .. }
+        | SimEvent::GovTransfer { country_name, .. }
+        | SimEvent::GovCompanyFunded { country_name, .. }
+        | SimEvent::CompanyFounded { country_name, .. }
+        | SimEvent::CompanyWageCut { country_name, .. }
+        | SimEvent::CompanyLayoffs { country_name, .. }
+        | SimEvent::LaborChurnMonthly { country_name, .. }
+        | SimEvent::JobSwitched { country_name, .. }
+        | SimEvent::CompanyBankrupt { country_name, .. }
+        | SimEvent::StockIpo { country_name, .. }
+        | SimEvent::StockDividend { country_name, .. }
+        | SimEvent::StockMarginCall { country_name, .. }
+        | SimEvent::StockDelisted { country_name, .. }
+        | SimEvent::StockMarketClose { country_name, .. }
+        | SimEvent::RatePolicyChange { country_name, .. }
+        | SimEvent::BondIssued { country_name, .. }
+        | SimEvent::CouponPaid { country_name, .. }
+        | SimEvent::BondMatured { country_name, .. }
+        | SimEvent::BondDefault { country_name, .. }
+        | SimEvent::StockSecondaryOffering { country_name, .. } => country_name,
     }
 }

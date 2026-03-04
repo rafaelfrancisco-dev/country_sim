@@ -39,7 +39,8 @@ impl Simulation {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'c')
-                    && input_state.details_view == DetailsView::Person =>
+                    && input_state.details_view == DetailsView::Person
+                    && input_state.details_page == 0 =>
             {
                 return Some(SimulationCommand::Ui(UiCommand::JumpToEmployerCompany));
             }
@@ -93,6 +94,13 @@ impl Simulation {
             if hotkeys::is_page_next_key(key) {
                 return Some(SimulationCommand::Ui(UiCommand::DetailsPageNext));
             }
+        }
+
+        if self.is_entity_related_events_page(input_state) {
+            if matches!(key.code, KeyCode::Esc) && !input_state.events_search_active {
+                return Some(SimulationCommand::Ui(UiCommand::CloseDetails));
+            }
+            return self.map_events_key(key, input_state);
         }
 
         match key.code {
@@ -285,6 +293,13 @@ impl Simulation {
             }
         }
 
+        if self.is_entity_related_events_page(input_state) {
+            if matches!(key.code, KeyCode::Esc) && !input_state.events_search_active {
+                return Some(SimulationCommand::Ui(UiCommand::CloseDetails));
+            }
+            return self.map_events_key(key, input_state);
+        }
+
         match key.code {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
@@ -408,6 +423,13 @@ impl Simulation {
             }
             _ => None,
         }
+    }
+
+    fn is_entity_related_events_page(&self, input_state: RunningInputState) -> bool {
+        matches!(
+            input_state.details_view,
+            DetailsView::Person | DetailsView::Company
+        ) && input_state.details_page > 0
     }
 }
 

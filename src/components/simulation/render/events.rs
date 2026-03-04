@@ -20,6 +20,26 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &EventsTabSnapshot,
     ) -> String {
+        self.draw_event_log_panel(frame, body, world, tab, "Events");
+
+        format!(
+            "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+            hotkeys::GLOBAL_RUNNING_HINT,
+            event_search_hint(world.events_search_active, &tab.events_search_query),
+            tab.events_total_count,
+            tab.events_sort_label,
+            tab.events_category_label,
+        )
+    }
+
+    pub(super) fn draw_event_log_panel(
+        &self,
+        frame: &mut Frame,
+        body: Rect,
+        world: &RunningSnapshot,
+        tab: &EventsTabSnapshot,
+        panel_label: &str,
+    ) {
         let [list_area, search_area] =
             Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(body);
 
@@ -40,10 +60,10 @@ impl Simulation {
             .collect();
 
         let list_title = if total == 0 {
-            " Events (none) ".to_string()
+            format!(" {panel_label} (none) ")
         } else {
             let end = (scroll + visible.len()).min(total);
-            format!(" Events ({}-{} of {}) ", scroll + 1, end, total)
+            format!(" {panel_label} ({}-{} of {}) ", scroll + 1, end, total)
         };
 
         let list_block = Block::default()
@@ -77,23 +97,19 @@ impl Simulation {
             Paragraph::new(search_display).block(search_block),
             search_area,
         );
+    }
+}
 
-        let search_hint = if world.events_search_active {
-            "Esc: close search  Ctrl+u: clear query"
-        } else if !tab.events_search_query.is_empty() {
-            "/: edit filter"
-        } else {
-            "/: search"
-        };
-
-        format!(
-            "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
-            hotkeys::GLOBAL_RUNNING_HINT,
-            search_hint,
-            tab.events_total_count,
-            tab.events_sort_label,
-            tab.events_category_label,
-        )
+pub(super) fn event_search_hint(
+    events_search_active: bool,
+    events_search_query: &str,
+) -> &'static str {
+    if events_search_active {
+        "Esc: close search  Ctrl+u: clear query"
+    } else if !events_search_query.is_empty() {
+        "/: edit filter"
+    } else {
+        "/: search"
     }
 }
 

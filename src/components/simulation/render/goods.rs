@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use super::details::paginate_detail_lines;
+use super::events::event_search_hint;
 use crate::components::simulation::{
     hotkeys,
     snapshot::{GoodsTabSnapshot, RunningSnapshot},
@@ -44,10 +44,24 @@ impl Simulation {
         match world.details_view {
             DetailsView::Company => {
                 self.draw_company_details(frame, body, world, tab);
-                format!(
-                    "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page",
-                    hotkeys::GLOBAL_RUNNING_HINT
-                )
+                if world.details_page == 0 {
+                    format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (1/2)",
+                        hotkeys::GLOBAL_RUNNING_HINT
+                    )
+                } else {
+                    format!(
+                        "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page (2/2)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        event_search_hint(
+                            world.events_search_active,
+                            &tab.company_related_events.events_search_query
+                        ),
+                        tab.company_related_events.events_total_count,
+                        tab.company_related_events.events_sort_label,
+                        tab.company_related_events.events_category_label,
+                    )
+                }
             }
             _ => {
                 let [top, bottom] =
@@ -188,12 +202,22 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &GoodsTabSnapshot,
     ) {
+        if world.details_page > 0 {
+            self.draw_event_log_panel(
+                frame,
+                area,
+                world,
+                &tab.company_related_events,
+                "Company Related Events",
+            );
+            return;
+        }
+
         let [details_area, charts_area] =
             Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).areas(area);
 
-        let (page_lines, page_idx, total_pages) =
-            paginate_detail_lines(&tab.company_details_lines, world.details_page, details_area);
-        let details = page_lines
+        let details = tab
+            .company_details_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
             .collect::<Vec<_>>();
@@ -204,11 +228,7 @@ impl Simulation {
                 .wrap(Wrap { trim: true })
                 .block(
                     Block::default()
-                        .title(format!(
-                            " Company Details (Page {}/{}) ",
-                            page_idx + 1,
-                            total_pages
-                        ))
+                        .title(" Company Details (Page 1/2) ")
                         .borders(Borders::ALL)
                         .border_style(theme::neutral_border())
                         .title_style(theme::primary_text())

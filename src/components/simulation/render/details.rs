@@ -34,29 +34,35 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &MainTabSnapshot,
     ) {
-        let (page_lines, page_idx, total_pages) =
-            paginate_detail_lines(&tab.person_details_lines, world.details_page, area);
-        let details = page_lines
-            .iter()
-            .map(|line| Line::from(line.as_str()))
-            .collect::<Vec<_>>();
+        if world.details_page == 0 {
+            let details = tab
+                .person_details_lines
+                .iter()
+                .map(|line| Line::from(line.as_str()))
+                .collect::<Vec<_>>();
 
-        frame.render_widget(
-            Paragraph::new(details)
-                .style(theme::primary_text())
-                .wrap(Wrap { trim: true })
-                .block(
-                    Block::default()
-                        .title(format!(
-                            " Person Details (Page {}/{}) ",
-                            page_idx + 1,
-                            total_pages
-                        ))
-                        .borders(Borders::ALL)
-                        .border_style(theme::neutral_border())
-                        .title_style(theme::primary_text()),
-                ),
+            frame.render_widget(
+                Paragraph::new(details)
+                    .style(theme::primary_text())
+                    .wrap(Wrap { trim: true })
+                    .block(
+                        Block::default()
+                            .title(" Person Details (Page 1/2) ")
+                            .borders(Borders::ALL)
+                            .border_style(theme::neutral_border())
+                            .title_style(theme::primary_text()),
+                    ),
+                area,
+            );
+            return;
+        }
+
+        self.draw_event_log_panel(
+            frame,
             area,
+            world,
+            &tab.person_related_events,
+            "Person Related Events",
         );
     }
 

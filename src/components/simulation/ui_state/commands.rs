@@ -117,10 +117,24 @@ impl UiState {
                 self.country_policy_form = CountryPolicyFormState::default();
             }
             UiCommand::DetailsPagePrev => {
-                self.details_page = self.details_page.saturating_sub(1);
+                if matches!(
+                    self.details_view,
+                    DetailsView::Person | DetailsView::Company
+                ) {
+                    self.details_page = 0;
+                } else {
+                    self.details_page = self.details_page.saturating_sub(1);
+                }
             }
             UiCommand::DetailsPageNext => {
-                self.details_page = self.details_page.saturating_add(1);
+                if matches!(
+                    self.details_view,
+                    DetailsView::Person | DetailsView::Company
+                ) {
+                    self.details_page = 1;
+                } else {
+                    self.details_page = self.details_page.saturating_add(1);
+                }
             }
             UiCommand::ToggleSimMode => {}
             UiCommand::NextTab => self.next_tab(),

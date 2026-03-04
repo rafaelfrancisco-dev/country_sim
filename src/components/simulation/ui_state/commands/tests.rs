@@ -70,14 +70,31 @@ fn details_page_commands_adjust_and_close_resets() {
 
     ui.apply(UiCommand::DetailsPageNext, &world);
     ui.apply(UiCommand::DetailsPageNext, &world);
-    assert_eq!(ui.details_page, 2);
+    assert_eq!(ui.details_page, 1);
 
     ui.apply(UiCommand::DetailsPagePrev, &world);
-    assert_eq!(ui.details_page, 1);
+    assert_eq!(ui.details_page, 0);
 
     ui.apply(UiCommand::CloseDetails, &world);
     assert_eq!(ui.details_view, DetailsView::List);
     assert_eq!(ui.details_page, 0);
+}
+
+#[test]
+fn country_details_page_commands_remain_unbounded() {
+    let world = sample_world();
+    let mut ui = UiState {
+        details_view: DetailsView::Country,
+        details_page: 0,
+        ..UiState::default()
+    };
+
+    ui.apply(UiCommand::DetailsPageNext, &world);
+    ui.apply(UiCommand::DetailsPageNext, &world);
+    assert_eq!(ui.details_page, 2);
+
+    ui.apply(UiCommand::DetailsPagePrev, &world);
+    assert_eq!(ui.details_page, 1);
 }
 
 #[test]

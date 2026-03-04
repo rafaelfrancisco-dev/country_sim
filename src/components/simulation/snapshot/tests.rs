@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::simulation::ui_state::DetailsView;
 use crate::sim::{
     GameCommand, GameEngine, GamePhase,
     country::Country,
@@ -165,4 +166,107 @@ fn events_search_intersects_with_category_filter() {
     };
     assert_eq!(events_tab.events_total_count, 1);
     assert!(events_tab.event_log_lines[0].contains("bankrupt"));
+}
+
+#[test]
+fn person_related_events_apply_shared_filter_and_country_scope() {
+    let mut world = World::new(vec![
+        Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
+        Country::new(2, "B".to_string(), vec![Person::new(1, 30, 0, 22)]),
+    ]);
+    world.event_log = vec![
+        SimEvent::StockMarginCall {
+            country_name: "A".to_string(),
+            person_id: 1,
+            shares_liquidated: 5,
+            proceeds: 12.0,
+            day: 3,
+        },
+        SimEvent::StockMarginCall {
+            country_name: "B".to_string(),
+            person_id: 1,
+            shares_liquidated: 3,
+            proceeds: 9.0,
+            day: 3,
+        },
+        SimEvent::StockIpo {
+            country_name: "A".to_string(),
+            company_id: 0,
+            company_name: "Comp".to_string(),
+            ticker: "CMP".to_string(),
+            reason: IpoReason::Growth,
+            shares_issued: 10,
+            primary_shares_issued: 8,
+            secondary_shares_sold: 2,
+            price_per_share: 1.0,
+            total_raised: 10.0,
+            primary_raised: 8.0,
+            secondary_raised: 2.0,
+            founder_payout_total: 1.0,
+            day: 3,
+        },
+    ];
+
+    let ui = UiState {
+        active_tab: RunningTab::Main,
+        details_view: DetailsView::Person,
+        events_category: EventsCategoryFilter::StockMarket,
+        events_search_query: "margin".to_string(),
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    let RunningTabSnapshot::Main(main_tab) = snapshot.tab else {
+        panic!("main tab payload expected");
+    };
+    assert_eq!(main_tab.person_related_events.events_total_count, 1);
+    assert_eq!(
+        main_tab.person_related_events.events_category_label,
+        "Stock Market"
+    );
+    assert!(main_tab.person_related_events.event_log_lines[0].contains("margin call"));
+}
+
+#[test]
+fn company_related_events_match_company_references_and_selected_country_only() {
+    let mut world = World::new(vec![
+        Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
+        Country::new(2, "B".to_string(), vec![Person::new(1, 30, 0, 22)]),
+    ]);
+    world.event_log = vec![
+        SimEvent::JobSwitched {
+            country_name: "A".to_string(),
+            person_id: 1,
+            from_company_id: 0,
+            to_company_id: 3,
+            monthly_salary: 100.0,
+            day: 4,
+        },
+        SimEvent::JobSwitched {
+            country_name: "B".to_string(),
+            person_id: 1,
+            from_company_id: 0,
+            to_company_id: 2,
+            monthly_salary: 110.0,
+            day: 4,
+        },
+    ];
+
+    let ui = UiState {
+        active_tab: RunningTab::Goods,
+        details_view: DetailsView::Company,
+        events_category: EventsCategoryFilter::CompaniesLabor,
+        ..UiState::default()
+    };
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+
+    let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
+        panic!("goods tab payload expected");
+    };
+    assert_eq!(goods_tab.company_related_events.events_total_count, 1);
+    assert_eq!(
+        goods_tab.company_related_events.events_category_label,
+        "Companies & Labor"
+    );
+    assert!(goods_tab.company_related_events.event_log_lines[0].contains("Company #0 -> #3"));
 }
