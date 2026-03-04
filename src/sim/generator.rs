@@ -452,7 +452,7 @@ mod tests {
 
         for country in countries {
             let non_household_cash =
-                round_cents(country.company_cash_total + country.bank.reserve_balance);
+                round_cents(country.company_cash_total + country.total_bank_reserves());
             assert!((country.household_cash_total - non_household_cash).abs() <= 0.01);
             let expected_total = round_cents(country.initial_money_supply);
             assert!((country.total_money_supply - expected_total).abs() <= 0.01);

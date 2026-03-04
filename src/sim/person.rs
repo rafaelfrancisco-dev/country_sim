@@ -1,5 +1,5 @@
 use super::{
-    bank::LoanAccount,
+    bank::{BankId, LoanAccount},
     job::{JobTypeId, salary_for_job},
 };
 
@@ -68,6 +68,7 @@ pub struct Person {
     pub employment_start_day: Option<u64>,
     pub agreed_monthly_salary: f64,
     pub cash_balance: f64,
+    pub deposit_bank_id: Option<BankId>,
     pub name_seed: u32,
     pub age_days: u16,
     pub education_track: EducationTrack,
@@ -117,6 +118,7 @@ impl Person {
             employment_start_day: None,
             agreed_monthly_salary: 0.0,
             cash_balance: 0.0,
+            deposit_bank_id: None,
             name_seed,
             age_days,
             education_track,

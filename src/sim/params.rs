@@ -524,6 +524,47 @@ impl Default for GovernmentBackfillParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct BankingSystemParams {
+    pub deposit_target_ratio: f64,
+    pub wallet_buffer_months_person: f64,
+    pub wallet_buffer_months_company: f64,
+    pub deposit_insurance_cap: f64,
+    pub uninsured_haircut_rate: f64,
+    pub run_health_threshold: f64,
+    pub run_withdraw_fraction: f64,
+    pub run_switch_fraction: f64,
+    pub public_bank_stability_bonus: f64,
+    pub private_bank_failure_sensitivity: f64,
+    pub min_private_bank_founders: usize,
+    pub min_private_bank_seed_capital: f64,
+    pub max_new_banks_per_month: u16,
+    pub public_bank_creation_unemployment_trigger: f64,
+    pub public_bank_creation_loss_trigger: f64,
+}
+
+impl Default for BankingSystemParams {
+    fn default() -> Self {
+        Self {
+            deposit_target_ratio: 0.85,
+            wallet_buffer_months_person: 0.20,
+            wallet_buffer_months_company: 0.25,
+            deposit_insurance_cap: 100_000.0,
+            uninsured_haircut_rate: 0.35,
+            run_health_threshold: 0.45,
+            run_withdraw_fraction: 0.40,
+            run_switch_fraction: 0.65,
+            public_bank_stability_bonus: 0.20,
+            private_bank_failure_sensitivity: 1.0,
+            min_private_bank_founders: 8,
+            min_private_bank_seed_capital: 500_000.0,
+            max_new_banks_per_month: 2,
+            public_bank_creation_unemployment_trigger: 0.15,
+            public_bank_creation_loss_trigger: 0.25,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
@@ -542,6 +583,7 @@ pub struct SimulationParams {
     pub government_backfill: GovernmentBackfillParams,
     pub stock_market: StockMarketParams,
     pub monetary: MonetaryPolicyParams,
+    pub banking: BankingSystemParams,
 }
 
 #[cfg(test)]

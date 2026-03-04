@@ -214,18 +214,18 @@ Each month, after all production prices are set, `recompute_cpi()` calculates a 
   - default `inflation_ema_alpha = 0.35`
 
 ### Deposit Rate & Savings Interest
-Each month, after loan repayments, depositors earn interest on their cash balances:
+Each month, after loan repayments and bank-run processing, depositors earn interest on their cash balances. Interest is paid **per bank** based on each holder's `deposit_bank_id`.
 
 ```
 deposit_rate = max(0, policy_rate − deposit_spread)
 monthly_interest = cash_balance × (deposit_rate / 12)
 ```
 
-- `deposit_spread` (default 1%) models the bank's intermediation margin between policy and deposit rates.
+- `deposit_spread` (default 1%) models private-bank intermediation margin between policy and deposit rates.
+- Public-bank deposit rates apply a small positive premium vs private-bank base rates.
 - Only balances above `savings_min_balance` (default $200) earn interest.
-- Gross interest is computed in parallel across all people and companies.
-- The total is capped by available `bank.reserve_balance` (strict settlement — no synthetic credits).
-- If reserves are insufficient, all payments are scaled down proportionally.
+- Gross interest is computed per bank across people, companies, and treasury balances assigned to that bank.
+- Each bank's total payout is capped by that bank's available reserve (`reserve_balance`) with proportional scaling.
 - Interest is added to each holder's `cash_balance`; `last_month_savings_interest` records the per-holder amount for display.
 - The country tracks `monthly_savings_interest_paid` (reset each month).
 
@@ -331,15 +331,65 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `deposit_spread` | 0.01 | Deposit rate = `max(0, policy_rate − deposit_spread)` |
 | `savings_min_balance` | 200.0 | Minimum cash balance required to earn deposit interest |
 
+## Multi-Bank System
+- Each country has:
+  - one primary bank (`Country.bank`, initialized as public)
+  - zero or more additional banks (`Country.banks`)
+- Banks are typed as `Public` or `Private`.
+- People, companies, and treasury hold bank assignment pointers (`deposit_bank_id` / `treasury_bank_id`).
+- Deposit liabilities are recomputed each month from assigned holder balances.
+
+### Bank Formation (Monthly)
+- **Private bank formation**:
+  - triggered when a country has no private bank
+  - founders must collectively contribute at least `min_private_bank_seed_capital`
+  - minimum founder count controlled by `min_private_bank_founders`
+- **Public bank expansion**:
+  - evaluated when a private banking sector exists and stress is elevated
+  - stress proxies include unemployment and recent haircut losses
+  - funded by treasury first, then deficit monetization if needed
+- New-bank creation is capped by `max_new_banks_per_month`.
+
+### Bank Runs and Resolution (Monthly)
+- Run processing currently applies to **private banks only**.
+- If private-bank health drops below `run_health_threshold`, a run starts:
+  - withdrawal pressure scales by health gap and `run_withdraw_fraction`
+  - some depositors switch banks (bounded by `run_switch_fraction`)
+- Resolution path:
+  - insured shortfall support up to `deposit_insurance_cap`
+  - uninsured shortfall takes `uninsured_haircut_rate` loss
+  - remaining uninsured gap is treasury-supported (with monetization fallback)
+- Bank-run visibility is event-driven:
+  - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
+
+### Banking Parameters (`BankingSystemParams`)
+| Field | Default | Description |
+|---|---|---|
+| `deposit_insurance_cap` | 100000.0 | Per-claim insured support during bank resolution |
+| `uninsured_haircut_rate` | 0.35 | Loss ratio applied to uninsured shortfall |
+| `run_health_threshold` | 0.45 | Health trigger threshold for private-bank runs |
+| `run_withdraw_fraction` | 0.40 | Base fraction of deposits requested during run |
+| `run_switch_fraction` | 0.65 | Share of depositors that can switch banks during run |
+| `public_bank_stability_bonus` | 0.20 | Stability bonus applied in run-health logic |
+| `private_bank_failure_sensitivity` | 1.00 | Multiplier on private-bank withdrawal stress |
+| `min_private_bank_founders` | 8 | Minimum founders for private-bank creation |
+| `min_private_bank_seed_capital` | 500000.0 | Minimum private-bank seed capital |
+| `max_new_banks_per_month` | 2 | Max new banks created per country per month |
+| `public_bank_creation_unemployment_trigger` | 0.15 | Unemployment stress trigger for public expansion |
+| `public_bank_creation_loss_trigger` | 0.25 | Haircut-loss ratio trigger for public expansion |
+
 ## Bank and Loans
 - Borrowers: people and companies.
+- Loans carry explicit lender identity (`lender_bank_id`).
 - Loan issuance creates money.
 - Principal repayment destroys created money.
-- Interest flows to bank reserve.
+- Interest flows to the lender bank reserve.
 - Affordability cap: monthly payment <= 35% of monthly income.
 - Unemployed people have zero monthly income for affordability checks.
-- On death, personal loans are written off and created principal outstanding is removed from bank-created money.
-- Loan interest rate = `bank_loan_rate()` = `policy_rate + credit_spread`, clamped to `[rate_floor, rate_ceiling]`.
+- On death/company default, loan write-off removes created principal from the lender bank's outstanding created money.
+- Loan interest rate uses policy transmission with bank-kind adjustment:
+  - private: base `bank_loan_rate()`
+  - public: slight discount vs base lending rate
 
 ## Monthly Processing Order
 1. Recompute company headcounts.
@@ -349,7 +399,8 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 5. **Bond coupon & maturity** — distribute coupons; repay or default if `bond_months_to_maturity == 0`.
 6. Stock collateral seizure (margin calls).
 7. Loan repayment pass (people, then companies).
-7a. **Savings interest** — deposit interest distributed from bank reserves to eligible cash holders.
+7a. **Private-bank run processing** — withdrawal pressure, depositor switching, resolution/haircuts.
+7b. **Savings interest** — deposit interest distributed per bank from each bank's reserves.
 8. Company profitability recomputation.
 9. Annual market wage raise pass (cadence-gated).
 10. Growth IPO pass (non-distress listings).
@@ -359,17 +410,19 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 14. Growth-driven opening creation.
 15. Startup formation pass.
 16. Essential + countercyclical public-employer backfill.
-17. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
-18. Public-utility wage adjustment.
-19. Monthly job-switch pass (same profession, minimum raise threshold).
-20. Monthly labor churn pass.
-21. Recompute company headcounts again.
-22. Company month close (pricing/history side effects, plus state-owned utility cap + affordability-aware reversion).
-23. Stock dividends.
-24. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
-25. Month increment and aggregate recomputation.
+17. **Bank formation** — private founder-capital creation and/or stress-gated public expansion.
+18. **Bond issuance** — issue new bond if treasury ≤ threshold and budget was in deficit.
+19. Public-utility wage adjustment.
+20. Monthly job-switch pass (same profession, minimum raise threshold).
+21. Monthly labor churn pass.
+22. Recompute company headcounts again.
+23. Company month close (pricing/history side effects, plus state-owned utility cap + affordability-aware reversion).
+24. Stock dividends.
+25. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
+26. Recompute bank deposit liabilities.
+27. Month increment and aggregate recomputation.
 
-*World-level after all countries complete steps 1–25:*
+*World-level after all countries complete steps 1–27:*
 - Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
 - Monthly snapshot captured (picks up the new rate).
 - Monthly trackers reset.
@@ -382,7 +435,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 - Repaying or writing off created principal decreases created-money outstanding.
 - Savings interest is a redistribution from bank reserves to household/company cash; it increases total measured money supply by the same amount bank reserves decrease (bank reserves are part of the money supply).
 - Tracked money supply remains close to:
-  - `initial_supply + created_money_outstanding`
+  - `initial_supply + Σ(bank.created_money_outstanding)`
 
 ## Stock Market Microstructure
 
@@ -413,7 +466,7 @@ The stock market runs once per day after the goods market. Each country's market
 ### Monthly Stock Events
 - **Margin calls** (step 6 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
 - **Secondary offerings** (step 11): listed companies with `consecutive_missed_loan_payments >= secondary_offering_missed_payment_trigger` may raise equity capital by issuing up to `shares_outstanding × secondary_offering_max_dilution` new shares at `last_price × (1 − secondary_offering_discount)`. Retail + bank subscribers provide cash; `shares_outstanding` and `free_float_shares` increase by shares allocated; proceeds go to company cash. Emits `StockSecondaryOffering` event (`[SEC]` log tag).
-- **Dividends** (step 23): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
+- **Dividends** (step 24): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
 
 ### Share Conservation Invariant
 For every listed company: `Σ person_holdings + bank_holdings == free_float_shares`. This is checked by `Country::validate_money_invariants` in invariant-focused tests and in runtime builds compiled with `--features runtime-invariants`.

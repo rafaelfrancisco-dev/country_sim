@@ -1,7 +1,7 @@
 #[cfg(test)]
 use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
-    bank::{Bank, DEFAULT_MAX_DEBT_TO_INCOME},
+    bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, FounderStake, JobOpening},
     event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
@@ -38,6 +38,7 @@ pub struct Country {
     pub last_day_deaths: u32,
     pub sim_params: SimulationParams,
     pub treasury_balance: f64,
+    pub treasury_bank_id: Option<BankId>,
     pub monthly_tax_collected: f64,
     pub monthly_household_spending: f64,
     pub monthly_tariff_collected: f64,
@@ -74,6 +75,9 @@ pub struct Country {
     pub expected_money_supply: f64,
     pub money_supply_gap: f64,
     pub bank: Bank,
+    pub banks: Vec<Bank>,
+    pub next_bank_serial: u32,
+    pub public_bank_id: Option<BankId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +128,7 @@ impl Country {
         let mut export_tariffs_by_good = [0.0; GOODS_COUNT];
         export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
         let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
+        let public_bank_name = format!("{name} Public Bank");
 
         let mut country = Self {
             id,
@@ -139,6 +144,7 @@ impl Country {
             last_day_deaths: 0,
             sim_params,
             treasury_balance: 0.0,
+            treasury_bank_id: None,
             monthly_tax_collected: 0.0,
             monthly_household_spending: 0.0,
             monthly_tariff_collected: 0.0,
@@ -170,8 +176,12 @@ impl Country {
             total_money_supply: 0.0,
             expected_money_supply: 0.0,
             money_supply_gap: 0.0,
-            bank: Bank::new(),
+            bank: Bank::with_identity(0, public_bank_name, BankKind::Public),
+            banks: Vec::new(),
+            next_bank_serial: 1,
+            public_bank_id: Some(0),
         };
+        country.ensure_entity_deposit_assignments();
         let initial_cpi = country.cpi_basket_index();
         country.cpi_index = initial_cpi;
         country.last_month_cpi_index = initial_cpi;
@@ -183,6 +193,193 @@ impl Country {
 
     pub fn population(&self) -> usize {
         self.people.len()
+    }
+
+    pub fn total_bank_reserves(&self) -> f64 {
+        round_cents(
+            self.bank.reserve_balance
+                + self
+                    .banks
+                    .iter()
+                    .map(|bank| bank.reserve_balance)
+                    .sum::<f64>(),
+        )
+    }
+
+    pub fn total_bank_created_money(&self) -> f64 {
+        round_cents(
+            self.bank.created_money_outstanding
+                + self
+                    .banks
+                    .iter()
+                    .map(|bank| bank.created_money_outstanding)
+                    .sum::<f64>(),
+        )
+    }
+
+    pub fn total_bank_deposit_liabilities(&self) -> f64 {
+        round_cents(
+            self.bank.deposit_liabilities
+                + self
+                    .banks
+                    .iter()
+                    .map(|bank| bank.deposit_liabilities)
+                    .sum::<f64>(),
+        )
+    }
+
+    pub fn first_bank_id(&self) -> Option<BankId> {
+        Some(self.bank.id)
+    }
+
+    pub fn public_bank_id_or_first(&self) -> Option<BankId> {
+        self.public_bank_id.or_else(|| self.first_bank_id())
+    }
+
+    pub fn bank_by_id(&self, bank_id: BankId) -> Option<&Bank> {
+        if self.bank.id == bank_id {
+            return Some(&self.bank);
+        }
+        self.banks.iter().find(|bank| bank.id == bank_id)
+    }
+
+    pub fn bank_by_id_mut(&mut self, bank_id: BankId) -> Option<&mut Bank> {
+        if self.bank.id == bank_id {
+            return Some(&mut self.bank);
+        }
+        self.banks.iter_mut().find(|bank| bank.id == bank_id)
+    }
+
+    pub fn stock_market_bank_id(&self) -> Option<BankId> {
+        self.public_bank_id_or_first()
+    }
+
+    pub fn bank_loan_rate_for(&self, bank_id: BankId) -> f64 {
+        let base = self.bank_loan_rate();
+        let Some(bank) = self.bank_by_id(bank_id) else {
+            return base;
+        };
+        match bank.kind {
+            BankKind::Public => (base - 0.005).max(self.sim_params.monetary.rate_floor),
+            BankKind::Private => base,
+        }
+    }
+
+    pub fn deposit_rate_for(&self, bank_id: BankId) -> f64 {
+        let base = self.deposit_rate();
+        let Some(bank) = self.bank_by_id(bank_id) else {
+            return base;
+        };
+        match bank.kind {
+            BankKind::Public => (base + 0.0025).max(0.0),
+            BankKind::Private => base,
+        }
+    }
+
+    pub fn healthiest_bank_id(&self) -> Option<BankId> {
+        std::iter::once(&self.bank)
+            .chain(self.banks.iter())
+            .max_by(|a, b| {
+                a.health_score()
+                    .partial_cmp(&b.health_score())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|bank| bank.id)
+    }
+
+    pub fn preferred_private_bank_id(&self) -> Option<BankId> {
+        std::iter::once(&self.bank)
+            .chain(self.banks.iter())
+            .filter(|bank| bank.kind == BankKind::Private && !bank.is_in_resolution)
+            .max_by(|a, b| {
+                a.health_score()
+                    .partial_cmp(&b.health_score())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|bank| bank.id)
+    }
+
+    pub fn preferred_lender_bank_id(&self) -> Option<BankId> {
+        self.preferred_private_bank_id()
+            .or_else(|| self.public_bank_id_or_first())
+            .or_else(|| self.healthiest_bank_id())
+    }
+
+    pub fn ensure_entity_deposit_assignments(&mut self) {
+        let fallback_bank = self.public_bank_id_or_first();
+        for person in &mut self.people {
+            if person.deposit_bank_id.is_none() {
+                person.deposit_bank_id = fallback_bank;
+            }
+        }
+        for company in &mut self.companies {
+            if company.deposit_bank_id.is_none() {
+                company.deposit_bank_id = fallback_bank;
+            }
+        }
+        if self.treasury_bank_id.is_none() {
+            self.treasury_bank_id = fallback_bank;
+        }
+        self.recompute_bank_deposit_liabilities();
+    }
+
+    pub fn recompute_bank_deposit_liabilities(&mut self) {
+        let mut liabilities_by_bank: std::collections::HashMap<BankId, f64> =
+            std::collections::HashMap::new();
+        for person in &self.people {
+            let Some(bank_id) = person.deposit_bank_id else {
+                continue;
+            };
+            let entry = liabilities_by_bank.entry(bank_id).or_insert(0.0);
+            *entry = round_cents(*entry + person.cash_balance.max(0.0));
+        }
+        for company in &self.companies {
+            let Some(bank_id) = company.deposit_bank_id else {
+                continue;
+            };
+            let entry = liabilities_by_bank.entry(bank_id).or_insert(0.0);
+            *entry = round_cents(*entry + company.cash_balance.max(0.0));
+        }
+        if let Some(bank_id) = self.treasury_bank_id {
+            let entry = liabilities_by_bank.entry(bank_id).or_insert(0.0);
+            *entry = round_cents(*entry + self.treasury_balance.max(0.0));
+        }
+
+        self.bank.set_deposit_liabilities(
+            liabilities_by_bank
+                .remove(&self.bank.id)
+                .unwrap_or_default()
+                .max(0.0),
+        );
+        for bank in &mut self.banks {
+            let amount = liabilities_by_bank.remove(&bank.id).unwrap_or_default();
+            bank.set_deposit_liabilities(amount.max(0.0));
+        }
+    }
+
+    pub fn create_bank(&mut self, kind: BankKind, seed_capital: f64) -> Option<BankId> {
+        if self.banks.len().saturating_add(1) >= u16::MAX as usize {
+            return None;
+        }
+        let bank_id = self.banks.len().saturating_add(1) as BankId;
+        let serial = self.next_bank_serial;
+        self.next_bank_serial = self.next_bank_serial.saturating_add(1);
+        let kind_label = match kind {
+            BankKind::Public => "Public",
+            BankKind::Private => "Private",
+        };
+        let mut bank = Bank::with_identity(
+            bank_id,
+            format!("{} {} Bank {}", self.name, kind_label, serial),
+            kind,
+        );
+        bank.reserve_balance = round_cents(seed_capital.max(0.0));
+        bank.equity_capital = round_cents(seed_capital.max(0.0));
+        self.banks.push(bank);
+        if kind == BankKind::Public {
+            self.public_bank_id = Some(bank_id);
+        }
+        Some(bank_id)
     }
 
     /// Current bank loan rate: policy rate + credit spread, clamped to [floor, ceiling].

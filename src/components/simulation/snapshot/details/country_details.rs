@@ -26,6 +26,15 @@ pub(in crate::components::simulation) fn country_details_lines(
         .map(|opening| u64::from(opening.slots))
         .sum();
     let listed_count = country.stock_market.listed_count();
+    let total_banks = 1 + country.banks.len();
+    let public_banks = std::iter::once(&country.bank)
+        .chain(country.banks.iter())
+        .filter(|bank| bank.kind == crate::sim::bank::BankKind::Public)
+        .count();
+    let banks_in_resolution = std::iter::once(&country.bank)
+        .chain(country.banks.iter())
+        .filter(|bank| bank.is_in_resolution)
+        .count();
 
     let trade_balance =
         country.monthly_goods_export_revenue - country.monthly_goods_import_spending;
@@ -68,6 +77,12 @@ pub(in crate::components::simulation) fn country_details_lines(
             compact_count(total_open_slots as f64)
         ),
         format!("Listed Companies: {}", compact_count(listed_count as f64)),
+        format!(
+            "Banks (Public / In Resolution): {} ({} / {})",
+            compact_count(total_banks as f64),
+            compact_count(public_banks as f64),
+            compact_count(banks_in_resolution as f64)
+        ),
         String::new(),
         "Money & Fiscal:".to_string(),
         format!(
@@ -84,11 +99,11 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!(
             "Bank Reserve: {}",
-            money(country.bank.reserve_balance, currency_symbol)
+            money(country.total_bank_reserves(), currency_symbol)
         ),
         format!(
             "Loans Outstanding: {}",
-            money(country.bank.created_money_outstanding, currency_symbol)
+            money(country.total_bank_created_money(), currency_symbol)
         ),
         format!(
             "Money Supply: {}",

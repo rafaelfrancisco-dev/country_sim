@@ -46,8 +46,8 @@ Fiscal and monetary state per country per month.
 | `total_money_supply` | float | `household_cash + company_cash + bank_reserve + treasury` |
 | `household_cash_total` | float | Sum of all person cash balances |
 | `company_cash_total` | float | Sum of all company cash balances |
-| `bank_reserve_balance` | float | Bank reserve cash |
-| `bank_created_money_outstanding` | float | Principal of outstanding bank-created loans |
+| `bank_reserve_balance` | float | Aggregate reserve cash across all banks in the country |
+| `bank_created_money_outstanding` | float | Aggregate principal of outstanding bank-created loans across all banks |
 | `expected_money_supply` | float | Initial money supply adjusted for created/destroyed money |
 | `money_supply_gap` | float | `total_money_supply − expected_money_supply` |
 | `bonds_outstanding` | float | Face value of sovereign bonds currently outstanding |
@@ -148,6 +148,8 @@ Discrete simulation event counts per country per month. Each column is the count
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
 
+Note: bank-run and bank-resolution events are present in the runtime event log but are not yet exported as dedicated monthly count columns in `events_<seed>.csv`.
+
 ---
 
 ## Implementation Notes
@@ -174,7 +176,7 @@ Discrete simulation event counts per country per month. Each column is the count
 | `total_turnover` | decimal | Total cash turnover today (sum across all equities) |
 | `index_value` | decimal | Composite market-cap index (base 1000 at first listing) |
 | `bank_equity_exposure` | decimal | Bank portfolio market value |
-| `bank_reserve_balance` | decimal | Bank reserve at end of day |
+| `bank_reserve_balance` | decimal | Aggregate country bank reserve at end of day |
 | `active_traders_count` | integer | Unique traders with at least one order in the day |
 | `buy_orders_count` | integer | Total buy orders submitted during the day |
 | `sell_orders_count` | integer | Total sell orders submitted during the day |

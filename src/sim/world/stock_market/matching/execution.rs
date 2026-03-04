@@ -77,7 +77,12 @@ pub(in crate::sim::world) fn run_country_stock_market(
     };
 
     let bank_equity_exposure = country.stock_market.bank_equity_exposure();
-    let bank_equity_budget = params.bank_max_equity_reserve_fraction * country.bank.reserve_balance;
+    let market_bank_reserve = country
+        .stock_market_bank_id()
+        .and_then(|bank_id| country.bank_by_id(bank_id))
+        .map(|bank| bank.reserve_balance)
+        .unwrap_or(country.bank.reserve_balance);
+    let bank_equity_budget = params.bank_max_equity_reserve_fraction * market_bank_reserve;
     let bank_equity_headroom = (bank_equity_budget - bank_equity_exposure).max(0.0);
 
     for (symbol_idx, context) in symbol_contexts.iter().copied().enumerate() {
@@ -287,6 +292,7 @@ fn settle_fills(
     person_index_lookup: &PersonIndexLookup,
     fills: &[TradeFill],
 ) {
+    let stock_bank_id = country.stock_market_bank_id().unwrap_or(country.bank.id);
     for fill in fills {
         let cid = fill.company_id;
         let cost = round_cents(fill.shares as f64 * fill.price);
@@ -297,7 +303,9 @@ fn settle_fills(
                 .get(&pid)
                 .and_then(|idx| country.people.get(*idx))
                 .is_some_and(|person| person.cash_balance >= cost),
-            TraderId::Bank => country.bank.reserve_balance >= cost,
+            TraderId::Bank => country
+                .bank_by_id(stock_bank_id)
+                .is_some_and(|bank| bank.reserve_balance >= cost),
         };
 
         let seller_ok = match fill.seller {
@@ -332,8 +340,9 @@ fn settle_fills(
                 );
             }
             TraderId::Bank => {
-                country.bank.reserve_balance =
-                    round_cents(country.bank.reserve_balance - cost).max(0.0);
+                if let Some(bank) = country.bank_by_id_mut(stock_bank_id) {
+                    bank.reserve_balance = round_cents(bank.reserve_balance - cost).max(0.0);
+                }
                 country
                     .stock_market
                     .bank_portfolio
@@ -357,7 +366,9 @@ fn settle_fills(
                     .stock_market
                     .bank_portfolio
                     .remove_shares(cid, fill.shares, fill.price);
-                country.bank.reserve_balance = round_cents(country.bank.reserve_balance + proceeds);
+                if let Some(bank) = country.bank_by_id_mut(stock_bank_id) {
+                    bank.reserve_balance = round_cents(bank.reserve_balance + proceeds);
+                }
             }
         }
 

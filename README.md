@@ -49,6 +49,12 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - Only state-owned/public-utility companies are price-capped (private firms remain uncapped)
   - Cap base rises with both CPI and money-supply growth to avoid a fixed nominal anchor
   - Public-utility monthly repricing includes affordability-pressure relief (allows downward movement under stress)
+- Banking system additions:
+  - Countries now support multiple banks with explicit `Public` / `Private` kinds
+  - People and companies are assigned to a deposit bank (`deposit_bank_id`) and savings interest is paid per bank
+  - Monthly private-bank run dynamics include withdrawal pressure, depositor switching, and resolution outcomes (insured support + uninsured haircut)
+  - Monthly bank formation path added (private founder-capital formation + stress-gated public expansion)
+  - New banking events: `BankFounded`, `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
 
 ## Documentation
 - [Game context](docs/game-context.md)
@@ -115,6 +121,16 @@ cargo run --features runtime-invariants -- [args...]
 - The same flag can be used in tests when validating warning emission:
 ```bash
 cargo test --features runtime-invariants
+```
+
+## Banking Validation Commands
+- Targeted banking scenarios + 10-year month-level invariant check:
+```bash
+cargo test sim::country::tests::company_dynamics::bank_runs_and_deposits:: -- --nocapture
+```
+- Existing long-horizon acceptance run used for regression validation:
+```bash
+cargo test sim::world::tests::core::generated_world_3x15k_730_days_meets_stability_floor -- --ignored --exact
 ```
 
 ## Profiling

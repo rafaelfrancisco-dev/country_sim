@@ -107,6 +107,84 @@ impl SimEvent {
                     "[FOUND] Day {day:>6} | {country_name}: Company #{company_id} ({company_name}) founded with {founders} founder(s), core job #{job_type_id}, good #{produced_good_id}"
                 )
             }
+            Self::BankFounded {
+                country_name,
+                bank_id,
+                bank_name,
+                kind,
+                seed_capital,
+                day,
+            } => {
+                let kind_label = match kind {
+                    crate::sim::bank::BankKind::Public => "Public",
+                    crate::sim::bank::BankKind::Private => "Private",
+                };
+                format!(
+                    "[BNK+]  Day {day:>6} | {country_name}: {kind_label} bank #{bank_id} ({bank_name}) founded with seed {}",
+                    format_money(*seed_capital, currency_symbol)
+                )
+            }
+            Self::BankRunStarted {
+                country_name,
+                bank_id,
+                bank_name,
+                health,
+                day,
+            } => {
+                format!(
+                    "[RUN!]  Day {day:>6} | {country_name}: Bank #{bank_id} ({bank_name}) run started (health {:.1}%)",
+                    health * 100.0
+                )
+            }
+            Self::BankRunWithdrawal {
+                country_name,
+                bank_id,
+                entities_affected,
+                requested,
+                haircut_loss,
+                day,
+            } => {
+                format!(
+                    "[RUN$]  Day {day:>6} | {country_name}: Bank #{bank_id} withdrawals {} by {entities_affected} entities, losses {}",
+                    format_money(*requested, currency_symbol),
+                    format_money(*haircut_loss, currency_symbol),
+                )
+            }
+            Self::BankResolutionStarted {
+                country_name,
+                bank_id,
+                treasury_support,
+                day,
+            } => {
+                format!(
+                    "[RESOL] Day {day:>6} | {country_name}: Bank #{bank_id} resolution started, treasury support {}",
+                    format_money(*treasury_support, currency_symbol)
+                )
+            }
+            Self::BankResolved {
+                country_name,
+                bank_id,
+                bank_name,
+                day,
+            } => {
+                format!(
+                    "[RESOK] Day {day:>6} | {country_name}: Bank #{bank_id} ({bank_name}) resolved"
+                )
+            }
+            Self::BankDepositHaircut {
+                country_name,
+                bank_id,
+                entity_kind,
+                entity_id,
+                amount_lost,
+                day,
+            } => {
+                let kind = entity_kind_label(entity_kind);
+                format!(
+                    "[HAIRC] Day {day:>6} | {country_name}: {kind} #{entity_id} lost {} in Bank #{bank_id} resolution",
+                    format_money(*amount_lost, currency_symbol),
+                )
+            }
             Self::CompanyWageCut {
                 country_name,
                 company_id,
@@ -329,6 +407,7 @@ fn entity_kind_label(kind: &EntityKind) -> &'static str {
     match kind {
         EntityKind::Person => "Person",
         EntityKind::Company => "Company",
+        EntityKind::Country => "Country",
     }
 }
 

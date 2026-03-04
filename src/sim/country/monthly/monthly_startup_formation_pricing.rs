@@ -168,6 +168,9 @@ impl Country {
                 .collect::<Vec<_>>(),
             high_margin_good_id,
         );
+        startup.deposit_bank_id = self
+            .preferred_private_bank_id()
+            .or(self.public_bank_id_or_first());
 
         let avg_price = self.average_price_for_good(high_margin_good_id);
         let margin_floor = good_by_id(high_margin_good_id)

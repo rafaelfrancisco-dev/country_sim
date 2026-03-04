@@ -3,6 +3,15 @@ use super::money::round_cents;
 pub const DEFAULT_LOAN_APR: f64 = 0.12;
 pub const DEFAULT_LOAN_TERM_MONTHS: u16 = 12;
 pub const DEFAULT_MAX_DEBT_TO_INCOME: f64 = 0.35;
+pub const DEFAULT_BANK_NAME: &str = "National Bank";
+
+pub type BankId = u16;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum BankKind {
+    Public,
+    Private,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoanAccount {
@@ -12,10 +21,20 @@ pub struct LoanAccount {
     pub annual_rate: f64,
     pub term_months: u16,
     pub months_remaining: u16,
+    pub lender_bank_id: BankId,
 }
 
 impl LoanAccount {
     pub fn new(principal: f64, annual_rate: f64, term_months: u16) -> Self {
+        Self::new_with_lender(principal, annual_rate, term_months, 0)
+    }
+
+    pub fn new_with_lender(
+        principal: f64,
+        annual_rate: f64,
+        term_months: u16,
+        lender_bank_id: BankId,
+    ) -> Self {
         let principal = round_cents(principal.max(0.0));
         Self {
             debt_balance: principal,
@@ -24,6 +43,7 @@ impl LoanAccount {
             annual_rate,
             term_months,
             months_remaining: term_months,
+            lender_bank_id,
         }
     }
 }
@@ -40,10 +60,18 @@ pub struct LoanPayment {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bank {
+    pub id: BankId,
+    pub name: String,
+    pub kind: BankKind,
     pub reserve_balance: f64,
     pub created_money_outstanding: f64,
     pub total_originated: f64,
     pub total_principal_repaid: f64,
+    pub deposit_liabilities: f64,
+    pub equity_capital: f64,
+    pub run_intensity: f64,
+    pub is_in_resolution: bool,
+    pub months_in_resolution: u16,
 }
 
 impl Default for Bank {
@@ -54,11 +82,23 @@ impl Default for Bank {
 
 impl Bank {
     pub fn new() -> Self {
+        Self::with_identity(0, DEFAULT_BANK_NAME.to_string(), BankKind::Public)
+    }
+
+    pub fn with_identity(id: BankId, name: String, kind: BankKind) -> Self {
         Self {
+            id,
+            name,
+            kind,
             reserve_balance: 0.0,
             created_money_outstanding: 0.0,
             total_originated: 0.0,
             total_principal_repaid: 0.0,
+            deposit_liabilities: 0.0,
+            equity_capital: 0.0,
+            run_intensity: 0.0,
+            is_in_resolution: false,
+            months_in_resolution: 0,
         }
     }
 
@@ -103,12 +143,14 @@ impl Bank {
                     existing.annual_rate,
                     existing.term_months,
                 );
+                existing.lender_bank_id = self.id;
             }
             None => {
-                *loan = Some(LoanAccount::new(
+                *loan = Some(LoanAccount::new_with_lender(
                     approved_principal,
                     annual_rate,
                     DEFAULT_LOAN_TERM_MONTHS,
+                    self.id,
                 ));
             }
         }
@@ -197,6 +239,70 @@ impl Bank {
         self.created_money_outstanding =
             round_cents((self.created_money_outstanding - written_off).max(0.0));
         written_off
+    }
+
+    pub fn set_deposit_liabilities(&mut self, amount: f64) {
+        self.deposit_liabilities = round_cents(amount.max(0.0));
+    }
+
+    pub fn apply_deposit_inflow(&mut self, amount: f64) {
+        let amount = round_cents(amount.max(0.0));
+        if amount <= 0.0 {
+            return;
+        }
+        self.deposit_liabilities = round_cents(self.deposit_liabilities + amount);
+        self.reserve_balance = round_cents(self.reserve_balance + amount);
+    }
+
+    pub fn apply_withdrawal(&mut self, requested: f64) -> f64 {
+        let requested = round_cents(requested.max(0.0));
+        if requested <= 0.0 {
+            return 0.0;
+        }
+        let paid = round_cents(requested.min(self.reserve_balance.max(0.0)));
+        if paid <= 0.0 {
+            return 0.0;
+        }
+        self.reserve_balance = round_cents(self.reserve_balance - paid);
+        self.deposit_liabilities = round_cents((self.deposit_liabilities - paid).max(0.0));
+        paid
+    }
+
+    pub fn can_fund_withdrawal(&self, amount: f64) -> bool {
+        round_cents(amount.max(0.0)) <= round_cents(self.reserve_balance.max(0.0)) + 0.01
+    }
+
+    pub fn liquidity_ratio(&self) -> f64 {
+        if self.deposit_liabilities <= 0.0 {
+            return 1.0;
+        }
+        (self.reserve_balance.max(0.0) / self.deposit_liabilities.max(0.01)).clamp(0.0, 10.0)
+    }
+
+    pub fn capital_ratio(&self) -> f64 {
+        let assets = self.reserve_balance.max(0.0) + self.created_money_outstanding.max(0.0);
+        let liabilities = self.deposit_liabilities.max(0.0);
+        if assets <= 0.0 {
+            return 0.0;
+        }
+        ((assets - liabilities) / assets).clamp(-1.0, 1.0)
+    }
+
+    pub fn health_score(&self) -> f64 {
+        let liquidity = self.liquidity_ratio().min(1.0);
+        let capital = ((self.capital_ratio() + 1.0) / 2.0).clamp(0.0, 1.0);
+        let resolution_penalty = if self.is_in_resolution { 0.35 } else { 0.0 };
+        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.50;
+        (0.60 * liquidity + 0.40 * capital - resolution_penalty - run_penalty).clamp(0.0, 1.0)
+    }
+
+    pub fn update_run_intensity(&mut self, stress: f64) {
+        self.run_intensity = round_cents(stress.clamp(0.0, 1.0));
+        if self.run_intensity > 0.0 {
+            self.months_in_resolution = self.months_in_resolution.saturating_add(1);
+        } else {
+            self.months_in_resolution = 0;
+        }
     }
 }
 

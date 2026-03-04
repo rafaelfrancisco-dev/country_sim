@@ -1,3 +1,5 @@
+use crate::sim::bank::BankKind;
+
 pub const EVENT_LOG_LIMIT: usize = 10_000;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -27,6 +29,7 @@ impl EventCategory {
 pub enum EntityKind {
     Person,
     Company,
+    Country,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -96,6 +99,49 @@ pub enum SimEvent {
         founders: u16,
         job_type_id: u8,
         produced_good_id: u8,
+        day: u64,
+    },
+    BankFounded {
+        country_name: String,
+        bank_id: u16,
+        bank_name: String,
+        kind: BankKind,
+        seed_capital: f64,
+        day: u64,
+    },
+    BankRunStarted {
+        country_name: String,
+        bank_id: u16,
+        bank_name: String,
+        health: f64,
+        day: u64,
+    },
+    BankRunWithdrawal {
+        country_name: String,
+        bank_id: u16,
+        entities_affected: u32,
+        requested: f64,
+        haircut_loss: f64,
+        day: u64,
+    },
+    BankResolutionStarted {
+        country_name: String,
+        bank_id: u16,
+        treasury_support: f64,
+        day: u64,
+    },
+    BankResolved {
+        country_name: String,
+        bank_id: u16,
+        bank_name: String,
+        day: u64,
+    },
+    BankDepositHaircut {
+        country_name: String,
+        bank_id: u16,
+        entity_kind: EntityKind,
+        entity_id: u32,
+        amount_lost: f64,
         day: u64,
     },
     CompanyWageCut {
@@ -229,10 +275,16 @@ impl SimEvent {
             | Self::DebtDistress { .. } => EventCategory::BankruptciesDistress,
             Self::LoanEmitted { .. } | Self::LoanEnded { .. } => EventCategory::LoansDebt,
             Self::CompanyFounded { .. }
+            | Self::BankFounded { .. }
             | Self::CompanyWageCut { .. }
             | Self::CompanyLayoffs { .. }
             | Self::LaborChurnMonthly { .. }
             | Self::JobSwitched { .. } => EventCategory::CompaniesLabor,
+            Self::BankRunStarted { .. }
+            | Self::BankRunWithdrawal { .. }
+            | Self::BankResolutionStarted { .. }
+            | Self::BankResolved { .. }
+            | Self::BankDepositHaircut { .. } => EventCategory::BankruptciesDistress,
             Self::StockIpo { .. }
             | Self::StockDividend { .. }
             | Self::StockMarginCall { .. }

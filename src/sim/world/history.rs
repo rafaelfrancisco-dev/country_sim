@@ -55,12 +55,12 @@ impl World {
         let created_money_outstanding = self
             .countries
             .iter()
-            .map(|country| country.bank.created_money_outstanding)
+            .map(|country| country.total_bank_created_money())
             .sum();
         let bank_reserve = self
             .countries
             .iter()
-            .map(|country| country.bank.reserve_balance)
+            .map(|country| country.total_bank_reserves())
             .sum();
         let treasury_balance = self
             .countries
@@ -198,8 +198,8 @@ impl World {
             company_cash_total: country.company_cash_total,
             expected_money_supply: country.expected_money_supply,
             money_supply_gap: country.money_supply_gap,
-            created_money_outstanding: country.bank.created_money_outstanding,
-            bank_reserve: country.bank.reserve_balance,
+            created_money_outstanding: country.total_bank_created_money(),
+            bank_reserve: country.total_bank_reserves(),
             treasury_balance: country.treasury_balance,
             budget_balance: country.monthly_budget_balance,
             monthly_tax_collected: country.monthly_tax_collected,

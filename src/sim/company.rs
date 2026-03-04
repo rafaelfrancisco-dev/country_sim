@@ -1,5 +1,5 @@
 use super::{
-    bank::LoanAccount,
+    bank::{BankId, LoanAccount},
     good::{GoodId, common_goods, good_by_id},
     job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
@@ -44,6 +44,7 @@ pub struct Company {
     pub missed_loan_payment_this_month: bool,
     pub production_effort_carry: f64,
     pub cash_balance: f64,
+    pub deposit_bank_id: Option<BankId>,
     pub monthly_payroll_budget: f64,
     pub last_month_payroll_paid: f64,
     pub last_month_sales: f64,
@@ -101,6 +102,7 @@ impl Company {
             missed_loan_payment_this_month: false,
             production_effort_carry: 0.0,
             cash_balance: 0.0,
+            deposit_bank_id: None,
             monthly_payroll_budget: 0.0,
             last_month_payroll_paid: 0.0,
             last_month_sales: 0.0,

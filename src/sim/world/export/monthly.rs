@@ -173,8 +173,8 @@ fn collect_country_data(
         total_money_supply: country.total_money_supply,
         household_cash_total: country.household_cash_total,
         company_cash_total: country.company_cash_total,
-        bank_reserve_balance: country.bank.reserve_balance,
-        bank_created_money_outstanding: country.bank.created_money_outstanding,
+        bank_reserve_balance: country.total_bank_reserves(),
+        bank_created_money_outstanding: country.total_bank_created_money(),
         expected_money_supply: country.expected_money_supply,
         money_supply_gap: country.money_supply_gap,
         employed_count,
@@ -323,6 +323,24 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::CompanyFounded {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankFounded {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankRunStarted {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankRunWithdrawal {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankResolutionStarted {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankResolved {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::BankDepositHaircut {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::CompanyWageCut {

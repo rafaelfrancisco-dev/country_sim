@@ -31,14 +31,15 @@ impl Country {
 
         self.household_cash_total = from_cents(household_cents);
         self.company_cash_total = from_cents(company_cents);
+        let bank_reserve_cents = to_cents(self.total_bank_reserves());
         let total_money_supply_cents = household_cents
             .saturating_add(company_cents)
             .saturating_add(to_cents(self.treasury_balance))
-            .saturating_add(to_cents(self.bank.reserve_balance));
+            .saturating_add(bank_reserve_cents);
         self.total_money_supply = from_cents(total_money_supply_cents);
 
         let expected_money_supply_cents = to_cents(self.initial_money_supply)
-            .saturating_add(to_cents(self.bank.created_money_outstanding));
+            .saturating_add(to_cents(self.total_bank_created_money()));
         self.expected_money_supply = from_cents(expected_money_supply_cents);
         self.money_supply_gap =
             from_cents(total_money_supply_cents.saturating_sub(expected_money_supply_cents));
@@ -46,7 +47,7 @@ impl Country {
 
     pub fn validate_money_invariants(&self) -> Vec<InvariantViolation> {
         let mut violations = Vec::new();
-        let expected = round_cents(self.initial_money_supply + self.bank.created_money_outstanding);
+        let expected = round_cents(self.initial_money_supply + self.total_bank_created_money());
         if (self.expected_money_supply - expected).abs() > 0.01 {
             violations.push(InvariantViolation {
                 code: "expected_supply_mismatch",
@@ -106,13 +107,13 @@ impl Country {
                 }
             }
 
-            // Bank reserve must be finite
-            if !self.bank.reserve_balance.is_finite() {
+            // Bank reserves must be finite
+            if !self.total_bank_reserves().is_finite() {
                 violations.push(InvariantViolation {
                     code: "bank_reserve_not_finite",
                     message: format!(
-                        "bank reserve_balance {} is not finite",
-                        self.bank.reserve_balance
+                        "aggregate bank reserve_balance {} is not finite",
+                        self.total_bank_reserves()
                     ),
                 });
             }

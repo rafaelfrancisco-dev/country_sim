@@ -17,7 +17,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Implemented by `Person`, `Country`, and `World`
 
 ### `Person`
-- Economic state: `cash_balance`, optional `loan`, monthly trackers.
+- Economic state: `cash_balance`, optional `loan`, optional `deposit_bank_id`, monthly trackers.
 - Employment state: `EmploymentStatus` (`Unemployed` or `Employed { job_type_id, employer_company_id }`).
 - Employment tenure: `employment_start_day` (used to compute company-tenure months in UI worker rosters).
 - Contract state: `agreed_monthly_salary` (salary set at hire/switch and later adjusted by wage policy passes such as distress cuts and annual raises).
@@ -33,16 +33,22 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Tracks trailing profit history for annual raise eligibility checks.
 - Can expand hiring only when profitability and reserve conditions are met.
 - Tracks distress state (`consecutive_missed_loan_payments`, `missed_loan_payment_this_month`) and wage policy (`wage_offer_multiplier`).
+- Tracks optional `deposit_bank_id` for bank-side savings/run routing.
 
 ### `Country`
-- Owns `people`, `companies`, treasury, and `bank`.
+- Owns `people`, `companies`, treasury, a primary bank (`bank`), and additional banks (`banks`) with public/private typing.
+- Maintains bank-level helpers for:
+  - lender selection
+  - per-bank deposit-liability recomputation
+  - run health checks and resolution flow
+  - dynamic bank creation
 - Daily lifecycle:
   1. age progression and habilitation refresh
   2. age-driven mortality
   3. births using population-rate + carry model
   4. daily job-seeking and hiring against company vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, job switching, churn), and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), and close.
 - Maintains `next_startup_serial` so startup names remain unique across company removals.
 
 ### `World`
@@ -95,5 +101,6 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Qualification-gated labor matching.
 - Company growth openings and hiring behavior.
 - Startup formation, salary-aware job switching, distress escalation, and bankruptcy renumber/remap behavior.
+- Banking behavior: private/public bank formation, bank-run haircuts, depositor switching, and lender/deposit routing.
 - Monthly money flow invariants and tax/loan behavior.
 - World tick/month boundary consistency and chart history retention.

@@ -8,6 +8,7 @@ impl Country {
     }
 
     pub(crate) fn process_month_end(&mut self) {
+        self.ensure_entity_deposit_assignments();
         self.recompute_company_headcounts();
 
         self.ensure_company_payroll_liquidity();
@@ -16,6 +17,7 @@ impl Country {
         self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
+        self.process_bank_runs();
         self.process_savings_interest();
         self.recompute_company_profitability();
         self.process_annual_wage_raises();
@@ -26,6 +28,7 @@ impl Country {
         self.update_company_growth_openings();
         self.process_startup_formation();
         self.process_essential_company_backfill();
+        self.process_bank_formation();
         self.maybe_issue_bonds(); // [E]
         self.adjust_public_utility_opening_wages();
         self.process_monthly_job_switches();
@@ -34,6 +37,7 @@ impl Country {
         self.close_company_months();
         self.process_stock_dividends();
         self.recompute_cpi(); // [F]
+        self.recompute_bank_deposit_liabilities();
 
         self.month = self.month.saturating_add(1);
         self.recompute_aggregates();
@@ -50,6 +54,7 @@ impl Country {
         let bond_coupon_ms = time_op!(self.process_bond_coupon_and_maturity());
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
+        time_op!(self.process_bank_runs());
         let savings_interest_ms = time_op!(self.process_savings_interest());
         let profitability_ms = time_op!(self.recompute_company_profitability());
         let _annual_wage_raise_ms = time_op!(self.process_annual_wage_raises());
@@ -60,6 +65,7 @@ impl Country {
         let growth_openings_ms = time_op!(self.update_company_growth_openings());
         let startup_formation_ms = time_op!(self.process_startup_formation());
         let essential_backfill_ms = time_op!(self.process_essential_company_backfill());
+        time_op!(self.process_bank_formation());
         let bond_issuance_ms = time_op!(self.maybe_issue_bonds());
         let public_wage_adjust_ms = time_op!(self.adjust_public_utility_opening_wages());
         let job_switches_ms = time_op!(self.process_monthly_job_switches());
@@ -68,6 +74,7 @@ impl Country {
         let close_company_months_ms = time_op!(self.close_company_months());
         let dividends_ms = time_op!(self.process_stock_dividends());
         let cpi_ms = time_op!(self.recompute_cpi());
+        time_op!(self.recompute_bank_deposit_liabilities());
 
         self.month = self.month.saturating_add(1);
 

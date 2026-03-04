@@ -82,7 +82,7 @@ impl UiSnapshot {
                             household_cash: money(country.household_cash_total, currency_symbol),
                             company_cash: money(country.company_cash_total, currency_symbol),
                             treasury: money(country.treasury_balance, currency_symbol),
-                            loans: money(country.bank.created_money_outstanding, currency_symbol),
+                            loans: money(country.total_bank_created_money(), currency_symbol),
                             is_selected: idx == ui.selected_country,
                             is_even: idx.is_multiple_of(2),
                         }
@@ -507,6 +507,12 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::GovTransfer { country_name, .. }
         | SimEvent::GovCompanyFunded { country_name, .. }
         | SimEvent::CompanyFounded { country_name, .. }
+        | SimEvent::BankFounded { country_name, .. }
+        | SimEvent::BankRunStarted { country_name, .. }
+        | SimEvent::BankRunWithdrawal { country_name, .. }
+        | SimEvent::BankResolutionStarted { country_name, .. }
+        | SimEvent::BankResolved { country_name, .. }
+        | SimEvent::BankDepositHaircut { country_name, .. }
         | SimEvent::CompanyWageCut { country_name, .. }
         | SimEvent::CompanyLayoffs { country_name, .. }
         | SimEvent::LaborChurnMonthly { country_name, .. }

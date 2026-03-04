@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::bank::BankKind;
 
 impl Country {
     pub(super) fn update_company_growth_openings(&mut self) {
@@ -95,6 +96,140 @@ impl Country {
         }
     }
 
+    pub(crate) fn process_bank_formation(&mut self) {
+        let params = self.sim_params.banking;
+        if params.max_new_banks_per_month == 0 {
+            return;
+        }
+
+        let mut created = 0_u16;
+        let private_count = std::iter::once(&self.bank)
+            .chain(self.banks.iter())
+            .filter(|bank| bank.kind == BankKind::Private)
+            .count();
+        let total_deposits = self.total_bank_deposit_liabilities().max(1.0);
+        let recent_haircut_loss = self
+            .pending_events
+            .iter()
+            .filter_map(|event| match event {
+                SimEvent::BankDepositHaircut { amount_lost, .. } => Some(*amount_lost),
+                _ => None,
+            })
+            .sum::<f64>();
+        let haircut_ratio = recent_haircut_loss / total_deposits;
+        let unemployment = self.labor_force_unemployment_rate();
+
+        if private_count == 0
+            && created < params.max_new_banks_per_month
+            && let Some((bank_id, seed_capital)) = self.form_private_bank_from_founders()
+        {
+            created = created.saturating_add(1);
+            self.pending_events.push(SimEvent::BankFounded {
+                country_name: self.name.clone(),
+                bank_id,
+                bank_name: self
+                    .bank_by_id(bank_id)
+                    .map(|bank| bank.name.clone())
+                    .unwrap_or_else(|| format!("{} Private Bank", self.name)),
+                kind: BankKind::Private,
+                seed_capital,
+                day: self.day,
+            });
+        }
+
+        let needs_public_expansion = self.public_bank_id.is_none()
+            || (private_count > 0
+                && (unemployment >= params.public_bank_creation_unemployment_trigger
+                    || haircut_ratio >= params.public_bank_creation_loss_trigger
+                    || self
+                        .public_bank_id
+                        .and_then(|id| self.bank_by_id(id))
+                        .is_none_or(|bank| bank.health_score() < 0.35)));
+
+        if needs_public_expansion && created < params.max_new_banks_per_month {
+            let required_capital = round_cents(params.min_private_bank_seed_capital.max(1.0) * 2.0);
+            let treasury_funding =
+                round_cents(required_capital.min(self.treasury_balance.max(0.0)));
+            self.treasury_balance = round_cents(self.treasury_balance - treasury_funding);
+            let deficit_need = round_cents((required_capital - treasury_funding).max(0.0));
+            let deficit_funding = if deficit_need > 0.0 {
+                self.bank.fund_government_deficit(deficit_need)
+            } else {
+                0.0
+            };
+            if deficit_funding > 0.0 {
+                self.gov_debt = round_cents(self.gov_debt + deficit_funding);
+            }
+            let total = round_cents(treasury_funding + deficit_funding);
+            if total > 0.0
+                && let Some(bank_id) = self.create_bank(BankKind::Public, total)
+            {
+                self.treasury_bank_id = Some(bank_id);
+                self.pending_events.push(SimEvent::BankFounded {
+                    country_name: self.name.clone(),
+                    bank_id,
+                    bank_name: self
+                        .bank_by_id(bank_id)
+                        .map(|bank| bank.name.clone())
+                        .unwrap_or_else(|| format!("{} Public Bank", self.name)),
+                    kind: BankKind::Public,
+                    seed_capital: total,
+                    day: self.day,
+                });
+            }
+        }
+
+        self.ensure_entity_deposit_assignments();
+    }
+
+    fn form_private_bank_from_founders(&mut self) -> Option<(u16, f64)> {
+        let params = self.sim_params.banking;
+        let founder_count = params.min_private_bank_founders.max(1);
+        let minimum_seed = round_cents(params.min_private_bank_seed_capital.max(1.0));
+        let contribution_target = round_cents(minimum_seed / founder_count as f64);
+        if contribution_target <= 0.0 {
+            return None;
+        }
+
+        let mut founder_indices = self
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, person)| person.cash_balance >= contribution_target)
+            .map(|(idx, _)| idx)
+            .collect::<Vec<_>>();
+        if founder_indices.len() < founder_count {
+            return None;
+        }
+
+        founder_indices.truncate(founder_count);
+        let mut seed_capital = 0.0_f64;
+        for idx in founder_indices {
+            if let Some(person) = self.people.get_mut(idx) {
+                let amount = round_cents(contribution_target.min(person.cash_balance.max(0.0)));
+                person.cash_balance = round_cents(person.cash_balance - amount);
+                seed_capital = round_cents(seed_capital + amount);
+            }
+        }
+        if seed_capital + 0.01 < minimum_seed {
+            return None;
+        }
+
+        let bank_id = self.create_bank(BankKind::Private, seed_capital)?;
+        let mut moved = 0_usize;
+        for person in &mut self.people {
+            if moved >= founder_count.saturating_mul(10) {
+                break;
+            }
+            if person.cash_balance <= contribution_target {
+                continue;
+            }
+            person.deposit_bank_id = Some(bank_id);
+            moved = moved.saturating_add(1);
+        }
+        Some((bank_id, seed_capital))
+    }
+
     pub(super) fn process_essential_company_backfill(&mut self) {
         let backfill = self.sim_params.government_backfill;
         if !backfill.enabled {
@@ -146,6 +281,7 @@ impl Country {
                 .collect::<Vec<_>>(),
             good_id,
         );
+        company.deposit_bank_id = self.public_bank_id_or_first();
         company.is_public_utility = true;
         company.is_essential_backfill = true;
 
