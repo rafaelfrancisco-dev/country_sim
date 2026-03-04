@@ -11,7 +11,7 @@ use super::super::{Simulation, theme};
 use super::details::paginate_detail_lines;
 use crate::components::simulation::{
     hotkeys,
-    snapshot::RunningSnapshot,
+    snapshot::{GoodsTabSnapshot, RunningSnapshot},
     ui_state::{DetailsView, SelectionFocus},
 };
 
@@ -39,10 +39,11 @@ impl Simulation {
         frame: &mut Frame,
         body: Rect,
         world: &RunningSnapshot,
+        tab: &GoodsTabSnapshot,
     ) -> String {
         match world.details_view {
             DetailsView::Company => {
-                self.draw_company_details(frame, body, world);
+                self.draw_company_details(frame, body, world, tab);
                 format!(
                     "Controls: {}  [Esc] back to goods list  [PgUp/PgDn] details page",
                     hotkeys::GLOBAL_RUNNING_HINT
@@ -52,8 +53,8 @@ impl Simulation {
                 let [top, bottom] =
                     Layout::vertical([Constraint::Length(8), Constraint::Min(10)]).areas(body);
 
-                self.draw_goods_summary(frame, top, world);
-                self.draw_goods_company_table(frame, bottom, world);
+                self.draw_goods_summary(frame, top, tab);
+                self.draw_goods_company_table(frame, bottom, world, tab);
 
                 format!(
                     "Controls: {}  [,/.] change country  [a/d] focus country/company  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] company details | Country Page {}/{} | Company Page {}/{}",
@@ -67,8 +68,8 @@ impl Simulation {
         }
     }
 
-    fn draw_goods_summary(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
-        let lines = world
+    fn draw_goods_summary(&self, frame: &mut Frame, area: Rect, tab: &GoodsTabSnapshot) {
+        let lines = tab
             .country_goods_summary_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
@@ -89,7 +90,13 @@ impl Simulation {
         );
     }
 
-    fn draw_goods_company_table(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    fn draw_goods_company_table(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+        tab: &GoodsTabSnapshot,
+    ) {
         let header = Row::new([
             Cell::from("ID"),
             Cell::from("Company"),
@@ -111,7 +118,7 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = world.company_rows.iter().map(|company| {
+        let rows = tab.company_rows.iter().map(|company| {
             let style = if company.is_selected && world.selection_focus == SelectionFocus::Company {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -179,15 +186,13 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         world: &RunningSnapshot,
+        tab: &GoodsTabSnapshot,
     ) {
         let [details_area, charts_area] =
             Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).areas(area);
 
-        let (page_lines, page_idx, total_pages) = paginate_detail_lines(
-            &world.company_details_lines,
-            world.details_page,
-            details_area,
-        );
+        let (page_lines, page_idx, total_pages) =
+            paginate_detail_lines(&tab.company_details_lines, world.details_page, details_area);
         let details = page_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
@@ -231,7 +236,7 @@ impl Simulation {
         self.draw_company_history_chart(
             frame,
             sold_area,
-            world.company_sold_history.as_slice(),
+            tab.company_sold_history.as_ref(),
             "Sold Units History",
             Color::Cyan,
             false,
@@ -239,7 +244,7 @@ impl Simulation {
         self.draw_company_history_chart(
             frame,
             employee_area,
-            world.company_employee_history.as_slice(),
+            tab.company_employee_history.as_ref(),
             "Employees History",
             Color::Green,
             false,
@@ -247,7 +252,7 @@ impl Simulation {
         self.draw_company_history_chart(
             frame,
             price_area,
-            world.company_price_history.as_slice(),
+            tab.company_price_history.as_ref(),
             "Price History",
             Color::Yellow,
             true,
@@ -255,7 +260,7 @@ impl Simulation {
         self.draw_company_history_chart(
             frame,
             loan_area,
-            world.company_loan_payment_history.as_slice(),
+            tab.company_loan_payment_history.as_ref(),
             "Loan Payments History",
             Color::LightMagenta,
             true,
@@ -263,7 +268,7 @@ impl Simulation {
         self.draw_company_history_chart(
             frame,
             money_area,
-            world.company_money_history.as_slice(),
+            tab.company_money_history.as_ref(),
             "Money History",
             Color::LightGreen,
             true,

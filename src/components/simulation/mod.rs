@@ -50,7 +50,7 @@ pub(super) struct RunningInputState {
 #[derive(Debug)]
 pub struct Simulation {
     snapshot: Arc<RwLock<RenderSnapshot>>,
-    last_snapshot: UiSnapshot,
+    last_snapshot: Arc<UiSnapshot>,
     worker: SimulationWorker,
     worker_fatal_notified: bool,
     phase_is_running: bool,
@@ -86,8 +86,11 @@ impl Simulation {
             0.0,
             0.0,
         );
-        let initial_snapshot =
-            UiSnapshot::from_engine_and_ui(&engine_state, &mut ui_state, runtime_stats);
+        let initial_snapshot = Arc::new(UiSnapshot::from_engine_and_ui(
+            &engine_state,
+            &mut ui_state,
+            runtime_stats,
+        ));
         let snapshot = Arc::new(RwLock::new(RenderSnapshot {
             ui_snapshot: initial_snapshot.clone(),
         }));
@@ -127,13 +130,12 @@ impl Simulation {
             self.last_snapshot = snapshot.ui_snapshot.clone();
         }
 
-        match &mut self.last_snapshot.phase {
+        match &self.last_snapshot.phase {
             SnapshotPhase::Setup(setup) => {
                 self.phase_is_running = false;
                 if setup.validation_error.is_some() {
                     self.setup_generation_in_progress = false;
                 }
-                setup.is_generating = self.setup_generation_in_progress;
             }
             SnapshotPhase::Running(world) => {
                 self.phase_is_running = true;
@@ -289,7 +291,12 @@ impl Component for Simulation {
         self.refresh_cached_input_state();
 
         match &self.last_snapshot.phase {
-            SnapshotPhase::Setup(setup) => self.draw_setup(frame, area, setup),
+            SnapshotPhase::Setup(setup) => self.draw_setup(
+                frame,
+                area,
+                setup,
+                self.setup_generation_in_progress && setup.validation_error.is_none(),
+            ),
             SnapshotPhase::Running(world) => self.draw_running(frame, area, world),
         }
 
@@ -354,7 +361,7 @@ mod tests {
             panic!("setup phase should still be active immediately after submit");
         };
         assert!(
-            setup.is_generating,
+            simulation.setup_generation_in_progress && setup.validation_error.is_none(),
             "setup should display generating indicator while command is in flight"
         );
 
@@ -367,7 +374,7 @@ mod tests {
             };
             if setup.validation_error.is_some() {
                 assert!(
-                    !setup.is_generating,
+                    !simulation.setup_generation_in_progress,
                     "setup should stop displaying generating indicator after validation fails"
                 );
                 break;

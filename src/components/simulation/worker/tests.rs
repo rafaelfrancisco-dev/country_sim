@@ -9,7 +9,7 @@ fn wait_for_running_phase(snapshot: &Arc<RwLock<RenderSnapshot>>) {
         let is_running = {
             let current = snapshot.read().expect("snapshot lock poisoned");
             matches!(
-                current.ui_snapshot.phase,
+                &current.ui_snapshot.phase,
                 crate::components::simulation::snapshot::SnapshotPhase::Running(_)
             )
         };
@@ -39,11 +39,11 @@ fn worker_applies_commands_in_order() {
     let runtime_stats =
         RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0);
     let snapshot = Arc::new(RwLock::new(RenderSnapshot {
-        ui_snapshot: UiSnapshot::from_engine_and_ui(
+        ui_snapshot: Arc::new(UiSnapshot::from_engine_and_ui(
             &initial_engine,
             &mut initial_ui_state,
             runtime_stats,
-        ),
+        )),
     }));
     let worker = SimulationWorker::new(
         initial_engine,
@@ -65,7 +65,7 @@ fn worker_applies_commands_in_order() {
 
     let snapshot = snapshot.read().expect("snapshot lock poisoned").clone();
     let crate::components::simulation::snapshot::SnapshotPhase::Running(world) =
-        snapshot.ui_snapshot.phase
+        snapshot.ui_snapshot.phase.clone()
     else {
         panic!("expected running phase");
     };
@@ -102,11 +102,11 @@ fn worker_transitions_to_fatal_when_snapshot_lock_is_poisoned() {
     let runtime_stats =
         RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0);
     let snapshot = Arc::new(RwLock::new(RenderSnapshot {
-        ui_snapshot: UiSnapshot::from_engine_and_ui(
+        ui_snapshot: Arc::new(UiSnapshot::from_engine_and_ui(
             &initial_engine,
             &mut initial_ui_state,
             runtime_stats,
-        ),
+        )),
     }));
 
     let poison_result = std::panic::catch_unwind({
@@ -152,11 +152,11 @@ fn worker_emits_export_errors_without_becoming_fatal() {
     let runtime_stats =
         RuntimeStatsSnapshot::new(SimulationMode::Realtime, 0.0, 0.0, 0, 0.0, 0, 0.0, 0.0);
     let snapshot = Arc::new(RwLock::new(RenderSnapshot {
-        ui_snapshot: UiSnapshot::from_engine_and_ui(
+        ui_snapshot: Arc::new(UiSnapshot::from_engine_and_ui(
             &initial_engine,
             &mut initial_ui_state,
             runtime_stats,
-        ),
+        )),
     }));
 
     let mut export_path = std::env::temp_dir();

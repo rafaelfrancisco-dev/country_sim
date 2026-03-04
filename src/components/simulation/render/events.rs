@@ -7,7 +7,10 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
+use crate::components::simulation::{
+    hotkeys,
+    snapshot::{EventsTabSnapshot, RunningSnapshot},
+};
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_events_tab(
@@ -15,16 +18,17 @@ impl Simulation {
         frame: &mut Frame,
         body: Rect,
         world: &RunningSnapshot,
+        tab: &EventsTabSnapshot,
     ) -> String {
         let [list_area, search_area] =
             Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(body);
 
-        let total = world.event_log_lines.len();
+        let total = tab.event_log_lines.len();
         let max_scroll = total.saturating_sub(1);
-        let scroll = world.events_scroll.min(max_scroll);
+        let scroll = tab.events_scroll.min(max_scroll);
         let list_height = list_area.height.saturating_sub(2) as usize;
 
-        let visible: Vec<ListItem> = world
+        let visible: Vec<ListItem> = tab
             .event_log_lines
             .iter()
             .skip(scroll)
@@ -57,11 +61,11 @@ impl Simulation {
         };
 
         let search_display = if world.events_search_active {
-            format!("{}_", world.events_search_query)
-        } else if world.events_search_query.is_empty() {
+            format!("{}_", tab.events_search_query)
+        } else if tab.events_search_query.is_empty() {
             "Press [/] to search".to_string()
         } else {
-            format!("Filter: {}", world.events_search_query)
+            format!("Filter: {}", tab.events_search_query)
         };
 
         let search_block = Block::default()
@@ -76,7 +80,7 @@ impl Simulation {
 
         let search_hint = if world.events_search_active {
             "Esc: close search  Ctrl+u: clear query"
-        } else if !world.events_search_query.is_empty() {
+        } else if !tab.events_search_query.is_empty() {
             "/: edit filter"
         } else {
             "/: search"
@@ -86,9 +90,9 @@ impl Simulation {
             "Controls: {}  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
             hotkeys::GLOBAL_RUNNING_HINT,
             search_hint,
-            world.events_total_count,
-            world.events_sort_label,
-            world.events_category_label,
+            tab.events_total_count,
+            tab.events_sort_label,
+            tab.events_category_label,
         )
     }
 }

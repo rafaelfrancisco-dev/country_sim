@@ -73,7 +73,9 @@ fn publish_snapshot(
     ui_snapshot: UiSnapshot,
 ) -> Result<(), WorkerFatalReason> {
     if let Ok(mut shared_snapshot) = worker_snapshot.write() {
-        *shared_snapshot = RenderSnapshot { ui_snapshot };
+        *shared_snapshot = RenderSnapshot {
+            ui_snapshot: Arc::new(ui_snapshot),
+        };
         Ok(())
     } else {
         Err(WorkerFatalReason::SnapshotLockPoisoned)

@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 pub(in crate::components::simulation) struct RenderSnapshot {
-    pub ui_snapshot: UiSnapshot,
+    pub ui_snapshot: Arc<UiSnapshot>,
 }
 
 #[derive(Debug, Copy, Clone)]

@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::components::simulation::snapshot::{MainTabSnapshot, RunningSnapshot};
 
 pub(super) fn paginate_detail_lines(
     lines: &[String],
@@ -32,9 +32,10 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
     ) {
         let (page_lines, page_idx, total_pages) =
-            paginate_detail_lines(&world.person_details_lines, world.details_page, area);
+            paginate_detail_lines(&tab.person_details_lines, world.details_page, area);
         let details = page_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
@@ -64,9 +65,10 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
     ) {
         let (page_lines, page_idx, total_pages) =
-            paginate_detail_lines(&world.country_details_lines, world.details_page, area);
+            paginate_detail_lines(&tab.country_details_lines, world.details_page, area);
         let details = page_lines
             .iter()
             .map(|line| Line::from(line.as_str()))
@@ -95,9 +97,9 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         area: Rect,
-        world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
     ) {
-        let details = world
+        let details = tab
             .country_policy_lines
             .iter()
             .map(|line| Line::from(line.as_str()))

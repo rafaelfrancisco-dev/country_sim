@@ -7,7 +7,10 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
+use crate::components::simulation::{
+    hotkeys,
+    snapshot::{ChartsTabSnapshot, RunningSnapshot},
+};
 use crate::sim::world::MetricPoint;
 
 #[derive(Debug, Copy, Clone)]
@@ -31,12 +34,13 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         body: Rect,
-        world: &RunningSnapshot,
+        _world: &RunningSnapshot,
+        tab: &ChartsTabSnapshot,
     ) -> String {
-        let scope_label = world.chart_scope_label.as_str();
-        let history: &[MetricPoint] = world.chart_history.as_slice();
-        let total_pages = world.total_chart_pages.max(1);
-        let page_idx = world.chart_page.min(total_pages.saturating_sub(1));
+        let scope_label = tab.chart_scope_label.as_str();
+        let history: &[MetricPoint] = tab.chart_history.as_ref();
+        let total_pages = tab.total_chart_pages.max(1);
+        let page_idx = tab.chart_page.min(total_pages.saturating_sub(1));
 
         if history.is_empty() {
             let placeholder = Paragraph::new(

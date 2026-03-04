@@ -15,6 +15,7 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         setup: &SetupSnapshot,
+        is_generating: bool,
     ) {
         let block = Block::default()
             .title(" Country Simulation Setup ")
@@ -156,7 +157,7 @@ impl Simulation {
             ));
         }
         if status_lines.is_empty() {
-            let default_status = if setup.is_generating {
+            let default_status = if is_generating {
                 "Generating world... please wait."
             } else {
                 "Ready. Press Enter to generate world."

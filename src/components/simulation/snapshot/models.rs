@@ -1,3 +1,5 @@
+use std::{ops::Deref, sync::Arc};
+
 use crate::{
     components::simulation::ui_state::{DetailsView, RunningTab, SelectionFocus},
     sim::{
@@ -12,13 +14,9 @@ pub(in crate::components::simulation) struct UiSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "setup and running snapshots share a single transport enum across rendering paths"
-)]
 pub(in crate::components::simulation) enum SnapshotPhase {
-    Setup(SetupSnapshot),
-    Running(RunningSnapshot),
+    Setup(Box<SetupSnapshot>),
+    Running(Box<RunningSnapshot>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +77,20 @@ pub(in crate::components::simulation) struct CompanyRowSnapshot {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct RunningSnapshot {
+    pub core: RunningCoreSnapshot,
+    pub tab: RunningTabSnapshot,
+}
+
+impl Deref for RunningSnapshot {
+    type Target = RunningCoreSnapshot;
+
+    fn deref(&self) -> &Self::Target {
+        &self.core
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub day: u64,
     pub generation_seed: u64,
     pub selected_country_month: u64,
@@ -95,25 +107,7 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub total_people_pages: usize,
     pub company_page: usize,
     pub total_company_pages: usize,
-    pub country_rows: Vec<CountryRowSnapshot>,
-    pub people_rows: Vec<PersonRowSnapshot>,
-    pub company_rows: Vec<CompanyRowSnapshot>,
-    pub has_selected_country: bool,
-    pub person_details_lines: Vec<String>,
-    pub country_details_lines: Vec<String>,
-    pub country_policy_lines: Vec<String>,
     pub country_policy_is_editing: bool,
-    pub company_details_lines: Vec<String>,
-    pub company_sold_history: Vec<f64>,
-    pub company_employee_history: Vec<f64>,
-    pub company_price_history: Vec<f64>,
-    pub company_loan_payment_history: Vec<f64>,
-    pub company_money_history: Vec<f64>,
-    pub country_goods_summary_lines: Vec<String>,
-    pub chart_scope_label: String,
-    pub chart_page: usize,
-    pub total_chart_pages: usize,
-    pub chart_history: Vec<MetricPoint>,
     pub sim_mode: SimulationMode,
     pub ticks_per_second: f64,
     pub avg_tick_duration_ms: f64,
@@ -123,23 +117,69 @@ pub(in crate::components::simulation) struct RunningSnapshot {
     pub avg_snapshot_build_ms: f64,
     pub max_snapshot_age_ms: f64,
     pub invariant_warnings: Vec<String>,
+    pub events_search_active: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) enum RunningTabSnapshot {
+    Main(Box<MainTabSnapshot>),
+    Goods(Box<GoodsTabSnapshot>),
+    Stocks(Box<StocksTabSnapshot>),
+    Charts(Box<ChartsTabSnapshot>),
+    Events(Box<EventsTabSnapshot>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct MainTabSnapshot {
+    pub country_rows: Vec<CountryRowSnapshot>,
+    pub people_rows: Vec<PersonRowSnapshot>,
+    pub has_selected_country: bool,
+    pub person_details_lines: Vec<String>,
+    pub country_details_lines: Vec<String>,
+    pub country_policy_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct GoodsTabSnapshot {
+    pub company_rows: Vec<CompanyRowSnapshot>,
+    pub company_details_lines: Vec<String>,
+    pub company_sold_history: Arc<[f64]>,
+    pub company_employee_history: Arc<[f64]>,
+    pub company_price_history: Arc<[f64]>,
+    pub company_loan_payment_history: Arc<[f64]>,
+    pub company_money_history: Arc<[f64]>,
+    pub country_goods_summary_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct StocksTabSnapshot {
+    pub stock_rows: Vec<StockRowSnapshot>,
+    pub stock_summary_lines: Vec<String>,
+    pub stock_selected_index_price_history: Arc<[f64]>,
+    pub stock_selected_index_volume_history: Arc<[f64]>,
+    pub stock_country_index_history: Arc<[f64]>,
+    pub stock_bank_exposure_history: Arc<[f64]>,
+    pub stock_page: usize,
+    pub stock_selected_row: usize,
+    pub stock_person_details_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct ChartsTabSnapshot {
+    pub chart_scope_label: String,
+    pub chart_page: usize,
+    pub total_chart_pages: usize,
+    pub chart_history: Arc<[MetricPoint]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct EventsTabSnapshot {
     pub event_log_lines: Vec<String>,
     pub events_total_count: usize,
     pub events_scroll: usize,
     pub events_sort_label: &'static str,
     pub events_category_label: &'static str,
-    pub events_search_active: bool,
     pub events_search_query: String,
-    // Stocks tab
-    pub stock_rows: Vec<StockRowSnapshot>,
-    pub stock_summary_lines: Vec<String>,
-    pub stock_selected_index_price_history: Vec<f64>,
-    pub stock_selected_index_volume_history: Vec<f64>,
-    pub stock_country_index_history: Vec<f64>,
-    pub stock_bank_exposure_history: Vec<f64>,
-    pub stock_page: usize,
-    pub stock_selected_row: usize,
-    pub stock_person_details_lines: Vec<String>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

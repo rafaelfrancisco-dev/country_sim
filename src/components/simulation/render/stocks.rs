@@ -8,14 +8,18 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::{hotkeys, snapshot::RunningSnapshot};
+use crate::components::simulation::{
+    hotkeys,
+    snapshot::{RunningSnapshot, StocksTabSnapshot},
+};
 
 impl Simulation {
     pub(in crate::components::simulation) fn draw_stocks_tab(
         &self,
         frame: &mut Frame,
         body: Rect,
-        world: &RunningSnapshot,
+        _world: &RunningSnapshot,
+        tab: &StocksTabSnapshot,
     ) -> String {
         let [top, bottom] =
             Layout::vertical([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(body);
@@ -23,18 +27,18 @@ impl Simulation {
         let [summary_area, table_area] =
             Layout::horizontal([Constraint::Length(36), Constraint::Min(0)]).areas(top);
 
-        self.draw_stock_summary(frame, summary_area, world);
-        self.draw_stock_table(frame, table_area, world);
-        self.draw_stock_charts(frame, bottom, world);
+        self.draw_stock_summary(frame, summary_area, tab);
+        self.draw_stock_table(frame, table_area, tab);
+        self.draw_stock_charts(frame, bottom, tab);
 
         format!(
             "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [PgUp/PgDn] page | Listed: {}",
             hotkeys::GLOBAL_RUNNING_HINT,
-            world.stock_rows.len()
+            tab.stock_rows.len()
         )
     }
 
-    fn draw_stock_summary(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    fn draw_stock_summary(&self, frame: &mut Frame, area: Rect, tab: &StocksTabSnapshot) {
         let block = Block::default()
             .title(" Market Summary ")
             .borders(Borders::ALL)
@@ -42,7 +46,7 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let lines: Vec<Line> = world
+        let lines: Vec<Line> = tab
             .stock_summary_lines
             .iter()
             .map(|l| Line::from(Span::styled(l.as_str(), theme::primary_text())))
@@ -50,7 +54,7 @@ impl Simulation {
         frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
     }
 
-    fn draw_stock_table(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    fn draw_stock_table(&self, frame: &mut Frame, area: Rect, tab: &StocksTabSnapshot) {
         let block = Block::default()
             .title(" Listed Companies ")
             .borders(Borders::ALL)
@@ -58,7 +62,7 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        if world.stock_rows.is_empty() {
+        if tab.stock_rows.is_empty() {
             frame.render_widget(
                 Paragraph::new("No listed companies yet. IPOs occur when distressed companies cannot secure debt financing.")
                     .style(theme::muted_text())
@@ -77,7 +81,7 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows: Vec<Row> = world
+        let rows: Vec<Row> = tab
             .stock_rows
             .iter()
             .map(|r| {
@@ -129,7 +133,7 @@ impl Simulation {
         frame.render_widget(table, inner);
     }
 
-    fn draw_stock_charts(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    fn draw_stock_charts(&self, frame: &mut Frame, area: Rect, tab: &StocksTabSnapshot) {
         let [left, right] =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(area);
@@ -144,28 +148,28 @@ impl Simulation {
             frame,
             price_area,
             " Selected Stock Price ",
-            &world.stock_selected_index_price_history,
+            tab.stock_selected_index_price_history.as_ref(),
             Color::Cyan,
         );
         self.draw_stock_chart_f64(
             frame,
             volume_area,
             " Selected Stock Volume ",
-            &world.stock_selected_index_volume_history,
+            tab.stock_selected_index_volume_history.as_ref(),
             Color::Yellow,
         );
         self.draw_stock_chart_f64(
             frame,
             index_area,
             " Country Stock Index ",
-            &world.stock_country_index_history,
+            tab.stock_country_index_history.as_ref(),
             Color::Green,
         );
         self.draw_stock_chart_f64(
             frame,
             bank_area,
             " Bank Equity Exposure ",
-            &world.stock_bank_exposure_history,
+            tab.stock_bank_exposure_history.as_ref(),
             Color::Magenta,
         );
     }

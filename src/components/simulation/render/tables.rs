@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
-use crate::components::simulation::snapshot::RunningSnapshot;
+use crate::components::simulation::snapshot::{MainTabSnapshot, RunningSnapshot};
 use crate::components::simulation::ui_state::SelectionFocus;
 
 impl Simulation {
@@ -15,6 +15,7 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
     ) {
         let header = Row::new([
             Cell::from("Country"),
@@ -31,7 +32,7 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = world.country_rows.iter().map(|country| {
+        let rows = tab.country_rows.iter().map(|country| {
             let style = if country.is_selected && world.selection_focus == SelectionFocus::Country {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -83,7 +84,13 @@ impl Simulation {
         frame.render_widget(table, area);
     }
 
-    pub(super) fn draw_people_table(&self, frame: &mut Frame, area: Rect, world: &RunningSnapshot) {
+    pub(super) fn draw_people_table(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
+    ) {
         let header = Row::new([
             Cell::from("Citizen ID"),
             Cell::from("Name"),
@@ -102,7 +109,7 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        if !world.has_selected_country {
+        if !tab.has_selected_country {
             let placeholder = Paragraph::new("No countries generated yet.")
                 .style(theme::primary_text())
                 .block(
@@ -116,7 +123,7 @@ impl Simulation {
             return;
         }
 
-        let rows = world.people_rows.iter().map(|person| {
+        let rows = tab.people_rows.iter().map(|person| {
             let style = if person.is_selected && world.selection_focus == SelectionFocus::People {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)

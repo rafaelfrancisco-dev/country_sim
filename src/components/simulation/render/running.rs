@@ -5,11 +5,14 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
+use std::sync::Arc;
 
 use super::super::{Simulation, theme};
 use crate::{
     components::simulation::hotkeys,
-    components::simulation::snapshot::RunningSnapshot,
+    components::simulation::snapshot::{
+        GoodsTabSnapshot, MainTabSnapshot, RunningSnapshot, RunningTabSnapshot,
+    },
     components::simulation::ui_state::{DetailsView, RunningTab},
     seed::format_generation_seed,
     sim::SimulationMode,
@@ -51,12 +54,23 @@ impl Simulation {
 
         frame.render_widget(Paragraph::new(header_lines), header);
 
-        let mut footer_text = match world.active_tab {
-            RunningTab::Main => self.draw_main_tab(frame, body, world),
-            RunningTab::Goods => self.draw_goods_tab(frame, body, world),
-            RunningTab::Stocks => self.draw_stocks_tab(frame, body, world),
-            RunningTab::Charts => self.draw_charts_tab(frame, body, world),
-            RunningTab::Events => self.draw_events_tab(frame, body, world),
+        let mut footer_text = match (world.active_tab, &world.tab) {
+            (RunningTab::Main, RunningTabSnapshot::Main(main_tab)) => {
+                self.draw_main_tab(frame, body, world, main_tab)
+            }
+            (RunningTab::Goods, RunningTabSnapshot::Goods(goods_tab)) => {
+                self.draw_goods_tab(frame, body, world, goods_tab)
+            }
+            (RunningTab::Stocks, RunningTabSnapshot::Stocks(stocks_tab)) => {
+                self.draw_stocks_tab(frame, body, world, stocks_tab)
+            }
+            (RunningTab::Charts, RunningTabSnapshot::Charts(charts_tab)) => {
+                self.draw_charts_tab(frame, body, world, charts_tab)
+            }
+            (RunningTab::Events, RunningTabSnapshot::Events(events_tab)) => {
+                self.draw_events_tab(frame, body, world, events_tab)
+            }
+            _ => "Snapshot/render tab mismatch".to_string(),
         };
         if !world.invariant_warnings.is_empty() {
             footer_text.push_str(&format!(
@@ -73,15 +87,21 @@ impl Simulation {
         );
     }
 
-    fn draw_main_tab(&self, frame: &mut Frame, body: Rect, world: &RunningSnapshot) -> String {
+    fn draw_main_tab(
+        &self,
+        frame: &mut Frame,
+        body: Rect,
+        world: &RunningSnapshot,
+        tab: &MainTabSnapshot,
+    ) -> String {
         match world.details_view {
             DetailsView::List => {
                 let [countries_area, people_area] =
                     Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
                         .areas(body);
 
-                self.draw_countries_table(frame, countries_area, world);
-                self.draw_people_table(frame, people_area, world);
+                self.draw_countries_table(frame, countries_area, world, tab);
+                self.draw_people_table(frame, people_area, world, tab);
 
                 format!(
                     "Controls: {}  [a/d] focus country/people  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] details (focused row) | Country Page {}/{} | People Page {}/{}",
@@ -93,21 +113,21 @@ impl Simulation {
                 )
             }
             DetailsView::Person => {
-                self.draw_person_details(frame, body, world);
+                self.draw_person_details(frame, body, world, tab);
                 format!(
                     "Controls: {}  [Esc] back to people list  [PgUp/PgDn] details page  [c] open employer company",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
             DetailsView::Country => {
-                self.draw_country_details(frame, body, world);
+                self.draw_country_details(frame, body, world, tab);
                 format!(
                     "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page  [o] policy overrides",
                     hotkeys::GLOBAL_RUNNING_HINT
                 )
             }
             DetailsView::CountryPolicy => {
-                self.draw_country_policy_details(frame, body, world);
+                self.draw_country_policy_details(frame, body, tab);
                 if world.country_policy_is_editing {
                     format!(
                         "Controls: {}  [Enter] save field  [Esc] cancel edit",
@@ -121,7 +141,17 @@ impl Simulation {
                 }
             }
             DetailsView::Company => {
-                self.draw_company_details(frame, body, world);
+                let empty_goods = GoodsTabSnapshot {
+                    company_rows: Vec::new(),
+                    company_details_lines: Vec::new(),
+                    company_sold_history: Arc::default(),
+                    company_employee_history: Arc::default(),
+                    company_price_history: Arc::default(),
+                    company_loan_payment_history: Arc::default(),
+                    company_money_history: Arc::default(),
+                    country_goods_summary_lines: Vec::new(),
+                };
+                self.draw_company_details(frame, body, world, &empty_goods);
                 format!(
                     "Controls: {}  [Esc] back to lists  [PgUp/PgDn] details page",
                     hotkeys::GLOBAL_RUNNING_HINT

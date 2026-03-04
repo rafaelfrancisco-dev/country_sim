@@ -34,7 +34,7 @@ fn running_snapshot_for_tab(engine: &GameEngine, active_tab: RunningTab) -> Runn
     let SnapshotPhase::Running(world) = snapshot.phase else {
         panic!("running snapshot expected");
     };
-    world
+    *world
 }
 
 fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSnapshot {
@@ -43,31 +43,41 @@ fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSn
     let SnapshotPhase::Running(world) = snapshot.phase else {
         panic!("running snapshot expected");
     };
-    world
+    *world
 }
 
 #[test]
 fn inactive_tabs_skip_heavy_data() {
     let engine = setup_running_engine(35);
     let main = running_snapshot_for_tab(&engine, RunningTab::Main);
-    assert!(main.event_log_lines.is_empty());
-    assert!(main.stock_rows.is_empty());
-    assert!(main.chart_history.is_empty());
+    assert!(matches!(main.tab, RunningTabSnapshot::Main(_)));
 
     let stocks = running_snapshot_for_tab(&engine, RunningTab::Stocks);
-    assert!(!stocks.stock_summary_lines.is_empty());
+    let RunningTabSnapshot::Stocks(stocks_tab) = stocks.tab else {
+        panic!("stocks tab payload expected");
+    };
+    assert!(!stocks_tab.stock_summary_lines.is_empty());
 
     let events = running_snapshot_for_tab(&engine, RunningTab::Events);
-    assert_eq!(events.events_total_count, events.event_log_lines.len());
+    let RunningTabSnapshot::Events(events_tab) = events.tab else {
+        panic!("events tab payload expected");
+    };
+    assert_eq!(
+        events_tab.events_total_count,
+        events_tab.event_log_lines.len()
+    );
 
     let expected_chart_points = match engine.phase() {
         GamePhase::Running(world) => world.country_history.first().map_or(0, Vec::len),
         GamePhase::Setup(_) => 0,
     };
     let charts = running_snapshot_for_tab(&engine, RunningTab::Charts);
-    assert_eq!(charts.chart_history.len(), expected_chart_points);
-    assert_eq!(charts.chart_page, 0);
-    assert_eq!(charts.total_chart_pages, 3);
+    let RunningTabSnapshot::Charts(charts_tab) = charts.tab else {
+        panic!("charts tab payload expected");
+    };
+    assert_eq!(charts_tab.chart_history.len(), expected_chart_points);
+    assert_eq!(charts_tab.chart_page, 0);
+    assert_eq!(charts_tab.total_chart_pages, 3);
 }
 
 #[test]
@@ -112,9 +122,12 @@ fn events_category_filter_limits_results() {
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
 
-    assert_eq!(snapshot.events_total_count, 1);
-    assert_eq!(snapshot.events_category_label, "Stock Market");
-    assert!(snapshot.event_log_lines[0].starts_with("[IPO]"));
+    let RunningTabSnapshot::Events(events_tab) = snapshot.tab else {
+        panic!("events tab payload expected");
+    };
+    assert_eq!(events_tab.events_total_count, 1);
+    assert_eq!(events_tab.events_category_label, "Stock Market");
+    assert!(events_tab.event_log_lines[0].starts_with("[IPO]"));
 }
 
 #[test]
@@ -147,6 +160,9 @@ fn events_search_intersects_with_category_filter() {
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
 
-    assert_eq!(snapshot.events_total_count, 1);
-    assert!(snapshot.event_log_lines[0].contains("bankrupt"));
+    let RunningTabSnapshot::Events(events_tab) = snapshot.tab else {
+        panic!("events tab payload expected");
+    };
+    assert_eq!(events_tab.events_total_count, 1);
+    assert!(events_tab.event_log_lines[0].contains("bankrupt"));
 }
