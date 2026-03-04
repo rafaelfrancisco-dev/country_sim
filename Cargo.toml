@@ -11,6 +11,7 @@ default = []
 bench-trace = []
 ui-diagnostics = []
 manual-harness = []
+runtime-invariants = []
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

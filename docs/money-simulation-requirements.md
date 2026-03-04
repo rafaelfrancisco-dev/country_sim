@@ -326,7 +326,7 @@ The stock market runs once per day after the goods market. Each country's market
 - **Dividends** (step 17): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve.
 
 ### Share Conservation Invariant
-For every listed company: `Σ person_holdings + bank_holdings == free_float_shares`. This is checked by `Country::validate_money_invariants` every tick via `ApplyOutcome::warnings`.
+For every listed company: `Σ person_holdings + bank_holdings == free_float_shares`. This is checked by `Country::validate_money_invariants` in invariant-focused tests and in runtime builds compiled with `--features runtime-invariants`.
 
 ### Key Parameters (`StockMarketParams`)
 | Field | Default | Description |

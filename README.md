@@ -96,6 +96,17 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - `timestamp`
 - `--sim-mode` must be `max-speed`; other values are rejected by the benchmark runner.
 
+## Runtime Invariants
+- Default runtime builds skip invariant validation in `GameEngine::apply` to keep the hot path fast.
+- Enable runtime invariant warnings explicitly with:
+```bash
+cargo run --features runtime-invariants -- [args...]
+```
+- The same flag can be used in tests when validating warning emission:
+```bash
+cargo test --features runtime-invariants
+```
+
 ## Profiling
 - Run the game with flamegraph support: `./scripts/run-flamegraph.sh`
 - Pass game args through the script, for example: `./scripts/run-flamegraph.sh --tick-rate 8 --frame-rate 120`

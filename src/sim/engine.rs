@@ -174,15 +174,26 @@ impl GameEngine {
             GamePhase::Running(world) => Self::apply_running_command(world, command),
         }
 
-        let mut outcome = ApplyOutcome::default();
-        if let GamePhase::Running(world) = &self.phase {
-            for violation in world.validate_invariants() {
-                outcome
-                    .warnings
-                    .push(format!("{}: {}", violation.code, violation.message));
-            }
+        ApplyOutcome {
+            warnings: self.collect_invariant_warnings(),
         }
-        outcome
+    }
+
+    #[cfg(feature = "runtime-invariants")]
+    fn collect_invariant_warnings(&self) -> Vec<String> {
+        let GamePhase::Running(world) = &self.phase else {
+            return Vec::new();
+        };
+        world
+            .validate_invariants()
+            .into_iter()
+            .map(|violation| format!("{}: {}", violation.code, violation.message))
+            .collect()
+    }
+
+    #[cfg(not(feature = "runtime-invariants"))]
+    fn collect_invariant_warnings(&self) -> Vec<String> {
+        Vec::new()
     }
 
     fn apply_setup_command(
@@ -361,6 +372,39 @@ mod tests {
         engine.apply(GameCommand::TogglePause);
         engine.apply(GameCommand::StepOneDay);
         assert_eq!(engine.world().expect("world exists").day, 1);
+    }
+
+    #[cfg(not(feature = "runtime-invariants"))]
+    #[test]
+    fn apply_returns_no_warnings_without_runtime_invariant_feature() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 1)])),
+            ..GameEngine::default()
+        };
+        let GamePhase::Running(world) = &mut engine.phase else {
+            panic!("world should exist");
+        };
+        world.country_history.clear();
+
+        let outcome = engine.apply(GameCommand::TogglePause);
+        assert!(outcome.warnings.is_empty());
+    }
+
+    #[cfg(feature = "runtime-invariants")]
+    #[test]
+    fn apply_emits_warnings_with_runtime_invariant_feature() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 1)])),
+            ..GameEngine::default()
+        };
+        let GamePhase::Running(world) = &mut engine.phase else {
+            panic!("world should exist");
+        };
+        world.country_history.clear();
+
+        let outcome = engine.apply(GameCommand::TogglePause);
+        assert!(!outcome.warnings.is_empty());
+        assert!(outcome.warnings[0].contains("country_history_len"));
     }
 
     #[test]
