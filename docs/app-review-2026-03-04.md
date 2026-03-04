@@ -35,9 +35,10 @@ This document consolidates two review tracks:
 - Remediation: Make fields private by default and expose intent-based mutation methods.
 
 6. **Medium: Duplicated traced vs non-traced tick logic**
-- Evidence: [src/sim/world/mod.rs:176](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/mod.rs:176), [src/sim/world/mod.rs:208](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/mod.rs:208)
+- Status: Resolved on 2026-03-04.
+- Evidence: [src/sim/world/mod.rs:182](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/mod.rs:182), [src/sim/world/mod.rs:205](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/mod.rs:205), [src/sim/world/mod.rs:372](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/mod.rs:372)
 - Problem: Duplicated flow risks drift.
-- Remediation: Extract shared tick pipeline with instrumentation hooks.
+- Remediation: Extracted shared tick pipeline with instrumentation hooks (`tick_day_with_hooks` + `WorldTickHooks`).
 
 7. **Medium: Dead-code/warning suppression debt**
 - Evidence: [src/tui.rs:1](/Users/rafaelfrancisco/Desktop/country_sim/src/tui.rs:1), [src/config/mod.rs:1](/Users/rafaelfrancisco/Desktop/country_sim/src/config/mod.rs:1), [src/sim/mod.rs:19](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/mod.rs:19), [src/sim/trace.rs:1](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/trace.rs:1), [src/sim/manual_harness.rs:17](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/manual_harness.rs:17), [src/sim/world/tests/helpers_and_bench.rs:16](/Users/rafaelfrancisco/Desktop/country_sim/src/sim/world/tests/helpers_and_bench.rs:16)

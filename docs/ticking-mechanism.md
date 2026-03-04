@@ -20,7 +20,8 @@ pub trait Tickable {
   - `tick_day_without_month`: advances one day and runs daily lifecycle (age/deaths/births/job market).
   - `tick_day`: runs `tick_day_without_month`, then runs `process_month` on 30-day boundaries.
 - `World`:
-  - `tick_day`: increments world day, ticks all countries, captures chart snapshot on monthly boundary.
+  - `tick_day`: runs the shared world daily/monthly pipeline through non-traced hooks.
+  - `tick_day_with_trace` (`bench-trace` only): runs the same pipeline through traced hooks and emits `DayTraceRow`.
 
 ## Tick Entry Points
 - Runtime progression is driven by a dedicated simulation clock thread owned by the simulation worker.
@@ -89,18 +90,25 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - History retention remains capped (`HISTORY_LIMIT = 120`).
 
 ## Monthly Boundary Execution Order
-At each 30-day boundary, `World::tick_day` runs the following steps in order:
+At each 30-day boundary, the shared world tick pipeline runs the following steps in order:
 
 1. `Country::process_month_end` (parallel) — payroll, taxes, gov spending, loan repayments, company decisions; pushes events to `country.pending_events`
 2. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
    - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
    - otherwise tariff mean-reverts toward the baseline tariff rate
-3. `capture_snapshot` — records `MetricPoint` into the rolling history window
-4. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
-5. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
-6. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
+3. `update_policy_rate` + propagate to all countries — updates world policy rate and assigns it to each country before history capture
+4. `capture_snapshot` — records `MetricPoint` into the rolling history window
+5. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
+6. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
+7. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
 
-Step 4 must precede step 5 so that monthly accumulators are readable, and precede step 6 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
+Step 5 must precede step 6 so that monthly accumulators are readable, and precede step 7 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
+
+## Trace/Non-Trace Drift Prevention
+- `World` now has a single internal tick pipeline (`tick_day_with_hooks`) and a hook trait (`WorldTickHooks`).
+- Non-traced runs use `StandardWorldTickHooks`.
+- `bench-trace` runs use `TraceWorldTickHooks` to collect timings while preserving identical execution order.
+- This removes duplicated control flow between traced and non-traced tick paths.
 
 ## Rationale
 - Daily demographics and labor are stateful and mutate the same entities as monthly economics.

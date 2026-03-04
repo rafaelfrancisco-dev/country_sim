@@ -170,36 +170,200 @@ impl World {
 
         violations
     }
+
+    fn update_policy_rate_and_propagate(&mut self) {
+        self.update_policy_rate();
+        let rate = self.policy_rate;
+        for country in &mut self.countries {
+            country.policy_rate = rate;
+        }
+    }
+
+    fn tick_day_with_hooks<H: WorldTickHooks>(&mut self, hooks: &mut H) {
+        self.day = self.day.saturating_add(1);
+
+        hooks.run_country_daily(self);
+        hooks.run_daily_goods(self);
+        hooks.run_daily_stock(self);
+
+        if self.day.is_multiple_of(DAYS_PER_MONTH) {
+            hooks.on_monthly_start();
+            hooks.run_monthly_country_processing(self);
+            hooks.run_monthly_tariff_adjust(self);
+            hooks.run_monthly_rate_update(self);
+            hooks.run_monthly_capture_snapshot(self);
+            if self.export_queue_active {
+                self.push_export_snapshot();
+            }
+            hooks.run_monthly_reset_trackers(self);
+            hooks.on_monthly_end();
+        }
+        hooks.run_drain_country_events(self);
+    }
+}
+
+trait WorldTickHooks {
+    fn run_country_daily(&mut self, world: &mut World);
+    fn run_daily_goods(&mut self, world: &mut World);
+    fn run_daily_stock(&mut self, world: &mut World);
+    fn on_monthly_start(&mut self) {}
+    fn run_monthly_country_processing(&mut self, world: &mut World);
+    fn run_monthly_tariff_adjust(&mut self, world: &mut World);
+    fn run_monthly_rate_update(&mut self, world: &mut World);
+    fn run_monthly_capture_snapshot(&mut self, world: &mut World);
+    fn run_monthly_reset_trackers(&mut self, world: &mut World);
+    fn on_monthly_end(&mut self) {}
+    fn run_drain_country_events(&mut self, world: &mut World);
+}
+
+struct StandardWorldTickHooks;
+
+impl WorldTickHooks for StandardWorldTickHooks {
+    fn run_country_daily(&mut self, world: &mut World) {
+        world
+            .countries
+            .par_iter_mut()
+            .for_each(Country::tick_day_without_month);
+    }
+
+    fn run_daily_goods(&mut self, world: &mut World) {
+        world.run_daily_goods_economy();
+    }
+
+    fn run_daily_stock(&mut self, world: &mut World) {
+        world.run_daily_stock_market();
+    }
+
+    fn run_monthly_country_processing(&mut self, world: &mut World) {
+        world
+            .countries
+            .par_iter_mut()
+            .for_each(Country::process_month_end);
+    }
+
+    fn run_monthly_tariff_adjust(&mut self, world: &mut World) {
+        world.adjust_dynamic_country_tariffs();
+    }
+
+    fn run_monthly_rate_update(&mut self, world: &mut World) {
+        world.update_policy_rate_and_propagate();
+    }
+
+    fn run_monthly_capture_snapshot(&mut self, world: &mut World) {
+        world.capture_snapshot();
+    }
+
+    fn run_monthly_reset_trackers(&mut self, world: &mut World) {
+        world
+            .countries
+            .par_iter_mut()
+            .for_each(Country::reset_month_trackers);
+    }
+
+    fn run_drain_country_events(&mut self, world: &mut World) {
+        world.drain_country_events();
+    }
 }
 
 impl Tickable for World {
     fn tick_day(&mut self) {
-        self.day = self.day.saturating_add(1);
+        let mut hooks = StandardWorldTickHooks;
+        self.tick_day_with_hooks(&mut hooks);
+    }
+}
 
-        self.countries.par_iter_mut().for_each(Country::tick_day);
+#[cfg(feature = "bench-trace")]
+#[derive(Default)]
+struct TraceWorldTickHooks {
+    world_country_tick_ms: f64,
+    world_goods_ms: f64,
+    world_stock_ms: f64,
+    world_monthly_total_ms: f64,
+    world_monthly_process_countries_ms: f64,
+    world_monthly_tariff_adjust_ms: f64,
+    world_monthly_rate_update_ms: f64,
+    world_monthly_capture_snapshot_ms: f64,
+    world_monthly_reset_trackers_ms: f64,
+    world_drain_events_ms: f64,
+    daily_traces: Vec<crate::sim::trace::CountryDailyTrace>,
+    monthly_traces: Vec<crate::sim::trace::CountryMonthlyTrace>,
+    monthly_started: Option<Instant>,
+}
 
-        self.run_daily_goods_economy();
-        self.run_daily_stock_market();
+#[cfg(feature = "bench-trace")]
+impl TraceWorldTickHooks {
+    fn timed<F: FnOnce()>(f: F) -> f64 {
+        let started = Instant::now();
+        f();
+        crate::sim::trace::duration_ms(started.elapsed())
+    }
+}
 
-        if self.day.is_multiple_of(DAYS_PER_MONTH) {
-            self.countries
-                .par_iter_mut()
-                .for_each(Country::process_month_end);
-            self.adjust_dynamic_country_tariffs();
-            self.update_policy_rate();
-            let rate = self.policy_rate;
-            for country in &mut self.countries {
-                country.policy_rate = rate;
-            }
-            self.capture_snapshot();
-            if self.export_queue_active {
-                self.push_export_snapshot();
-            }
-            self.countries
+#[cfg(feature = "bench-trace")]
+impl WorldTickHooks for TraceWorldTickHooks {
+    fn run_country_daily(&mut self, world: &mut World) {
+        let started = Instant::now();
+        self.daily_traces = world
+            .countries
+            .par_iter_mut()
+            .map(Country::tick_day_without_month_traced)
+            .collect::<Vec<_>>();
+        self.world_country_tick_ms = crate::sim::trace::duration_ms(started.elapsed());
+    }
+
+    fn run_daily_goods(&mut self, world: &mut World) {
+        self.world_goods_ms = Self::timed(|| world.run_daily_goods_economy());
+    }
+
+    fn run_daily_stock(&mut self, world: &mut World) {
+        self.world_stock_ms = Self::timed(|| world.run_daily_stock_market());
+    }
+
+    fn on_monthly_start(&mut self) {
+        self.monthly_started = Some(Instant::now());
+    }
+
+    fn run_monthly_country_processing(&mut self, world: &mut World) {
+        let started = Instant::now();
+        self.monthly_traces = world
+            .countries
+            .par_iter_mut()
+            .map(Country::process_month_end_traced)
+            .collect::<Vec<_>>();
+        self.world_monthly_process_countries_ms = crate::sim::trace::duration_ms(started.elapsed());
+    }
+
+    fn run_monthly_tariff_adjust(&mut self, world: &mut World) {
+        self.world_monthly_tariff_adjust_ms =
+            Self::timed(|| world.adjust_dynamic_country_tariffs());
+    }
+
+    fn run_monthly_rate_update(&mut self, world: &mut World) {
+        self.world_monthly_rate_update_ms =
+            Self::timed(|| world.update_policy_rate_and_propagate());
+    }
+
+    fn run_monthly_capture_snapshot(&mut self, world: &mut World) {
+        self.world_monthly_capture_snapshot_ms = Self::timed(|| world.capture_snapshot());
+    }
+
+    fn run_monthly_reset_trackers(&mut self, world: &mut World) {
+        self.world_monthly_reset_trackers_ms = Self::timed(|| {
+            world
+                .countries
                 .par_iter_mut()
                 .for_each(Country::reset_month_trackers);
-        }
-        self.drain_country_events();
+        });
+    }
+
+    fn on_monthly_end(&mut self) {
+        self.world_monthly_total_ms = self.monthly_started.take().map_or(0.0, |started| {
+            crate::sim::trace::duration_ms(started.elapsed())
+        });
+    }
+
+    fn run_drain_country_events(&mut self, world: &mut World) {
+        self.world_drain_events_ms = Self::timed(|| world.drain_country_events());
     }
 }
 
@@ -207,78 +371,27 @@ impl Tickable for World {
 impl World {
     pub(crate) fn tick_day_with_trace(&mut self) -> crate::sim::trace::DayTraceRow {
         let tick_started = Instant::now();
+        let mut hooks = TraceWorldTickHooks::default();
+        self.tick_day_with_hooks(&mut hooks);
 
-        self.day = self.day.saturating_add(1);
+        let TraceWorldTickHooks {
+            world_country_tick_ms,
+            world_goods_ms,
+            world_stock_ms,
+            world_monthly_total_ms,
+            world_monthly_process_countries_ms,
+            world_monthly_tariff_adjust_ms,
+            world_monthly_rate_update_ms,
+            world_monthly_capture_snapshot_ms,
+            world_monthly_reset_trackers_ms,
+            world_drain_events_ms,
+            daily_traces,
+            monthly_traces,
+            ..
+        } = hooks;
+
         let day = self.day;
-
-        let started = Instant::now();
-        let daily_traces = self
-            .countries
-            .par_iter_mut()
-            .map(Country::tick_day_without_month_traced)
-            .collect::<Vec<_>>();
-        let world_country_tick_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-        let started = Instant::now();
-        self.run_daily_goods_economy();
-        let world_goods_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-        let started = Instant::now();
-        self.run_daily_stock_market();
-        let world_stock_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-        let mut world_monthly_total_ms = 0.0;
-        let mut world_monthly_process_countries_ms = 0.0;
-        let mut world_monthly_tariff_adjust_ms = 0.0;
-        let mut world_monthly_rate_update_ms = 0.0;
-        let mut world_monthly_capture_snapshot_ms = 0.0;
-        let mut world_monthly_reset_trackers_ms = 0.0;
-
-        let mut monthly_traces = Vec::new();
         let is_month_boundary = self.day.is_multiple_of(DAYS_PER_MONTH);
-        if is_month_boundary {
-            let monthly_started = Instant::now();
-
-            let started = Instant::now();
-            monthly_traces = self
-                .countries
-                .par_iter_mut()
-                .map(Country::process_month_end_traced)
-                .collect::<Vec<_>>();
-            world_monthly_process_countries_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-            let started = Instant::now();
-            self.adjust_dynamic_country_tariffs();
-            world_monthly_tariff_adjust_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-            let started = Instant::now();
-            self.update_policy_rate();
-            let rate = self.policy_rate;
-            for country in &mut self.countries {
-                country.policy_rate = rate;
-            }
-            world_monthly_rate_update_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-            let started = Instant::now();
-            self.capture_snapshot();
-            world_monthly_capture_snapshot_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-            if self.export_queue_active {
-                self.push_export_snapshot();
-            }
-
-            let started = Instant::now();
-            self.countries
-                .par_iter_mut()
-                .for_each(Country::reset_month_trackers);
-            world_monthly_reset_trackers_ms = crate::sim::trace::duration_ms(started.elapsed());
-
-            world_monthly_total_ms = crate::sim::trace::duration_ms(monthly_started.elapsed());
-        }
-
-        let started = Instant::now();
-        self.drain_country_events();
-        let world_drain_events_ms = crate::sim::trace::duration_ms(started.elapsed());
 
         let (
             country_daily_total_ms_sum,

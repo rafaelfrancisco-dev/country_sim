@@ -192,6 +192,40 @@ fn generated_world_hash_differs_for_different_seeds_at_day_zero() {
     assert_ne!(world_state_hash(&first), world_state_hash(&second));
 }
 
+#[cfg(feature = "bench-trace")]
+#[test]
+fn traced_tick_path_processes_month_boundary_and_keeps_invariants() {
+    let mut world = World::new(vec![Country::new(1, "A".to_string(), build_people(250))]);
+    let mut month_trace = None;
+
+    for expected_day in 1..=(DAYS_PER_MONTH + 1) {
+        let trace = world.tick_day_with_trace();
+        assert_eq!(trace.day, expected_day);
+
+        if expected_day == DAYS_PER_MONTH {
+            assert!(trace.is_month_boundary);
+            month_trace = Some(trace);
+        } else {
+            assert!(!trace.is_month_boundary);
+        }
+    }
+
+    let trace = month_trace.expect("month boundary trace must be captured");
+    assert!(trace.world_monthly_total_ms >= 0.0);
+    assert!(trace.world_monthly_process_countries_ms >= 0.0);
+    assert!(trace.world_monthly_tariff_adjust_ms >= 0.0);
+    assert!(trace.world_monthly_rate_update_ms >= 0.0);
+    assert!(trace.world_monthly_capture_snapshot_ms >= 0.0);
+    assert!(trace.world_monthly_reset_trackers_ms >= 0.0);
+
+    assert_eq!(world.day, DAYS_PER_MONTH + 1);
+    assert_eq!(world.completed_month_boundaries(), 1);
+    assert_eq!(world.world_history.len(), 2);
+    assert_eq!(world.country_history[0].len(), 2);
+    assert_eq!(world.countries[0].month, 1);
+    assert!(world.validate_invariants().is_empty());
+}
+
 fn labor_force_unemployment(country: &Country) -> f64 {
     let mut labor_force = 0_usize;
     let mut unemployed = 0_usize;
