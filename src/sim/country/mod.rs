@@ -307,6 +307,18 @@ impl Country {
         }
     }
 
+    pub(crate) fn best_deposit_bank_id(&self) -> Option<BankId> {
+        std::iter::once(&self.bank)
+            .chain(self.banks.iter())
+            .filter(|bank| !bank.is_in_resolution)
+            .max_by(|a, b| {
+                self.deposit_rate_for(a.id)
+                    .partial_cmp(&self.deposit_rate_for(b.id))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|bank| bank.id)
+    }
+
     pub fn bank_cross_country_equity_exposure_cost(&self) -> f64 {
         let public_exposure = self
             .bank

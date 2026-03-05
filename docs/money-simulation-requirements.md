@@ -406,14 +406,14 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
   - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankClosed`, `BankDepositHaircut`
 
 ### Cross-Country Deposits
-- When a foreign bank offers a deposit rate meaningfully higher than the home country's best rate, eligible people move a portion of their savings abroad.
+- When a foreign bank offers a deposit rate meaningfully higher than the home country's best rate, eligible people move a portion of their savings abroad into the best eligible foreign deposit bank.
 - **Eligibility**: `cash_balance >= cross_country_deposit_min_balance` and no existing foreign deposit.
 - **Transfer**: fraction `cross_country_deposit_fraction` of the surplus above the minimum balance.
-- **Rate threshold**: foreign rate must exceed local rate by at least `cross_country_deposit_rate_premium` (default 50 bps).
+- **Rate threshold**: the best eligible foreign-bank rate must exceed the home-country benchmark by at least `cross_country_deposit_rate_premium` (default 50 bps).
 - **Interest**: paid monthly from the foreign bank's reserves to the person's local cash (not reinvested; balance stays flat).
 - **Recall on distress**: if the person's local cash falls below `cross_country_deposit_distress_threshold`, the full foreign balance is returned to local cash.
-- **Accounting**: credited as `foreign_deposit_liabilities` on the receiving bank; debited from reserves on interest/recall.
-- **Data model**: `ForeignDeposit { country_id, bank_id, balance }` on `Person`; one foreign deposit at a time.
+- **Accounting**: credited as `foreign_deposit_liabilities` on the receiving bank; interest and recall debit the same stored bank's reserves and liabilities.
+- **Data model**: `ForeignDeposit { country_id, bank_id, balance }` on `Person`; `bank_id` identifies the exact foreign bank that holds the deposit for its full lifecycle.
 - Events: `ForeignDepositOpened`, `ForeignDepositClosed`.
 - Processing runs world-level monthly (after all country monthly steps, before snapshot capture).
 
