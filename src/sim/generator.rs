@@ -236,6 +236,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     );
     fund_initial_bank_reserve(&mut country);
     seed_initial_bank_openings(&mut country);
+    super::generator_banks::seed_initial_private_banks(&mut country);
     country.seed_initial_ipos();
     country
 }

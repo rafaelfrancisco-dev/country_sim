@@ -5,6 +5,7 @@ pub mod disaster;
 pub mod engine;
 pub mod event;
 pub mod generator;
+mod generator_banks;
 pub mod good;
 pub mod job;
 #[cfg(feature = "manual-harness")]

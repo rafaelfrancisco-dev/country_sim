@@ -4,6 +4,11 @@ use super::{
 };
 use std::collections::HashMap;
 
+mod loan_math;
+mod stock_positions;
+use loan_math::monthly_interest_rate;
+pub use loan_math::{max_principal_for_payment, payment_for};
+
 pub const DEFAULT_LOAN_APR: f64 = 0.12;
 pub const DEFAULT_LOAN_TERM_MONTHS: u16 = 12;
 pub const DEFAULT_MAX_DEBT_TO_INCOME: f64 = 0.35;
@@ -509,179 +514,8 @@ impl Bank {
         }
     }
 
-    pub fn stock_position_shares(&self, security_id: BankSecurityId) -> u64 {
-        self.stock_positions
-            .get(&security_id)
-            .map_or(0, |position| position.shares)
-    }
-
-    pub fn add_stock_shares(
-        &mut self,
-        security_id: BankSecurityId,
-        shares: u64,
-        cost_per_share: f64,
-    ) {
-        if shares == 0 {
-            return;
-        }
-        let cost_per_share = round_cents(cost_per_share.max(0.0));
-        if let Some(position) = self.stock_positions.get_mut(&security_id) {
-            let total_cost =
-                position.avg_cost * position.shares as f64 + cost_per_share * shares as f64;
-            position.shares = position.shares.saturating_add(shares);
-            position.avg_cost = if position.shares == 0 {
-                0.0
-            } else {
-                round_cents(total_cost / position.shares as f64)
-            };
-            return;
-        }
-        self.stock_positions.insert(
-            security_id,
-            BankStockPosition {
-                security_id,
-                shares,
-                avg_cost: cost_per_share,
-            },
-        );
-    }
-}
-
-pub fn payment_for(principal: f64, annual_rate: f64, term_months: u16) -> f64 {
-    if principal <= 0.0 || term_months == 0 {
-        return 0.0;
-    }
-
-    let monthly_rate = monthly_interest_rate(annual_rate);
-    if monthly_rate <= f64::EPSILON {
-        return round_cents(principal / f64::from(term_months));
-    }
-
-    let n = f64::from(term_months);
-    let factor = (1.0 - (1.0 + monthly_rate).powf(-n)) / monthly_rate;
-    round_cents(principal / factor)
-}
-
-pub fn max_principal_for_payment(payment: f64, annual_rate: f64, term_months: u16) -> f64 {
-    if payment <= 0.0 || term_months == 0 {
-        return 0.0;
-    }
-
-    let monthly_rate = monthly_interest_rate(annual_rate);
-    if monthly_rate <= f64::EPSILON {
-        return round_cents(payment * f64::from(term_months));
-    }
-
-    let n = f64::from(term_months);
-    let factor = (1.0 - (1.0 + monthly_rate).powf(-n)) / monthly_rate;
-    round_cents(payment * factor)
-}
-
-fn monthly_interest_rate(annual_rate: f64) -> f64 {
-    annual_rate.max(0.0) / 12.0
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn affordability_cap_limits_principal() {
-        let cap_payment = 1_000.0 * DEFAULT_MAX_DEBT_TO_INCOME;
-        let principal =
-            max_principal_for_payment(cap_payment, DEFAULT_LOAN_APR, DEFAULT_LOAN_TERM_MONTHS);
-        let payment = payment_for(principal, DEFAULT_LOAN_APR, DEFAULT_LOAN_TERM_MONTHS);
-
-        assert!(payment <= cap_payment + 0.01);
-    }
-
-    #[test]
-    fn loan_issuance_increases_created_money() {
-        let mut bank = Bank::new();
-        let mut loan = None;
-
-        let issued = bank.originate_loan(
-            1_000.0,
-            4_000.0,
-            DEFAULT_MAX_DEBT_TO_INCOME,
-            DEFAULT_LOAN_APR,
-            &mut loan,
-        );
-
-        assert!(issued > 0.0);
-        assert!(bank.created_money_outstanding >= issued);
-        assert!(loan.is_some());
-    }
-
-    #[test]
-    fn principal_repayment_reduces_created_money() {
-        let mut bank = Bank::new();
-        let mut loan = None;
-        bank.originate_loan(
-            1_000.0,
-            6_000.0,
-            DEFAULT_MAX_DEBT_TO_INCOME,
-            DEFAULT_LOAN_APR,
-            &mut loan,
-        );
-        let created_before = bank.created_money_outstanding;
-        let mut cash = 5_000.0;
-
-        let payment = bank.collect_monthly_payment(&mut cash, &mut loan);
-
-        assert!(payment.principal_paid > 0.0);
-        assert!(bank.created_money_outstanding < created_before);
-    }
-
-    #[test]
-    fn missed_payment_is_capitalized_in_debt_balance() {
-        let mut bank = Bank::new();
-        let mut loan = None;
-        bank.originate_loan(
-            2_000.0,
-            5_000.0,
-            DEFAULT_MAX_DEBT_TO_INCOME,
-            DEFAULT_LOAN_APR,
-            &mut loan,
-        );
-
-        let opening_debt = loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
-        let mut cash = 0.0;
-        let payment = bank.collect_monthly_payment(&mut cash, &mut loan);
-        let closing_debt = loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
-
-        assert!(payment.unpaid_amount > 0.0);
-        assert!(closing_debt > opening_debt);
-    }
-
-    #[test]
-    fn write_off_reduces_created_money() {
-        let mut bank = Bank::new();
-        let mut loan = None;
-        bank.originate_loan(
-            2_000.0,
-            5_000.0,
-            DEFAULT_MAX_DEBT_TO_INCOME,
-            DEFAULT_LOAN_APR,
-            &mut loan,
-        );
-        let before = bank.created_money_outstanding;
-
-        let written_off = bank.write_off_loan(&mut loan);
-
-        assert!(written_off > 0.0);
-        assert!(loan.is_none());
-        assert!(bank.created_money_outstanding < before);
-    }
-
-    #[test]
-    fn government_deficit_funding_increases_created_money() {
-        let mut bank = Bank::new();
-
-        let funded = bank.fund_government_deficit(2_500.0);
-
-        assert!((funded - 2_500.0).abs() < 0.01);
-        assert!((bank.created_money_outstanding - 2_500.0).abs() < 0.01);
-        assert!((bank.total_originated - 2_500.0).abs() < 0.01);
-    }
-}
+#[path = "bank/tests.rs"]
+mod tests;

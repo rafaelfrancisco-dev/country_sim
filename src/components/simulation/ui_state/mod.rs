@@ -1,4 +1,4 @@
-use crate::sim::{UiCommand, bank::Bank, company::Company, person::Person, world::World};
+use crate::sim::{UiCommand, world::World};
 
 mod commands;
 mod disasters;

@@ -187,6 +187,10 @@ pub struct BankingSystemParams {
     pub bank_max_employees: u32,
     /// Banks pay this multiple of the catalog salary (1.15 = 15% premium).
     pub bank_wage_multiplier: f64,
+    /// How many private banks to pre-seed at world generation (bypasses formation ratio check).
+    pub initial_private_banks: u8,
+    /// Deposit rate bonus for private banks (above base rate) to compete with the public bank.
+    pub private_bank_deposit_rate_bonus: f64,
 }
 
 impl Default for BankingSystemParams {
@@ -211,7 +215,7 @@ impl Default for BankingSystemParams {
             min_private_bank_founders: 8,
             min_founder_cash_after_contribution: 25_000.0,
             min_private_bank_seed_capital: 500_000.0,
-            min_private_seed_to_deposits_ratio: 0.10,
+            min_private_seed_to_deposits_ratio: 0.04,
             target_people_per_private_bank: 250_000,
             max_new_banks_per_month: 2,
             public_bank_recapitalize_amount: 500_000.0,
@@ -228,6 +232,8 @@ impl Default for BankingSystemParams {
             bank_min_employees: 2,
             bank_max_employees: 50,
             bank_wage_multiplier: 1.15,
+            initial_private_banks: 1,
+            private_bank_deposit_rate_bonus: 0.005,
         }
     }
 }
