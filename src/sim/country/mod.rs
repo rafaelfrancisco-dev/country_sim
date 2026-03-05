@@ -260,8 +260,8 @@ impl Country {
             return base;
         };
         match bank.kind {
-            BankKind::Public => (base - 0.005).max(self.sim_params.monetary.rate_floor),
-            BankKind::Private => base,
+            BankKind::Private => (base - 0.005).max(self.sim_params.monetary.rate_floor),
+            BankKind::Public => base,
         }
     }
 

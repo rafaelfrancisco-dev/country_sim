@@ -183,8 +183,15 @@ impl Country {
     }
 
     pub(in crate::sim::country) fn process_end_of_month_loan_requests(&mut self) {
-        let loan_rate = self.bank_loan_rate();
+        let lender_id = self.preferred_lender_bank_id().unwrap_or(self.bank.id);
+        let loan_rate = self.bank_loan_rate_for(lender_id);
         let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
+        let use_public_bank = self.bank.id == lender_id;
+        let private_bank_idx = if !use_public_bank {
+            self.banks.iter().position(|b| b.id == lender_id)
+        } else {
+            None
+        };
 
         for person in &mut self.people {
             if person.cash_balance >= 0.0 {
@@ -193,7 +200,12 @@ impl Country {
 
             let shortfall = round_cents(-person.cash_balance);
             let monthly_income = person.monthly_salary();
-            let issued = self.bank.originate_loan(
+            let bank = if use_public_bank || private_bank_idx.is_none() {
+                &mut self.bank
+            } else {
+                &mut self.banks[private_bank_idx.unwrap()]
+            };
+            let issued = bank.originate_loan(
                 shortfall,
                 monthly_income,
                 debt_to_income_cap,
@@ -221,7 +233,12 @@ impl Country {
 
             let shortfall = round_cents(-company.cash_balance);
             let monthly_income = company.average_monthly_revenue();
-            let issued = self.bank.originate_loan(
+            let bank = if use_public_bank || private_bank_idx.is_none() {
+                &mut self.bank
+            } else {
+                &mut self.banks[private_bank_idx.unwrap()]
+            };
+            let issued = bank.originate_loan(
                 shortfall,
                 monthly_income,
                 debt_to_income_cap,

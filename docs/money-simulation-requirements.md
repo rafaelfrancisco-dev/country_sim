@@ -333,22 +333,27 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 
 ## Multi-Bank System
 - Each country has:
-  - one primary bank (`Country.bank`, initialized as public)
-  - zero or more additional banks (`Country.banks`)
+  - exactly **one permanent public bank** (`Country.bank`, always ID 0, always `BankKind::Public`)
+  - zero or more additional private banks (`Country.banks`)
 - Banks are typed as `Public` or `Private`.
 - People, companies, and treasury hold bank assignment pointers (`deposit_bank_id` / `treasury_bank_id`).
 - Deposit liabilities are recomputed each month from assigned holder balances.
 
+### Public Bank Invariant
+- `Country.bank` (ID 0) is the **only** public bank and is created once at world generation.
+- When the public bank's health deteriorates (health_score < 0.35 AND deposit_liabilities ≥ 10% of recapitalize amount), it is **recapitalized in place** rather than replaced.
+- Recapitalization injects `public_bank_recapitalize_amount` into the bank's reserves and equity capital.
+- Funding order: treasury first, then deficit monetization (added to `gov_debt`).
+- A minimum-deposit guard prevents spurious recapitalization of a freshly initialized bank with no real deposit obligations.
+
 ### Bank Formation (Monthly)
 - **Private bank formation**:
-  - triggered when a country has no private bank
+  - triggered when a country has fewer private banks than `max_private_banks` (default 5)
   - founders must collectively contribute at least `min_private_bank_seed_capital`
   - minimum founder count controlled by `min_private_bank_founders`
-- **Public bank expansion**:
-  - evaluated when a private banking sector exists and stress is elevated
-  - stress proxies include unemployment and recent haircut losses
-  - funded by treasury first, then deficit monetization if needed
-- New-bank creation is capped by `max_new_banks_per_month`.
+  - formation is capped by `max_new_banks_per_month` per cycle
+- **Public bank**: never created post-initialization; only recapitalized (see above).
+- Events: `BankFounded` on private-bank creation.
 
 ### Bank Runs and Resolution (Monthly)
 - Run processing currently applies to **private banks only**.
@@ -362,6 +367,18 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 - Bank-run visibility is event-driven:
   - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
 
+### Cross-Country Deposits
+- When a foreign bank offers a deposit rate meaningfully higher than the home country's best rate, eligible people move a portion of their savings abroad.
+- **Eligibility**: `cash_balance >= cross_country_deposit_min_balance` and no existing foreign deposit.
+- **Transfer**: fraction `cross_country_deposit_fraction` of the surplus above the minimum balance.
+- **Rate threshold**: foreign rate must exceed local rate by at least `cross_country_deposit_rate_premium` (default 50 bps).
+- **Interest**: paid monthly from the foreign bank's reserves to the person's local cash (not reinvested; balance stays flat).
+- **Recall on distress**: if the person's local cash falls below `cross_country_deposit_distress_threshold`, the full foreign balance is returned to local cash.
+- **Accounting**: credited as `foreign_deposit_liabilities` on the receiving bank; debited from reserves on interest/recall.
+- **Data model**: `ForeignDeposit { country_id, bank_id, balance }` on `Person`; one foreign deposit at a time.
+- Events: `ForeignDepositOpened`, `ForeignDepositClosed`.
+- Processing runs world-level monthly (after all country monthly steps, before snapshot capture).
+
 ### Banking Parameters (`BankingSystemParams`)
 | Field | Default | Description |
 |---|---|---|
@@ -374,9 +391,13 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `private_bank_failure_sensitivity` | 1.00 | Multiplier on private-bank withdrawal stress |
 | `min_private_bank_founders` | 8 | Minimum founders for private-bank creation |
 | `min_private_bank_seed_capital` | 500000.0 | Minimum private-bank seed capital |
-| `max_new_banks_per_month` | 2 | Max new banks created per country per month |
-| `public_bank_creation_unemployment_trigger` | 0.15 | Unemployment stress trigger for public expansion |
-| `public_bank_creation_loss_trigger` | 0.25 | Haircut-loss ratio trigger for public expansion |
+| `max_new_banks_per_month` | 2 | Max new private banks created per country per month |
+| `max_private_banks` | 5 | Maximum private banks allowed per country |
+| `public_bank_recapitalize_amount` | 500000.0 | Capital injected per recapitalization of the public bank |
+| `cross_country_deposit_min_balance` | 10000.0 | Min local cash to open a foreign deposit |
+| `cross_country_deposit_rate_premium` | 0.005 | Min rate advantage (foreign − local) to trigger migration |
+| `cross_country_deposit_fraction` | 0.30 | Fraction of surplus above minimum moved to foreign bank |
+| `cross_country_deposit_distress_threshold` | 500.0 | Local cash floor below which foreign deposit is recalled |
 
 ## Bank and Loans
 - Borrowers: people and companies.
@@ -387,13 +408,14 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 - Affordability cap: monthly payment <= 35% of monthly income.
 - Unemployed people have zero monthly income for affordability checks.
 - On death/company default, loan write-off removes created principal from the lender bank's outstanding created money.
-- Loan interest rate uses policy transmission with bank-kind adjustment:
-  - private: base `bank_loan_rate()`
-  - public: slight discount vs base lending rate
+- **Loan routing**: all new loan origination uses `preferred_lender_bank_id()`, which prefers healthy private banks over the public bank. Collection is routed to whichever bank holds the loan (`lender_bank_id`). This means private banks accumulate `created_money_outstanding` as they originate loans.
+- Loan interest rate uses policy transmission with bank-kind adjustment via `bank_loan_rate_for(bank_id)`:
+  - private: base rate − 50 bps (clamped to `rate_floor`) — discount attracts borrowers to private banks
+  - public: base `bank_loan_rate()` with no adjustment
 
 ## Monthly Processing Order
 1. Recompute company headcounts.
-2. Company payroll-liquidity check and pre-payroll loan request (at current `bank_loan_rate()`).
+2. Company payroll-liquidity check and pre-payroll loan request (routed to `preferred_lender_bank_id()`).
 3. Payroll from companies to employed people + income tax transfer to treasury.
 4. Government spending (unemployment benefits + basic needs top-up).
 5. **Bond coupon & maturity** — distribute coupons; repay or default if `bond_months_to_maturity == 0`.
@@ -406,7 +428,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 10. Growth IPO pass (non-distress listings).
 11. Secondary offering pass for listed distressed companies.
 12. Company distress escalation (including IPO rescue path before bankruptcy).
-13. End-of-month loan requests (at current `bank_loan_rate()`).
+13. End-of-month loan requests (routed to `preferred_lender_bank_id()`).
 14. Growth-driven opening creation.
 15. Startup formation pass.
 16. Essential + countercyclical public-employer backfill.
@@ -424,6 +446,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 
 *World-level after all countries complete steps 1–27:*
 - Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
+- **Cross-country deposit processing** — interest paid, distress recalls executed, new foreign deposits opened.
 - Monthly snapshot captured (picks up the new rate).
 - Monthly trackers reset.
 
