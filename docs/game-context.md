@@ -41,7 +41,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   - lender selection
   - per-bank deposit-liability recomputation
   - run health checks and resolution flow
-  - dynamic bank creation
+  - dynamic private-bank creation under market/capital constraints
+  - public-bank recapitalization and sovereign-backed health scoring
 - Daily lifecycle:
   1. age progression and habilitation refresh
   2. age-driven mortality

@@ -102,44 +102,51 @@ impl Country {
             return;
         }
 
-        let private_count = std::iter::once(&self.bank)
-            .chain(self.banks.iter())
-            .filter(|bank| bank.kind == BankKind::Private)
-            .count();
-
-        // Allow up to max_private_banks private banks (not just the first one).
-        let max_private = params.max_private_banks as usize;
-        if private_count < max_private
-            && let Some((bank_id, seed_capital)) = self.form_private_bank_from_founders()
-        {
-            // Give new private bank its initial job openings
-            let bank_employee_job_types = params.bank_employee_job_types;
-            let bank_wage_multiplier = params.bank_wage_multiplier.max(1.0);
-            if let Some(new_bank) = self.bank_by_id_mut(bank_id) {
-                let target = new_bank.target_employee_count(
-                    new_bank.deposit_liabilities,
-                    params.bank_min_employees,
-                    params.bank_max_employees,
-                    params.bank_employees_per_deposit_unit,
-                );
-                for i in 0..target {
-                    let job_id = bank_employee_job_types[i as usize % bank_employee_job_types.len()];
-                    let salary = round_cents(salary_for_job(job_id) * bank_wage_multiplier);
-                    new_bank.add_opening_with_salary(job_id, 1, salary);
-                }
+        let formation_budget = usize::from(params.max_new_banks_per_month);
+        let market_capacity = self.private_bank_capacity_target();
+        let mut formed = 0_usize;
+        while formed < formation_budget {
+            let private_count = std::iter::once(&self.bank)
+                .chain(self.banks.iter())
+                .filter(|bank| bank.kind == BankKind::Private)
+                .count();
+            if private_count >= market_capacity {
+                break;
             }
+            if let Some((bank_id, seed_capital)) = self.form_private_bank_from_founders() {
+                // Give new private bank its initial job openings.
+                let bank_employee_job_types = params.bank_employee_job_types;
+                let bank_wage_multiplier = params.bank_wage_multiplier.max(1.0);
+                if let Some(new_bank) = self.bank_by_id_mut(bank_id) {
+                    let target = new_bank.target_employee_count(
+                        new_bank.deposit_liabilities,
+                        params.bank_min_employees,
+                        params.bank_max_employees,
+                        params.bank_employees_per_deposit_unit,
+                    );
+                    for i in 0..target {
+                        let job_id =
+                            bank_employee_job_types[i as usize % bank_employee_job_types.len()];
+                        let salary = round_cents(salary_for_job(job_id) * bank_wage_multiplier);
+                        new_bank.add_opening_with_salary(job_id, 1, salary);
+                    }
+                }
 
-            self.pending_events.push(SimEvent::BankFounded {
-                country_name: self.name.clone(),
-                bank_id,
-                bank_name: self
-                    .bank_by_id(bank_id)
-                    .map(|bank| bank.name.clone())
-                    .unwrap_or_else(|| format!("{} Private Bank", self.name)),
-                kind: BankKind::Private,
-                seed_capital,
-                day: self.day,
-            });
+                self.pending_events.push(SimEvent::BankFounded {
+                    country_name: self.name.clone(),
+                    bank_id,
+                    bank_name: self
+                        .bank_by_id(bank_id)
+                        .map(|bank| bank.name.clone())
+                        .unwrap_or_else(|| format!("{} Private Bank", self.name)),
+                    kind: BankKind::Private,
+                    seed_capital,
+                    day: self.day,
+                });
+                formed = formed.saturating_add(1);
+            } else {
+                break;
+            }
         }
 
         // There is always exactly ONE public bank per country (self.bank, id=0).
@@ -148,12 +155,25 @@ impl Country {
         // don't false-trigger on a bank that simply has no loans/reserves yet.
         let min_deposits_to_recapitalize = params.public_bank_recapitalize_amount * 0.1;
         if self.bank.deposit_liabilities >= min_deposits_to_recapitalize
-            && self.bank.health_score() < 0.35
+            && self.bank_health_score(self.bank.id)
+                < (params.public_health_floor + 0.05).clamp(0.0, 1.0)
         {
             self.recapitalize_public_bank(params.public_bank_recapitalize_amount);
         }
 
         self.ensure_entity_deposit_assignments();
+    }
+
+    fn private_bank_capacity_target(&self) -> usize {
+        let target_people = self
+            .sim_params
+            .banking
+            .target_people_per_private_bank
+            .max(1);
+        self.people
+            .len()
+            .saturating_add(target_people.saturating_sub(1))
+            / target_people
     }
 
     /// Inject capital into the single public bank from treasury / monetization.
@@ -185,6 +205,7 @@ impl Country {
         let founder_count = params.min_private_bank_founders.max(1);
         let minimum_seed = round_cents(params.min_private_bank_seed_capital.max(1.0));
         let contribution_target = round_cents(minimum_seed / founder_count as f64);
+        let founder_cash_floor = params.min_founder_cash_after_contribution.max(0.0);
         if contribution_target <= 0.0 {
             return None;
         }
@@ -193,7 +214,7 @@ impl Country {
             .people
             .iter()
             .enumerate()
-            .filter(|(_, person)| person.cash_balance >= contribution_target)
+            .filter(|(_, person)| person.cash_balance >= contribution_target + founder_cash_floor)
             .map(|(idx, _)| idx)
             .collect::<Vec<_>>();
         if founder_indices.len() < founder_count {
@@ -201,9 +222,39 @@ impl Country {
         }
 
         founder_indices.truncate(founder_count);
+        let mover_limit = founder_count.saturating_mul(10);
+        let mover_indices = self
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, person)| person.cash_balance > contribution_target)
+            .map(|(idx, _)| idx)
+            .take(mover_limit)
+            .collect::<Vec<_>>();
+        let projected_migrated_deposits = mover_indices
+            .iter()
+            .map(|idx| {
+                let Some(person) = self.people.get(*idx) else {
+                    return 0.0;
+                };
+                let founder_outflow = if founder_indices.contains(idx) {
+                    contribution_target
+                } else {
+                    0.0
+                };
+                round_cents((person.cash_balance - founder_outflow).max(0.0))
+            })
+            .sum::<f64>();
+        if projected_migrated_deposits > 0.0 {
+            let projected_ratio = round_cents(minimum_seed / projected_migrated_deposits.max(0.01));
+            if projected_ratio + 1e-6 < params.min_private_seed_to_deposits_ratio.max(0.0) {
+                return None;
+            }
+        }
+
         let mut seed_capital = 0.0_f64;
-        for idx in founder_indices {
-            if let Some(person) = self.people.get_mut(idx) {
+        for idx in &founder_indices {
+            if let Some(person) = self.people.get_mut(*idx) {
                 let amount = round_cents(contribution_target.min(person.cash_balance.max(0.0)));
                 person.cash_balance = round_cents(person.cash_balance - amount);
                 seed_capital = round_cents(seed_capital + amount);
@@ -214,16 +265,8 @@ impl Country {
         }
 
         let bank_id = self.create_bank(BankKind::Private, seed_capital)?;
-        let mut moved = 0_usize;
-        for person in &mut self.people {
-            if moved >= founder_count.saturating_mul(10) {
-                break;
-            }
-            if person.cash_balance <= contribution_target {
-                continue;
-            }
-            person.deposit_bank_id = Some(bank_id);
-            moved = moved.saturating_add(1);
+        for idx in mover_indices {
+            self.move_person_deposit_bank(idx, bank_id);
         }
         Some((bank_id, seed_capital))
     }
@@ -493,5 +536,4 @@ impl Country {
             }
         }
     }
-
 }

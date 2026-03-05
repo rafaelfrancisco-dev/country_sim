@@ -11,6 +11,7 @@ impl Country {
             .chain(self.banks.iter().map(|bank| bank.id))
             .collect::<Vec<_>>();
         let run_threshold = params.run_health_threshold.clamp(0.0, 1.0);
+        let run_decay = (1.0 - params.run_intensity_decay_monthly.clamp(0.0, 1.0)).clamp(0.0, 1.0);
 
         for bank_id in bank_ids {
             let Some(bank) = self.bank_by_id(bank_id) else {
@@ -25,12 +26,11 @@ impl Country {
                 }
                 continue;
             }
-            let mut health = bank.health_score();
-            health = (health + params.public_bank_stability_bonus).clamp(0.0, 1.0);
+            let health = self.bank_health_score(bank_id);
             if health >= run_threshold {
                 let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
-                    bank.update_run_intensity((bank.run_intensity * 0.5).max(0.0));
+                    bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
                     if bank.is_in_resolution && bank.run_intensity <= 0.01 {
                         bank.is_in_resolution = false;
                         resolved_bank_name = Some(bank.name.clone());
@@ -60,11 +60,7 @@ impl Country {
             } else {
                 ((run_threshold - health) / run_threshold).clamp(0.0, 1.0)
             };
-            let private_mult = if kind == BankKind::Private {
-                params.private_bank_failure_sensitivity.max(0.1)
-            } else {
-                0.6
-            };
+            let private_mult = params.private_bank_failure_sensitivity.max(0.1);
             let withdraw_fraction =
                 (params.run_withdraw_fraction * stress * private_mult).clamp(0.0, 1.0);
             if withdraw_fraction <= 0.0 {
@@ -81,14 +77,26 @@ impl Country {
             if requested_total <= 0.0 {
                 continue;
             }
+            let shortfall_ratio = ((requested_total - available_reserve).max(0.0)
+                / requested_total.max(0.01))
+            .clamp(0.0, 1.0);
+            if shortfall_ratio < params.run_min_uninsured_share_trigger.clamp(0.0, 1.0) {
+                if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
+                }
+                continue;
+            }
             let available_ratio = (available_reserve / requested_total).clamp(0.0, 1.0);
 
             let mut entities_affected = 0_u32;
             let mut haircut_loss_total = 0.0_f64;
             let mut treasury_support_total = 0.0_f64;
             let mut paid_from_bank_total = 0.0_f64;
+            let mut person_switches: Vec<(usize, u16)> = Vec::new();
+            let mut company_switches: Vec<(usize, u16)> = Vec::new();
+            let mut treasury_switch: Option<u16> = None;
 
-            for person in &mut self.people {
+            for (idx, person) in self.people.iter_mut().enumerate() {
                 if person.deposit_bank_id != Some(bank_id) || person.cash_balance <= 0.0 {
                     continue;
                 }
@@ -123,12 +131,12 @@ impl Country {
                 {
                     let switch_roll = ((person.id as f64 / 997.0) % 1.0).abs();
                     if switch_roll <= switch_fraction {
-                        person.deposit_bank_id = Some(target_id);
+                        person_switches.push((idx, target_id));
                     }
                 }
             }
 
-            for company in &mut self.companies {
+            for (idx, company) in self.companies.iter_mut().enumerate() {
                 if company.deposit_bank_id != Some(bank_id) || company.cash_balance <= 0.0 {
                     continue;
                 }
@@ -163,7 +171,7 @@ impl Country {
                 {
                     let switch_roll = ((company.id as f64 / 193.0) % 1.0).abs();
                     if switch_roll <= switch_fraction {
-                        company.deposit_bank_id = Some(target_id);
+                        company_switches.push((idx, target_id));
                     }
                 }
             }
@@ -194,18 +202,30 @@ impl Country {
                     && let Some(target_id) = target_bank_id
                     && target_id != bank_id
                 {
-                    self.treasury_bank_id = Some(target_id);
+                    treasury_switch = Some(target_id);
                 }
             }
 
+            let deposit_liabilities = self
+                .bank_by_id(bank_id)
+                .map(|bank| bank.deposit_liabilities.max(0.0))
+                .unwrap_or(0.0);
+            let post_reserve = round_cents((available_reserve - paid_from_bank_total).max(0.0));
+            let post_liquidity = if deposit_liabilities <= 0.0 {
+                1.0
+            } else {
+                (post_reserve / deposit_liabilities).clamp(0.0, 10.0)
+            };
+            let resolution_required = paid_from_bank_total + 0.01 < requested_total
+                && post_liquidity < params.resolution_liquidity_floor.max(0.0);
+
             if let Some(bank) = self.bank_by_id_mut(bank_id) {
-                bank.reserve_balance =
-                    round_cents((bank.reserve_balance - paid_from_bank_total).max(0.0));
-                bank.is_in_resolution = paid_from_bank_total + 0.01 < requested_total;
+                bank.reserve_balance = post_reserve;
+                bank.is_in_resolution = resolution_required;
                 bank.update_run_intensity(stress);
             }
 
-            if treasury_support_total > 0.0 {
+            if resolution_required && treasury_support_total > 0.0 {
                 if self.treasury_balance + 0.01 < treasury_support_total {
                     let shortfall =
                         round_cents((treasury_support_total - self.treasury_balance).max(0.0));
@@ -232,6 +252,16 @@ impl Country {
                 haircut_loss: haircut_loss_total,
                 day: self.day,
             });
+
+            for (person_idx, target_id) in person_switches {
+                self.move_person_deposit_bank(person_idx, target_id);
+            }
+            for (company_idx, target_id) in company_switches {
+                self.move_company_deposit_bank(company_idx, target_id);
+            }
+            if let Some(target_id) = treasury_switch {
+                self.move_treasury_deposit_bank(target_id);
+            }
         }
 
         self.recompute_bank_deposit_liabilities();
@@ -347,8 +377,8 @@ impl Country {
             .chain(self.banks.iter())
             .filter(|bank| bank.id != exclude_bank_id && !bank.is_in_resolution)
             .max_by(|a, b| {
-                a.health_score()
-                    .partial_cmp(&b.health_score())
+                self.bank_health_score(a.id)
+                    .partial_cmp(&self.bank_health_score(b.id))
                     .unwrap_or(Ordering::Equal)
             })
             .map(|bank| bank.id)

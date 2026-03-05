@@ -35,7 +35,13 @@ pub(in crate::components::simulation) fn build_banks_tab_snapshot(
                 reserve: money(bank.reserve_balance, currency_symbol),
                 deposits: money(bank.deposit_liabilities, currency_symbol),
                 created_money: money(bank.created_money_outstanding, currency_symbol),
-                health: format!("{:.1}%", bank.health_score() * 100.0),
+                health: format!(
+                    "{:.1}%",
+                    selected_country
+                        .map(|country| country.bank_health_score(bank.id))
+                        .unwrap_or(0.0)
+                        * 100.0
+                ),
                 run_intensity: format!("{:.1}%", bank.run_intensity * 100.0),
                 resolution,
                 is_selected: absolute_idx == ui.selected_bank_absolute_index(),
@@ -202,7 +208,13 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::BondMatured { country_name, .. }
         | SimEvent::BondDefault { country_name, .. }
         | SimEvent::StockSecondaryOffering { country_name, .. } => country_name,
-        | SimEvent::ForeignDepositOpened { home_country_name: country_name, .. }
-        | SimEvent::ForeignDepositClosed { home_country_name: country_name, .. } => country_name,
+        SimEvent::ForeignDepositOpened {
+            home_country_name: country_name,
+            ..
+        }
+        | SimEvent::ForeignDepositClosed {
+            home_country_name: country_name,
+            ..
+        } => country_name,
     }
 }

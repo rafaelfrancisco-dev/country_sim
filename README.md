@@ -57,8 +57,9 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - Banking system additions:
   - Countries now support multiple banks with explicit `Public` / `Private` kinds
   - People and companies are assigned to a deposit bank (`deposit_bank_id`) and savings interest is paid per bank
-  - Monthly private-bank run dynamics include withdrawal pressure, depositor switching, and resolution outcomes (insured support + uninsured haircut)
-  - Monthly bank formation path added (private founder-capital formation + stress-gated public expansion)
+  - Monthly private-bank run dynamics include stricter stress gating, depositor switching with reserve transfer, and resolution outcomes (insured support + uninsured haircut)
+  - Monthly bank formation path added (market-constrained private founder-capital formation; no fixed private-bank-count cap)
+  - Public bank remains unique per country and is recapitalized in place under sustained stress
   - New banking events: `BankFounded`, `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
 
 ## Documentation

@@ -46,8 +46,9 @@ pub(in crate::components::simulation) fn country_banks_summary_lines(
         .filter(|bank| bank.is_in_resolution)
         .count();
     let strongest_bank = all_banks.max_by(|a, b| {
-        a.health_score()
-            .partial_cmp(&b.health_score())
+        country
+            .bank_health_score(a.id)
+            .partial_cmp(&country.bank_health_score(b.id))
             .unwrap_or(Ordering::Equal)
     });
 
@@ -78,7 +79,7 @@ pub(in crate::components::simulation) fn country_banks_summary_lines(
                 format!(
                     "Healthiest Bank: {} ({:.1}%)",
                     bank.name,
-                    bank.health_score() * 100.0
+                    country.bank_health_score(bank.id) * 100.0
                 )
             },
         ),

@@ -142,8 +142,7 @@ impl Bank {
         }
         let offered_salary = round_cents(offered_salary.max(0.0));
         if let Some(opening) = self.open_positions.iter_mut().find(|o| {
-            o.job_type_id == job_type_id
-                && (o.offered_monthly_salary - offered_salary).abs() < 0.01
+            o.job_type_id == job_type_id && (o.offered_monthly_salary - offered_salary).abs() < 0.01
         }) {
             opening.slots = opening.slots.saturating_add(slots);
             return;
@@ -170,10 +169,7 @@ impl Bank {
     }
 
     pub fn open_position_count(&self) -> u32 {
-        self.open_positions
-            .iter()
-            .map(|o| u32::from(o.slots))
-            .sum()
+        self.open_positions.iter().map(|o| u32::from(o.slots)).sum()
     }
 
     pub fn open_month(&mut self) {
@@ -382,11 +378,43 @@ impl Bank {
     }
 
     pub fn health_score(&self) -> f64 {
+        self.health_score_private()
+    }
+
+    pub fn health_score_private(&self) -> f64 {
         let liquidity = self.liquidity_ratio().min(1.0);
         let capital = ((self.capital_ratio() + 1.0) / 2.0).clamp(0.0, 1.0);
         let resolution_penalty = if self.is_in_resolution { 0.35 } else { 0.0 };
         let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.50;
         (0.60 * liquidity + 0.40 * capital - resolution_penalty - run_penalty).clamp(0.0, 1.0)
+    }
+
+    pub fn health_score_public(
+        &self,
+        treasury_balance: f64,
+        health_floor: f64,
+        liquidity_weight: f64,
+        capital_weight: f64,
+        sovereign_support_weight: f64,
+    ) -> f64 {
+        let liquidity = self.liquidity_ratio().min(1.0);
+        let capital = ((self.capital_ratio() + 1.0) / 2.0).clamp(0.0, 1.0);
+        let support_base = self.deposit_liabilities.max(0.0) * 0.10 + 1.0;
+        let sovereign_support = (treasury_balance.max(0.0) / support_base).clamp(0.0, 1.0);
+        let weights_sum =
+            (liquidity_weight + capital_weight + sovereign_support_weight).max(f64::EPSILON);
+        let weighted = (liquidity * liquidity_weight
+            + capital * capital_weight
+            + sovereign_support * sovereign_support_weight)
+            / weights_sum;
+        let resolution_penalty = if self.is_in_resolution { 0.20 } else { 0.0 };
+        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.25;
+        let stress_adjusted = (weighted - resolution_penalty - run_penalty).clamp(0.0, 1.0);
+        if self.is_in_resolution {
+            stress_adjusted
+        } else {
+            stress_adjusted.max(health_floor.clamp(0.0, 1.0))
+        }
     }
 
     pub fn update_run_intensity(&mut self, stress: f64) {

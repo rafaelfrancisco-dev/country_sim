@@ -10,6 +10,10 @@ fn private_bank_can_be_formed_from_founder_capital() {
     country.sim_params.banking.min_private_bank_founders = 4;
     country.sim_params.banking.min_private_bank_seed_capital = 200_000.0;
     country.sim_params.banking.max_new_banks_per_month = 1;
+    country
+        .sim_params
+        .banking
+        .min_private_seed_to_deposits_ratio = 0.005;
 
     country.process_bank_formation();
 
@@ -115,4 +119,36 @@ fn ten_year_monthly_banking_simulation_keeps_invariants() {
             .count()
             >= 1
     );
+}
+
+#[test]
+fn moving_deposit_bank_transfers_reserve_assets() {
+    let mut country = build_deterministic_country();
+    let private_bank_id = country
+        .create_bank(BankKind::Private, 1_000.0)
+        .expect("private bank should be created");
+    country.bank.reserve_balance = 50_000.0;
+    country.people[0].cash_balance = 10_000.0;
+    country.people[0].deposit_bank_id = Some(country.bank.id);
+    let public_before = country.bank.reserve_balance;
+    let private_before = country
+        .bank_by_id(private_bank_id)
+        .map(|bank| bank.reserve_balance)
+        .unwrap_or(0.0);
+
+    country.move_person_deposit_bank(0, private_bank_id);
+
+    let public_after = country.bank.reserve_balance;
+    let private_after = country
+        .bank_by_id(private_bank_id)
+        .map(|bank| bank.reserve_balance)
+        .unwrap_or(0.0);
+    assert!(public_after < public_before);
+    assert!(private_after > private_before);
+}
+
+#[test]
+fn public_bank_health_is_not_pinned_near_zero() {
+    let country = build_deterministic_country();
+    assert!(country.bank_health_score(country.bank.id) > 0.20);
 }

@@ -116,18 +116,40 @@ pub struct BankingSystemParams {
     pub wallet_buffer_months_company: f64,
     pub deposit_insurance_cap: f64,
     pub uninsured_haircut_rate: f64,
+    /// Health score below which private banks may enter run dynamics.
     pub run_health_threshold: f64,
+    /// Fraction of deposits requested during a severe run.
     pub run_withdraw_fraction: f64,
+    /// Fraction of depositors that attempt to switch away during a run.
     pub run_switch_fraction: f64,
+    /// Legacy stability nudging factor retained for compatibility.
     pub public_bank_stability_bonus: f64,
     pub private_bank_failure_sensitivity: f64,
+    /// Minimum uninsured-share fraction needed before run dynamics can start.
+    pub run_min_uninsured_share_trigger: f64,
+    /// Liquidity floor below which a shortfall can push a bank into resolution.
+    pub resolution_liquidity_floor: f64,
+    /// Fraction of run intensity that decays each stable month.
+    pub run_intensity_decay_monthly: f64,
     pub min_private_bank_founders: usize,
+    /// Minimum founder cash kept after seed contribution.
+    pub min_founder_cash_after_contribution: f64,
     pub min_private_bank_seed_capital: f64,
+    /// Minimum ratio seed_capital / migrated_deposits for a new private bank.
+    pub min_private_seed_to_deposits_ratio: f64,
+    /// Target residents per private bank used as a soft market-capacity gate.
+    pub target_people_per_private_bank: usize,
     pub max_new_banks_per_month: u16,
-    /// Maximum number of private banks allowed per country.
-    pub max_private_banks: u16,
     /// Amount of capital injected when recapitalizing the public bank.
     pub public_bank_recapitalize_amount: f64,
+    /// Minimum health floor for sovereign-backed public banks.
+    pub public_health_floor: f64,
+    /// Public-bank health score weight on liquidity.
+    pub public_health_liquidity_weight: f64,
+    /// Public-bank health score weight on capital.
+    pub public_health_capital_weight: f64,
+    /// Public-bank health score weight on sovereign support capacity.
+    pub public_health_sovereign_support_weight: f64,
     // --- Cross-country deposits ---
     /// Minimum local cash balance required for a person to open a foreign deposit.
     pub cross_country_deposit_min_balance: f64,
@@ -158,16 +180,25 @@ impl Default for BankingSystemParams {
             wallet_buffer_months_company: 0.25,
             deposit_insurance_cap: 100_000.0,
             uninsured_haircut_rate: 0.35,
-            run_health_threshold: 0.45,
-            run_withdraw_fraction: 0.40,
-            run_switch_fraction: 0.65,
+            run_health_threshold: 0.25,
+            run_withdraw_fraction: 0.18,
+            run_switch_fraction: 0.30,
             public_bank_stability_bonus: 0.20,
-            private_bank_failure_sensitivity: 1.0,
+            private_bank_failure_sensitivity: 0.45,
+            run_min_uninsured_share_trigger: 0.20,
+            resolution_liquidity_floor: 0.05,
+            run_intensity_decay_monthly: 0.75,
             min_private_bank_founders: 8,
+            min_founder_cash_after_contribution: 25_000.0,
             min_private_bank_seed_capital: 500_000.0,
+            min_private_seed_to_deposits_ratio: 0.05,
+            target_people_per_private_bank: 250_000,
             max_new_banks_per_month: 2,
-            max_private_banks: 5,
             public_bank_recapitalize_amount: 500_000.0,
+            public_health_floor: 0.35,
+            public_health_liquidity_weight: 0.55,
+            public_health_capital_weight: 0.15,
+            public_health_sovereign_support_weight: 0.30,
             cross_country_deposit_min_balance: 10_000.0,
             cross_country_deposit_rate_premium: 0.005,
             cross_country_deposit_fraction: 0.30,

@@ -67,7 +67,10 @@ pub(in crate::components::simulation) fn bank_details_lines(
         "Stability:".to_string(),
         format!("Liquidity Ratio: {:.2}", bank.liquidity_ratio()),
         format!("Capital Ratio: {:.2}%", bank.capital_ratio() * 100.0),
-        format!("Health Score: {:.1}%", bank.health_score() * 100.0),
+        format!(
+            "Health Score: {:.1}%",
+            country.bank_health_score(bank.id) * 100.0
+        ),
         format!("Run Intensity: {:.1}%", bank.run_intensity * 100.0),
         format!(
             "Resolution State: {}",

@@ -276,12 +276,30 @@ impl Country {
         }
     }
 
+    pub fn bank_health_score(&self, bank_id: BankId) -> f64 {
+        let Some(bank) = self.bank_by_id(bank_id) else {
+            return 0.0;
+        };
+        let params = self.sim_params.banking;
+        match bank.kind {
+            BankKind::Private => bank.health_score_private(),
+            BankKind::Public => (bank.health_score_public(
+                self.treasury_balance,
+                params.public_health_floor,
+                params.public_health_liquidity_weight,
+                params.public_health_capital_weight,
+                params.public_health_sovereign_support_weight,
+            ) + params.public_bank_stability_bonus * 0.5)
+                .clamp(0.0, 1.0),
+        }
+    }
+
     pub fn healthiest_bank_id(&self) -> Option<BankId> {
         std::iter::once(&self.bank)
             .chain(self.banks.iter())
             .max_by(|a, b| {
-                a.health_score()
-                    .partial_cmp(&b.health_score())
+                self.bank_health_score(a.id)
+                    .partial_cmp(&self.bank_health_score(b.id))
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|bank| bank.id)
@@ -292,8 +310,8 @@ impl Country {
             .chain(self.banks.iter())
             .filter(|bank| bank.kind == BankKind::Private && !bank.is_in_resolution)
             .max_by(|a, b| {
-                a.health_score()
-                    .partial_cmp(&b.health_score())
+                self.bank_health_score(a.id)
+                    .partial_cmp(&self.bank_health_score(b.id))
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|bank| bank.id)
@@ -321,6 +339,95 @@ impl Country {
             self.treasury_bank_id = fallback_bank;
         }
         self.recompute_bank_deposit_liabilities();
+    }
+
+    pub(crate) fn transfer_reserve_between_banks(
+        &mut self,
+        from_bank_id: BankId,
+        to_bank_id: BankId,
+        amount: f64,
+    ) -> f64 {
+        if from_bank_id == to_bank_id {
+            return 0.0;
+        }
+        if self.bank_by_id(from_bank_id).is_none() || self.bank_by_id(to_bank_id).is_none() {
+            return 0.0;
+        }
+        let amount = round_cents(amount.max(0.0));
+        if amount <= 0.0 {
+            return 0.0;
+        }
+        let available = self
+            .bank_by_id(from_bank_id)
+            .map(|bank| bank.reserve_balance.max(0.0))
+            .unwrap_or(0.0);
+        let moved = round_cents(amount.min(available));
+        if moved <= 0.0 {
+            return 0.0;
+        }
+        if let Some(from_bank) = self.bank_by_id_mut(from_bank_id) {
+            from_bank.reserve_balance = round_cents((from_bank.reserve_balance - moved).max(0.0));
+        }
+        if let Some(to_bank) = self.bank_by_id_mut(to_bank_id) {
+            to_bank.reserve_balance = round_cents(to_bank.reserve_balance + moved);
+        }
+        moved
+    }
+
+    pub(crate) fn move_person_deposit_bank(&mut self, person_index: usize, target_bank_id: BankId) {
+        let Some(person) = self.people.get(person_index) else {
+            return;
+        };
+        if person.deposit_bank_id == Some(target_bank_id) {
+            return;
+        }
+        if let Some(source_bank_id) = person.deposit_bank_id {
+            self.transfer_reserve_between_banks(
+                source_bank_id,
+                target_bank_id,
+                person.cash_balance,
+            );
+        }
+        if let Some(person) = self.people.get_mut(person_index) {
+            person.deposit_bank_id = Some(target_bank_id);
+        }
+    }
+
+    pub(crate) fn move_company_deposit_bank(
+        &mut self,
+        company_index: usize,
+        target_bank_id: BankId,
+    ) {
+        let Some(company) = self.companies.get(company_index) else {
+            return;
+        };
+        if company.deposit_bank_id == Some(target_bank_id) {
+            return;
+        }
+        if let Some(source_bank_id) = company.deposit_bank_id {
+            self.transfer_reserve_between_banks(
+                source_bank_id,
+                target_bank_id,
+                company.cash_balance,
+            );
+        }
+        if let Some(company) = self.companies.get_mut(company_index) {
+            company.deposit_bank_id = Some(target_bank_id);
+        }
+    }
+
+    pub(crate) fn move_treasury_deposit_bank(&mut self, target_bank_id: BankId) {
+        if self.treasury_bank_id == Some(target_bank_id) {
+            return;
+        }
+        if let Some(source_bank_id) = self.treasury_bank_id {
+            self.transfer_reserve_between_banks(
+                source_bank_id,
+                target_bank_id,
+                self.treasury_balance,
+            );
+        }
+        self.treasury_bank_id = Some(target_bank_id);
     }
 
     pub fn recompute_bank_deposit_liabilities(&mut self) {

@@ -341,29 +341,44 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 
 ### Public Bank Invariant
 - `Country.bank` (ID 0) is the **only** public bank and is created once at world generation.
-- When the public bank's health deteriorates (health_score < 0.35 AND deposit_liabilities ≥ 10% of recapitalize amount), it is **recapitalized in place** rather than replaced.
+- Public-bank health uses a sovereign-backed score:
+  - liquidity + capital + treasury-support weighting
+  - non-resolution floor via `public_health_floor`
+  - additional compatibility uplift from `public_bank_stability_bonus`
+- When the public bank's health deteriorates (`bank_health_score(public_bank_id) < public_health_floor + 0.05`)
+  **and** `deposit_liabilities ≥ 10%` of recapitalize amount, it is **recapitalized in place** rather than replaced.
 - Recapitalization injects `public_bank_recapitalize_amount` into the bank's reserves and equity capital.
 - Funding order: treasury first, then deficit monetization (added to `gov_debt`).
 - A minimum-deposit guard prevents spurious recapitalization of a freshly initialized bank with no real deposit obligations.
 
 ### Bank Formation (Monthly)
 - **Private bank formation**:
-  - triggered when a country has fewer private banks than `max_private_banks` (default 5)
+  - market-constrained by population capacity (`target_people_per_private_bank`)
+  - uncapped by a fixed private-bank-count parameter (no `max_private_banks`)
   - founders must collectively contribute at least `min_private_bank_seed_capital`
   - minimum founder count controlled by `min_private_bank_founders`
-  - formation is capped by `max_new_banks_per_month` per cycle
+  - founders must retain minimum post-contribution cash (`min_founder_cash_after_contribution`)
+  - seed adequacy must satisfy `seed_capital / projected_migrated_deposits >= min_private_seed_to_deposits_ratio`
+  - formation throughput is capped by `max_new_banks_per_month` attempts per cycle
 - **Public bank**: never created post-initialization; only recapitalized (see above).
 - Events: `BankFounded` on private-bank creation.
 
 ### Bank Runs and Resolution (Monthly)
 - Run processing currently applies to **private banks only**.
-- If private-bank health drops below `run_health_threshold`, a run starts:
-  - withdrawal pressure scales by health gap and `run_withdraw_fraction`
-  - some depositors switch banks (bounded by `run_switch_fraction`)
+- A run requires:
+  - private-bank health below `run_health_threshold`
+  - material shortfall ratio above `run_min_uninsured_share_trigger`
+- Withdrawal pressure scales by health gap and:
+  - `run_withdraw_fraction`
+  - `private_bank_failure_sensitivity`
+- Depositor switching is bounded by `run_switch_fraction`, and switching transfers reserve assets with deposit relationships.
 - Resolution path:
   - insured shortfall support up to `deposit_insurance_cap`
   - uninsured shortfall takes `uninsured_haircut_rate` loss
   - remaining uninsured gap is treasury-supported (with monetization fallback)
+  - resolution is entered only if there is payout shortfall **and** post-withdraw liquidity is below `resolution_liquidity_floor`
+  - if the bank later stabilizes and run intensity decays under threshold, it exits resolution (`BankResolved`)
+  - banks are not removed from `Country.banks` by resolution mechanics
 - Bank-run visibility is event-driven:
   - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
 
@@ -384,16 +399,25 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 |---|---|---|
 | `deposit_insurance_cap` | 100000.0 | Per-claim insured support during bank resolution |
 | `uninsured_haircut_rate` | 0.35 | Loss ratio applied to uninsured shortfall |
-| `run_health_threshold` | 0.45 | Health trigger threshold for private-bank runs |
-| `run_withdraw_fraction` | 0.40 | Base fraction of deposits requested during run |
-| `run_switch_fraction` | 0.65 | Share of depositors that can switch banks during run |
-| `public_bank_stability_bonus` | 0.20 | Stability bonus applied in run-health logic |
-| `private_bank_failure_sensitivity` | 1.00 | Multiplier on private-bank withdrawal stress |
+| `run_health_threshold` | 0.25 | Health trigger threshold for private-bank runs |
+| `run_withdraw_fraction` | 0.18 | Base fraction of deposits requested during run |
+| `run_switch_fraction` | 0.30 | Share of depositors that can switch banks during run |
+| `public_bank_stability_bonus` | 0.20 | Compatibility uplift applied in country-level public-bank health scoring |
+| `private_bank_failure_sensitivity` | 0.45 | Multiplier on private-bank withdrawal stress |
+| `run_min_uninsured_share_trigger` | 0.20 | Minimum shortfall ratio needed before run stress executes |
+| `resolution_liquidity_floor` | 0.05 | Resolution requires post-withdraw liquidity below this floor |
+| `run_intensity_decay_monthly` | 0.75 | Monthly decay factor used in recovery logic |
 | `min_private_bank_founders` | 8 | Minimum founders for private-bank creation |
+| `min_founder_cash_after_contribution` | 25000.0 | Required founder cash cushion after seed contribution |
 | `min_private_bank_seed_capital` | 500000.0 | Minimum private-bank seed capital |
+| `min_private_seed_to_deposits_ratio` | 0.05 | Minimum seed/deposit adequacy for newly formed private banks |
+| `target_people_per_private_bank` | 250000 | Population-based private-bank market capacity target |
 | `max_new_banks_per_month` | 2 | Max new private banks created per country per month |
-| `max_private_banks` | 5 | Maximum private banks allowed per country |
 | `public_bank_recapitalize_amount` | 500000.0 | Capital injected per recapitalization of the public bank |
+| `public_health_floor` | 0.35 | Minimum public-bank health score when not in resolution |
+| `public_health_liquidity_weight` | 0.55 | Public-bank health weight on liquidity |
+| `public_health_capital_weight` | 0.15 | Public-bank health weight on capital |
+| `public_health_sovereign_support_weight` | 0.30 | Public-bank health weight on treasury support |
 | `cross_country_deposit_min_balance` | 10000.0 | Min local cash to open a foreign deposit |
 | `cross_country_deposit_rate_premium` | 0.005 | Min rate advantage (foreign − local) to trigger migration |
 | `cross_country_deposit_fraction` | 0.30 | Fraction of surplus above minimum moved to foreign bank |
