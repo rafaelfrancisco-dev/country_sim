@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
+use super::disaster_markers;
 use crate::components::simulation::{
     hotkeys,
     snapshot::{ChartsTabSnapshot, RunningSnapshot},
@@ -50,6 +51,7 @@ impl Simulation {
         let total_pages = tab.total_chart_pages.max(1);
         let page_idx = tab.chart_page.min(total_pages.saturating_sub(1));
         let currency_symbol = world.currency_symbol.as_str();
+        let disaster_days = tab.disaster_days.as_ref();
 
         if history.is_empty() {
             let placeholder = Paragraph::new(
@@ -99,6 +101,7 @@ impl Simulation {
                     spec.value_fn,
                     spec.axis_format,
                     currency_symbol,
+                    disaster_days,
                 );
             }
         }
@@ -335,6 +338,7 @@ impl Simulation {
         value_fn: fn(&MetricPoint) -> f64,
         axis_format: AxisValueFormat,
         currency_symbol: &str,
+        disaster_days: &[u64],
     ) {
         if history.is_empty() {
             frame.render_widget(
@@ -379,8 +383,14 @@ impl Simulation {
             .marker(symbols::Marker::Braille)
             .style(Style::default().fg(color).bg(theme::PANEL_BG))
             .data(&points);
+        let marker_positions = disaster_markers::disaster_month_positions(disaster_days);
+        let marker_segments =
+            disaster_markers::marker_segments(&marker_positions, x_min, x_max, y_min, y_max);
+        let mut datasets = Vec::with_capacity(1 + marker_segments.len());
+        datasets.push(dataset);
+        datasets.extend(disaster_markers::marker_datasets(&marker_segments));
 
-        let chart = Chart::new(vec![dataset])
+        let chart = Chart::new(datasets)
             .style(Style::default().bg(theme::PANEL_BG))
             .x_axis(
                 Axis::default()

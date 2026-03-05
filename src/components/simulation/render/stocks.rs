@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
+use super::disaster_markers;
 use crate::components::simulation::{
     hotkeys,
     snapshot::{RunningSnapshot, StocksTabSnapshot},
@@ -29,7 +30,13 @@ impl Simulation {
 
         self.draw_stock_summary(frame, summary_area, tab);
         self.draw_stock_table(frame, table_area, tab);
-        self.draw_stock_charts(frame, bottom, tab, world.currency_symbol.as_str());
+        self.draw_stock_charts(
+            frame,
+            bottom,
+            tab,
+            world.day,
+            world.currency_symbol.as_str(),
+        );
 
         format!(
             "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [PgUp/PgDn] page | Listed: {}",
@@ -138,6 +145,7 @@ impl Simulation {
         frame: &mut Frame,
         area: Rect,
         tab: &StocksTabSnapshot,
+        world_day: u64,
         currency_symbol: &str,
     ) {
         let [left, right] =
@@ -157,6 +165,8 @@ impl Simulation {
             tab.stock_selected_index_price_history.as_ref(),
             Color::Cyan,
             true,
+            world_day,
+            tab.disaster_days.as_ref(),
             currency_symbol,
         );
         self.draw_stock_chart_f64(
@@ -166,6 +176,8 @@ impl Simulation {
             tab.stock_selected_index_volume_history.as_ref(),
             Color::Yellow,
             false,
+            world_day,
+            tab.disaster_days.as_ref(),
             currency_symbol,
         );
         self.draw_stock_chart_f64(
@@ -175,6 +187,8 @@ impl Simulation {
             tab.stock_country_index_history.as_ref(),
             Color::Green,
             false,
+            world_day,
+            tab.disaster_days.as_ref(),
             currency_symbol,
         );
         self.draw_stock_chart_f64(
@@ -184,6 +198,8 @@ impl Simulation {
             tab.stock_bank_exposure_history.as_ref(),
             Color::Magenta,
             true,
+            world_day,
+            tab.disaster_days.as_ref(),
             currency_symbol,
         );
     }
@@ -196,6 +212,8 @@ impl Simulation {
         data: &[f64],
         color: Color,
         as_money: bool,
+        world_day: u64,
+        disaster_days: &[u64],
         currency_symbol: &str,
     ) {
         let block = Block::default()
@@ -230,6 +248,21 @@ impl Simulation {
             .graph_type(GraphType::Line)
             .style(Style::default().fg(color))
             .data(&points);
+        let start_day = world_day
+            .saturating_sub(data.len() as u64)
+            .saturating_add(1);
+        let marker_positions =
+            disaster_markers::disaster_relative_day_positions(disaster_days, start_day);
+        let marker_segments = disaster_markers::marker_segments(
+            &marker_positions,
+            0.0,
+            data.len() as f64,
+            y_min,
+            y_max,
+        );
+        let mut datasets = Vec::with_capacity(1 + marker_segments.len());
+        datasets.push(dataset);
+        datasets.extend(disaster_markers::marker_datasets(&marker_segments));
 
         let x_labels = vec![
             ratatui::text::Span::raw("0"),
@@ -255,7 +288,7 @@ impl Simulation {
             ]
         };
 
-        let chart = Chart::new(vec![dataset])
+        let chart = Chart::new(datasets)
             .block(block)
             .x_axis(
                 Axis::default()

@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 use super::super::{Simulation, theme};
+use super::disaster_markers;
 use super::events::event_search_hint;
 use crate::components::simulation::{
     hotkeys,
@@ -259,6 +260,8 @@ impl Simulation {
                     Color::Cyan,
                     false,
                     world.currency_symbol.as_str(),
+                    world.selected_country_month,
+                    tab.disaster_days.as_ref(),
                 );
                 self.draw_company_history_chart(
                     frame,
@@ -268,6 +271,8 @@ impl Simulation {
                     Color::Green,
                     false,
                     world.currency_symbol.as_str(),
+                    world.selected_country_month,
+                    tab.disaster_days.as_ref(),
                 );
                 self.draw_company_history_chart(
                     frame,
@@ -277,6 +282,8 @@ impl Simulation {
                     Color::Yellow,
                     true,
                     world.currency_symbol.as_str(),
+                    world.selected_country_month,
+                    tab.disaster_days.as_ref(),
                 );
                 self.draw_company_history_chart(
                     frame,
@@ -286,6 +293,8 @@ impl Simulation {
                     Color::LightMagenta,
                     true,
                     world.currency_symbol.as_str(),
+                    world.selected_country_month,
+                    tab.disaster_days.as_ref(),
                 );
                 self.draw_company_history_chart(
                     frame,
@@ -295,6 +304,8 @@ impl Simulation {
                     Color::LightGreen,
                     true,
                     world.currency_symbol.as_str(),
+                    world.selected_country_month,
+                    tab.disaster_days.as_ref(),
                 );
                 frame.render_widget(
                     Paragraph::new("")
@@ -408,6 +419,8 @@ impl Simulation {
         color: Color,
         as_money: bool,
         currency_symbol: &str,
+        selected_country_month: u64,
+        disaster_days: &[u64],
     ) {
         if history.is_empty() {
             frame.render_widget(
@@ -459,8 +472,18 @@ impl Simulation {
             .marker(symbols::Marker::Braille)
             .style(Style::default().fg(color).bg(theme::PANEL_BG))
             .data(&points);
+        let start_month = selected_country_month
+            .saturating_add(1)
+            .saturating_sub(history.len() as u64);
+        let marker_positions =
+            disaster_markers::disaster_relative_month_positions(disaster_days, start_month);
+        let marker_segments =
+            disaster_markers::marker_segments(&marker_positions, x_min, x_max, y_min, y_max);
+        let mut datasets = Vec::with_capacity(1 + marker_segments.len());
+        datasets.push(dataset);
+        datasets.extend(disaster_markers::marker_datasets(&marker_segments));
 
-        let chart = Chart::new(vec![dataset])
+        let chart = Chart::new(datasets)
             .style(Style::default().bg(theme::PANEL_BG))
             .x_axis(
                 Axis::default()

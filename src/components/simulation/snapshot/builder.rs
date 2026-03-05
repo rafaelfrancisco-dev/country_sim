@@ -56,6 +56,8 @@ impl UiSnapshot {
             .map(|country| country.name.clone())
             .unwrap_or_else(|| "N/A".to_string());
         let selected_country_month = selected_country.map_or(0, |country| country.month);
+        let selected_country_disaster_days =
+            disaster_days_for_country(world, selected_country_name.as_str());
 
         #[cfg(feature = "ui-diagnostics")]
         let invariant_warnings = world
@@ -211,6 +213,7 @@ impl UiSnapshot {
                     company_price_history: company_price_history.into(),
                     company_loan_payment_history: company_loan_payment_history.into(),
                     company_money_history: company_money_history.into(),
+                    disaster_days: selected_country_disaster_days.clone().into(),
                     country_goods_summary_lines: country_goods_summary_lines(world, ui),
                 }))
             }
@@ -232,6 +235,7 @@ impl UiSnapshot {
                     stock_selected_index_volume_history: stock_selected_index_volume_history.into(),
                     stock_country_index_history: stock_country_index_history.into(),
                     stock_bank_exposure_history: stock_bank_exposure_history.into(),
+                    disaster_days: selected_country_disaster_days.clone().into(),
                     stock_page: ui.stock_page,
                     stock_selected_row: ui.stock_selected_row,
                     stock_person_details_lines: stock_person_details_lines(
@@ -245,22 +249,7 @@ impl UiSnapshot {
                 RunningTabSnapshot::Disasters(Box::new(build_disasters_tab_snapshot(world, ui)))
             }
             RunningTab::Charts => {
-                let chart_scope_label = chart_scope_label(world, ui);
-                let chart_history = match ui.chart_scope {
-                    ChartScope::SelectedCountry => world
-                        .country_history
-                        .get(ui.selected_country)
-                        .cloned()
-                        .unwrap_or_default(),
-                    ChartScope::WorldAggregate => world.world_history.clone(),
-                };
-
-                RunningTabSnapshot::Charts(Box::new(ChartsTabSnapshot {
-                    chart_scope_label,
-                    chart_page: ui.chart_page,
-                    total_chart_pages: crate::components::simulation::ui_state::CHART_PAGE_COUNT,
-                    chart_history: chart_history.into(),
-                }))
+                build_charts_tab_snapshot(world, ui, &selected_country_disaster_days)
             }
             RunningTab::Events => {
                 RunningTabSnapshot::Events(Box::new(build_events_tab_snapshot(world, ui, |_| true)))

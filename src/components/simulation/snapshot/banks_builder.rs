@@ -6,6 +6,9 @@ pub(in crate::components::simulation) fn build_banks_tab_snapshot(
     currency_symbol: &str,
 ) -> RunningTabSnapshot {
     let selected_country = ui.selected_country(world);
+    let disaster_days = selected_country.map_or_else(Vec::new, |country| {
+        disaster_days_for_country(world, country.name.as_str())
+    });
     let mut bank_rows = Vec::new();
     if selected_country.is_some() {
         let bank_page_start =
@@ -68,6 +71,7 @@ pub(in crate::components::simulation) fn build_banks_tab_snapshot(
         bank_created_money_history: bank_created_money_history.into(),
         bank_equity_history: bank_equity_history.into(),
         bank_run_intensity_history: bank_run_intensity_history.into(),
+        disaster_days: disaster_days.into(),
         country_banks_summary_lines: country_banks_summary_lines(world, ui),
     }))
 }

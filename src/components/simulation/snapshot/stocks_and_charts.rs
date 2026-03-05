@@ -22,6 +22,34 @@ pub(in crate::components::simulation) fn chart_scope_label(world: &World, ui: &U
     }
 }
 
+pub(in crate::components::simulation) fn build_charts_tab_snapshot(
+    world: &World,
+    ui: &UiState,
+    selected_country_disaster_days: &[u64],
+) -> RunningTabSnapshot {
+    let chart_scope_label = chart_scope_label(world, ui);
+    let chart_history = match ui.chart_scope {
+        ChartScope::SelectedCountry => world
+            .country_history
+            .get(ui.selected_country)
+            .cloned()
+            .unwrap_or_default(),
+        ChartScope::WorldAggregate => world.world_history.clone(),
+    };
+    let disaster_days = match ui.chart_scope {
+        ChartScope::SelectedCountry => selected_country_disaster_days.to_vec(),
+        ChartScope::WorldAggregate => disaster_days_world(world),
+    };
+
+    RunningTabSnapshot::Charts(Box::new(ChartsTabSnapshot {
+        chart_scope_label,
+        chart_page: ui.chart_page,
+        total_chart_pages: crate::components::simulation::ui_state::CHART_PAGE_COUNT,
+        chart_history: chart_history.into(),
+        disaster_days: disaster_days.into(),
+    }))
+}
+
 pub(in crate::components::simulation) fn goods_mask_names(mask: u16) -> String {
     let names = common_goods()
         .iter()

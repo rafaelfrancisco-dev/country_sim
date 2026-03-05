@@ -190,6 +190,7 @@ pub(in crate::components::simulation) struct GoodsTabSnapshot {
     pub company_price_history: Arc<[f64]>,
     pub company_loan_payment_history: Arc<[f64]>,
     pub company_money_history: Arc<[f64]>,
+    pub disaster_days: Arc<[u64]>,
     pub country_goods_summary_lines: Vec<String>,
 }
 
@@ -204,6 +205,7 @@ pub(in crate::components::simulation) struct BanksTabSnapshot {
     pub bank_created_money_history: Arc<[f64]>,
     pub bank_equity_history: Arc<[f64]>,
     pub bank_run_intensity_history: Arc<[f64]>,
+    pub disaster_days: Arc<[u64]>,
     pub country_banks_summary_lines: Vec<String>,
 }
 
@@ -215,6 +217,7 @@ pub(in crate::components::simulation) struct StocksTabSnapshot {
     pub stock_selected_index_volume_history: Arc<[f64]>,
     pub stock_country_index_history: Arc<[f64]>,
     pub stock_bank_exposure_history: Arc<[f64]>,
+    pub disaster_days: Arc<[u64]>,
     pub stock_page: usize,
     pub stock_selected_row: usize,
     pub stock_person_details_lines: Vec<String>,
@@ -244,6 +247,7 @@ pub(in crate::components::simulation) struct ChartsTabSnapshot {
     pub chart_page: usize,
     pub total_chart_pages: usize,
     pub chart_history: Arc<[MetricPoint]>,
+    pub disaster_days: Arc<[u64]>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -183,6 +183,7 @@ impl Simulation {
                     company_price_history: Arc::default(),
                     company_loan_payment_history: Arc::default(),
                     company_money_history: Arc::default(),
+                    disaster_days: Arc::default(),
                     country_goods_summary_lines: Vec::new(),
                 };
                 self.draw_company_details(frame, body, world, &empty_goods);
@@ -234,6 +235,7 @@ impl Simulation {
                     bank_created_money_history: Arc::default(),
                     bank_equity_history: Arc::default(),
                     bank_run_intensity_history: Arc::default(),
+                    disaster_days: Arc::default(),
                     country_banks_summary_lines: Vec::new(),
                 };
                 self.draw_bank_details(frame, body, world, &empty_banks);

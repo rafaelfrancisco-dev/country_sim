@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeSet;
 
 pub(in crate::components::simulation) fn build_disasters_tab_snapshot(
     world: &World,
@@ -42,4 +43,34 @@ pub(in crate::components::simulation) fn build_disasters_tab_snapshot(
         rows,
         last_apply_status: ui.disaster_last_apply_status.clone(),
     }
+}
+
+pub(in crate::components::simulation) fn disaster_days_world(world: &World) -> Vec<u64> {
+    collect_disaster_days(world.event_log.iter())
+}
+
+pub(in crate::components::simulation) fn disaster_days_for_country(
+    world: &World,
+    country_name: &str,
+) -> Vec<u64> {
+    collect_disaster_days(world.event_log.iter().filter(|event| match event {
+        SimEvent::DisasterApplied {
+            country_name: event_country_name,
+            ..
+        } => event_country_name == country_name,
+        _ => false,
+    }))
+}
+
+fn collect_disaster_days<'a, I>(events: I) -> Vec<u64>
+where
+    I: Iterator<Item = &'a SimEvent>,
+{
+    let mut days = BTreeSet::new();
+    for event in events {
+        if let SimEvent::DisasterApplied { day, .. } = event {
+            days.insert(*day);
+        }
+    }
+    days.into_iter().collect()
 }
