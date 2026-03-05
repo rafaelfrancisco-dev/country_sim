@@ -61,6 +61,9 @@ pub struct Country {
     pub monthly_savings_interest_paid: f64,
     pub monthly_money_minted: f64,
     pub cumulative_money_minted: f64,
+    pub last_mint_inflation_shortfall: f64,
+    pub last_mint_unemployment_gap: f64,
+    pub last_mint_fraction: f64,
     // Monetary policy (propagated from World each month)
     pub policy_rate: f64,
     // CPI / inflation tracking (persistent; not reset monthly)
@@ -168,6 +171,9 @@ impl Country {
             monthly_savings_interest_paid: 0.0,
             monthly_money_minted: 0.0,
             cumulative_money_minted: 0.0,
+            last_mint_inflation_shortfall: 0.0,
+            last_mint_unemployment_gap: 0.0,
+            last_mint_fraction: 0.0,
             policy_rate: initial_policy_rate,
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,

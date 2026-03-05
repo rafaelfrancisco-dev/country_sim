@@ -44,6 +44,7 @@ pub struct MetricPoint {
     pub gov_debt: f64,
     pub monthly_money_minted: f64,
     pub cumulative_money_minted: f64,
+    pub monthly_mint_fraction: f64,
     pub monthly_goods_import_spending: f64,
     pub monthly_goods_export_revenue: f64,
     pub monthly_unmet_need_events: f64,

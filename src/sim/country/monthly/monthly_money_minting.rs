@@ -12,6 +12,11 @@ impl Country {
             + unemployment_gap * monetary.mint_unemployment_gap_weight.max(0.0);
         let mint_cap_fraction = monetary.mint_max_fraction_expected_supply.clamp(0.0, 1.0);
         let mint_fraction = mint_fraction_raw.clamp(0.0, mint_cap_fraction);
+
+        self.last_mint_inflation_shortfall = inflation_shortfall;
+        self.last_mint_unemployment_gap = unemployment_gap;
+        self.last_mint_fraction = mint_fraction;
+
         if mint_fraction <= 0.0 {
             return;
         }

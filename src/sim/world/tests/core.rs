@@ -109,6 +109,7 @@ fn aggregate_history_matches_country_sums() {
             gov_debt: 0.0,
             monthly_money_minted: 0.0,
             cumulative_money_minted: 0.0,
+            monthly_mint_fraction: 0.0,
             monthly_goods_import_spending: 0.0,
             monthly_goods_export_revenue: 0.0,
             monthly_unmet_need_events: 0.0,
@@ -141,6 +142,7 @@ fn aggregate_history_matches_country_sums() {
             gov_debt: acc.gov_debt + point.gov_debt,
             monthly_money_minted: acc.monthly_money_minted + point.monthly_money_minted,
             cumulative_money_minted: acc.cumulative_money_minted + point.cumulative_money_minted,
+            monthly_mint_fraction: acc.monthly_mint_fraction + point.monthly_mint_fraction,
             monthly_goods_import_spending: acc.monthly_goods_import_spending
                 + point.monthly_goods_import_spending,
             monthly_goods_export_revenue: acc.monthly_goods_export_revenue

@@ -154,12 +154,31 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Bonds Matured: {}",
             money(country.monthly_bonds_matured, currency_symbol)
         ),
+        "Monetary Operations:".to_string(),
+        if country.last_mint_inflation_shortfall == 0.0
+            && country.last_mint_unemployment_gap == 0.0
+        {
+            "  Mint Active: No".to_string()
+        } else {
+            format!(
+                "  Inflation Gap: {:.2}pp / Unemp Gap: {:.2}pp",
+                country.last_mint_inflation_shortfall * 100.0,
+                country.last_mint_unemployment_gap * 100.0
+            )
+        },
+        if country.last_mint_inflation_shortfall != 0.0
+            || country.last_mint_unemployment_gap != 0.0
+        {
+            format!(
+                "  MTD Minted:     {} (+{:.3}% of supply)",
+                money(country.monthly_money_minted, currency_symbol),
+                country.last_mint_fraction * 100.0
+            )
+        } else {
+            String::new()
+        },
         format!(
-            "MTD Money Minted: {}",
-            money(country.monthly_money_minted, currency_symbol)
-        ),
-        format!(
-            "Cumulative Money Minted: {}",
+            "  Cumul Minted:   {}",
             money(country.cumulative_money_minted, currency_symbol)
         ),
         String::new(),

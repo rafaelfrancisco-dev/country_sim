@@ -25,7 +25,7 @@ pub(in crate::components::simulation) fn bank_details_lines(
         (bank.deposit_liabilities / total_country_deposits).clamp(0.0, 1.0)
     };
 
-    vec![
+    let mut lines = vec![
         format!("Country: {}", country.name),
         format!("Bank: {}", bank.name),
         format!("Bank ID: {}", bank.id),
@@ -89,5 +89,19 @@ pub(in crate::components::simulation) fn bank_details_lines(
             "Monthly Payroll Paid: {}",
             money(bank.last_month_payroll_paid, currency_symbol)
         ),
-    ]
+    ];
+    if bank.kind == crate::sim::bank::BankKind::Public {
+        lines.push(String::new());
+        lines.push("Monetary Operations:".to_string());
+        lines.push(format!(
+            "  MTD Minted to Reserves:  {}",
+            money(country.monthly_money_minted, currency_symbol)
+        ));
+        lines.push(format!(
+            "  Cumulative Minted:        {}",
+            money(country.cumulative_money_minted, currency_symbol)
+        ));
+    }
+
+    lines
 }

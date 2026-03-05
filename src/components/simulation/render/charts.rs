@@ -210,10 +210,10 @@ impl Simulation {
                     axis_format: AxisValueFormat::Money,
                 },
                 ChartSpec {
-                    title: "Cumulative Money Minted",
+                    title: "Mint Fraction %",
                     color: Color::LightCyan,
-                    value_fn: Self::metric_cumulative_money_minted,
-                    axis_format: AxisValueFormat::Money,
+                    value_fn: Self::metric_monthly_mint_fraction_pct,
+                    axis_format: AxisValueFormat::Percent,
                 },
             ],
             2 => [
@@ -456,7 +456,9 @@ impl Simulation {
     metric_field_fn!(metric_monthly_gov_spending, monthly_gov_spending);
     metric_field_fn!(metric_gov_debt, gov_debt);
     metric_field_fn!(metric_monthly_money_minted, monthly_money_minted);
-    metric_field_fn!(metric_cumulative_money_minted, cumulative_money_minted);
+    fn metric_monthly_mint_fraction_pct(p: &MetricPoint) -> f64 {
+        p.monthly_mint_fraction * 100.0
+    }
     metric_field_fn!(metric_bonds_outstanding, bonds_outstanding);
     metric_field_fn!(metric_cpi_index, cpi_index);
     fn metric_inflation_rate_pct(p: &MetricPoint) -> f64 {

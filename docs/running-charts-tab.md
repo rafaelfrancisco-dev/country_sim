@@ -91,7 +91,7 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 | 1 | Treasury Balance | Budget Balance |
 | 2 | Monthly Tax Collected | Monthly Gov Spending |
 | 3 | Government Debt | Bonds Outstanding |
-| 4 | Monthly Money Minted | Cumulative Money Minted |
+| 4 | Monthly Money Minted | Mint Fraction % |
 
 ### Page 3 — Prices, Stress & Market Risk
 | Row | Left | Right |
