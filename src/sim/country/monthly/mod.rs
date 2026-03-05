@@ -14,6 +14,7 @@ use std::cmp::Ordering;
 mod helpers;
 mod monthly_annual_wage_raise;
 mod monthly_bank_employment;
+mod monthly_bank_runs;
 mod monthly_company_distress_bankruptcy;
 mod monthly_cpi_bonds;
 mod monthly_government_spending_initial_listings;

@@ -1,3 +1,4 @@
+use super::monthly_events::{EventCounts, event_country_and_day};
 use super::*;
 
 impl World {
@@ -140,6 +141,111 @@ fn collect_country_data(
         }
     }
 
+    // Bank aggregates
+    let mut bank_count_total = 0usize;
+    let mut bank_count_public = 0usize;
+    let mut bank_count_private = 0usize;
+    let mut bank_health_sum = 0.0_f64;
+    let mut bank_health_min = 1.0_f64;
+    let mut bank_health_max = 0.0_f64;
+    let mut bank_health_public = 0.0_f64;
+    let mut bank_health_private_sum = 0.0_f64;
+    let mut bank_health_private_min = 1.0_f64;
+    let mut bank_health_private_max = 0.0_f64;
+    let mut bank_health_below_50_count = 0usize;
+    let mut bank_health_private_below_50_count = 0usize;
+    let mut total_deposit_liabilities = 0.0_f64;
+    let mut private_bank_deposit_liabilities = 0.0_f64;
+
+    for bank in std::iter::once(&country.bank).chain(country.banks.iter()) {
+        let health = country.bank_health_score(bank.id).clamp(0.0, 1.0);
+        bank_count_total += 1;
+        bank_health_sum += health;
+        bank_health_min = bank_health_min.min(health);
+        bank_health_max = bank_health_max.max(health);
+        if health < 0.5 {
+            bank_health_below_50_count += 1;
+        }
+
+        let deposits = bank.deposit_liabilities.max(0.0);
+        total_deposit_liabilities += deposits;
+
+        if bank.kind == crate::sim::bank::BankKind::Private {
+            bank_count_private += 1;
+            bank_health_private_sum += health;
+            bank_health_private_min = bank_health_private_min.min(health);
+            bank_health_private_max = bank_health_private_max.max(health);
+            private_bank_deposit_liabilities += deposits;
+            if health < 0.5 {
+                bank_health_private_below_50_count += 1;
+            }
+        } else {
+            bank_count_public += 1;
+            bank_health_public = health;
+        }
+    }
+
+    if bank_count_total == 0 {
+        bank_health_min = 0.0;
+        bank_health_max = 0.0;
+    }
+    if bank_count_private == 0 {
+        bank_health_private_min = 0.0;
+        bank_health_private_max = 0.0;
+    }
+
+    let bank_health_avg_pct = if bank_count_total > 0 {
+        bank_health_sum / bank_count_total as f64 * 100.0
+    } else {
+        0.0
+    };
+    let bank_health_min_pct = bank_health_min * 100.0;
+    let bank_health_max_pct = bank_health_max * 100.0;
+    let bank_health_public_pct = bank_health_public * 100.0;
+    let bank_health_private_avg_pct = if bank_count_private > 0 {
+        bank_health_private_sum / bank_count_private as f64 * 100.0
+    } else {
+        0.0
+    };
+    let bank_health_private_min_pct = bank_health_private_min * 100.0;
+    let bank_health_private_max_pct = bank_health_private_max * 100.0;
+    let private_bank_deposit_share_pct = if total_deposit_liabilities > 0.0 {
+        private_bank_deposit_liabilities / total_deposit_liabilities * 100.0
+    } else {
+        0.0
+    };
+
+    let private_people_depositors = country
+        .people
+        .iter()
+        .filter(|person| {
+            person
+                .deposit_bank_id
+                .and_then(|bank_id| country.bank_by_id(bank_id))
+                .is_some_and(|bank| bank.kind == crate::sim::bank::BankKind::Private)
+        })
+        .count();
+    let private_company_depositors = country
+        .companies
+        .iter()
+        .filter(|company| {
+            company
+                .deposit_bank_id
+                .and_then(|bank_id| country.bank_by_id(bank_id))
+                .is_some_and(|bank| bank.kind == crate::sim::bank::BankKind::Private)
+        })
+        .count();
+    let private_people_depositor_share_pct = if country.people.is_empty() {
+        0.0
+    } else {
+        private_people_depositors as f64 / country.people.len() as f64 * 100.0
+    };
+    let private_company_depositor_share_pct = if country.companies.is_empty() {
+        0.0
+    } else {
+        private_company_depositors as f64 / country.companies.len() as f64 * 100.0
+    };
+
     // Event counting
     let mut events = EventCounts::default();
 
@@ -181,6 +287,26 @@ fn collect_country_data(
         money_supply_gap: country.money_supply_gap,
         monthly_money_minted: country.monthly_money_minted,
         cumulative_money_minted: country.cumulative_money_minted,
+        bank_count_total,
+        bank_count_public,
+        bank_count_private,
+        bank_health_avg_pct,
+        bank_health_min_pct,
+        bank_health_max_pct,
+        bank_health_public_pct,
+        bank_health_private_avg_pct,
+        bank_health_private_min_pct,
+        bank_health_private_max_pct,
+        bank_health_below_50_count,
+        bank_health_private_below_50_count,
+        private_bank_deposit_liabilities,
+        private_bank_deposit_share_pct,
+        private_people_depositor_share_pct,
+        private_company_depositor_share_pct,
+        monthly_private_banks_founded: country.monthly_private_banks_founded,
+        cumulative_private_banks_founded: country.cumulative_private_banks_founded,
+        monthly_private_banks_closed: country.monthly_private_banks_closed,
+        cumulative_private_banks_closed: country.cumulative_private_banks_closed,
         employed_count,
         unemployed_count,
         labor_force_count,
@@ -218,6 +344,10 @@ fn collect_country_data(
         separations_layoffs_non_distress: events.separations_layoffs_non_distress,
         separations_total: events.separations_total,
         companies_founded: events.companies_founded,
+        banks_founded: events.banks_founded,
+        banks_closed: events.banks_closed,
+        bank_runs_started: events.bank_runs_started,
+        bank_resolutions_started: events.bank_resolutions_started,
         bankruptcies: events.bankruptcies,
         wage_cuts: events.wage_cuts,
         loans_issued: events.loans_issued,
@@ -237,209 +367,5 @@ fn collect_country_data(
         cpi_index: country.cpi_index,
         inflation_rate: country.monthly_inflation_rate,
         policy_rate: country.policy_rate,
-    }
-}
-
-#[derive(Default)]
-struct EventCounts {
-    births: u64,
-    deaths: u64,
-    job_switches: u64,
-    layoffs_total: u64,
-    separations_quits: u64,
-    separations_retirements: u64,
-    separations_layoffs_non_distress: u64,
-    separations_total: u64,
-    companies_founded: u64,
-    bankruptcies: u64,
-    wage_cuts: u64,
-    loans_issued: u64,
-    loans_ended: u64,
-    loans_defaulted: u64,
-    debt_distress_events: u64,
-    gov_transfers: u64,
-    stock_ipos: u64,
-    stock_delistings: u64,
-    stock_margin_calls: u64,
-}
-
-impl EventCounts {
-    fn accumulate(&mut self, event: &SimEvent) {
-        match event {
-            SimEvent::PopBirth { count, .. } => self.births += u64::from(*count),
-            SimEvent::PopDeath { count, .. } => self.deaths += u64::from(*count),
-            SimEvent::JobSwitched { .. } => self.job_switches += 1,
-            SimEvent::CompanyLayoffs { laid_off_count, .. } => {
-                self.layoffs_total += u64::from(*laid_off_count)
-            }
-            SimEvent::LaborChurnMonthly {
-                quits,
-                retirements,
-                layoffs_non_distress,
-                ..
-            } => {
-                self.separations_quits += u64::from(*quits);
-                self.separations_retirements += u64::from(*retirements);
-                self.separations_layoffs_non_distress += u64::from(*layoffs_non_distress);
-                self.separations_total +=
-                    u64::from(*quits) + u64::from(*retirements) + u64::from(*layoffs_non_distress);
-            }
-            SimEvent::CompanyFounded { .. } => self.companies_founded += 1,
-            SimEvent::CompanyBankrupt { .. } => self.bankruptcies += 1,
-            SimEvent::CompanyWageCut { .. } => self.wage_cuts += 1,
-            SimEvent::LoanEmitted { .. } => self.loans_issued += 1,
-            SimEvent::LoanEnded { .. } => self.loans_ended += 1,
-            SimEvent::LoanWrittenOff { .. } => self.loans_defaulted += 1,
-            SimEvent::DebtDistress { .. } => self.debt_distress_events += 1,
-            SimEvent::GovTransfer { .. } => self.gov_transfers += 1,
-            SimEvent::StockIpo { .. } => self.stock_ipos += 1,
-            SimEvent::StockDelisted { .. } => self.stock_delistings += 1,
-            SimEvent::StockMarginCall { .. } => self.stock_margin_calls += 1,
-            _ => {}
-        }
-    }
-}
-
-fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
-    match event {
-        SimEvent::PopBirth {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::PopDeath {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::LoanEmitted {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::LoanEnded {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::LoanWrittenOff {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::DebtDistress {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::GovTransfer {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::GovCompanyFunded {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::CompanyFounded {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankFounded {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankRunStarted {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankRunWithdrawal {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankResolutionStarted {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankResolved {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankClosed {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BankDepositHaircut {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::CompanyWageCut {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::CompanyLayoffs {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::LaborChurnMonthly {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::JobSwitched {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::CompanyBankrupt {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockIpo {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockDividend {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockMarginCall {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockDelisted {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockMarketClose {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::RatePolicyChange {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BondIssued {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::CouponPaid {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BondMatured {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::BondDefault {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::MoneyMinted {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::StockSecondaryOffering {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::DisasterApplied {
-            country_name, day, ..
-        } => (country_name, *day),
-        SimEvent::ForeignDepositOpened {
-            home_country_name: country_name,
-            day,
-            ..
-        } => (country_name, *day),
-        SimEvent::ForeignDepositClosed {
-            home_country_name: country_name,
-            day,
-            ..
-        } => (country_name, *day),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::sim::company::build_default_companies;
-
-    #[test]
-    fn monthly_export_counts_labor_churn_channels() {
-        let companies = build_default_companies("A", 1);
-        let mut country = Country::with_economy(1, "A".to_string(), Vec::new(), companies, 0.0);
-        country.pending_events.push(SimEvent::LaborChurnMonthly {
-            country_name: "A".to_string(),
-            quits: 4,
-            retirements: 2,
-            layoffs_non_distress: 1,
-            replacement_openings: 7,
-            day: 30,
-        });
-
-        let data = collect_country_data(&country, &[], 1, 1);
-
-        assert_eq!(data.separations_quits, 4);
-        assert_eq!(data.separations_retirements, 2);
-        assert_eq!(data.separations_layoffs_non_distress, 1);
-        assert_eq!(data.separations_total, 7);
     }
 }

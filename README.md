@@ -68,6 +68,9 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - People and companies are assigned to a deposit bank (`deposit_bank_id`) and savings interest is paid per bank
   - Daily hiring now balances company and bank openings in one pass; bank hiring still works when there are zero companies
   - Monthly private-bank run dynamics now use post-switch liquidity, reserve-safe depositor switching, and resolution hysteresis (`entry`/`exit` consecutive-month windows)
+  - Generation-time private-bank seeding now caps initial depositor migration by seed/deposit ratio and transfers matching reserves from the public bank
+  - Monthly competitive depositor switching pass added (health + deposit-rate weighted, with switching friction)
+  - Public-bank sourced reserve transfers support settlement liquidity so normal depositor migration is not artificially blocked
   - Resolution outcomes still support insured treasury backstop + uninsured haircut, with terminal closure after prolonged failed resolution
   - Bank monthly profitability diagnostics are tracked (`interest income`, `deposit interest expense`, `credit losses`, `profit`)
   - Monthly bank formation path added (market-constrained private founder-capital formation; no fixed private-bank-count cap)
@@ -83,6 +86,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - [Demographics and labor model](docs/demographics-labor-model.md)
 - [Benchmarking protocol](docs/benchmarking.md)
 - [CSV export](docs/csv-export.md)
+- [Short-run banking diagnostics (2026-03-05)](docs/short-run-diagnostics-2026-03-05.md)
 
 ## Benchmarking
 - Canonical command:

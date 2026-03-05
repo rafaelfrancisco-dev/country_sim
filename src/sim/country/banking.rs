@@ -35,6 +35,23 @@ impl Country {
         if amount <= 0.0 {
             return 0.0;
         }
+        let source_is_public = self
+            .bank_by_id(from_bank_id)
+            .map(|bank| bank.kind == BankKind::Public)
+            .unwrap_or(false);
+        let available = self
+            .bank_by_id(from_bank_id)
+            .map(|bank| bank.reserve_balance.max(0.0))
+            .unwrap_or(0.0);
+        if source_is_public && available + 0.01 < amount {
+            let support = round_cents((amount - available).max(0.0));
+            if let Some(source_bank) = self.bank_by_id_mut(from_bank_id) {
+                source_bank.reserve_balance = round_cents(source_bank.reserve_balance + support);
+                source_bank.created_money_outstanding =
+                    round_cents(source_bank.created_money_outstanding + support);
+                source_bank.total_originated = round_cents(source_bank.total_originated + support);
+            }
+        }
         let available = self
             .bank_by_id(from_bank_id)
             .map(|bank| bank.reserve_balance.max(0.0))
@@ -253,6 +270,9 @@ impl Country {
         self.banks.retain(|bank| bank.id != failed_bank_id);
         self.recompute_bank_deposit_liabilities();
         self.recompute_bank_headcounts();
+        self.monthly_private_banks_closed = self.monthly_private_banks_closed.saturating_add(1);
+        self.cumulative_private_banks_closed =
+            self.cumulative_private_banks_closed.saturating_add(1);
 
         let acquired_by_bank_name = self
             .bank_by_id(acquirer_bank_id)
@@ -334,6 +354,11 @@ impl Country {
         self.banks.push(bank);
         if kind == BankKind::Public {
             self.public_bank_id = Some(bank_id);
+        } else {
+            self.monthly_private_banks_founded =
+                self.monthly_private_banks_founded.saturating_add(1);
+            self.cumulative_private_banks_founded =
+                self.cumulative_private_banks_founded.saturating_add(1);
         }
         Some(bank_id)
     }

@@ -21,12 +21,7 @@ fn submit_setup(engine: &mut GameEngine, countries: &str, thousands: &str) {
     engine.apply(GameCommand::SetupSubmit);
 }
 
-fn submit_setup_with_seed(
-    engine: &mut GameEngine,
-    countries: &str,
-    thousands: &str,
-    seed: &str,
-) {
+fn submit_setup_with_seed(engine: &mut GameEngine, countries: &str, thousands: &str, seed: &str) {
     for input in countries.chars() {
         engine.apply(GameCommand::SetupEditChar(input));
     }
@@ -181,12 +176,9 @@ fn update_country_policy_changes_only_target_country() {
     assert!((second.sim_params.fiscal.median_income_reference - 2_400.0).abs() < f64::EPSILON);
     assert!((second.sim_params.fiscal.basic_needs_cash_threshold - 650.0).abs() < f64::EPSILON);
     assert!((second.sim_params.monetary.mint_inflation_gap_weight - 0.33).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.mint_unemployment_gap_weight - 0.22).abs() < f64::EPSILON);
     assert!(
-        (second.sim_params.monetary.mint_unemployment_gap_weight - 0.22).abs() < f64::EPSILON
-    );
-    assert!(
-        (second.sim_params.monetary.mint_max_fraction_expected_supply - 0.07).abs()
-            < f64::EPSILON
+        (second.sim_params.monetary.mint_max_fraction_expected_supply - 0.07).abs() < f64::EPSILON
     );
 }
 

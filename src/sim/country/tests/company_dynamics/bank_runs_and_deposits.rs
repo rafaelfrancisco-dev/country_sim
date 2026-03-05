@@ -141,7 +141,7 @@ fn moving_deposit_bank_transfers_reserve_assets() {
 }
 
 #[test]
-fn moving_deposit_bank_requires_full_reserve_transfer() {
+fn moving_deposit_bank_from_public_uses_settlement_backstop() {
     let mut country = build_deterministic_country();
     let private_bank_id = country
         .create_bank(BankKind::Private, 1_000.0)
@@ -153,10 +153,38 @@ fn moving_deposit_bank_requires_full_reserve_transfer() {
     let moved = country.move_person_deposit_bank(0, private_bank_id);
 
     assert!(
-        !moved,
-        "move should fail when source bank cannot transfer full reserve"
+        moved,
+        "public source should settle transfer via liquidity backstop"
     );
-    assert_eq!(country.people[0].deposit_bank_id, Some(country.bank.id));
+    assert_eq!(country.people[0].deposit_bank_id, Some(private_bank_id));
+}
+
+#[test]
+fn moving_deposit_bank_requires_full_reserve_transfer_for_private_source() {
+    let mut country = build_deterministic_country();
+    let source_private_id = country
+        .create_bank(BankKind::Private, 100.0)
+        .expect("source private bank should be created");
+    let target_private_id = country
+        .create_bank(BankKind::Private, 1_000.0)
+        .expect("target private bank should be created");
+    let person_index = 0usize;
+    country.people[person_index].cash_balance = 10_000.0;
+    country.people[person_index].deposit_bank_id = Some(source_private_id);
+    if let Some(source_bank) = country.bank_by_id_mut(source_private_id) {
+        source_bank.reserve_balance = 500.0;
+    }
+
+    let moved = country.move_person_deposit_bank(person_index, target_private_id);
+
+    assert!(
+        !moved,
+        "private source should fail when it cannot transfer full reserve"
+    );
+    assert_eq!(
+        country.people[person_index].deposit_bank_id,
+        Some(source_private_id)
+    );
 }
 
 #[test]

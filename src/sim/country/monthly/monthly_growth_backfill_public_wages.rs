@@ -33,7 +33,6 @@ impl Country {
                 }
             });
     }
-
     pub(super) fn process_startup_formation(&mut self) {
         let formation = self.sim_params.company_formation;
         let Some(limit) = formation.max_startups_per_month else {
@@ -95,7 +94,6 @@ impl Country {
             job_cursor = job_cursor.saturating_add(1);
         }
     }
-
     pub(crate) fn process_bank_formation(&mut self) {
         let params = self.sim_params.banking;
         if params.max_new_banks_per_month == 0 {
@@ -270,10 +268,17 @@ impl Country {
         }
         // Migrate some companies to give the new bank loan customers.
         let public_id = self.public_bank_id.unwrap_or(self.bank.id);
-        let company_movers: Vec<usize> = self.companies.iter().enumerate()
+        let company_movers: Vec<usize> = self
+            .companies
+            .iter()
+            .enumerate()
             .filter(|(_, c)| c.deposit_bank_id == Some(public_id))
-            .map(|(idx, _)| idx).take(founder_count).collect();
-        for idx in company_movers { self.move_company_deposit_bank(idx, bank_id); }
+            .map(|(idx, _)| idx)
+            .take(founder_count)
+            .collect();
+        for idx in company_movers {
+            self.move_company_deposit_bank(idx, bank_id);
+        }
         Some((bank_id, seed_capital))
     }
 

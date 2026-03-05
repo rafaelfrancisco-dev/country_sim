@@ -432,11 +432,12 @@ impl Bank {
     }
 
     pub fn health_score_private(&self) -> f64 {
-        let liquidity = self.liquidity_ratio().min(1.0);
-        let capital = ((self.capital_ratio() + 1.0) / 2.0).clamp(0.0, 1.0);
-        let resolution_penalty = if self.is_in_resolution { 0.35 } else { 0.0 };
-        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.50;
-        (0.60 * liquidity + 0.40 * capital - resolution_penalty - run_penalty).clamp(0.0, 1.0)
+        // Fractional-reserve systems can be healthy well below a 100% reserve ratio.
+        let liquidity = (self.liquidity_ratio() / 0.20).clamp(0.0, 1.0);
+        let capital = ((self.capital_ratio() + 0.20) / 0.45).clamp(0.0, 1.0);
+        let resolution_penalty = if self.is_in_resolution { 0.20 } else { 0.0 };
+        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.30;
+        (0.55 * liquidity + 0.45 * capital - resolution_penalty - run_penalty).clamp(0.0, 1.0)
     }
 
     pub fn health_score_public(
@@ -447,9 +448,9 @@ impl Bank {
         capital_weight: f64,
         sovereign_support_weight: f64,
     ) -> f64 {
-        let liquidity = self.liquidity_ratio().min(1.0);
-        let capital = ((self.capital_ratio() + 1.0) / 2.0).clamp(0.0, 1.0);
-        let support_base = self.deposit_liabilities.max(0.0) * 0.10 + 1.0;
+        let liquidity = (self.liquidity_ratio() / 0.15).clamp(0.0, 1.0);
+        let capital = ((self.capital_ratio() + 0.15) / 0.35).clamp(0.0, 1.0);
+        let support_base = self.deposit_liabilities.max(0.0) * 0.20 + 1.0;
         let sovereign_support = (treasury_balance.max(0.0) / support_base).clamp(0.0, 1.0);
         let weights_sum =
             (liquidity_weight + capital_weight + sovereign_support_weight).max(f64::EPSILON);
@@ -457,8 +458,8 @@ impl Bank {
             + capital * capital_weight
             + sovereign_support * sovereign_support_weight)
             / weights_sum;
-        let resolution_penalty = if self.is_in_resolution { 0.20 } else { 0.0 };
-        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.25;
+        let resolution_penalty = if self.is_in_resolution { 0.12 } else { 0.0 };
+        let run_penalty = self.run_intensity.clamp(0.0, 1.0) * 0.18;
         let stress_adjusted = (weighted - resolution_penalty - run_penalty).clamp(0.0, 1.0);
         if self.is_in_resolution {
             stress_adjusted
@@ -468,7 +469,9 @@ impl Bank {
     }
 
     pub fn update_run_intensity(&mut self, stress: f64) {
-        self.run_intensity = round_cents(stress.clamp(0.0, 1.0));
+        let target = stress.clamp(0.0, 1.0);
+        let smoothed = 0.65 * self.run_intensity + 0.35 * target;
+        self.run_intensity = round_cents(smoothed.clamp(0.0, 1.0));
     }
 
     pub fn set_resolution_state(&mut self, in_resolution: bool) {
@@ -513,7 +516,6 @@ impl Bank {
             self.set_resolution_state(true);
         }
     }
-
 }
 
 #[cfg(test)]

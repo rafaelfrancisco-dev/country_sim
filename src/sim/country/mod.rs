@@ -14,10 +14,10 @@ use super::{
 };
 use rayon::prelude::*;
 
+mod banking;
 mod daily;
 #[cfg(feature = "bench-trace")]
 mod daily_bench_trace;
-mod banking;
 mod metrics;
 mod monthly;
 mod tax;
@@ -50,6 +50,10 @@ pub struct Country {
     pub monthly_unmet_need_events: u64,
     pub monthly_essential_debt_spending: f64,
     pub monthly_hires_total: u64,
+    pub monthly_private_banks_founded: u64,
+    pub cumulative_private_banks_founded: u64,
+    pub monthly_private_banks_closed: u64,
+    pub cumulative_private_banks_closed: u64,
     pub monthly_gov_spending: f64,
     pub monthly_budget_balance: f64,
     pub gov_debt: f64,
@@ -162,6 +166,10 @@ impl Country {
             monthly_unmet_need_events: 0,
             monthly_essential_debt_spending: 0.0,
             monthly_hires_total: 0,
+            monthly_private_banks_founded: 0,
+            cumulative_private_banks_founded: 0,
+            monthly_private_banks_closed: 0,
+            cumulative_private_banks_closed: 0,
             monthly_gov_spending: 0.0,
             monthly_budget_balance: 0.0,
             gov_debt: 0.0,
@@ -286,8 +294,10 @@ impl Country {
             return base;
         };
         match bank.kind {
-            BankKind::Public => (base + 0.0025).max(0.0),
-            BankKind::Private => (base + self.sim_params.banking.private_bank_deposit_rate_bonus).max(0.0),
+            BankKind::Public => base.max(0.0),
+            BankKind::Private => {
+                (base + self.sim_params.banking.private_bank_deposit_rate_bonus).max(0.0)
+            }
         }
     }
 
@@ -320,7 +330,7 @@ impl Country {
                 params.public_health_liquidity_weight,
                 params.public_health_capital_weight,
                 params.public_health_sovereign_support_weight,
-            ) + params.public_bank_stability_bonus * 0.5)
+            ) + params.public_bank_stability_bonus * 0.25)
                 .clamp(0.0, 1.0),
         }
     }

@@ -7,6 +7,7 @@ use crate::sim::{
 };
 
 mod monthly;
+mod monthly_events;
 mod stock_daily;
 
 pub use stock_daily::{

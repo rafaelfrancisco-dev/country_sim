@@ -52,6 +52,26 @@ Fiscal and monetary state per country per month.
 | `money_supply_gap` | float | `total_money_supply − expected_money_supply` |
 | `monthly_money_minted` | float | Money minted this month into the public-bank reserve |
 | `cumulative_money_minted` | float | Cumulative minted money since simulation start |
+| `bank_count_total` | integer | Total active banks (`public + private`) |
+| `bank_count_public` | integer | Active public-bank count (normally 1) |
+| `bank_count_private` | integer | Active private-bank count |
+| `bank_health_avg_pct` | float | Mean health score across all banks (0-100) |
+| `bank_health_min_pct` | float | Minimum bank health score in the country (0-100) |
+| `bank_health_max_pct` | float | Maximum bank health score in the country (0-100) |
+| `bank_health_public_pct` | float | Public-bank health score (0-100) |
+| `bank_health_private_avg_pct` | float | Mean private-bank health score (0-100, 0 if none) |
+| `bank_health_private_min_pct` | float | Min private-bank health score (0-100, 0 if none) |
+| `bank_health_private_max_pct` | float | Max private-bank health score (0-100, 0 if none) |
+| `bank_health_below_50_count` | integer | Number of banks with health below 50 |
+| `bank_health_private_below_50_count` | integer | Number of private banks with health below 50 |
+| `private_bank_deposit_liabilities` | float | Total deposits held in private banks |
+| `private_bank_deposit_share_pct` | float | Private-bank deposit share (`private/total * 100`) |
+| `private_people_depositor_share_pct` | float | Share of people depositing in private banks |
+| `private_company_depositor_share_pct` | float | Share of companies depositing in private banks |
+| `monthly_private_banks_founded` | integer | Private banks founded during this month |
+| `cumulative_private_banks_founded` | integer | Cumulative private banks founded |
+| `monthly_private_banks_closed` | integer | Private banks closed during this month |
+| `cumulative_private_banks_closed` | integer | Cumulative private banks closed |
 | `bonds_outstanding` | float | Face value of sovereign bonds currently outstanding |
 | `bond_coupon_rate` | float | Annual coupon rate on current bond (0 if no bond) |
 | `monthly_coupon_paid` | float | Bond coupon distributed to bank + retail holders this month |
@@ -138,6 +158,10 @@ Discrete simulation event counts per country per month. Each column is the count
 | `separations_layoffs_non_distress` | integer | Monthly non-distress layoffs from `LaborChurnMonthly` |
 | `separations_total` | integer | `separations_quits + separations_retirements + separations_layoffs_non_distress` |
 | `companies_founded` | integer | New startups created |
+| `banks_founded` | integer | New private banks founded |
+| `banks_closed` | integer | Private banks terminally closed/acquired |
+| `bank_runs_started` | integer | Bank-run start events emitted |
+| `bank_resolutions_started` | integer | Bank-resolution start events emitted |
 | `bankruptcies` | integer | Companies that went bankrupt |
 | `wage_cuts` | integer | Companies that issued a wage cut |
 | `loans_issued` | integer | New loan accounts opened |
@@ -149,8 +173,6 @@ Discrete simulation event counts per country per month. Each column is the count
 | `stock_ipos` | integer | Companies that completed an IPO |
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
-
-Note: bank-run, bank-resolution, and bank-closure events are present in the runtime event log but are not yet exported as dedicated monthly count columns in `events_<seed>.csv`.
 
 ---
 

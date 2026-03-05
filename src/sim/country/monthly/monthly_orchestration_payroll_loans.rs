@@ -21,6 +21,7 @@ impl Country {
         self.collect_monthly_loan_repayments();
         self.process_bank_runs();
         self.process_savings_interest();
+        self.process_competitive_deposit_switching();
         self.recompute_company_profitability();
         self.process_annual_wage_raises();
         self.process_growth_ipos();
@@ -64,6 +65,7 @@ impl Country {
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
         time_op!(self.process_bank_runs());
         let savings_interest_ms = time_op!(self.process_savings_interest());
+        let _deposit_switching_ms = time_op!(self.process_competitive_deposit_switching());
         let profitability_ms = time_op!(self.recompute_company_profitability());
         let _annual_wage_raise_ms = time_op!(self.process_annual_wage_raises());
         let _growth_ipos_ms = time_op!(self.process_growth_ipos());
@@ -130,6 +132,8 @@ impl Country {
         self.monthly_unmet_need_events = 0;
         self.monthly_essential_debt_spending = 0.0;
         self.monthly_hires_total = 0;
+        self.monthly_private_banks_founded = 0;
+        self.monthly_private_banks_closed = 0;
         self.monthly_gov_spending = 0.0;
         self.monthly_budget_balance = 0.0;
         self.monthly_coupon_paid = 0.0;
