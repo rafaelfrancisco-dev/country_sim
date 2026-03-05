@@ -14,6 +14,19 @@ use crate::components::simulation::{
     snapshot::{RunningSnapshot, StocksTabSnapshot},
 };
 
+struct StockChart<'a> {
+    title: &'a str,
+    data: &'a [f64],
+    color: Color,
+    as_money: bool,
+}
+
+struct StockChartContext<'a> {
+    world_day: u64,
+    disaster_days: &'a [u64],
+    currency_symbol: &'a str,
+}
+
 impl Simulation {
     pub(in crate::components::simulation) fn draw_stocks_tab(
         &self,
@@ -158,49 +171,55 @@ impl Simulation {
         let [index_area, bank_area] =
             Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(right);
 
+        let context = StockChartContext {
+            world_day,
+            disaster_days: tab.disaster_days.as_ref(),
+            currency_symbol,
+        };
+
         self.draw_stock_chart_f64(
             frame,
             price_area,
-            " Selected Stock Price ",
-            tab.stock_selected_index_price_history.as_ref(),
-            Color::Cyan,
-            true,
-            world_day,
-            tab.disaster_days.as_ref(),
-            currency_symbol,
+            StockChart {
+                title: " Selected Stock Price ",
+                data: tab.stock_selected_index_price_history.as_ref(),
+                color: Color::Cyan,
+                as_money: true,
+            },
+            &context,
         );
         self.draw_stock_chart_f64(
             frame,
             volume_area,
-            " Selected Stock Volume ",
-            tab.stock_selected_index_volume_history.as_ref(),
-            Color::Yellow,
-            false,
-            world_day,
-            tab.disaster_days.as_ref(),
-            currency_symbol,
+            StockChart {
+                title: " Selected Stock Volume ",
+                data: tab.stock_selected_index_volume_history.as_ref(),
+                color: Color::Yellow,
+                as_money: false,
+            },
+            &context,
         );
         self.draw_stock_chart_f64(
             frame,
             index_area,
-            " Country Stock Index ",
-            tab.stock_country_index_history.as_ref(),
-            Color::Green,
-            false,
-            world_day,
-            tab.disaster_days.as_ref(),
-            currency_symbol,
+            StockChart {
+                title: " Country Stock Index ",
+                data: tab.stock_country_index_history.as_ref(),
+                color: Color::Green,
+                as_money: false,
+            },
+            &context,
         );
         self.draw_stock_chart_f64(
             frame,
             bank_area,
-            " Bank Equity Exposure ",
-            tab.stock_bank_exposure_history.as_ref(),
-            Color::Magenta,
-            true,
-            world_day,
-            tab.disaster_days.as_ref(),
-            currency_symbol,
+            StockChart {
+                title: " Bank Equity Exposure ",
+                data: tab.stock_bank_exposure_history.as_ref(),
+                color: Color::Magenta,
+                as_money: true,
+            },
+            &context,
         );
     }
 
@@ -208,14 +227,15 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         area: Rect,
-        title: &str,
-        data: &[f64],
-        color: Color,
-        as_money: bool,
-        world_day: u64,
-        disaster_days: &[u64],
-        currency_symbol: &str,
+        chart: StockChart<'_>,
+        context: &StockChartContext<'_>,
     ) {
+        let StockChart {
+            title,
+            data,
+            color,
+            as_money,
+        } = chart;
         let block = Block::default()
             .title(title)
             .borders(Borders::ALL)
@@ -248,11 +268,12 @@ impl Simulation {
             .graph_type(GraphType::Line)
             .style(Style::default().fg(color))
             .data(&points);
-        let start_day = world_day
+        let start_day = context
+            .world_day
             .saturating_sub(data.len() as u64)
             .saturating_add(1);
         let marker_positions =
-            disaster_markers::disaster_relative_day_positions(disaster_days, start_day);
+            disaster_markers::disaster_relative_day_positions(context.disaster_days, start_day);
         let marker_segments = disaster_markers::marker_segments(
             &marker_positions,
             0.0,
@@ -270,8 +291,8 @@ impl Simulation {
         ];
         let y_labels = if as_money {
             vec![
-                ratatui::text::Span::raw(Self::money(y_min, currency_symbol)),
-                ratatui::text::Span::raw(Self::money(y_max, currency_symbol)),
+                ratatui::text::Span::raw(Self::money(y_min, context.currency_symbol)),
+                ratatui::text::Span::raw(Self::money(y_max, context.currency_symbol)),
             ]
         } else {
             vec![

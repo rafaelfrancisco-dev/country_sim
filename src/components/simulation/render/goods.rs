@@ -34,6 +34,9 @@ fn compact_count_f64(n: f64) -> String {
     }
 }
 
+struct CompanyHistoryChart<'a> { history: &'a [f64], title: &'a str, color: Color, as_money: bool }
+struct CompanyHistoryContext<'a> { currency_symbol: &'a str, selected_country_month: u64, disaster_days: &'a [u64] }
+
 impl Simulation {
     pub(super) fn draw_goods_tab(
         &self,
@@ -252,60 +255,66 @@ impl Simulation {
                     Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                         .areas(charts_bottom);
 
+                let chart_context = CompanyHistoryContext {
+                    currency_symbol: world.currency_symbol.as_str(),
+                    selected_country_month: world.selected_country_month,
+                    disaster_days: tab.disaster_days.as_ref(),
+                };
+
                 self.draw_company_history_chart(
                     frame,
                     sold_area,
-                    tab.company_sold_history.as_ref(),
-                    "Sold Units History (Page 2/4)",
-                    Color::Cyan,
-                    false,
-                    world.currency_symbol.as_str(),
-                    world.selected_country_month,
-                    tab.disaster_days.as_ref(),
+                    CompanyHistoryChart {
+                        history: tab.company_sold_history.as_ref(),
+                        title: "Sold Units History (Page 2/4)",
+                        color: Color::Cyan,
+                        as_money: false,
+                    },
+                    &chart_context,
                 );
                 self.draw_company_history_chart(
                     frame,
                     employee_area,
-                    tab.company_employee_history.as_ref(),
-                    "Employees History (Page 2/4)",
-                    Color::Green,
-                    false,
-                    world.currency_symbol.as_str(),
-                    world.selected_country_month,
-                    tab.disaster_days.as_ref(),
+                    CompanyHistoryChart {
+                        history: tab.company_employee_history.as_ref(),
+                        title: "Employees History (Page 2/4)",
+                        color: Color::Green,
+                        as_money: false,
+                    },
+                    &chart_context,
                 );
                 self.draw_company_history_chart(
                     frame,
                     price_area,
-                    tab.company_price_history.as_ref(),
-                    "Price History (Page 2/4)",
-                    Color::Yellow,
-                    true,
-                    world.currency_symbol.as_str(),
-                    world.selected_country_month,
-                    tab.disaster_days.as_ref(),
+                    CompanyHistoryChart {
+                        history: tab.company_price_history.as_ref(),
+                        title: "Price History (Page 2/4)",
+                        color: Color::Yellow,
+                        as_money: true,
+                    },
+                    &chart_context,
                 );
                 self.draw_company_history_chart(
                     frame,
                     loan_area,
-                    tab.company_loan_payment_history.as_ref(),
-                    "Loan Payments History (Page 2/4)",
-                    Color::LightMagenta,
-                    true,
-                    world.currency_symbol.as_str(),
-                    world.selected_country_month,
-                    tab.disaster_days.as_ref(),
+                    CompanyHistoryChart {
+                        history: tab.company_loan_payment_history.as_ref(),
+                        title: "Loan Payments History (Page 2/4)",
+                        color: Color::LightMagenta,
+                        as_money: true,
+                    },
+                    &chart_context,
                 );
                 self.draw_company_history_chart(
                     frame,
                     money_area,
-                    tab.company_money_history.as_ref(),
-                    "Money History (Page 2/4)",
-                    Color::LightGreen,
-                    true,
-                    world.currency_symbol.as_str(),
-                    world.selected_country_month,
-                    tab.disaster_days.as_ref(),
+                    CompanyHistoryChart {
+                        history: tab.company_money_history.as_ref(),
+                        title: "Money History (Page 2/4)",
+                        color: Color::LightGreen,
+                        as_money: true,
+                    },
+                    &chart_context,
                 );
                 frame.render_widget(
                     Paragraph::new("")
@@ -414,14 +423,15 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         area: Rect,
-        history: &[f64],
-        title: &str,
-        color: Color,
-        as_money: bool,
-        currency_symbol: &str,
-        selected_country_month: u64,
-        disaster_days: &[u64],
+        chart: CompanyHistoryChart<'_>,
+        context: &CompanyHistoryContext<'_>,
     ) {
+        let CompanyHistoryChart {
+            history,
+            title,
+            color,
+            as_money,
+        } = chart;
         if history.is_empty() {
             frame.render_widget(
                 Paragraph::new("No monthly history yet.")
@@ -460,8 +470,8 @@ impl Simulation {
         let (y_min, y_max) = Self::company_chart_axis_bounds(value_min, value_max);
         let y_labels = if as_money {
             vec![
-                Self::money(y_min, currency_symbol),
-                Self::money(y_max, currency_symbol),
+                Self::money(y_min, context.currency_symbol),
+                Self::money(y_max, context.currency_symbol),
             ]
         } else {
             vec![compact_count_f64(y_min), compact_count_f64(y_max)]
@@ -472,11 +482,12 @@ impl Simulation {
             .marker(symbols::Marker::Braille)
             .style(Style::default().fg(color).bg(theme::PANEL_BG))
             .data(&points);
-        let start_month = selected_country_month
+        let start_month = context
+            .selected_country_month
             .saturating_add(1)
             .saturating_sub(history.len() as u64);
         let marker_positions =
-            disaster_markers::disaster_relative_month_positions(disaster_days, start_month);
+            disaster_markers::disaster_relative_month_positions(context.disaster_days, start_month);
         let marker_segments =
             disaster_markers::marker_segments(&marker_positions, x_min, x_max, y_min, y_max);
         let mut datasets = Vec::with_capacity(1 + marker_segments.len());

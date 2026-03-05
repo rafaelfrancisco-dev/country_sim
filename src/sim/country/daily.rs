@@ -261,7 +261,7 @@ impl Country {
                 if self
                     .people
                     .get(intent.person_idx)
-                    .map_or(true, |p| p.is_employed() || !p.can_seek_job())
+                    .is_none_or(|p| p.is_employed() || !p.can_seek_job())
                 {
                     continue;
                 }
@@ -326,7 +326,7 @@ impl Country {
         if self
             .people
             .get(person_idx)
-            .map_or(true, |p| p.is_employed() || !p.can_seek_job())
+            .is_none_or(|p| p.is_employed() || !p.can_seek_job())
         {
             return false;
         }
@@ -335,13 +335,11 @@ impl Country {
             && let Some(company) = self.companies.get_mut(company_idx)
             && let Some((job_id, offered_salary)) =
                 consume_opening_by_job_type(company, job_type_id)
+            && let Some(person) = self.people.get_mut(person_idx)
+            && !person.is_employed()
         {
-            if let Some(person) = self.people.get_mut(person_idx)
-                && !person.is_employed()
-            {
-                person.set_employment_with_salary(company_idx as u16, job_id, offered_salary, day);
-                return true;
-            }
+            person.set_employment_with_salary(company_idx as u16, job_id, offered_salary, day);
+            return true;
         }
 
         if let Some((company_id, job_id, offered_salary)) =
@@ -367,7 +365,7 @@ impl Country {
         if self
             .people
             .get(person_idx)
-            .map_or(true, |p| p.is_employed() || !p.can_seek_job())
+            .is_none_or(|p| p.is_employed() || !p.can_seek_job())
         {
             return false;
         }

@@ -90,7 +90,7 @@ impl Simulation {
         let row_constraints: Vec<Constraint> =
             tab.rows.iter().map(|_| Constraint::Length(2)).collect();
         let row_areas = Layout::vertical(row_constraints).split(inner);
-        for (row_area, row) in row_areas.into_iter().zip(tab.rows.iter()) {
+        for (row_area, row) in row_areas.iter().zip(tab.rows.iter()) {
             self.draw_disaster_row(frame, *row_area, row);
         }
     }

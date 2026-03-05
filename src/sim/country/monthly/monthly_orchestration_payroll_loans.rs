@@ -199,10 +199,10 @@ impl Country {
         let loan_rate = self.bank_loan_rate_for(lender_id);
         let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
         let use_public_bank = self.bank.id == lender_id;
-        let private_bank_idx = if !use_public_bank {
-            self.banks.iter().position(|b| b.id == lender_id)
-        } else {
+        let private_bank_idx = if use_public_bank {
             None
+        } else {
+            self.banks.iter().position(|b| b.id == lender_id)
         };
 
         for (company_idx, company) in self.companies.iter_mut().enumerate() {
@@ -219,10 +219,9 @@ impl Country {
 
             let shortfall = round_cents(required_payroll - company.cash_balance);
             let monthly_income = company.average_monthly_revenue();
-            let bank = if use_public_bank || private_bank_idx.is_none() {
-                &mut self.bank
-            } else {
-                &mut self.banks[private_bank_idx.unwrap()]
+            let bank = match private_bank_idx {
+                Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
+                _ => &mut self.bank,
             };
             let issued = bank.originate_loan(
                 shortfall,
@@ -280,8 +279,7 @@ impl Country {
             let tax_owed = if profit <= tax.corp_bracket_1_max {
                 profit * rate_1
             } else if profit <= tax.corp_bracket_2_max {
-                tax.corp_bracket_1_max * rate_1
-                    + (profit - tax.corp_bracket_1_max) * rate_2
+                tax.corp_bracket_1_max * rate_1 + (profit - tax.corp_bracket_1_max) * rate_2
             } else {
                 tax.corp_bracket_1_max * rate_1
                     + (tax.corp_bracket_2_max - tax.corp_bracket_1_max) * rate_2

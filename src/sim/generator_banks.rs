@@ -10,7 +10,7 @@ pub(super) fn seed_initial_private_banks(country: &mut Country) {
     }
 
     let target_people = params.target_people_per_private_bank.max(1);
-    let capacity = (country.people.len() + target_people - 1) / target_people;
+    let capacity = country.people.len().div_ceil(target_people);
     let target_banks = (params.initial_private_banks as usize).min(capacity);
     if target_banks == 0 {
         return;

@@ -10,7 +10,7 @@ impl Country {
 
         let cadence = u64::from(annual.cadence_months.max(1));
         let next_month = self.month.saturating_add(1);
-        if next_month % cadence != 0 {
+        if !next_month.is_multiple_of(cadence) {
             return;
         }
 
@@ -89,8 +89,8 @@ impl Country {
         let mut top_salary = vec![0.0_f64; job_count];
         let mut second_salary = vec![0.0_f64; job_count];
         for job_idx in 0..job_count {
-            for company_idx in 0..company_count {
-                let salary = market_best[company_idx][job_idx];
+            for (company_idx, company_market_best) in market_best.iter().enumerate() {
+                let salary = company_market_best[job_idx];
                 if salary <= 0.0 {
                     continue;
                 }

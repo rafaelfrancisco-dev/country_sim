@@ -192,15 +192,14 @@ impl Country {
                 let lender_id = self.preferred_lender_bank_id().unwrap_or(self.bank.id);
                 let loan_rate = self.bank_loan_rate_for(lender_id);
                 let use_public_bank = self.bank.id == lender_id;
-                let private_bank_idx = if !use_public_bank {
-                    self.banks.iter().position(|b| b.id == lender_id)
-                } else {
+                let private_bank_idx = if use_public_bank {
                     None
-                };
-                let bank = if use_public_bank || private_bank_idx.is_none() {
-                    &mut self.bank
                 } else {
-                    &mut self.banks[private_bank_idx.unwrap()]
+                    self.banks.iter().position(|b| b.id == lender_id)
+                };
+                let bank = match private_bank_idx {
+                    Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
+                    _ => &mut self.bank,
                 };
                 startup_loan = bank.originate_loan(
                     desired_loan,

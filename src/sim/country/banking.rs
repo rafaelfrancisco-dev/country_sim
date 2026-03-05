@@ -149,7 +149,7 @@ impl Country {
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|bank| bank.id)
-            .or_else(|| {
+            .or({
                 if self.bank.id != failed_bank_id {
                     Some(self.bank.id)
                 } else {
