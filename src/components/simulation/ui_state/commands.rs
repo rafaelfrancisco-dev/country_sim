@@ -397,7 +397,6 @@ impl UiState {
             | CountryPolicyField::BasicNeedsCashThreshold => format!("{value:.2}"),
         }
     }
-
 }
 
 mod pagination;

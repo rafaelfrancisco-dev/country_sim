@@ -155,8 +155,7 @@ pub(in crate::components::simulation) fn country_details_lines(
             money(country.monthly_bonds_matured, currency_symbol)
         ),
         "Monetary Operations:".to_string(),
-        if country.last_mint_inflation_shortfall == 0.0
-            && country.last_mint_unemployment_gap == 0.0
+        if country.last_mint_inflation_shortfall == 0.0 && country.last_mint_unemployment_gap == 0.0
         {
             "  Mint Active: No".to_string()
         } else {
@@ -166,8 +165,7 @@ pub(in crate::components::simulation) fn country_details_lines(
                 country.last_mint_unemployment_gap * 100.0
             )
         },
-        if country.last_mint_inflation_shortfall != 0.0
-            || country.last_mint_unemployment_gap != 0.0
+        if country.last_mint_inflation_shortfall != 0.0 || country.last_mint_unemployment_gap != 0.0
         {
             format!(
                 "  MTD Minted:     {} (+{:.3}% of supply)",

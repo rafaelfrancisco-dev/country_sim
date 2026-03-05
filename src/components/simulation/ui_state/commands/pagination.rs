@@ -1,7 +1,7 @@
-use crate::sim::{bank::Bank, company::Company, person::Person, world::World};
 use super::super::{
     BANK_PAGE_SIZE, COMPANY_PAGE_SIZE, COUNTRY_PAGE_SIZE, PEOPLE_PAGE_SIZE, UiState,
 };
+use crate::sim::{bank::Bank, company::Company, person::Person, world::World};
 
 impl UiState {
     pub fn selected_country<'a>(
