@@ -241,6 +241,9 @@ impl UiSnapshot {
                     ),
                 }))
             }
+            RunningTab::Disasters => {
+                RunningTabSnapshot::Disasters(Box::new(build_disasters_tab_snapshot(world, ui)))
+            }
             RunningTab::Charts => {
                 let chart_scope_label = chart_scope_label(world, ui);
                 let chart_history = match ui.chart_scope {
@@ -533,7 +536,8 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::CouponPaid { country_name, .. }
         | SimEvent::BondMatured { country_name, .. }
         | SimEvent::BondDefault { country_name, .. }
-        | SimEvent::StockSecondaryOffering { country_name, .. } => country_name,
+        | SimEvent::StockSecondaryOffering { country_name, .. }
+        | SimEvent::DisasterApplied { country_name, .. } => country_name,
         SimEvent::ForeignDepositOpened {
             home_country_name: country_name,
             ..

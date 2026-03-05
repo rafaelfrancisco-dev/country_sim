@@ -70,4 +70,12 @@ pub enum UiCommand {
     StocksNextRow,
     StocksPagePrev,
     StocksPageNext,
+    DisastersPrevCountry,
+    DisastersNextCountry,
+    DisastersPrevRow,
+    DisastersNextRow,
+    DisastersPrevIntensity,
+    DisastersNextIntensity,
+    DisastersToggleEnabled,
+    DisastersApply,
 }

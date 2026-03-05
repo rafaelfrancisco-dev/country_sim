@@ -212,7 +212,8 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::CouponPaid { country_name, .. }
         | SimEvent::BondMatured { country_name, .. }
         | SimEvent::BondDefault { country_name, .. }
-        | SimEvent::StockSecondaryOffering { country_name, .. } => country_name,
+        | SimEvent::StockSecondaryOffering { country_name, .. }
+        | SimEvent::DisasterApplied { country_name, .. } => country_name,
         SimEvent::ForeignDepositOpened {
             home_country_name: country_name,
             ..

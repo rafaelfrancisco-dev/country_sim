@@ -150,6 +150,10 @@ fn event_line_style(line: &str) -> Style {
         Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
     } else if line.starts_with("[STK]") {
         Style::default().fg(Color::Cyan)
+    } else if line.starts_with("[DISAS]") {
+        Style::default()
+            .fg(Color::LightYellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default()
     }

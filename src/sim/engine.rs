@@ -1,4 +1,5 @@
 use super::{
+    disaster::{DisasterRequest, apply_disaster_requests},
     generator::{GenerationConfig, generate_countries},
     setup::{CITIZENS_PER_THOUSAND, SetupForm, SetupValues},
     tickable::Tickable,
@@ -13,7 +14,7 @@ pub enum GamePhase {
     Running(World),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum GameCommand {
     SetupEditChar(char),
     SetupBackspace,
@@ -25,6 +26,10 @@ pub enum GameCommand {
     UpdateCountryPolicy {
         country_idx: usize,
         policy: CountryPolicyOverrides,
+    },
+    ApplyDisasters {
+        country_idx: usize,
+        requests: Vec<DisasterRequest>,
     },
     Tick,
 }
@@ -252,6 +257,12 @@ impl GameEngine {
                     policy.median_income_reference.max(0.0);
                 country.sim_params.fiscal.basic_needs_cash_threshold =
                     policy.basic_needs_cash_threshold.max(0.0);
+            }
+            GameCommand::ApplyDisasters {
+                country_idx,
+                requests,
+            } => {
+                apply_disaster_requests(world, country_idx, &requests);
             }
             _ => {}
         }
@@ -482,5 +493,57 @@ mod tests {
 
         let after = &engine.world().expect("world exists").countries[0].sim_params;
         assert_eq!(*after, before);
+    }
+
+    #[test]
+    fn apply_disasters_bankruptcy_wave_removes_companies_and_logs_event() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 40)])),
+            ..GameEngine::default()
+        };
+        let before_companies = engine.world().expect("world exists").countries[0]
+            .companies
+            .len();
+
+        engine.apply(GameCommand::ApplyDisasters {
+            country_idx: 0,
+            requests: vec![crate::sim::DisasterRequest {
+                kind: crate::sim::DisasterKind::CompanyBankruptcyWave,
+                intensity_pct: 25,
+            }],
+        });
+
+        let world = engine.world().expect("world exists");
+        let after_companies = world.countries[0].companies.len();
+        assert!(after_companies < before_companies);
+        assert!(
+            world
+                .event_log
+                .iter()
+                .any(|event| matches!(event, crate::sim::event::SimEvent::DisasterApplied { .. }))
+        );
+    }
+
+    #[test]
+    fn apply_disasters_ignores_out_of_bounds_country_index() {
+        let mut engine = GameEngine {
+            phase: GamePhase::Running(World::new(vec![country(1, "A", 10)])),
+            ..GameEngine::default()
+        };
+        let before = engine.world().expect("world exists").countries[0]
+            .companies
+            .len();
+
+        engine.apply(GameCommand::ApplyDisasters {
+            country_idx: 99,
+            requests: vec![crate::sim::DisasterRequest {
+                kind: crate::sim::DisasterKind::CompanyBankruptcyWave,
+                intensity_pct: 50,
+            }],
+        });
+
+        let world = engine.world().expect("world exists");
+        assert_eq!(world.countries[0].companies.len(), before);
+        assert!(world.event_log.is_empty());
     }
 }

@@ -294,6 +294,13 @@ pub enum SimEvent {
         returned_amount: f64,
         day: u64,
     },
+    DisasterApplied {
+        country_name: String,
+        disaster_label: String,
+        intensity_pct: u8,
+        summary: String,
+        day: u64,
+    },
 }
 
 impl SimEvent {
@@ -328,7 +335,8 @@ impl SimEvent {
             | Self::BondIssued { .. }
             | Self::CouponPaid { .. }
             | Self::BondMatured { .. }
-            | Self::BondDefault { .. } => EventCategory::GovernmentPolicy,
+            | Self::BondDefault { .. }
+            | Self::DisasterApplied { .. } => EventCategory::GovernmentPolicy,
             Self::ForeignDepositOpened { .. } | Self::ForeignDepositClosed { .. } => {
                 EventCategory::LoansDebt
             }

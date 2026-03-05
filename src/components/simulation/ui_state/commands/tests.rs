@@ -261,3 +261,46 @@ fn country_policy_reset_managed_emits_defaults_command() {
     assert_eq!(country_idx, 0);
     assert_eq!(policy, defaults);
 }
+
+#[test]
+fn disaster_apply_emits_domain_command_with_selected_intensities() {
+    let world = sample_world();
+    let mut ui = UiState::default();
+
+    ui.disaster_enabled[0] = true;
+    ui.disaster_intensity_index[0] = 2;
+    ui.disaster_enabled[3] = true;
+    ui.disaster_intensity_index[3] = 1;
+
+    let command = ui.apply(UiCommand::DisastersApply, &world);
+    let Some(GameCommand::ApplyDisasters {
+        country_idx,
+        requests,
+    }) = command
+    else {
+        panic!("expected ApplyDisasters command");
+    };
+
+    assert_eq!(country_idx, 0);
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests[0].kind,
+        crate::sim::DisasterKind::CompanyBankruptcyWave
+    );
+    assert_eq!(requests[0].intensity_pct, 25);
+    assert_eq!(requests[1].kind, crate::sim::DisasterKind::BankReserveDrain);
+    assert_eq!(requests[1].intensity_pct, 10);
+}
+
+#[test]
+fn disaster_apply_without_selection_sets_status_and_emits_no_command() {
+    let world = sample_world();
+    let mut ui = UiState::default();
+
+    let command = ui.apply(UiCommand::DisastersApply, &world);
+    assert!(command.is_none());
+    assert_eq!(
+        ui.disaster_last_apply_status.as_deref(),
+        Some("Enable at least one disaster before applying.")
+    );
+}

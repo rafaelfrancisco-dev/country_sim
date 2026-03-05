@@ -97,7 +97,8 @@ impl UiState {
             RunningTab::Main => RunningTab::Goods,
             RunningTab::Goods => RunningTab::Banks,
             RunningTab::Banks => RunningTab::Stocks,
-            RunningTab::Stocks => RunningTab::Charts,
+            RunningTab::Stocks => RunningTab::Disasters,
+            RunningTab::Disasters => RunningTab::Charts,
             RunningTab::Charts => RunningTab::Events,
             RunningTab::Events => RunningTab::Main,
         };
@@ -109,7 +110,8 @@ impl UiState {
             RunningTab::Goods => RunningTab::Main,
             RunningTab::Banks => RunningTab::Goods,
             RunningTab::Stocks => RunningTab::Banks,
-            RunningTab::Charts => RunningTab::Stocks,
+            RunningTab::Disasters => RunningTab::Stocks,
+            RunningTab::Charts => RunningTab::Disasters,
             RunningTab::Events => RunningTab::Charts,
         };
     }
@@ -132,6 +134,7 @@ impl UiState {
         self.details_page = 0;
         self.company_workers_scroll = 0;
         self.bank_depositors_scroll = 0;
+        self.disaster_last_apply_status = None;
         self.country_policy_form = CountryPolicyFormState::default();
     }
 
@@ -160,5 +163,15 @@ impl UiState {
         } else {
             self.selected_bank_row = self.selected_bank_row.min(len - 1);
         }
+    }
+
+    pub(super) fn clamp_selected_disaster_row(&mut self) {
+        if crate::sim::DISASTER_KIND_COUNT == 0 {
+            self.disaster_selected_row = 0;
+            return;
+        }
+        self.disaster_selected_row = self
+            .disaster_selected_row
+            .min(crate::sim::DISASTER_KIND_COUNT.saturating_sub(1));
     }
 }

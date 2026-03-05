@@ -1,6 +1,7 @@
 pub mod bank;
 pub mod company;
 pub mod country;
+pub mod disaster;
 pub mod engine;
 pub mod event;
 pub mod generator;
@@ -22,6 +23,10 @@ pub mod trace;
 pub mod ui_command;
 pub mod world;
 
+pub use disaster::{
+    ALL_DISASTER_KINDS, DISASTER_INTENSITY_LEVELS, DISASTER_KIND_COUNT, DisasterKind,
+    DisasterRequest,
+};
 pub use engine::{CountryPolicyOverrides, GameCommand, GameEngine, GamePhase};
 pub use runtime::SimulationMode;
 pub use ui_command::UiCommand;

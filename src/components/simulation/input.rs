@@ -53,6 +53,7 @@ impl Simulation {
             RunningTab::Banks => self.map_banks_key(key, input_state),
             RunningTab::Main => self.map_main_key(key, input_state),
             RunningTab::Stocks => self.map_stocks_key(key, input_state),
+            RunningTab::Disasters => self.map_disasters_key(key),
             RunningTab::Events => self.map_events_key(key, input_state),
         }
     }
@@ -243,6 +244,35 @@ impl Simulation {
             _ if hotkeys::is_page_next_key(key) => {
                 Some(SimulationCommand::Ui(UiCommand::StocksPageNext))
             }
+            _ => None,
+        }
+    }
+
+    fn map_disasters_key(&self, key: KeyEvent) -> Option<SimulationCommand> {
+        if hotkeys::is_country_prev_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::DisastersPrevCountry));
+        }
+        if hotkeys::is_country_next_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::DisastersNextCountry));
+        }
+
+        match key.code {
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'w') => {
+                Some(SimulationCommand::Ui(UiCommand::DisastersPrevRow))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
+                Some(SimulationCommand::Ui(UiCommand::DisastersNextRow))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'a') => {
+                Some(SimulationCommand::Ui(UiCommand::DisastersPrevIntensity))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'d') => {
+                Some(SimulationCommand::Ui(UiCommand::DisastersNextIntensity))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'x') => {
+                Some(SimulationCommand::Ui(UiCommand::DisastersToggleEnabled))
+            }
+            KeyCode::Enter => Some(SimulationCommand::Ui(UiCommand::DisastersApply)),
             _ => None,
         }
     }

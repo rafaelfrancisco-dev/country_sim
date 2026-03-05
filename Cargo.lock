@@ -504,6 +504,7 @@ dependencies = [
  "tracing",
  "tracing-error",
  "tracing-subscriber",
+ "tui-checkbox",
  "vergen-gix",
 ]
 
@@ -3655,6 +3656,15 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tui-checkbox"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dae4cda3b483816dde955a94f54e7f5893ed44a8b41f0003101475e433102b65"
+dependencies = [
+ "ratatui",
 ]
 
 [[package]]

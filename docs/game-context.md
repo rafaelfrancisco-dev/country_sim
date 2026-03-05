@@ -9,6 +9,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 >
 > Running analytics tab behavior is documented in [running-charts-tab.md](running-charts-tab.md).
 >
+> Disaster controls are documented in [disasters-tab.md](disasters-tab.md).
+>
 > Tick architecture is documented in [ticking-mechanism.md](ticking-mechanism.md).
 
 ## Entity Model
@@ -55,7 +57,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ### `World`
 - Engine state: `day`, `countries`, pause flag, and monthly histories.
-- Running views: `Main`, `Goods`, `Banks`, `Stocks`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
+- Running views: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
 
@@ -93,6 +95,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
     - page 3: bank-related events
     - page 4: depositors table with balance share
 - `Stocks`: stock table + market summary + stock charts
+- `Disasters`: selected-country shock controls with checkbox-driven intensity selection and one-shot apply
 - `Charts`: 4x2 monthly trend dashboard
 - `Events`: scrollable event log with search, sorting, and category filtering
   - category filter key: `f`

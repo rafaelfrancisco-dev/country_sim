@@ -6,7 +6,7 @@ pub(in crate::components::simulation) struct RenderSnapshot {
     pub ui_snapshot: Arc<UiSnapshot>,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub(super) enum WorkerCommand {
     Domain(GameCommand),
     Ui(UiCommand),

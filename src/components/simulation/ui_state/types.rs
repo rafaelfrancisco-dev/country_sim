@@ -3,6 +3,8 @@ pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
 pub const BANK_PAGE_SIZE: usize = 12;
 pub const CHART_PAGE_COUNT: usize = 4;
+pub const DISASTER_INTENSITY_COUNT: usize = crate::sim::DISASTER_INTENSITY_LEVELS.len();
+pub const DISASTER_KIND_COUNT: usize = crate::sim::DISASTER_KIND_COUNT;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CountryPolicyField {
@@ -88,6 +90,7 @@ pub enum RunningTab {
     Goods,
     Banks,
     Stocks,
+    Disasters,
     Charts,
     Events,
 }
@@ -165,6 +168,10 @@ pub struct UiState {
     pub events_search_query: String,
     pub stock_selected_row: usize,
     pub stock_page: usize,
+    pub disaster_selected_row: usize,
+    pub disaster_enabled: [bool; DISASTER_KIND_COUNT],
+    pub disaster_intensity_index: [usize; DISASTER_KIND_COUNT],
+    pub disaster_last_apply_status: Option<String>,
     pub country_policy_form: CountryPolicyFormState,
     pub currency_symbol: String,
 }
@@ -194,6 +201,10 @@ impl Default for UiState {
             events_search_query: String::new(),
             stock_selected_row: 0,
             stock_page: 0,
+            disaster_selected_row: 0,
+            disaster_enabled: [false; DISASTER_KIND_COUNT],
+            disaster_intensity_index: [0; DISASTER_KIND_COUNT],
+            disaster_last_apply_status: None,
             country_policy_form: CountryPolicyFormState::default(),
             currency_symbol: crate::sim::setup::DEFAULT_CURRENCY_SYMBOL.to_string(),
         }

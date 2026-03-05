@@ -65,6 +65,16 @@ fn inactive_tabs_skip_heavy_data() {
     };
     assert!(!stocks_tab.stock_summary_lines.is_empty());
 
+    let disasters = running_snapshot_for_tab(&engine, RunningTab::Disasters);
+    let RunningTabSnapshot::Disasters(disasters_tab) = disasters.tab else {
+        panic!("disasters tab payload expected");
+    };
+    assert_eq!(
+        disasters_tab.rows.len(),
+        crate::sim::ALL_DISASTER_KINDS.len()
+    );
+    assert!(disasters_tab.last_apply_status.is_none());
+
     let events = running_snapshot_for_tab(&engine, RunningTab::Events);
     let RunningTabSnapshot::Events(events_tab) = events.tab else {
         panic!("events tab payload expected");

@@ -229,7 +229,7 @@ impl Country {
         max_total_debt > existing_debt + 0.01
     }
 
-    pub(super) fn resolve_company_bankruptcies(&mut self, mut bankrupt_indices: Vec<usize>) {
+    pub(crate) fn resolve_company_bankruptcies(&mut self, mut bankrupt_indices: Vec<usize>) {
         bankrupt_indices.sort_unstable();
         bankrupt_indices.dedup();
 

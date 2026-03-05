@@ -33,7 +33,7 @@ use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, RunningTab, SelectionFocus};
 use worker::{RenderSnapshot, SimulationWorker, WorkerEvent, WorkerHealth};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum SimulationCommand {
     Domain(GameCommand),
     Ui(UiCommand),

@@ -1,11 +1,12 @@
 # Running UI Tabs
 
 ## Overview
-The running simulation UI has six tabs:
+The running simulation UI has seven tabs:
 - `Main`: country/people navigation and details screens.
 - `Goods`: company and goods market view.
 - `Banks`: bank list and bank details view.
 - `Stocks`: listed equities and stock-market charts.
+- `Disasters`: selected-country shock controls.
 - `Charts`: trend charts for core economy metrics.
 - `Events`: scrollable log of simulation events.
 
@@ -57,6 +58,11 @@ The running UI uses one navigation convention across tabs:
   - Bank page 4 uses `w/s` to scroll depositors.
 - `Main`/`Goods`/`Banks` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
+- `Disasters`: selected-country disaster controls.
+  - `w/s`: select disaster row
+  - `a/d`: choose intensity tier (`5%`, `10%`, `25%`, `50%`)
+  - `x`: enable/disable current disaster
+  - `Enter`: apply all enabled disasters together
 - `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `f` cycles event category, `Ctrl+u` clears search query while editing.
   - Category cycle order: `All` -> `Stock Market` -> `Births/Deaths` -> `Bankruptcies & Distress` -> `Loans & Debt` -> `Companies & Labor` -> `Government & Policy` -> `All`

@@ -163,6 +163,7 @@ pub(in crate::components::simulation) enum RunningTabSnapshot {
     Goods(Box<GoodsTabSnapshot>),
     Banks(Box<BanksTabSnapshot>),
     Stocks(Box<StocksTabSnapshot>),
+    Disasters(Box<DisastersTabSnapshot>),
     Charts(Box<ChartsTabSnapshot>),
     Events(Box<EventsTabSnapshot>),
 }
@@ -217,6 +218,24 @@ pub(in crate::components::simulation) struct StocksTabSnapshot {
     pub stock_page: usize,
     pub stock_selected_row: usize,
     pub stock_person_details_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct DisasterRowSnapshot {
+    pub label: String,
+    pub enabled: bool,
+    pub selected_intensity_idx: usize,
+    pub intensity_options: [u8; crate::components::simulation::ui_state::DISASTER_INTENSITY_COUNT],
+    pub is_selected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct DisastersTabSnapshot {
+    pub selected_country_name: String,
+    pub population: String,
+    pub companies: String,
+    pub rows: Vec<DisasterRowSnapshot>,
+    pub last_apply_status: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

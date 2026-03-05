@@ -443,6 +443,17 @@ impl SimEvent {
                     format_money(*returned_amount, currency_symbol),
                 )
             }
+            Self::DisasterApplied {
+                country_name,
+                disaster_label,
+                intensity_pct,
+                summary,
+                day,
+            } => {
+                format!(
+                    "[DISAS] Day {day:>6} | {country_name}: {disaster_label} ({intensity_pct}%) - {summary}"
+                )
+            }
         }
     }
 }

@@ -19,8 +19,13 @@ Files are keyed by the world seed in hex so re-runs with different seeds never o
 See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage examples.
 
 ## Recent UI Additions
-- Six running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `Charts`, `Events`
+- Seven running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, `Events`
 - Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
+- New `Disasters` tab for scenario shocks on the selected country:
+  - row controls: `w/s` select disaster, `a/d` intensity, `x` enable toggle
+  - apply controls: `Enter` applies all enabled disasters together
+  - intensity tiers: `5%`, `10%`, `25%`, `50%`
+  - disaster set: company bankruptcy wave, population loss, stock crash, bank reserve drain, loan default wave, treasury shock, demand shock
 - Setup now includes editable `Currency Symbol` (default `€`) so money displays can be customized per run
 - Money labels across tables, details, charts, stocks, and events now consistently include the selected currency symbol and compact large values (for example `11500` as `11.5k`)
 - Country policy overrides page in Main tab country details (`o`): editable tax brackets/rates and fiscal transfer thresholds per country (`r` resets to managed defaults)
@@ -64,6 +69,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 
 ## Documentation
 - [Game context](docs/game-context.md)
+- [Disasters tab](docs/disasters-tab.md)
 - [Running charts tab](docs/running-charts-tab.md)
 - [Money simulation requirements](docs/money-simulation-requirements.md)
 - [Demographics and labor model](docs/demographics-labor-model.md)

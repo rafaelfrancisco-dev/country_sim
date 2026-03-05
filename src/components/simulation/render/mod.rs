@@ -3,6 +3,7 @@ mod charts;
 #[cfg(test)]
 mod charts_tests;
 mod details;
+mod disasters;
 mod events;
 mod goods;
 mod running;

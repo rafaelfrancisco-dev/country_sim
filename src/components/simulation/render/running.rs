@@ -68,6 +68,9 @@ impl Simulation {
             (RunningTab::Stocks, RunningTabSnapshot::Stocks(stocks_tab)) => {
                 self.draw_stocks_tab(frame, body, world, stocks_tab)
             }
+            (RunningTab::Disasters, RunningTabSnapshot::Disasters(disasters_tab)) => {
+                self.draw_disasters_tab(frame, body, world, disasters_tab)
+            }
             (RunningTab::Charts, RunningTabSnapshot::Charts(charts_tab)) => {
                 self.draw_charts_tab(frame, body, world, charts_tab)
             }
@@ -422,6 +425,7 @@ impl Simulation {
             RunningTab::Goods => "Goods",
             RunningTab::Banks => "Banks",
             RunningTab::Stocks => "Stocks",
+            RunningTab::Disasters => "Disasters",
             RunningTab::Charts => "Charts",
             RunningTab::Events => "Events",
         }

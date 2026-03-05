@@ -380,3 +380,49 @@ fn bank_detail_pages_map_events_and_depositor_scroll() {
         Some(SimulationCommand::Ui(UiCommand::BankDepositorsScrollDown))
     );
 }
+
+#[test]
+fn disasters_tab_maps_navigation_toggle_and_apply_keys() {
+    let simulation = Simulation::new();
+    let disasters_state = RunningInputState {
+        details_view: DetailsView::List,
+        details_page: 0,
+        selection_focus: SelectionFocus::Country,
+        active_tab: RunningTab::Disasters,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char(',')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersPrevCountry))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('.')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersNextCountry))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersPrevRow))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersNextRow))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('a')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersPrevIntensity))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('d')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersNextIntensity))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('x')), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersToggleEnabled))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Enter), disasters_state),
+        Some(SimulationCommand::Ui(UiCommand::DisastersApply))
+    );
+}

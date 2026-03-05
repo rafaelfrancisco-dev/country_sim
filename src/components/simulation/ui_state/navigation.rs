@@ -12,8 +12,10 @@ impl UiState {
             self.selected_company_row = 0;
             self.bank_page = 0;
             self.selected_bank_row = 0;
+            self.disaster_selected_row = 0;
             self.company_workers_scroll = 0;
             self.bank_depositors_scroll = 0;
+            self.disaster_last_apply_status = None;
             self.details_view = DetailsView::List;
             self.country_policy_form = CountryPolicyFormState::default();
             return;
@@ -31,6 +33,10 @@ impl UiState {
         let bank_pages = self.total_bank_pages(world);
         self.bank_page = self.bank_page.min(bank_pages.saturating_sub(1));
         self.clamp_selected_bank_row(world);
+        self.clamp_selected_disaster_row();
+        for intensity_idx in &mut self.disaster_intensity_index {
+            *intensity_idx = (*intensity_idx).min(DISASTER_INTENSITY_COUNT.saturating_sub(1));
+        }
 
         if matches!(self.details_view, DetailsView::Person)
             && self.selected_person_on_page(world).is_none()

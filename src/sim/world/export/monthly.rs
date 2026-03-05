@@ -396,6 +396,9 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::StockSecondaryOffering {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::DisasterApplied {
+            country_name, day, ..
+        } => (country_name, *day),
         SimEvent::ForeignDepositOpened {
             home_country_name: country_name,
             day,

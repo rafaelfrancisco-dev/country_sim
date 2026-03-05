@@ -208,6 +208,39 @@ impl UiState {
                 self.stock_page = self.stock_page.saturating_add(1);
                 self.stock_selected_row = 0;
             }
+            UiCommand::DisastersPrevCountry => self.select_prev_country_row(world),
+            UiCommand::DisastersNextCountry => self.select_next_country_row(world),
+            UiCommand::DisastersPrevRow => {
+                self.disaster_selected_row = self.disaster_selected_row.saturating_sub(1);
+            }
+            UiCommand::DisastersNextRow => {
+                self.disaster_selected_row = self.disaster_selected_row.saturating_add(1);
+            }
+            UiCommand::DisastersPrevIntensity => {
+                self.adjust_disaster_intensity(-1);
+            }
+            UiCommand::DisastersNextIntensity => {
+                self.adjust_disaster_intensity(1);
+            }
+            UiCommand::DisastersToggleEnabled => {
+                if let Some(enabled) = self.disaster_enabled.get_mut(self.disaster_selected_row) {
+                    *enabled = !*enabled;
+                }
+            }
+            UiCommand::DisastersApply => {
+                let requests = self.build_disaster_requests();
+                if requests.is_empty() {
+                    self.disaster_last_apply_status =
+                        Some("Enable at least one disaster before applying.".to_string());
+                } else {
+                    self.disaster_last_apply_status =
+                        Some(format!("Applied {} disaster(s).", requests.len()));
+                    pending_domain_command = Some(GameCommand::ApplyDisasters {
+                        country_idx: self.selected_country,
+                        requests,
+                    });
+                }
+            }
         }
 
         pending_domain_command
