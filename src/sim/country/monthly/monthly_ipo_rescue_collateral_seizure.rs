@@ -330,7 +330,8 @@ impl Country {
             shares_outstanding,
             shares_sold,
         );
-        self.stock_market
+        let ticker = self
+            .stock_market
             .insert_listing_preserve_index(company_id, equity);
 
         // Expand free float to include retained founder shares (now freely tradeable).

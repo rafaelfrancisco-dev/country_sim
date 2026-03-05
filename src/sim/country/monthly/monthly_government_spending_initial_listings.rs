@@ -260,7 +260,8 @@ impl Country {
             total_shares,
             shares_allocated,
         );
-        self.stock_market
+        let ticker = self
+            .stock_market
             .insert_listing_preserve_index(company_id, equity);
 
         // Proceeds flow into company treasury (primary offering).

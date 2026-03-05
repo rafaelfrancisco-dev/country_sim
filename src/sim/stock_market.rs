@@ -366,9 +366,45 @@ impl StockMarket {
         self.bank_portfolio.dividends_mtd = 0.0;
     }
 
+    fn ticker_in_use_by_other(&self, ticker: &str, company_id: u16) -> bool {
+        self.listed.iter().any(|(listed_company_id, listed_equity)| {
+            *listed_company_id != company_id
+                && listed_equity.ticker.eq_ignore_ascii_case(ticker)
+        })
+    }
+
+    fn distinct_ticker_for_listing(&self, company_id: u16, preferred: &str) -> String {
+        let preferred = preferred.trim().to_ascii_uppercase();
+        let base = if preferred.is_empty() {
+            format!("S{:03}", company_id % 1000)
+        } else {
+            preferred
+        };
+
+        if !self.ticker_in_use_by_other(&base, company_id) {
+            return base;
+        }
+
+        let mut suffix = 2_u32;
+        loop {
+            let candidate = format!("{base}{suffix}");
+            if !self.ticker_in_use_by_other(&candidate, company_id) {
+                return candidate;
+            }
+            suffix = suffix.saturating_add(1);
+        }
+    }
+
     /// Add a listing while preserving index continuity.
-    pub fn insert_listing_preserve_index(&mut self, company_id: u16, equity: ListedEquity) {
+    /// Returns the ticker that was ultimately assigned to the listing.
+    pub fn insert_listing_preserve_index(
+        &mut self,
+        company_id: u16,
+        mut equity: ListedEquity,
+    ) -> String {
         let before_cap = self.total_market_cap();
+        equity.ticker = self.distinct_ticker_for_listing(company_id, &equity.ticker);
+        let assigned_ticker = equity.ticker.clone();
         let added_cap = equity.market_cap.max(0.0);
 
         self.listed.insert(company_id, equity);
@@ -376,12 +412,14 @@ impl StockMarket {
         let after_cap = self.total_market_cap();
         if self.index_base <= 0.0 {
             self.index_base = after_cap.max(0.0);
-            return;
+            return assigned_ticker;
         }
 
         if before_cap > 0.0 && after_cap > 0.0 && added_cap > 0.0 {
             self.index_base *= after_cap / before_cap;
         }
+
+        assigned_ticker
     }
 
     /// Called on bankruptcy: wipe all portfolio positions for `company_id`,
@@ -507,7 +545,7 @@ pub struct StockRowSnapshot {
 
 #[cfg(test)]
 mod tests {
-    use super::ListedEquity;
+    use super::{ListedEquity, StockMarket};
 
     #[test]
     fn record_day_close_persists_completed_day_pct_change() {
@@ -520,5 +558,31 @@ mod tests {
 
         assert!((equity.day_pct_change() - 0.0).abs() < f64::EPSILON);
         assert!((equity.closed_day_pct_change() - 0.10).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn insert_listing_preserve_index_assigns_distinct_ticker_symbols() {
+        let mut market = StockMarket::new();
+
+        let first_ticker = market.insert_listing_preserve_index(
+            1,
+            ListedEquity::new(1, "CMP".to_string(), 10.0, 1_000, 500),
+        );
+        let second_ticker = market.insert_listing_preserve_index(
+            2,
+            ListedEquity::new(2, "cmp".to_string(), 20.0, 2_000, 1_000),
+        );
+
+        assert_eq!(first_ticker, "CMP");
+        assert_ne!(second_ticker, "CMP");
+        assert_ne!(first_ticker, second_ticker);
+        assert_eq!(
+            market
+                .listed
+                .get(&2)
+                .expect("second listing should be present")
+                .ticker,
+            second_ticker
+        );
     }
 }
