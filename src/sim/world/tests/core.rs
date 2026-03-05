@@ -107,6 +107,8 @@ fn aggregate_history_matches_country_sums() {
             monthly_tax_collected: 0.0,
             monthly_gov_spending: 0.0,
             gov_debt: 0.0,
+            monthly_money_minted: 0.0,
+            cumulative_money_minted: 0.0,
             monthly_goods_import_spending: 0.0,
             monthly_goods_export_revenue: 0.0,
             monthly_unmet_need_events: 0.0,
@@ -137,6 +139,8 @@ fn aggregate_history_matches_country_sums() {
             monthly_tax_collected: acc.monthly_tax_collected + point.monthly_tax_collected,
             monthly_gov_spending: acc.monthly_gov_spending + point.monthly_gov_spending,
             gov_debt: acc.gov_debt + point.gov_debt,
+            monthly_money_minted: acc.monthly_money_minted + point.monthly_money_minted,
+            cumulative_money_minted: acc.cumulative_money_minted + point.cumulative_money_minted,
             monthly_goods_import_spending: acc.monthly_goods_import_spending
                 + point.monthly_goods_import_spending,
             monthly_goods_export_revenue: acc.monthly_goods_export_revenue
@@ -170,6 +174,13 @@ fn aggregate_history_matches_country_sums() {
     assert!((aggregate.treasury_balance - country_sum.treasury_balance).abs() < f64::EPSILON);
     assert!((aggregate.budget_balance - country_sum.budget_balance).abs() < f64::EPSILON);
     assert!((aggregate.gov_debt - country_sum.gov_debt).abs() < f64::EPSILON);
+    assert!(
+        (aggregate.monthly_money_minted - country_sum.monthly_money_minted).abs() < f64::EPSILON
+    );
+    assert!(
+        (aggregate.cumulative_money_minted - country_sum.cumulative_money_minted).abs()
+            < f64::EPSILON
+    );
     assert!(
         (aggregate.monthly_tax_collected - country_sum.monthly_tax_collected).abs() < f64::EPSILON
     );

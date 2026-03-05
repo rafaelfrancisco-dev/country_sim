@@ -20,6 +20,7 @@ mod monthly_government_spending_initial_listings;
 mod monthly_growth_backfill_public_wages;
 mod monthly_ipo_rescue_collateral_seizure;
 mod monthly_labor_churn_separations;
+mod monthly_money_minting;
 mod monthly_orchestration_payroll_loans;
 mod monthly_savings;
 mod monthly_secondary_offerings;

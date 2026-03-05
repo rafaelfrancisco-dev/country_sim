@@ -48,8 +48,10 @@ Fiscal and monetary state per country per month.
 | `company_cash_total` | float | Sum of all company cash balances |
 | `bank_reserve_balance` | float | Aggregate reserve cash across all banks in the country |
 | `bank_created_money_outstanding` | float | Aggregate principal of outstanding bank-created loans across all banks |
-| `expected_money_supply` | float | Initial money supply adjusted for created/destroyed money |
+| `expected_money_supply` | float | Initial money supply adjusted for bank-created money and cumulative minted money |
 | `money_supply_gap` | float | `total_money_supply − expected_money_supply` |
+| `monthly_money_minted` | float | Money minted this month into the public-bank reserve |
+| `cumulative_money_minted` | float | Cumulative minted money since simulation start |
 | `bonds_outstanding` | float | Face value of sovereign bonds currently outstanding |
 | `bond_coupon_rate` | float | Annual coupon rate on current bond (0 if no bond) |
 | `monthly_coupon_paid` | float | Bond coupon distributed to bank + retail holders this month |

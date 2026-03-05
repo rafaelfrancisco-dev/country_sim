@@ -401,6 +401,20 @@ impl SimEvent {
                     format_money(*monetized, currency_symbol),
                 )
             }
+            Self::MoneyMinted {
+                country_name,
+                amount,
+                inflation_shortfall,
+                unemployment_gap,
+                day,
+            } => {
+                format!(
+                    "[MINT]  Day {day:>6} | {country_name}: Minted {} (inflation gap {:.2}pp, unemp gap {:.2}pp)",
+                    format_money(*amount, currency_symbol),
+                    inflation_shortfall * 100.0,
+                    unemployment_gap * 100.0,
+                )
+            }
             Self::StockSecondaryOffering {
                 country_name,
                 company_id: _,

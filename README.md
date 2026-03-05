@@ -28,7 +28,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - disaster set: company bankruptcy wave, population loss, stock crash, bank reserve drain, loan default wave, treasury shock, demand shock
 - Setup now includes editable `Currency Symbol` (default `€`) so money displays can be customized per run
 - Money labels across tables, details, charts, stocks, and events now consistently include the selected currency symbol and compact large values (for example `11500` as `11.5k`)
-- Country policy overrides page in Main tab country details (`o`): editable tax brackets/rates and fiscal transfer thresholds per country (`r` resets to managed defaults)
+- Country policy overrides page in Main tab country details (`o`): editable tax brackets/rates, fiscal transfer thresholds, and automatic money-minting controls per country (`r` resets to managed defaults)
 - Monthly trend charts with pagination (4x2 per page, 4 pages total):
   - page 1: liquidity and money-balance metrics (population, supply, cash totals, reserve/gap)
   - page 2: fiscal and external-sector metrics (treasury/budget, taxes/spending, debt, trade flows)
@@ -55,6 +55,10 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
   - Basic needs safety net tops up cash for people with unmet essential needs
   - Eligible people can receive both transfers in the same month (benefit first, then essential-needs top-up)
   - Treasury balance, monthly gov spending, budget balance, and gov debt tracked per country
+- Automatic money minting:
+  - Runs monthly by default using inflation shortfall + unemployment gap pressure
+  - Minted funds are injected into public-bank reserves (not directly into household cash)
+  - Expected money-supply accounting now includes cumulative minted money
 - Public utility pricing guardrails:
   - Only state-owned/public-utility companies are price-capped (private firms remain uncapped)
   - Cap base rises with both CPI and money-supply growth to avoid a fixed nominal anchor

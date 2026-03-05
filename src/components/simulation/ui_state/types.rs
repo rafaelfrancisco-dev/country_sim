@@ -16,6 +16,9 @@ pub enum CountryPolicyField {
     UnemploymentBenefitRate,
     MedianIncomeReference,
     BasicNeedsCashThreshold,
+    MintInflationGapWeight,
+    MintUnemploymentGapWeight,
+    MintMaxFractionExpectedSupply,
 }
 
 impl CountryPolicyField {
@@ -28,13 +31,16 @@ impl CountryPolicyField {
             Self::TaxRate3 => Self::UnemploymentBenefitRate,
             Self::UnemploymentBenefitRate => Self::MedianIncomeReference,
             Self::MedianIncomeReference => Self::BasicNeedsCashThreshold,
-            Self::BasicNeedsCashThreshold => Self::TaxBracket1Max,
+            Self::BasicNeedsCashThreshold => Self::MintInflationGapWeight,
+            Self::MintInflationGapWeight => Self::MintUnemploymentGapWeight,
+            Self::MintUnemploymentGapWeight => Self::MintMaxFractionExpectedSupply,
+            Self::MintMaxFractionExpectedSupply => Self::TaxBracket1Max,
         }
     }
 
     pub fn prev(self) -> Self {
         match self {
-            Self::TaxBracket1Max => Self::BasicNeedsCashThreshold,
+            Self::TaxBracket1Max => Self::MintMaxFractionExpectedSupply,
             Self::TaxBracket2Max => Self::TaxBracket1Max,
             Self::TaxRate1 => Self::TaxBracket2Max,
             Self::TaxRate2 => Self::TaxRate1,
@@ -42,6 +48,9 @@ impl CountryPolicyField {
             Self::UnemploymentBenefitRate => Self::TaxRate3,
             Self::MedianIncomeReference => Self::UnemploymentBenefitRate,
             Self::BasicNeedsCashThreshold => Self::MedianIncomeReference,
+            Self::MintInflationGapWeight => Self::BasicNeedsCashThreshold,
+            Self::MintUnemploymentGapWeight => Self::MintInflationGapWeight,
+            Self::MintMaxFractionExpectedSupply => Self::MintUnemploymentGapWeight,
         }
     }
 }

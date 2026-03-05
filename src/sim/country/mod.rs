@@ -59,6 +59,8 @@ pub struct Country {
     pub monthly_bonds_issued: f64,
     pub monthly_bonds_matured: f64,
     pub monthly_savings_interest_paid: f64,
+    pub monthly_money_minted: f64,
+    pub cumulative_money_minted: f64,
     // Monetary policy (propagated from World each month)
     pub policy_rate: f64,
     // CPI / inflation tracking (persistent; not reset monthly)
@@ -164,6 +166,8 @@ impl Country {
             monthly_bonds_issued: 0.0,
             monthly_bonds_matured: 0.0,
             monthly_savings_interest_paid: 0.0,
+            monthly_money_minted: 0.0,
+            cumulative_money_minted: 0.0,
             policy_rate: initial_policy_rate,
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,
@@ -406,11 +410,8 @@ impl Country {
             return true;
         }
         if let Some(source_bank_id) = source_bank_id {
-            let moved = self.transfer_reserve_between_banks(
-                source_bank_id,
-                target_bank_id,
-                cash_balance,
-            );
+            let moved =
+                self.transfer_reserve_between_banks(source_bank_id, target_bank_id, cash_balance);
             if moved + 0.01 < cash_balance {
                 return false;
             }
@@ -435,11 +436,8 @@ impl Country {
             return true;
         }
         if let Some(source_bank_id) = source_bank_id {
-            let moved = self.transfer_reserve_between_banks(
-                source_bank_id,
-                target_bank_id,
-                cash_balance,
-            );
+            let moved =
+                self.transfer_reserve_between_banks(source_bank_id, target_bank_id, cash_balance);
             if moved + 0.01 < cash_balance {
                 return false;
             }

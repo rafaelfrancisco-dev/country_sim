@@ -44,12 +44,16 @@ pub struct CountryPolicyOverrides {
     pub unemployment_benefit_rate: f64,
     pub median_income_reference: f64,
     pub basic_needs_cash_threshold: f64,
+    pub mint_inflation_gap_weight: f64,
+    pub mint_unemployment_gap_weight: f64,
+    pub mint_max_fraction_expected_supply: f64,
 }
 
 impl CountryPolicyOverrides {
     pub fn from_country(country: &crate::sim::country::Country) -> Self {
         let tax = country.sim_params.tax;
         let fiscal = country.sim_params.fiscal;
+        let monetary = country.sim_params.monetary;
         Self {
             bracket_1_max: tax.bracket_1_max,
             bracket_2_max: tax.bracket_2_max,
@@ -59,6 +63,9 @@ impl CountryPolicyOverrides {
             unemployment_benefit_rate: fiscal.unemployment_benefit_rate,
             median_income_reference: fiscal.median_income_reference,
             basic_needs_cash_threshold: fiscal.basic_needs_cash_threshold,
+            mint_inflation_gap_weight: monetary.mint_inflation_gap_weight,
+            mint_unemployment_gap_weight: monetary.mint_unemployment_gap_weight,
+            mint_max_fraction_expected_supply: monetary.mint_max_fraction_expected_supply,
         }
     }
 
@@ -73,6 +80,9 @@ impl CountryPolicyOverrides {
             unemployment_benefit_rate: params.fiscal.unemployment_benefit_rate,
             median_income_reference: params.fiscal.median_income_reference,
             basic_needs_cash_threshold: params.fiscal.basic_needs_cash_threshold,
+            mint_inflation_gap_weight: params.monetary.mint_inflation_gap_weight,
+            mint_unemployment_gap_weight: params.monetary.mint_unemployment_gap_weight,
+            mint_max_fraction_expected_supply: params.monetary.mint_max_fraction_expected_supply,
         }
     }
 }
@@ -257,6 +267,15 @@ impl GameEngine {
                     policy.median_income_reference.max(0.0);
                 country.sim_params.fiscal.basic_needs_cash_threshold =
                     policy.basic_needs_cash_threshold.max(0.0);
+                country.sim_params.monetary.mint_inflation_gap_weight =
+                    policy.mint_inflation_gap_weight.max(0.0);
+                country.sim_params.monetary.mint_unemployment_gap_weight =
+                    policy.mint_unemployment_gap_weight.max(0.0);
+                country
+                    .sim_params
+                    .monetary
+                    .mint_max_fraction_expected_supply =
+                    policy.mint_max_fraction_expected_supply.clamp(0.0, 1.0);
             }
             GameCommand::ApplyDisasters {
                 country_idx,
@@ -446,6 +465,9 @@ mod tests {
             unemployment_benefit_rate: 0.42,
             median_income_reference: 2_400.0,
             basic_needs_cash_threshold: 650.0,
+            mint_inflation_gap_weight: 0.33,
+            mint_unemployment_gap_weight: 0.22,
+            mint_max_fraction_expected_supply: 0.07,
         };
         engine.apply(GameCommand::UpdateCountryPolicy {
             country_idx: 1,
@@ -465,6 +487,14 @@ mod tests {
         assert!((second.sim_params.fiscal.unemployment_benefit_rate - 0.42).abs() < f64::EPSILON);
         assert!((second.sim_params.fiscal.median_income_reference - 2_400.0).abs() < f64::EPSILON);
         assert!((second.sim_params.fiscal.basic_needs_cash_threshold - 650.0).abs() < f64::EPSILON);
+        assert!((second.sim_params.monetary.mint_inflation_gap_weight - 0.33).abs() < f64::EPSILON);
+        assert!(
+            (second.sim_params.monetary.mint_unemployment_gap_weight - 0.22).abs() < f64::EPSILON
+        );
+        assert!(
+            (second.sim_params.monetary.mint_max_fraction_expected_supply - 0.07).abs()
+                < f64::EPSILON
+        );
     }
 
     #[test]
@@ -488,6 +518,9 @@ mod tests {
                 unemployment_benefit_rate: 0.10,
                 median_income_reference: 1_000.0,
                 basic_needs_cash_threshold: 100.0,
+                mint_inflation_gap_weight: 0.1,
+                mint_unemployment_gap_weight: 0.2,
+                mint_max_fraction_expected_supply: 0.3,
             },
         });
 

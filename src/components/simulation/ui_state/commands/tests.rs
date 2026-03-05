@@ -241,6 +241,44 @@ fn country_policy_invalid_value_keeps_editing_and_sets_error() {
 }
 
 #[test]
+fn country_policy_allows_editing_mint_fields() {
+    let world = sample_world();
+    let mut ui = UiState::default();
+
+    ui.apply(UiCommand::OpenSelectedCountryDetails, &world);
+    ui.apply(UiCommand::OpenSelectedCountryPolicyDetails, &world);
+    ui.country_policy_form.active_field = CountryPolicyField::MintMaxFractionExpectedSupply;
+    ui.apply(UiCommand::CountryPolicyStartEdit, &world);
+    ui.country_policy_form.draft_input = "0.1250".to_string();
+
+    let command = ui.apply(UiCommand::CountryPolicySaveEdit, &world);
+    let Some(GameCommand::UpdateCountryPolicy { policy, .. }) = command else {
+        panic!("expected UpdateCountryPolicy command");
+    };
+
+    assert!((policy.mint_max_fraction_expected_supply - 0.125).abs() < f64::EPSILON);
+}
+
+#[test]
+fn country_policy_rejects_mint_fraction_above_one() {
+    let world = sample_world();
+    let mut ui = UiState::default();
+
+    ui.apply(UiCommand::OpenSelectedCountryDetails, &world);
+    ui.apply(UiCommand::OpenSelectedCountryPolicyDetails, &world);
+    ui.country_policy_form.active_field = CountryPolicyField::MintMaxFractionExpectedSupply;
+    ui.apply(UiCommand::CountryPolicyStartEdit, &world);
+    ui.country_policy_form.draft_input = "1.25".to_string();
+
+    let command = ui.apply(UiCommand::CountryPolicySaveEdit, &world);
+    assert!(command.is_none());
+    assert_eq!(
+        ui.country_policy_form.validation_error.as_deref(),
+        Some("Mint max fraction must be between 0 and 1.")
+    );
+}
+
+#[test]
 fn country_policy_reset_managed_emits_defaults_command() {
     let world = sample_world();
     let mut ui = UiState::default();

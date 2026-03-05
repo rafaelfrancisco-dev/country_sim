@@ -76,7 +76,12 @@ fn bank_run_moves_depositors_and_applies_losses() {
             .iter()
             .any(|event| matches!(event, SimEvent::BankRunWithdrawal { .. }))
     );
-    assert!(country.people.iter().any(|person| person.deposit_bank_id != Some(weak_bank_id)));
+    assert!(
+        country
+            .people
+            .iter()
+            .any(|person| person.deposit_bank_id != Some(weak_bank_id))
+    );
 }
 
 #[test]
@@ -147,7 +152,10 @@ fn moving_deposit_bank_requires_full_reserve_transfer() {
 
     let moved = country.move_person_deposit_bank(0, private_bank_id);
 
-    assert!(!moved, "move should fail when source bank cannot transfer full reserve");
+    assert!(
+        !moved,
+        "move should fail when source bank cannot transfer full reserve"
+    );
     assert_eq!(country.people[0].deposit_bank_id, Some(country.bank.id));
 }
 
@@ -168,7 +176,10 @@ fn bank_resolution_requires_consecutive_distress_months() {
     country.treasury_balance = 300_000.0;
     country.treasury_bank_id = Some(weak_bank_id);
     configure_for_terminal_failure(&mut country);
-    country.sim_params.banking.resolution_entry_consecutive_months = 2;
+    country
+        .sim_params
+        .banking
+        .resolution_entry_consecutive_months = 2;
     country.sim_params.banking.terminal_resolution_months = 12;
 
     country.process_bank_runs();
@@ -322,7 +333,10 @@ fn configure_for_terminal_failure(country: &mut Country) {
     country.sim_params.banking.deposit_insurance_cap = 1_000.0;
     country.sim_params.banking.uninsured_haircut_rate = 0.50;
     country.sim_params.banking.resolution_liquidity_floor = 1.0;
-    country.sim_params.banking.resolution_entry_consecutive_months = 1;
+    country
+        .sim_params
+        .banking
+        .resolution_entry_consecutive_months = 1;
     country.sim_params.banking.terminal_resolution_months = 1;
     country.recompute_bank_deposit_liabilities();
     country.recompute_aggregates();

@@ -91,3 +91,19 @@ fn event_money_format_uses_currency_and_compact_suffix() {
     let formatted = event.format_with_currency("£");
     assert!(formatted.contains("£11.5k"));
 }
+
+#[test]
+fn money_minted_event_is_government_policy_and_formats_with_currency() {
+    let event = SimEvent::MoneyMinted {
+        country_name: "A".to_string(),
+        amount: 12_500.0,
+        inflation_shortfall: 0.02,
+        unemployment_gap: 0.03,
+        day: 30,
+    };
+
+    assert_eq!(event.category(), EventCategory::GovernmentPolicy);
+    let formatted = event.format_with_currency("$");
+    assert!(formatted.contains("[MINT]"));
+    assert!(formatted.contains("$12.5k"));
+}

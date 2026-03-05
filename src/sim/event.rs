@@ -267,6 +267,13 @@ pub enum SimEvent {
         monetized: f64,
         day: u64,
     },
+    MoneyMinted {
+        country_name: String,
+        amount: f64,
+        inflation_shortfall: f64,
+        unemployment_gap: f64,
+        day: u64,
+    },
     StockSecondaryOffering {
         country_name: String,
         company_id: u16,
@@ -336,6 +343,7 @@ impl SimEvent {
             | Self::CouponPaid { .. }
             | Self::BondMatured { .. }
             | Self::BondDefault { .. }
+            | Self::MoneyMinted { .. }
             | Self::DisasterApplied { .. } => EventCategory::GovernmentPolicy,
             Self::ForeignDepositOpened { .. } | Self::ForeignDepositClosed { .. } => {
                 EventCategory::LoansDebt

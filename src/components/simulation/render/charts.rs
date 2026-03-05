@@ -204,15 +204,15 @@ impl Simulation {
                     axis_format: AxisValueFormat::Money,
                 },
                 ChartSpec {
-                    title: "Monthly Goods Import Spending",
+                    title: "Monthly Money Minted",
                     color: Color::LightYellow,
-                    value_fn: Self::metric_monthly_goods_import_spending,
+                    value_fn: Self::metric_monthly_money_minted,
                     axis_format: AxisValueFormat::Money,
                 },
                 ChartSpec {
-                    title: "Monthly Goods Export Revenue",
+                    title: "Cumulative Money Minted",
                     color: Color::LightCyan,
-                    value_fn: Self::metric_monthly_goods_export_revenue,
+                    value_fn: Self::metric_cumulative_money_minted,
                     axis_format: AxisValueFormat::Money,
                 },
             ],
@@ -455,15 +455,9 @@ impl Simulation {
     metric_field_fn!(metric_monthly_tax_collected, monthly_tax_collected);
     metric_field_fn!(metric_monthly_gov_spending, monthly_gov_spending);
     metric_field_fn!(metric_gov_debt, gov_debt);
+    metric_field_fn!(metric_monthly_money_minted, monthly_money_minted);
+    metric_field_fn!(metric_cumulative_money_minted, cumulative_money_minted);
     metric_field_fn!(metric_bonds_outstanding, bonds_outstanding);
-    metric_field_fn!(
-        metric_monthly_goods_import_spending,
-        monthly_goods_import_spending
-    );
-    metric_field_fn!(
-        metric_monthly_goods_export_revenue,
-        monthly_goods_export_revenue
-    );
     metric_field_fn!(metric_cpi_index, cpi_index);
     fn metric_inflation_rate_pct(p: &MetricPoint) -> f64 {
         p.inflation_rate * 100.0

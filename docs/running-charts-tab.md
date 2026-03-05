@@ -40,6 +40,10 @@ The running UI uses one navigation convention across tabs:
     - `Enter`: start editing focused field, then save
     - `r`: reset all editable policy values to country-managed defaults
     - `Esc`: cancel field edit; when not editing, return to country details
+  - Editable fields include tax/fiscal overrides plus minting controls:
+    - `Mint Inflation Gap Weight`
+    - `Mint Unemployment Gap Weight`
+    - `Mint Max Fraction Expected Supply`
 - `Goods`: country/company navigation, company details panel.
   - Company details use fixed pages:
     - page 1: company overview details
@@ -87,7 +91,7 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 | 1 | Treasury Balance | Budget Balance |
 | 2 | Monthly Tax Collected | Monthly Gov Spending |
 | 3 | Government Debt | Bonds Outstanding |
-| 4 | Monthly Goods Import Spending | Monthly Goods Export Revenue |
+| 4 | Monthly Money Minted | Cumulative Money Minted |
 
 ### Page 3 — Prices, Stress & Market Risk
 | Row | Left | Right |

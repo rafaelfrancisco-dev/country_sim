@@ -1,10 +1,5 @@
 use super::World;
-use crate::sim::{
-    bank::BankId,
-    event::SimEvent,
-    money::round_cents,
-    person::ForeignDeposit,
-};
+use crate::sim::{bank::BankId, event::SimEvent, money::round_cents, person::ForeignDeposit};
 
 /// Per-country snapshot used during cross-country deposit processing.
 struct CountryDepositInfo {
@@ -31,9 +26,7 @@ impl World {
             .iter()
             .map(|c| {
                 let best_bank_id = c.public_bank_id_or_first();
-                let annual_rate = best_bank_id
-                    .map(|id| c.deposit_rate_for(id))
-                    .unwrap_or(0.0);
+                let annual_rate = best_bank_id.map(|id| c.deposit_rate_for(id)).unwrap_or(0.0);
                 CountryDepositInfo {
                     id: c.id,
                     name: c.name.clone(),
@@ -124,7 +117,12 @@ impl World {
                     };
                     let returned = fd.balance;
                     let fc_name = infos[op.foreign_c_idx].name.clone();
-                    (returned, fc_name, person.id, self.countries[op.home_c_idx].day)
+                    (
+                        returned,
+                        fc_name,
+                        person.id,
+                        self.countries[op.home_c_idx].day,
+                    )
                 };
 
                 // Debit from foreign bank.
@@ -132,9 +130,8 @@ impl World {
                     let foreign = &mut self.countries[op.foreign_c_idx];
                     foreign.bank.reserve_balance =
                         round_cents((foreign.bank.reserve_balance - returned).max(0.0));
-                    foreign.bank.foreign_deposit_liabilities = round_cents(
-                        (foreign.bank.foreign_deposit_liabilities - returned).max(0.0),
-                    );
+                    foreign.bank.foreign_deposit_liabilities =
+                        round_cents((foreign.bank.foreign_deposit_liabilities - returned).max(0.0));
                 }
                 // Return to person + clear deposit.
                 {
@@ -204,9 +201,8 @@ impl World {
                 if person.cash_balance < params.cross_country_deposit_min_balance {
                     continue;
                 }
-                let surplus = round_cents(
-                    person.cash_balance - params.cross_country_deposit_min_balance,
-                );
+                let surplus =
+                    round_cents(person.cash_balance - params.cross_country_deposit_min_balance);
                 let amount = round_cents(surplus * params.cross_country_deposit_fraction);
                 if amount <= 0.0 {
                     continue;
@@ -239,7 +235,12 @@ impl World {
                     bank_id: op.foreign_bank_id,
                     balance: op.amount,
                 });
-                (person.id, home.name.clone(), home.day, infos[op.foreign_c_idx].id)
+                (
+                    person.id,
+                    home.name.clone(),
+                    home.day,
+                    infos[op.foreign_c_idx].id,
+                )
             };
 
             // Credit foreign bank reserves.

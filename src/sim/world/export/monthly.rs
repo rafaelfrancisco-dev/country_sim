@@ -179,6 +179,8 @@ fn collect_country_data(
         bank_created_money_outstanding: country.total_bank_created_money(),
         expected_money_supply: country.expected_money_supply,
         money_supply_gap: country.money_supply_gap,
+        monthly_money_minted: country.monthly_money_minted,
+        cumulative_money_minted: country.cumulative_money_minted,
         employed_count,
         unemployed_count,
         labor_force_count,
@@ -391,6 +393,9 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::BondDefault {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::MoneyMinted {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::StockSecondaryOffering {

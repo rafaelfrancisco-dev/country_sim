@@ -148,7 +148,7 @@ pub(super) fn payroll_and_taxes_only_apply_when_employed() {
 }
 
 #[test]
-pub(super) fn money_is_created_by_loan_issuance_only() {
+pub(super) fn expected_money_supply_tracks_created_and_minted_money() {
     let companies = build_default_companies("A", 2);
     let mut people = build_people(2);
     people[0].cash_balance = -500.0;
@@ -158,8 +158,11 @@ pub(super) fn money_is_created_by_loan_issuance_only() {
     country.recompute_aggregates();
 
     assert!(country.bank.total_originated >= 0.0);
-    let expected =
-        round_cents(country.initial_money_supply + country.bank.created_money_outstanding);
+    let expected = round_cents(
+        country.initial_money_supply
+            + country.bank.created_money_outstanding
+            + country.cumulative_money_minted,
+    );
     assert!((country.expected_money_supply - expected).abs() < f64::EPSILON);
 }
 
@@ -198,13 +201,7 @@ pub(super) fn daily_job_market_hires_bank_workers_even_without_companies() {
         EducationTrack::HighSchool,
     );
     person.cash_balance = -5_000.0;
-    let mut country = Country::with_economy(
-        1,
-        "A".to_string(),
-        vec![person],
-        Vec::new(),
-        0.0,
-    );
+    let mut country = Country::with_economy(1, "A".to_string(), vec![person], Vec::new(), 0.0);
     country.bank.add_opening(2, 1);
 
     let mut params = SimulationParams::default();

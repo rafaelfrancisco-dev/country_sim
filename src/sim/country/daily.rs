@@ -267,7 +267,9 @@ impl Country {
                 }
 
                 let try_bank_first = match (intent.preferred, intent.preferred_bank) {
-                    (Some(_), Some(_)) => hash64(intent.seek_seed ^ 0x4241_4e4b_u64).is_multiple_of(2),
+                    (Some(_), Some(_)) => {
+                        hash64(intent.seek_seed ^ 0x4241_4e4b_u64).is_multiple_of(2)
+                    }
                     (None, Some(_)) => true,
                     _ => false,
                 };
@@ -331,7 +333,8 @@ impl Country {
 
         if let Some((company_idx, job_type_id)) = preferred
             && let Some(company) = self.companies.get_mut(company_idx)
-            && let Some((job_id, offered_salary)) = consume_opening_by_job_type(company, job_type_id)
+            && let Some((job_id, offered_salary)) =
+                consume_opening_by_job_type(company, job_type_id)
         {
             if let Some(person) = self.people.get_mut(person_idx)
                 && !person.is_employed()
@@ -393,7 +396,8 @@ impl Country {
             } else {
                 return false;
             };
-            if let Some((job_id, offered_salary)) = self.consume_bank_hire(current_bank_id, job_type_id)
+            if let Some((job_id, offered_salary)) =
+                self.consume_bank_hire(current_bank_id, job_type_id)
                 && let Some(person) = self.people.get_mut(person_idx)
                 && !person.is_employed()
             {
@@ -404,7 +408,11 @@ impl Country {
         false
     }
 
-    fn consume_bank_hire(&mut self, bank_id: BankId, job_type_id: JobTypeId) -> Option<(JobTypeId, f64)> {
+    fn consume_bank_hire(
+        &mut self,
+        bank_id: BankId,
+        job_type_id: JobTypeId,
+    ) -> Option<(JobTypeId, f64)> {
         if self.bank.id == bank_id {
             return consume_bank_opening_by_job_type(&mut self.bank, job_type_id);
         }

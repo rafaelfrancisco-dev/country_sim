@@ -19,6 +19,18 @@ fn make_employed_person(id: u32, company_id: u16, salary: f64, cash_balance: f64
     person
 }
 
+fn make_unemployed_person(id: u32, cash_balance: f64) -> Person {
+    let mut person = Person::new_with_profile(
+        id,
+        EmploymentStatus::Unemployed,
+        20_000 + id,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    person.cash_balance = cash_balance;
+    person
+}
+
 #[test]
 fn end_of_month_loan_approval_is_higher_when_policy_rate_is_lower() {
     let mut companies = build_default_companies("A", 1);
@@ -182,4 +194,77 @@ fn higher_policy_rates_reduce_price_pressure_and_inflation() {
 
     assert!(low_rate_country.companies[0].unit_price > high_rate_country.companies[0].unit_price);
     assert!(low_rate_country.monthly_inflation_rate > high_rate_country.monthly_inflation_rate);
+}
+
+#[test]
+fn auto_money_minting_caps_and_tracks_monthly_and_cumulative_amounts() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.mint_inflation_gap_weight = 0.20;
+    params.monetary.mint_unemployment_gap_weight = 0.10;
+    params.monetary.mint_max_fraction_expected_supply = 0.01;
+    params.monetary.deposit_spread = 1.0;
+
+    let people = vec![
+        make_employed_person(1, 0, 3_000.0, 10_000.0),
+        make_unemployed_person(2, 10_000.0),
+    ];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+    let expected_before = country.expected_money_supply;
+    let expected_mint = round_cents(expected_before * 0.01);
+
+    country.process_month_end();
+
+    assert!((country.monthly_money_minted - expected_mint).abs() <= 0.01);
+    assert!((country.cumulative_money_minted - expected_mint).abs() <= 0.01);
+    assert!((country.expected_money_supply - (expected_before + expected_mint)).abs() <= 0.01);
+    assert!(country.validate_money_invariants().is_empty());
+    assert!(country.pending_events.iter().any(|event| {
+        matches!(event, SimEvent::MoneyMinted { amount, .. } if (*amount - expected_mint).abs() <= 0.01)
+    }));
+}
+
+#[test]
+fn auto_money_minting_skips_when_no_positive_inflation_or_unemployment_gap() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.mint_inflation_gap_weight = 0.50;
+    params.monetary.mint_unemployment_gap_weight = 0.50;
+    params.monetary.mint_max_fraction_expected_supply = 0.05;
+    params.monetary.deposit_spread = 1.0;
+
+    let people = vec![make_employed_person(1, 0, 3_000.0, 10_000.0)];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+    country.monthly_inflation_rate = 0.04;
+    let expected_before = country.expected_money_supply;
+
+    country.process_month_end();
+
+    assert_eq!(country.monthly_money_minted, 0.0);
+    assert_eq!(country.cumulative_money_minted, 0.0);
+    assert!((country.expected_money_supply - expected_before).abs() <= 0.01);
+    assert!(
+        !country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::MoneyMinted { .. }))
+    );
 }

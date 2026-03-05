@@ -67,6 +67,14 @@ pub struct MonetaryPolicyParams {
     /// Exponential smoothing factor for annualized month-over-month inflation.
     /// 1.0 = no smoothing, 0.0 = fully static.
     pub inflation_ema_alpha: f64,
+    /// Weight applied to inflation shortfall when computing automatic minting.
+    /// Contribution uses `max(target_inflation_rate - inflation, 0)`.
+    pub mint_inflation_gap_weight: f64,
+    /// Weight applied to unemployment gap when computing automatic minting.
+    /// Contribution uses `max(unemployment - natural_unemployment_rate, 0)`.
+    pub mint_unemployment_gap_weight: f64,
+    /// Max monthly minted amount as a fraction of expected money supply.
+    pub mint_max_fraction_expected_supply: f64,
 }
 
 impl Default for MonetaryPolicyParams {
@@ -105,6 +113,9 @@ impl Default for MonetaryPolicyParams {
             sell_through_shift_max: 0.05,
             sell_through_shift_strength: 0.04,
             inflation_ema_alpha: 0.35,
+            mint_inflation_gap_weight: 0.20,
+            mint_unemployment_gap_weight: 0.10,
+            mint_max_fraction_expected_supply: 0.01,
         }
     }
 }

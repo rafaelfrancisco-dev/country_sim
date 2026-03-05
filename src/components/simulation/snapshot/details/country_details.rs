@@ -154,6 +154,14 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Bonds Matured: {}",
             money(country.monthly_bonds_matured, currency_symbol)
         ),
+        format!(
+            "MTD Money Minted: {}",
+            money(country.monthly_money_minted, currency_symbol)
+        ),
+        format!(
+            "Cumulative Money Minted: {}",
+            money(country.cumulative_money_minted, currency_symbol)
+        ),
         String::new(),
         "Prices & Rates:".to_string(),
         format!("CPI Index: {:.4}", country.cpi_index),
@@ -301,6 +309,30 @@ pub(in crate::components::simulation) fn country_policy_lines(
             country.sim_params.fiscal.basic_needs_cash_threshold,
             false,
             true,
+        ),
+        (
+            CountryPolicyField::MintInflationGapWeight,
+            "Mint Inflation Gap Weight",
+            country.sim_params.monetary.mint_inflation_gap_weight,
+            true,
+            false,
+        ),
+        (
+            CountryPolicyField::MintUnemploymentGapWeight,
+            "Mint Unemployment Gap Weight",
+            country.sim_params.monetary.mint_unemployment_gap_weight,
+            true,
+            false,
+        ),
+        (
+            CountryPolicyField::MintMaxFractionExpectedSupply,
+            "Mint Max Fraction Expected Supply",
+            country
+                .sim_params
+                .monetary
+                .mint_max_fraction_expected_supply,
+            true,
+            false,
         ),
     ];
 

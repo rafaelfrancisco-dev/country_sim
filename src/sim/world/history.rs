@@ -94,6 +94,16 @@ impl World {
             .map(|country| country.monthly_gov_spending)
             .sum();
         let gov_debt = self.countries.iter().map(|country| country.gov_debt).sum();
+        let monthly_money_minted = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_money_minted)
+            .sum();
+        let cumulative_money_minted = self
+            .countries
+            .iter()
+            .map(|country| country.cumulative_money_minted)
+            .sum();
         let monthly_goods_import_spending = self
             .countries
             .iter()
@@ -187,6 +197,8 @@ impl World {
             monthly_tax_collected,
             monthly_gov_spending,
             gov_debt,
+            monthly_money_minted,
+            cumulative_money_minted,
             monthly_goods_import_spending,
             monthly_goods_export_revenue,
             monthly_unmet_need_events,
@@ -219,6 +231,8 @@ impl World {
             monthly_tax_collected: country.monthly_tax_collected,
             monthly_gov_spending: country.monthly_gov_spending,
             gov_debt: country.gov_debt,
+            monthly_money_minted: country.monthly_money_minted,
+            cumulative_money_minted: country.cumulative_money_minted,
             monthly_goods_import_spending: country.monthly_goods_import_spending,
             monthly_goods_export_revenue: country.monthly_goods_export_revenue,
             monthly_unmet_need_events: country.monthly_unmet_need_events as f64,

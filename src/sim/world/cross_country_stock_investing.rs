@@ -19,7 +19,9 @@ impl World {
                 continue;
             }
 
-            let invest_fraction = params.cross_country_bank_invest_fraction_monthly.clamp(0.0, 1.0);
+            let invest_fraction = params
+                .cross_country_bank_invest_fraction_monthly
+                .clamp(0.0, 1.0);
             if invest_fraction <= 0.0 {
                 continue;
             }
@@ -52,7 +54,8 @@ impl World {
                     .get(home_idx)
                     .and_then(|country| country.bank_by_id(bank_id))
                     .map_or(0.0, |bank| bank.created_money_outstanding.max(0.0));
-                let deployable_capacity = round_cents(reserve_balance + created_money_outstanding * 0.10);
+                let deployable_capacity =
+                    round_cents(reserve_balance + created_money_outstanding * 0.10);
                 if deployable_capacity <= 0.0 {
                     continue;
                 }
@@ -67,10 +70,8 @@ impl World {
                 }
 
                 for &target_idx in &target_indices {
-                    let Some((company_id, price)) = self
-                        .countries
-                        .get(target_idx)
-                        .and_then(|country| {
+                    let Some((company_id, price)) =
+                        self.countries.get(target_idx).and_then(|country| {
                             country
                                 .stock_market
                                 .listed
@@ -135,13 +136,16 @@ impl World {
                     let settlement_bank_id = target_country_mut
                         .stock_market_bank_id()
                         .unwrap_or(target_country_mut.bank.id);
-                    if let Some(settlement_bank) = target_country_mut.bank_by_id_mut(settlement_bank_id)
+                    if let Some(settlement_bank) =
+                        target_country_mut.bank_by_id_mut(settlement_bank_id)
                     {
                         settlement_bank.reserve_balance =
                             round_cents(settlement_bank.reserve_balance + cost);
                     }
 
-                    if let Some(equity) = target_country_mut.stock_market.listed.get_mut(&company_id) {
+                    if let Some(equity) =
+                        target_country_mut.stock_market.listed.get_mut(&company_id)
+                    {
                         equity.record_trade(shares, price);
                     }
                 }

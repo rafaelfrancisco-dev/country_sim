@@ -367,10 +367,12 @@ impl StockMarket {
     }
 
     fn ticker_in_use_by_other(&self, ticker: &str, company_id: u16) -> bool {
-        self.listed.iter().any(|(listed_company_id, listed_equity)| {
-            *listed_company_id != company_id
-                && listed_equity.ticker.eq_ignore_ascii_case(ticker)
-        })
+        self.listed
+            .iter()
+            .any(|(listed_company_id, listed_equity)| {
+                *listed_company_id != company_id
+                    && listed_equity.ticker.eq_ignore_ascii_case(ticker)
+            })
     }
 
     fn distinct_ticker_for_listing(&self, company_id: u16, preferred: &str) -> String {

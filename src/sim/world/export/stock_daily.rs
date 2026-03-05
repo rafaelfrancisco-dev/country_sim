@@ -148,6 +148,8 @@ pub struct CountryExportData {
     pub bank_created_money_outstanding: f64,
     pub expected_money_supply: f64,
     pub money_supply_gap: f64,
+    pub monthly_money_minted: f64,
+    pub cumulative_money_minted: f64,
 
     // people_agg
     pub employed_count: usize,

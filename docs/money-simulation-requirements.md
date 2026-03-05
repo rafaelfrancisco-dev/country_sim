@@ -238,6 +238,24 @@ bank_loan_rate = clamp(policy_rate + credit_spread, rate_floor, rate_ceiling)
 ```
 Default `credit_spread` = 3%, so the starting effective rate is 7% (4% neutral + 3% spread).
 
+### Automatic Money Minting (Default-On)
+Each country runs an automatic minting pass at month-end after CPI/deposit-liability recomputation:
+
+```
+inflation_shortfall = max(target_inflation_rate - monthly_inflation_rate, 0)
+unemployment_gap = max(unemployment_rate - natural_unemployment_rate, 0)
+mint_fraction_raw =
+    inflation_shortfall * mint_inflation_gap_weight +
+    unemployment_gap * mint_unemployment_gap_weight
+mint_fraction = clamp(mint_fraction_raw, 0, mint_max_fraction_expected_supply)
+mint_amount = expected_money_supply * mint_fraction
+```
+
+- Minted money is injected into the country's **public bank reserve** (`Country.bank.reserve_balance`).
+- `monthly_money_minted` tracks month-to-date minting and resets each month.
+- `cumulative_money_minted` tracks lifetime minting and feeds expected-supply accounting.
+- Event emitted: `MoneyMinted` (`[MINT]`) with amount + macro gaps.
+
 ### Monetary Transmission to the Real Economy
 Policy now propagates into economy behavior through smooth, bounded multipliers centered on the neutral loan rate:
 
@@ -309,6 +327,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `CouponPaid` | `[COUP]` | Monthly coupon distributed |
 | `BondMatured` | `[BOND=]` | Bond repaid at maturity |
 | `BondDefault` | `[BDFLT]` | Treasury couldn't repay; shortfall monetized |
+| `MoneyMinted` | `[MINT]` | Automatic month-end mint into public-bank reserve |
 
 ### Configuration (`MonetaryPolicyParams`)
 | Field | Default | Description |
@@ -330,6 +349,9 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `policy_rate_step` | 0.0025 | Discrete step size for rate moves (25 bps per month) |
 | `deposit_spread` | 0.01 | Deposit rate = `max(0, policy_rate − deposit_spread)` |
 | `savings_min_balance` | 200.0 | Minimum cash balance required to earn deposit interest |
+| `mint_inflation_gap_weight` | 0.20 | Weight on inflation shortfall in minting rule |
+| `mint_unemployment_gap_weight` | 0.10 | Weight on unemployment gap in minting rule |
+| `mint_max_fraction_expected_supply` | 0.01 | Upper cap on monthly minting as fraction of expected supply |
 
 ## Multi-Bank System
 - Each country has:
@@ -468,9 +490,10 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 24. Stock dividends.
 25. **CPI recompute** — update `cpi_index` and `monthly_inflation_rate` from current company prices.
 26. Recompute bank deposit liabilities.
-27. Month increment and aggregate recomputation.
+27. **Automatic money minting** — rule-based reserve injection to the public bank.
+28. Month increment and aggregate recomputation.
 
-*World-level after all countries complete steps 1–27:*
+*World-level after all countries complete steps 1–28:*
 - Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
 - **Cross-country deposit processing** — interest paid, distress recalls executed, new foreign deposits opened.
 - Monthly snapshot captured (picks up the new rate).
@@ -480,11 +503,11 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 - Treasury inflows are from taxation and deceased-person cash transfer.
 - Treasury outflows are government benefit transfers to households.
 - Government transfers are balance-neutral: treasury decreases by the same amount household cash increases, leaving total money supply unchanged.
-- Net new money enters via loan issuance only.
+- Net new money enters via loan issuance and automatic money minting.
 - Repaying or writing off created principal decreases created-money outstanding.
 - Savings interest is a redistribution from bank reserves to household/company cash; it increases total measured money supply by the same amount bank reserves decrease (bank reserves are part of the money supply).
 - Tracked money supply remains close to:
-  - `initial_supply + Σ(bank.created_money_outstanding)`
+  - `initial_supply + Σ(bank.created_money_outstanding) + cumulative_money_minted`
 
 ## Stock Market Microstructure
 

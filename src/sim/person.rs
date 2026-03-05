@@ -76,8 +76,14 @@ pub enum EmploymentStatus {
 /// Result of clearing a person's employment, identifying who the employer was.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ClearedEmployment {
-    Company { company_id: u16, job_type_id: JobTypeId },
-    Bank { bank_id: u16, job_type_id: JobTypeId },
+    Company {
+        company_id: u16,
+        job_type_id: JobTypeId,
+    },
+    Bank {
+        bank_id: u16,
+        job_type_id: JobTypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -264,7 +270,10 @@ impl Person {
             }
             _ => Some(current_day),
         };
-        self.employment = EmploymentStatus::EmployedAtBank { job_type_id, bank_id };
+        self.employment = EmploymentStatus::EmployedAtBank {
+            job_type_id,
+            bank_id,
+        };
         self.employment_start_day = next_start_day;
         self.agreed_monthly_salary = salary.max(0.0);
     }
@@ -294,9 +303,13 @@ impl Person {
                 company_id: employer_company_id,
                 job_type_id,
             }),
-            EmploymentStatus::EmployedAtBank { job_type_id, bank_id } => {
-                Some(ClearedEmployment::Bank { bank_id, job_type_id })
-            }
+            EmploymentStatus::EmployedAtBank {
+                job_type_id,
+                bank_id,
+            } => Some(ClearedEmployment::Bank {
+                bank_id,
+                job_type_id,
+            }),
         }
     }
 
@@ -304,7 +317,10 @@ impl Person {
     /// company-employed people. Used by callers that only care about company employees.
     pub fn clear_company_employment(&mut self) -> Option<(u16, JobTypeId)> {
         match self.clear_employment()? {
-            ClearedEmployment::Company { company_id, job_type_id } => Some((company_id, job_type_id)),
+            ClearedEmployment::Company {
+                company_id,
+                job_type_id,
+            } => Some((company_id, job_type_id)),
             ClearedEmployment::Bank { .. } => None,
         }
     }

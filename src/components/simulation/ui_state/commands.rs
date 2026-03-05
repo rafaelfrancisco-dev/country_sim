@@ -280,9 +280,12 @@ impl UiState {
             CountryPolicyField::TaxRate1
             | CountryPolicyField::TaxRate2
             | CountryPolicyField::TaxRate3
-            | CountryPolicyField::UnemploymentBenefitRate => (0.0..=1.0).contains(&value),
+            | CountryPolicyField::UnemploymentBenefitRate
+            | CountryPolicyField::MintMaxFractionExpectedSupply => (0.0..=1.0).contains(&value),
             CountryPolicyField::MedianIncomeReference
-            | CountryPolicyField::BasicNeedsCashThreshold => value >= 0.0,
+            | CountryPolicyField::BasicNeedsCashThreshold
+            | CountryPolicyField::MintInflationGapWeight
+            | CountryPolicyField::MintUnemploymentGapWeight => value >= 0.0,
         };
         if !is_valid {
             self.country_policy_form.validation_error =
@@ -301,6 +304,13 @@ impl UiState {
             CountryPolicyField::MedianIncomeReference => policy.median_income_reference = value,
             CountryPolicyField::BasicNeedsCashThreshold => {
                 policy.basic_needs_cash_threshold = value
+            }
+            CountryPolicyField::MintInflationGapWeight => policy.mint_inflation_gap_weight = value,
+            CountryPolicyField::MintUnemploymentGapWeight => {
+                policy.mint_unemployment_gap_weight = value
+            }
+            CountryPolicyField::MintMaxFractionExpectedSupply => {
+                policy.mint_max_fraction_expected_supply = value
             }
         }
 
@@ -328,6 +338,13 @@ impl UiState {
             CountryPolicyField::BasicNeedsCashThreshold => {
                 "Basic-needs cash threshold must be >= 0."
             }
+            CountryPolicyField::MintInflationGapWeight => "Mint inflation-gap weight must be >= 0.",
+            CountryPolicyField::MintUnemploymentGapWeight => {
+                "Mint unemployment-gap weight must be >= 0."
+            }
+            CountryPolicyField::MintMaxFractionExpectedSupply => {
+                "Mint max fraction must be between 0 and 1."
+            }
         }
     }
 
@@ -350,6 +367,18 @@ impl UiState {
             CountryPolicyField::BasicNeedsCashThreshold => {
                 country.sim_params.fiscal.basic_needs_cash_threshold
             }
+            CountryPolicyField::MintInflationGapWeight => {
+                country.sim_params.monetary.mint_inflation_gap_weight
+            }
+            CountryPolicyField::MintUnemploymentGapWeight => {
+                country.sim_params.monetary.mint_unemployment_gap_weight
+            }
+            CountryPolicyField::MintMaxFractionExpectedSupply => {
+                country
+                    .sim_params
+                    .monetary
+                    .mint_max_fraction_expected_supply
+            }
         }
     }
 
@@ -358,7 +387,10 @@ impl UiState {
             CountryPolicyField::TaxRate1
             | CountryPolicyField::TaxRate2
             | CountryPolicyField::TaxRate3
-            | CountryPolicyField::UnemploymentBenefitRate => format!("{value:.4}"),
+            | CountryPolicyField::UnemploymentBenefitRate
+            | CountryPolicyField::MintInflationGapWeight
+            | CountryPolicyField::MintUnemploymentGapWeight
+            | CountryPolicyField::MintMaxFractionExpectedSupply => format!("{value:.4}"),
             CountryPolicyField::TaxBracket1Max
             | CountryPolicyField::TaxBracket2Max
             | CountryPolicyField::MedianIncomeReference

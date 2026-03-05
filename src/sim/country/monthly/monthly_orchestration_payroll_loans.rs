@@ -45,6 +45,7 @@ impl Country {
         self.process_stock_dividends();
         self.recompute_cpi(); // [F]
         self.recompute_bank_deposit_liabilities();
+        self.process_auto_money_minting();
 
         self.month = self.month.saturating_add(1);
         self.recompute_aggregates();
@@ -86,6 +87,7 @@ impl Country {
         let dividends_ms = time_op!(self.process_stock_dividends());
         let cpi_ms = time_op!(self.recompute_cpi());
         time_op!(self.recompute_bank_deposit_liabilities());
+        self.process_auto_money_minting();
 
         self.month = self.month.saturating_add(1);
 
@@ -134,6 +136,7 @@ impl Country {
         self.monthly_bonds_issued = 0.0;
         self.monthly_bonds_matured = 0.0;
         self.monthly_savings_interest_paid = 0.0;
+        self.monthly_money_minted = 0.0;
         self.stock_market.reset_mtd_trackers();
 
         self.people

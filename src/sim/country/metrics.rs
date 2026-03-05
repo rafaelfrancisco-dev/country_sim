@@ -39,7 +39,8 @@ impl Country {
         self.total_money_supply = from_cents(total_money_supply_cents);
 
         let expected_money_supply_cents = to_cents(self.initial_money_supply)
-            .saturating_add(to_cents(self.total_bank_created_money()));
+            .saturating_add(to_cents(self.total_bank_created_money()))
+            .saturating_add(to_cents(self.cumulative_money_minted));
         self.expected_money_supply = from_cents(expected_money_supply_cents);
         self.money_supply_gap =
             from_cents(total_money_supply_cents.saturating_sub(expected_money_supply_cents));
@@ -47,7 +48,11 @@ impl Country {
 
     pub fn validate_money_invariants(&self) -> Vec<InvariantViolation> {
         let mut violations = Vec::new();
-        let expected = round_cents(self.initial_money_supply + self.total_bank_created_money());
+        let expected = round_cents(
+            self.initial_money_supply
+                + self.total_bank_created_money()
+                + self.cumulative_money_minted,
+        );
         if (self.expected_money_supply - expected).abs() > 0.01 {
             violations.push(InvariantViolation {
                 code: "expected_supply_mismatch",
