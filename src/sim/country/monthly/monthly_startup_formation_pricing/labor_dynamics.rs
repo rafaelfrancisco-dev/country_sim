@@ -12,60 +12,122 @@ impl Country {
             .switch_raise_threshold
             .max(0.0);
         for person_idx in 0..self.people.len() {
-            let (person_id, current_company_id, current_job_id, current_salary) = {
+            let (person_id, current_job_id, current_salary) = {
                 let person = &self.people[person_idx];
-                let Some(company_id) = person.employer_company_id() else {
+                if !person.is_employed() {
                     continue;
-                };
+                }
                 let Some(job_id) = person.job_type_id() else {
                     continue;
                 };
-                (person.id, company_id, job_id, person.monthly_salary())
+                (person.id, job_id, person.monthly_salary())
             };
 
             let min_target_salary = current_salary * (1.0 + raise_threshold);
-            let Some((target_company_idx, target_opening_idx)) =
-                self.best_switch_opening(current_company_id, current_job_id, min_target_salary)
-            else {
-                continue;
-            };
 
-            let Some((job_id, new_salary)) = self
-                .companies
-                .get_mut(target_company_idx)
-                .and_then(|company| company.consume_opening(target_opening_idx))
-            else {
-                continue;
-            };
-
-            if let Some(old_company) = self.companies.get_mut(current_company_id as usize) {
-                old_company.add_opening_with_salary(current_job_id, 1, current_salary);
-            }
-
-            if let Some(person) = self.people.get_mut(person_idx) {
-                if person.employer_company_id() != Some(current_company_id)
-                    || person.job_type_id() != Some(current_job_id)
-                {
-                    if let Some(target_company) = self.companies.get_mut(target_company_idx) {
-                        target_company.add_opening_with_salary(job_id, 1, new_salary);
-                    }
+            // Company → Company or Bank → Company switch
+            if let Some(current_company_id) = self.people[person_idx].employer_company_id() {
+                let Some((target_company_idx, target_opening_idx)) =
+                    self.best_switch_opening(current_company_id, current_job_id, min_target_salary)
+                else {
                     continue;
+                };
+
+                let Some((job_id, new_salary)) = self
+                    .companies
+                    .get_mut(target_company_idx)
+                    .and_then(|company| company.consume_opening(target_opening_idx))
+                else {
+                    continue;
+                };
+
+                // Give back opening to old employer
+                if let Some(old_company) = self.companies.get_mut(current_company_id as usize) {
+                    old_company.add_opening_with_salary(current_job_id, 1, current_salary);
                 }
 
-                person.set_employment_with_salary(
-                    target_company_idx as u16,
-                    job_id,
-                    new_salary,
-                    self.day,
-                );
-                self.pending_events.push(SimEvent::JobSwitched {
-                    country_name: self.name.clone(),
-                    person_id,
-                    from_company_id: current_company_id,
-                    to_company_id: target_company_idx as u16,
-                    monthly_salary: new_salary,
-                    day: self.day,
-                });
+                if let Some(person) = self.people.get_mut(person_idx) {
+                    if person.employer_company_id() != Some(current_company_id)
+                        || person.job_type_id() != Some(current_job_id)
+                    {
+                        if let Some(target_company) = self.companies.get_mut(target_company_idx) {
+                            target_company.add_opening_with_salary(job_id, 1, new_salary);
+                        }
+                        continue;
+                    }
+
+                    person.set_employment_with_salary(
+                        target_company_idx as u16,
+                        job_id,
+                        new_salary,
+                        self.day,
+                    );
+                    self.pending_events.push(SimEvent::JobSwitched {
+                        country_name: self.name.clone(),
+                        person_id,
+                        from_company_id: current_company_id,
+                        to_company_id: target_company_idx as u16,
+                        monthly_salary: new_salary,
+                        day: self.day,
+                    });
+                }
+                continue;
+            }
+
+            // EmployedAtBank: see if any company offers a raise
+            if let Some(current_bank_id) = self.people[person_idx].employer_bank_id() {
+                // Find a dummy company_id=u16::MAX as sentinel for best_switch_opening
+                // but we need a function that ignores bank employer. Reuse best_switch_opening
+                // with a sentinel company_id that won't match anything.
+                let Some((target_company_idx, target_opening_idx)) =
+                    self.best_switch_opening(u16::MAX, current_job_id, min_target_salary)
+                else {
+                    continue;
+                };
+
+                let Some((job_id, new_salary)) = self
+                    .companies
+                    .get_mut(target_company_idx)
+                    .and_then(|company| company.consume_opening(target_opening_idx))
+                else {
+                    continue;
+                };
+
+                // Return opening to old bank
+                let bank_opt = if self.bank.id == current_bank_id {
+                    Some(&mut self.bank)
+                } else {
+                    self.banks.iter_mut().find(|b| b.id == current_bank_id)
+                };
+                if let Some(bank) = bank_opt {
+                    bank.add_opening_with_salary(current_job_id, 1, current_salary);
+                }
+
+                if let Some(person) = self.people.get_mut(person_idx) {
+                    if person.employer_bank_id() != Some(current_bank_id)
+                        || person.job_type_id() != Some(current_job_id)
+                    {
+                        if let Some(target_company) = self.companies.get_mut(target_company_idx) {
+                            target_company.add_opening_with_salary(job_id, 1, new_salary);
+                        }
+                        continue;
+                    }
+
+                    person.set_employment_with_salary(
+                        target_company_idx as u16,
+                        job_id,
+                        new_salary,
+                        self.day,
+                    );
+                    self.pending_events.push(SimEvent::JobSwitched {
+                        country_name: self.name.clone(),
+                        person_id,
+                        from_company_id: u16::MAX,
+                        to_company_id: target_company_idx as u16,
+                        monthly_salary: new_salary,
+                        day: self.day,
+                    });
+                }
             }
         }
     }

@@ -102,28 +102,33 @@ impl Country {
             return;
         }
 
-        let mut created = 0_u16;
         let private_count = std::iter::once(&self.bank)
             .chain(self.banks.iter())
             .filter(|bank| bank.kind == BankKind::Private)
             .count();
-        let total_deposits = self.total_bank_deposit_liabilities().max(1.0);
-        let recent_haircut_loss = self
-            .pending_events
-            .iter()
-            .filter_map(|event| match event {
-                SimEvent::BankDepositHaircut { amount_lost, .. } => Some(*amount_lost),
-                _ => None,
-            })
-            .sum::<f64>();
-        let haircut_ratio = recent_haircut_loss / total_deposits;
-        let unemployment = self.labor_force_unemployment_rate();
 
-        if private_count == 0
-            && created < params.max_new_banks_per_month
+        // Allow up to max_private_banks private banks (not just the first one).
+        let max_private = params.max_private_banks as usize;
+        if private_count < max_private
             && let Some((bank_id, seed_capital)) = self.form_private_bank_from_founders()
         {
-            created = created.saturating_add(1);
+            // Give new private bank its initial job openings
+            let bank_employee_job_types = params.bank_employee_job_types;
+            let bank_wage_multiplier = params.bank_wage_multiplier.max(1.0);
+            if let Some(new_bank) = self.bank_by_id_mut(bank_id) {
+                let target = new_bank.target_employee_count(
+                    new_bank.deposit_liabilities,
+                    params.bank_min_employees,
+                    params.bank_max_employees,
+                    params.bank_employees_per_deposit_unit,
+                );
+                for i in 0..target {
+                    let job_id = bank_employee_job_types[i as usize % bank_employee_job_types.len()];
+                    let salary = round_cents(salary_for_job(job_id) * bank_wage_multiplier);
+                    new_bank.add_opening_with_salary(job_id, 1, salary);
+                }
+            }
+
             self.pending_events.push(SimEvent::BankFounded {
                 country_name: self.name.clone(),
                 bank_id,
@@ -137,49 +142,42 @@ impl Country {
             });
         }
 
-        let needs_public_expansion = self.public_bank_id.is_none()
-            || (private_count > 0
-                && (unemployment >= params.public_bank_creation_unemployment_trigger
-                    || haircut_ratio >= params.public_bank_creation_loss_trigger
-                    || self
-                        .public_bank_id
-                        .and_then(|id| self.bank_by_id(id))
-                        .is_none_or(|bank| bank.health_score() < 0.35)));
-
-        if needs_public_expansion && created < params.max_new_banks_per_month {
-            let required_capital = round_cents(params.min_private_bank_seed_capital.max(1.0) * 2.0);
-            let treasury_funding =
-                round_cents(required_capital.min(self.treasury_balance.max(0.0)));
-            self.treasury_balance = round_cents(self.treasury_balance - treasury_funding);
-            let deficit_need = round_cents((required_capital - treasury_funding).max(0.0));
-            let deficit_funding = if deficit_need > 0.0 {
-                self.bank.fund_government_deficit(deficit_need)
-            } else {
-                0.0
-            };
-            if deficit_funding > 0.0 {
-                self.gov_debt = round_cents(self.gov_debt + deficit_funding);
-            }
-            let total = round_cents(treasury_funding + deficit_funding);
-            if total > 0.0
-                && let Some(bank_id) = self.create_bank(BankKind::Public, total)
-            {
-                self.treasury_bank_id = Some(bank_id);
-                self.pending_events.push(SimEvent::BankFounded {
-                    country_name: self.name.clone(),
-                    bank_id,
-                    bank_name: self
-                        .bank_by_id(bank_id)
-                        .map(|bank| bank.name.clone())
-                        .unwrap_or_else(|| format!("{} Public Bank", self.name)),
-                    kind: BankKind::Public,
-                    seed_capital: total,
-                    day: self.day,
-                });
-            }
+        // There is always exactly ONE public bank per country (self.bank, id=0).
+        // Recapitalize when it has meaningful deposit obligations it can't meet.
+        // Guard: require deposit_liabilities > 10% of recapitalize_amount so we
+        // don't false-trigger on a bank that simply has no loans/reserves yet.
+        let min_deposits_to_recapitalize = params.public_bank_recapitalize_amount * 0.1;
+        if self.bank.deposit_liabilities >= min_deposits_to_recapitalize
+            && self.bank.health_score() < 0.35
+        {
+            self.recapitalize_public_bank(params.public_bank_recapitalize_amount);
         }
 
         self.ensure_entity_deposit_assignments();
+    }
+
+    /// Inject capital into the single public bank from treasury / monetization.
+    fn recapitalize_public_bank(&mut self, amount: f64) {
+        let amount = round_cents(amount.max(0.0));
+        if amount <= 0.0 {
+            return;
+        }
+        let treasury_funding = round_cents(amount.min(self.treasury_balance.max(0.0)));
+        self.treasury_balance = round_cents(self.treasury_balance - treasury_funding);
+        let deficit_need = round_cents((amount - treasury_funding).max(0.0));
+        let deficit_funding = if deficit_need > 0.0 {
+            self.bank.fund_government_deficit(deficit_need)
+        } else {
+            0.0
+        };
+        if deficit_funding > 0.0 {
+            self.gov_debt = round_cents(self.gov_debt + deficit_funding);
+        }
+        let total = round_cents(treasury_funding + deficit_funding);
+        if total > 0.0 {
+            self.bank.reserve_balance = round_cents(self.bank.reserve_balance + total);
+            self.bank.equity_capital = round_cents(self.bank.equity_capital + total);
+        }
     }
 
     fn form_private_bank_from_founders(&mut self) -> Option<(u16, f64)> {
@@ -495,4 +493,5 @@ impl Country {
             }
         }
     }
+
 }

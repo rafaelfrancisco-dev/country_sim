@@ -78,5 +78,13 @@ pub(in crate::components::simulation) fn bank_details_lines(
             }
         ),
         format!("Months In Resolution: {}", bank.months_in_resolution),
+        String::new(),
+        "Employment:".to_string(),
+        format!("Employees: {}", bank.employee_count),
+        format!("Open Positions: {}", bank.open_position_count()),
+        format!(
+            "Monthly Payroll Paid: {}",
+            money(bank.last_month_payroll_paid, currency_symbol)
+        ),
     ]
 }

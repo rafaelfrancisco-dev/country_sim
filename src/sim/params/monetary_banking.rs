@@ -124,8 +124,30 @@ pub struct BankingSystemParams {
     pub min_private_bank_founders: usize,
     pub min_private_bank_seed_capital: f64,
     pub max_new_banks_per_month: u16,
-    pub public_bank_creation_unemployment_trigger: f64,
-    pub public_bank_creation_loss_trigger: f64,
+    /// Maximum number of private banks allowed per country.
+    pub max_private_banks: u16,
+    /// Amount of capital injected when recapitalizing the public bank.
+    pub public_bank_recapitalize_amount: f64,
+    // --- Cross-country deposits ---
+    /// Minimum local cash balance required for a person to open a foreign deposit.
+    pub cross_country_deposit_min_balance: f64,
+    /// Minimum annual rate advantage (foreign - local) to trigger deposit migration.
+    pub cross_country_deposit_rate_premium: f64,
+    /// Fraction of savings above the minimum balance moved to a foreign bank.
+    pub cross_country_deposit_fraction: f64,
+    /// Cash balance below which a person recalls their foreign deposit (distress).
+    pub cross_country_deposit_distress_threshold: f64,
+    // --- Bank employment ---
+    /// Job type IDs that banks hire (e.g. Office Clerk=2, Software Dev=9).
+    pub bank_employee_job_types: [u8; 2],
+    /// One employee per this many dollars of deposit liabilities.
+    pub bank_employees_per_deposit_unit: f64,
+    /// Minimum staff even for a tiny bank.
+    pub bank_min_employees: u32,
+    /// Maximum staff cap per bank.
+    pub bank_max_employees: u32,
+    /// Banks pay this multiple of the catalog salary (1.15 = 15% premium).
+    pub bank_wage_multiplier: f64,
 }
 
 impl Default for BankingSystemParams {
@@ -144,8 +166,17 @@ impl Default for BankingSystemParams {
             min_private_bank_founders: 8,
             min_private_bank_seed_capital: 500_000.0,
             max_new_banks_per_month: 2,
-            public_bank_creation_unemployment_trigger: 0.15,
-            public_bank_creation_loss_trigger: 0.25,
+            max_private_banks: 5,
+            public_bank_recapitalize_amount: 500_000.0,
+            cross_country_deposit_min_balance: 10_000.0,
+            cross_country_deposit_rate_premium: 0.005,
+            cross_country_deposit_fraction: 0.30,
+            cross_country_deposit_distress_threshold: 500.0,
+            bank_employee_job_types: [2, 9],
+            bank_employees_per_deposit_unit: 500_000.0,
+            bank_min_employees: 2,
+            bank_max_employees: 50,
+            bank_wage_multiplier: 1.15,
         }
     }
 }

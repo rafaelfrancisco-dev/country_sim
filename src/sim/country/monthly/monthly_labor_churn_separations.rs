@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::person::ClearedEmployment;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SeparationKind {
@@ -24,11 +25,11 @@ impl Country {
         let mut replacement_openings = 0_u32;
 
         for person_idx in 0..self.people.len() {
-            let (person_id, name_seed, age_years, company_id, job_type_id, monthly_salary) = {
+            let (person_id, name_seed, age_years, job_type_id, monthly_salary) = {
                 let person = &self.people[person_idx];
-                let Some(company_id) = person.employer_company_id() else {
+                if !person.is_employed() {
                     continue;
-                };
+                }
                 let Some(job_type_id) = person.job_type_id() else {
                     continue;
                 };
@@ -36,7 +37,6 @@ impl Country {
                     person.id,
                     person.name_seed,
                     person.age_years(),
-                    company_id,
                     job_type_id,
                     person.monthly_salary(),
                 )
@@ -54,20 +54,40 @@ impl Country {
                 continue;
             };
 
-            let Some((previous_company_id, previous_job_id)) = self
+            let cleared = self
                 .people
                 .get_mut(person_idx)
-                .and_then(Person::clear_employment)
-            else {
+                .and_then(|p| p.clear_employment());
+            let Some(cleared) = cleared else {
                 continue;
             };
-            if previous_company_id != company_id || previous_job_id != job_type_id {
+            // Verify the cleared employment matches what we sampled
+            let cleared_job = match cleared {
+                ClearedEmployment::Company { job_type_id: j, .. }
+                | ClearedEmployment::Bank { job_type_id: j, .. } => j,
+            };
+            if cleared_job != job_type_id {
                 continue;
             }
 
-            if let Some(company) = self.companies.get_mut(previous_company_id as usize) {
-                company.add_opening_with_salary(previous_job_id, 1, monthly_salary);
-                replacement_openings = replacement_openings.saturating_add(1);
+            match cleared {
+                ClearedEmployment::Company { company_id, job_type_id: jt } => {
+                    if let Some(company) = self.companies.get_mut(company_id as usize) {
+                        company.add_opening_with_salary(jt, 1, monthly_salary);
+                        replacement_openings = replacement_openings.saturating_add(1);
+                    }
+                }
+                ClearedEmployment::Bank { bank_id, job_type_id: jt } => {
+                    let bank_opt = if self.bank.id == bank_id {
+                        Some(&mut self.bank)
+                    } else {
+                        self.banks.iter_mut().find(|b| b.id == bank_id)
+                    };
+                    if let Some(bank) = bank_opt {
+                        bank.add_opening_with_salary(jt, 1, monthly_salary);
+                        replacement_openings = replacement_openings.saturating_add(1);
+                    }
+                }
             }
 
             match separation {

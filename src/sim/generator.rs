@@ -235,6 +235,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         config.sim_params.clone(),
     );
     fund_initial_bank_reserve(&mut country);
+    seed_initial_bank_openings(&mut country);
     country.seed_initial_ipos();
     country
 }
@@ -385,6 +386,26 @@ fn fund_initial_bank_reserve(country: &mut Country) {
     let actual_transfer = round_cents(transfer_total - remaining);
     country.bank.reserve_balance = round_cents(country.bank.reserve_balance + actual_transfer);
     country.recompute_aggregates();
+}
+
+fn seed_initial_bank_openings(country: &mut Country) {
+    let params = country.sim_params.banking;
+    let job_types = params.bank_employee_job_types;
+    let multiplier = params.bank_wage_multiplier.max(1.0);
+
+    let target = country.bank.target_employee_count(
+        country.bank.deposit_liabilities,
+        params.bank_min_employees,
+        params.bank_max_employees,
+        params.bank_employees_per_deposit_unit,
+    );
+    for i in 0..target {
+        use super::job::salary_for_job;
+        use super::money::round_cents;
+        let job_id = job_types[i as usize % job_types.len()];
+        let salary = round_cents(salary_for_job(job_id) * multiplier);
+        country.bank.add_opening_with_salary(job_id, 1, salary);
+    }
 }
 
 fn seed_balances_to_people(people: &mut [Person], total_supply: f64) {

@@ -44,12 +44,13 @@ fn collect_country_data(
     let mut count_with_unmet_needs = 0usize;
 
     for person in &country.people {
-        if matches!(person.employment, EmploymentStatus::Employed { .. }) {
+        if person.is_employed() {
             total_employed_population += 1;
         }
         if person.is_labor_force_participant() {
             match person.employment {
-                EmploymentStatus::Employed { .. } => employed_count += 1,
+                EmploymentStatus::Employed { .. }
+                | EmploymentStatus::EmployedAtBank { .. } => employed_count += 1,
                 EmploymentStatus::Unemployed => unemployed_count += 1,
             }
             labor_force_count += 1;
@@ -390,6 +391,12 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         } => (country_name, *day),
         SimEvent::StockSecondaryOffering {
             country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::ForeignDepositOpened {
+            home_country_name: country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::ForeignDepositClosed {
+            home_country_name: country_name, day, ..
         } => (country_name, *day),
     }
 }

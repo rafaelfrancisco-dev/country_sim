@@ -264,6 +264,24 @@ pub enum SimEvent {
         total_raised: f64,
         day: u64,
     },
+    ForeignDepositOpened {
+        /// Home country of the depositor.
+        home_country_name: String,
+        /// Country where the deposit is held.
+        foreign_country_name: String,
+        person_id: u32,
+        bank_id: u16,
+        amount: f64,
+        annual_rate: f64,
+        day: u64,
+    },
+    ForeignDepositClosed {
+        home_country_name: String,
+        foreign_country_name: String,
+        person_id: u32,
+        returned_amount: f64,
+        day: u64,
+    },
 }
 
 impl SimEvent {
@@ -298,6 +316,9 @@ impl SimEvent {
             | Self::CouponPaid { .. }
             | Self::BondMatured { .. }
             | Self::BondDefault { .. } => EventCategory::GovernmentPolicy,
+            Self::ForeignDepositOpened { .. } | Self::ForeignDepositClosed { .. } => {
+                EventCategory::LoansDebt
+            }
         }
     }
 }

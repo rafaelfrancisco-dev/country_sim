@@ -3,6 +3,14 @@ use super::{
     job::{JobTypeId, salary_for_job},
 };
 
+/// A deposit held at a bank in a foreign country.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForeignDeposit {
+    pub country_id: u16,
+    pub bank_id: BankId,
+    pub balance: f64,
+}
+
 pub const DAYS_PER_YEAR: u16 = 365;
 pub const SUPERFICIAL_GOOD_SLOT_COUNT: usize = 5;
 
@@ -59,6 +67,17 @@ pub enum EmploymentStatus {
         job_type_id: JobTypeId,
         employer_company_id: u16,
     },
+    EmployedAtBank {
+        job_type_id: JobTypeId,
+        bank_id: u16,
+    },
+}
+
+/// Result of clearing a person's employment, identifying who the employer was.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ClearedEmployment {
+    Company { company_id: u16, job_type_id: JobTypeId },
+    Bank { bank_id: u16, job_type_id: JobTypeId },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,6 +107,8 @@ pub struct Person {
     pub last_month_savings_interest: f64,
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
     pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
+    /// Deposit held at a bank in another country, if any.
+    pub foreign_deposit: Option<ForeignDeposit>,
 }
 
 impl Person {
@@ -138,10 +159,15 @@ impl Person {
             last_month_savings_interest: 0.0,
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
+            foreign_deposit: None,
         };
-        if let EmploymentStatus::Employed { job_type_id, .. } = person.employment {
-            person.agreed_monthly_salary = salary_for_job(job_type_id);
-            person.employment_start_day = Some(0);
+        match person.employment {
+            EmploymentStatus::Employed { job_type_id, .. }
+            | EmploymentStatus::EmployedAtBank { job_type_id, .. } => {
+                person.agreed_monthly_salary = salary_for_job(job_type_id);
+                person.employment_start_day = Some(0);
+            }
+            EmploymentStatus::Unemployed => {}
         }
         person.refresh_habilitation_from_age();
         person
@@ -153,23 +179,34 @@ impl Person {
     }
 
     pub fn is_employed(&self) -> bool {
-        matches!(self.employment, EmploymentStatus::Employed { .. })
+        matches!(
+            self.employment,
+            EmploymentStatus::Employed { .. } | EmploymentStatus::EmployedAtBank { .. }
+        )
     }
 
     pub fn job_type_id(&self) -> Option<JobTypeId> {
         match self.employment {
             EmploymentStatus::Unemployed => None,
-            EmploymentStatus::Employed { job_type_id, .. } => Some(job_type_id),
+            EmploymentStatus::Employed { job_type_id, .. }
+            | EmploymentStatus::EmployedAtBank { job_type_id, .. } => Some(job_type_id),
         }
     }
 
     pub fn employer_company_id(&self) -> Option<u16> {
         match self.employment {
-            EmploymentStatus::Unemployed => None,
             EmploymentStatus::Employed {
                 employer_company_id,
                 ..
             } => Some(employer_company_id),
+            _ => None,
+        }
+    }
+
+    pub fn employer_bank_id(&self) -> Option<u16> {
+        match self.employment {
+            EmploymentStatus::EmployedAtBank { bank_id, .. } => Some(bank_id),
+            _ => None,
         }
     }
 
@@ -211,6 +248,27 @@ impl Person {
         self.agreed_monthly_salary = salary.max(0.0);
     }
 
+    pub fn set_bank_employment(
+        &mut self,
+        bank_id: u16,
+        job_type_id: JobTypeId,
+        salary: f64,
+        current_day: u64,
+    ) {
+        let next_start_day = match self.employment {
+            EmploymentStatus::EmployedAtBank {
+                job_type_id: current_job_id,
+                bank_id: current_bank_id,
+            } if current_job_id == job_type_id && current_bank_id == bank_id => {
+                self.employment_start_day.or(Some(current_day))
+            }
+            _ => Some(current_day),
+        };
+        self.employment = EmploymentStatus::EmployedAtBank { job_type_id, bank_id };
+        self.employment_start_day = next_start_day;
+        self.agreed_monthly_salary = salary.max(0.0);
+    }
+
     pub fn remap_employer_company_id(&mut self, employer_company_id: u16) {
         if let EmploymentStatus::Employed {
             employer_company_id: current_employer_id,
@@ -221,7 +279,8 @@ impl Person {
         }
     }
 
-    pub fn clear_employment(&mut self) -> Option<(u16, JobTypeId)> {
+    /// Clears employment and returns who employed the person.
+    pub fn clear_employment(&mut self) -> Option<ClearedEmployment> {
         let previous = self.employment;
         self.employment = EmploymentStatus::Unemployed;
         self.employment_start_day = None;
@@ -231,7 +290,22 @@ impl Person {
             EmploymentStatus::Employed {
                 job_type_id,
                 employer_company_id,
-            } => Some((employer_company_id, job_type_id)),
+            } => Some(ClearedEmployment::Company {
+                company_id: employer_company_id,
+                job_type_id,
+            }),
+            EmploymentStatus::EmployedAtBank { job_type_id, bank_id } => {
+                Some(ClearedEmployment::Bank { bank_id, job_type_id })
+            }
+        }
+    }
+
+    /// Convenience: clears employment and returns `(company_id, job_type_id)` only for
+    /// company-employed people. Used by callers that only care about company employees.
+    pub fn clear_company_employment(&mut self) -> Option<(u16, JobTypeId)> {
+        match self.clear_employment()? {
+            ClearedEmployment::Company { company_id, job_type_id } => Some((company_id, job_type_id)),
+            ClearedEmployment::Bank { .. } => None,
         }
     }
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::bank::JobOpening as BankJobOpening;
 
 #[derive(Debug, Copy, Clone)]
 pub(super) struct JobSeekIntent {
@@ -6,6 +7,8 @@ pub(super) struct JobSeekIntent {
     pub(super) seek_seed: u64,
     pub(super) qualification: HabilitationLevel,
     pub(super) preferred: Option<(usize, JobTypeId)>,
+    /// Preferred bank opening: (index into banks_snapshot, job_type_id).
+    pub(super) preferred_bank: Option<(usize, JobTypeId)>,
 }
 
 pub(super) fn select_matching_opening_from_snapshot(
@@ -36,6 +39,49 @@ pub(super) fn select_matching_opening_from_snapshot(
 
     let (company_idx, job_type_id, _) = chosen?;
     Some((company_idx, job_type_id))
+}
+
+/// Select a random matching opening from bank openings snapshot using reservoir sampling.
+/// Returns `(bank_idx_in_snapshot, job_type_id)`.
+pub(super) fn select_matching_bank_opening(
+    banks_snapshot: &[Vec<BankJobOpening>],
+    qualification: HabilitationLevel,
+    seed: u64,
+) -> Option<(usize, JobTypeId)> {
+    let mut chosen: Option<(usize, JobTypeId, u64)> = None;
+    let mut seen_slots = 0_u64;
+
+    for (bank_idx, openings) in banks_snapshot.iter().enumerate() {
+        for (opening_idx, opening) in openings.iter().enumerate() {
+            if opening.slots == 0
+                || !job_is_eligible_for_habilitation(opening.job_type_id, qualification)
+            {
+                continue;
+            }
+            let slots = u64::from(opening.slots);
+            seen_slots = seen_slots.saturating_add(slots);
+            let local_seed =
+                seed ^ 0x0ba1_1000_0000_u64 ^ (u64::from(bank_idx as u32) << 32) ^ u64::from(opening_idx as u32);
+            if hash64(local_seed) % seen_slots < slots {
+                chosen = Some((bank_idx, opening.job_type_id, seen_slots));
+            }
+        }
+    }
+
+    let (bank_idx, job_type_id, _) = chosen?;
+    Some((bank_idx, job_type_id))
+}
+
+/// Consume a matching bank opening for a given job type.
+pub(super) fn consume_bank_opening_by_job_type(
+    bank: &mut Bank,
+    job_type_id: JobTypeId,
+) -> Option<(JobTypeId, f64)> {
+    let opening_idx = bank
+        .open_positions
+        .iter()
+        .position(|o| o.slots > 0 && o.job_type_id == job_type_id)?;
+    bank.consume_opening(opening_idx)
 }
 
 pub(super) fn consume_opening_by_job_type(

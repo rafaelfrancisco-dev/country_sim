@@ -1,4 +1,5 @@
 mod bank_history;
+mod cross_country_banking;
 mod export;
 mod goods_market;
 mod history;
@@ -191,6 +192,7 @@ impl World {
         if self.day.is_multiple_of(DAYS_PER_MONTH) {
             hooks.on_monthly_start();
             hooks.run_monthly_country_processing(self);
+            self.process_cross_country_deposits();
             hooks.run_monthly_tariff_adjust(self);
             hooks.run_monthly_rate_update(self);
             hooks.run_monthly_capture_snapshot(self);

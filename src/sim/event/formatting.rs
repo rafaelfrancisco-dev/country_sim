@@ -399,6 +399,33 @@ impl SimEvent {
                     format_money(*total_raised, currency_symbol),
                 )
             }
+            Self::ForeignDepositOpened {
+                home_country_name,
+                foreign_country_name,
+                person_id,
+                bank_id: _,
+                amount,
+                annual_rate,
+                day,
+            } => {
+                format!(
+                    "[FXDEP] Day {day:>6} | Person {person_id} ({home_country_name}) opened foreign deposit in {foreign_country_name}: {} @ {:.2}% p.a.",
+                    format_money(*amount, currency_symbol),
+                    annual_rate * 100.0,
+                )
+            }
+            Self::ForeignDepositClosed {
+                home_country_name,
+                foreign_country_name,
+                person_id,
+                returned_amount,
+                day,
+            } => {
+                format!(
+                    "[FXDEP] Day {day:>6} | Person {person_id} ({home_country_name}) withdrew {} from {foreign_country_name}",
+                    format_money(*returned_amount, currency_symbol),
+                )
+            }
         }
     }
 }

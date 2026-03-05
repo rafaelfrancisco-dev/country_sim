@@ -1,4 +1,7 @@
-use super::money::round_cents;
+use super::{
+    job::{JobTypeId, salary_for_job},
+    money::round_cents,
+};
 
 pub const DEFAULT_LOAN_APR: f64 = 0.12;
 pub const DEFAULT_LOAN_TERM_MONTHS: u16 = 12;
@@ -68,10 +71,25 @@ pub struct Bank {
     pub total_originated: f64,
     pub total_principal_repaid: f64,
     pub deposit_liabilities: f64,
+    /// Total deposits held by residents of other countries in this bank.
+    pub foreign_deposit_liabilities: f64,
     pub equity_capital: f64,
     pub run_intensity: f64,
     pub is_in_resolution: bool,
     pub months_in_resolution: u16,
+    // --- Employment ---
+    pub open_positions: Vec<JobOpening>,
+    pub employee_count: u32,
+    pub monthly_payroll_budget: f64,
+    pub last_month_payroll_paid: f64,
+    pub wage_offer_multiplier: f64,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct JobOpening {
+    pub job_type_id: JobTypeId,
+    pub slots: u16,
+    pub offered_monthly_salary: f64,
 }
 
 impl Default for Bank {
@@ -95,11 +113,86 @@ impl Bank {
             total_originated: 0.0,
             total_principal_repaid: 0.0,
             deposit_liabilities: 0.0,
+            foreign_deposit_liabilities: 0.0,
             equity_capital: 0.0,
             run_intensity: 0.0,
             is_in_resolution: false,
             months_in_resolution: 0,
+            open_positions: Vec::new(),
+            employee_count: 0,
+            monthly_payroll_budget: 0.0,
+            last_month_payroll_paid: 0.0,
+            wage_offer_multiplier: 1.15,
         }
+    }
+
+    pub fn add_opening(&mut self, job_type_id: JobTypeId, slots: u16) {
+        let salary = round_cents(salary_for_job(job_type_id) * self.wage_offer_multiplier.max(0.0));
+        self.add_opening_with_salary(job_type_id, slots, salary);
+    }
+
+    pub fn add_opening_with_salary(
+        &mut self,
+        job_type_id: JobTypeId,
+        slots: u16,
+        offered_salary: f64,
+    ) {
+        if slots == 0 {
+            return;
+        }
+        let offered_salary = round_cents(offered_salary.max(0.0));
+        if let Some(opening) = self.open_positions.iter_mut().find(|o| {
+            o.job_type_id == job_type_id
+                && (o.offered_monthly_salary - offered_salary).abs() < 0.01
+        }) {
+            opening.slots = opening.slots.saturating_add(slots);
+            return;
+        }
+        self.open_positions.push(JobOpening {
+            job_type_id,
+            slots,
+            offered_monthly_salary: offered_salary,
+        });
+    }
+
+    pub fn consume_opening(&mut self, opening_index: usize) -> Option<(JobTypeId, f64)> {
+        let opening = self.open_positions.get_mut(opening_index)?;
+        if opening.slots == 0 {
+            return None;
+        }
+        opening.slots -= 1;
+        let job_type_id = opening.job_type_id;
+        let offered_salary = opening.offered_monthly_salary;
+        if opening.slots == 0 {
+            self.open_positions.remove(opening_index);
+        }
+        Some((job_type_id, offered_salary))
+    }
+
+    pub fn open_position_count(&self) -> u32 {
+        self.open_positions
+            .iter()
+            .map(|o| u32::from(o.slots))
+            .sum()
+    }
+
+    pub fn open_month(&mut self) {
+        self.monthly_payroll_budget = 0.0;
+        self.last_month_payroll_paid = 0.0;
+    }
+
+    pub fn target_employee_count(
+        &self,
+        deposit_liabilities: f64,
+        min_employees: u32,
+        max_employees: u32,
+        employees_per_deposit_unit: f64,
+    ) -> u32 {
+        if employees_per_deposit_unit <= 0.0 {
+            return min_employees;
+        }
+        let computed = (deposit_liabilities / employees_per_deposit_unit).ceil() as u32;
+        computed.max(min_employees).min(max_employees)
     }
 
     pub fn originate_loan(

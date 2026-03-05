@@ -10,6 +10,8 @@ impl Country {
     pub(crate) fn process_month_end(&mut self) {
         self.ensure_entity_deposit_assignments();
         self.recompute_company_headcounts();
+        self.recompute_bank_headcounts();
+        self.update_bank_openings();
 
         self.ensure_company_payroll_liquidity();
         self.process_payroll_and_taxes();
@@ -34,6 +36,7 @@ impl Country {
         self.process_monthly_job_switches();
         self.process_monthly_labor_churn();
         self.recompute_company_headcounts();
+        self.recompute_bank_headcounts();
         self.close_company_months();
         self.process_stock_dividends();
         self.recompute_cpi(); // [F]
@@ -135,6 +138,10 @@ impl Country {
         for company in &mut self.companies {
             company.open_month();
         }
+        self.bank.open_month();
+        for bank in &mut self.banks {
+            bank.open_month();
+        }
     }
 
     pub(super) fn ensure_company_payroll_liquidity(&mut self) {
@@ -205,6 +212,7 @@ impl Country {
     }
 
     pub(super) fn process_payroll_and_taxes(&mut self) {
+        let tax_params = self.sim_params.tax;
         for person in &mut self.people {
             let gross_pay = if let Some(company_id) = person.employer_company_id() {
                 let company_idx = company_id as usize;
@@ -218,11 +226,28 @@ impl Country {
                 } else {
                     0.0
                 }
+            } else if let Some(bank_id) = person.employer_bank_id() {
+                let salary = person.monthly_salary();
+                let bank_opt = if self.bank.id == bank_id {
+                    Some(&mut self.bank)
+                } else {
+                    self.banks.iter_mut().find(|b| b.id == bank_id)
+                };
+                if let Some(bank) = bank_opt {
+                    // Pay from reserves; cap payout if bank is short
+                    let payout = round_cents(salary.min(bank.reserve_balance.max(0.0)));
+                    bank.reserve_balance = round_cents(bank.reserve_balance - payout);
+                    bank.last_month_payroll_paid =
+                        round_cents(bank.last_month_payroll_paid + payout);
+                    payout
+                } else {
+                    0.0
+                }
             } else {
                 0.0
             };
 
-            let tax = monthly_income_tax_with_params(gross_pay, self.sim_params.tax).min(gross_pay);
+            let tax = monthly_income_tax_with_params(gross_pay, tax_params).min(gross_pay);
             let net_pay = round_cents(gross_pay - tax);
 
             person.cash_balance = round_cents(person.cash_balance + net_pay);
