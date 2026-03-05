@@ -63,6 +63,10 @@ pub struct StockMarketParams {
     pub secondary_offering_missed_payment_trigger: u8,
     pub secondary_offering_discount: f64,
     pub secondary_offering_max_dilution: f64,
+    /// Enable bank investment into listed equities from all countries.
+    pub cross_country_bank_investing_enabled: bool,
+    /// Fraction of each bank's reserves deployed monthly into cross-country equities.
+    pub cross_country_bank_invest_fraction_monthly: f64,
 }
 
 impl Default for StockMarketParams {
@@ -103,6 +107,8 @@ impl Default for StockMarketParams {
             secondary_offering_missed_payment_trigger: 1,
             secondary_offering_discount: 0.10,
             secondary_offering_max_dilution: 0.15,
+            cross_country_bank_investing_enabled: true,
+            cross_country_bank_invest_fraction_monthly: 0.02,
         }
     }
 }

@@ -32,9 +32,16 @@ impl Country {
             if health >= run_threshold {
                 let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
-                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
-                        bank.set_resolution_state(false);
+                    if bank.run_intensity <= 0.01 {
+                        bank.apply_resolution_signal(
+                            false,
+                            params.resolution_entry_consecutive_months,
+                            params.resolution_exit_consecutive_months,
+                        );
+                    }
+                    if was_in_resolution && !bank.is_in_resolution {
                         resolved_bank_name = Some(bank.name.clone());
                     }
                 }
@@ -68,9 +75,16 @@ impl Country {
             if withdraw_fraction <= 0.0 {
                 let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
-                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
-                        bank.set_resolution_state(false);
+                    if bank.run_intensity <= 0.01 {
+                        bank.apply_resolution_signal(
+                            false,
+                            params.resolution_entry_consecutive_months,
+                            params.resolution_exit_consecutive_months,
+                        );
+                    }
+                    if was_in_resolution && !bank.is_in_resolution {
                         resolved_bank_name = Some(bank.name.clone());
                     }
                 }
@@ -95,9 +109,16 @@ impl Country {
             if requested_total <= 0.0 {
                 let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
-                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
-                        bank.set_resolution_state(false);
+                    if bank.run_intensity <= 0.01 {
+                        bank.apply_resolution_signal(
+                            false,
+                            params.resolution_entry_consecutive_months,
+                            params.resolution_exit_consecutive_months,
+                        );
+                    }
+                    if was_in_resolution && !bank.is_in_resolution {
                         resolved_bank_name = Some(bank.name.clone());
                     }
                 }
@@ -117,9 +138,16 @@ impl Country {
             if shortfall_ratio < params.run_min_uninsured_share_trigger.clamp(0.0, 1.0) {
                 let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
-                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
-                        bank.set_resolution_state(false);
+                    if bank.run_intensity <= 0.01 {
+                        bank.apply_resolution_signal(
+                            false,
+                            params.resolution_entry_consecutive_months,
+                            params.resolution_exit_consecutive_months,
+                        );
+                    }
+                    if was_in_resolution && !bank.is_in_resolution {
                         resolved_bank_name = Some(bank.name.clone());
                     }
                 }
@@ -253,26 +281,58 @@ impl Country {
                 }
             }
 
-            let deposit_liabilities = self
+            self.pending_events.push(SimEvent::BankRunWithdrawal {
+                country_name: self.name.clone(),
+                bank_id,
+                entities_affected,
+                requested: requested_total,
+                haircut_loss: haircut_loss_total,
+                day: self.day,
+            });
+
+            for (person_idx, target_id) in person_switches {
+                self.move_person_deposit_bank(person_idx, target_id);
+            }
+            for (company_idx, target_id) in company_switches {
+                self.move_company_deposit_bank(company_idx, target_id);
+            }
+            if let Some(target_id) = treasury_switch {
+                self.move_treasury_deposit_bank(target_id);
+            }
+
+            self.recompute_bank_deposit_liabilities();
+            let post_reserve = self
+                .bank_by_id(bank_id)
+                .map(|bank| bank.reserve_balance.max(0.0))
+                .unwrap_or(0.0);
+            let post_deposit_liabilities = self
                 .bank_by_id(bank_id)
                 .map(|bank| bank.deposit_liabilities.max(0.0))
                 .unwrap_or(0.0);
-            let post_reserve = round_cents((available_reserve - paid_from_bank_total).max(0.0));
-            let post_liquidity = if deposit_liabilities <= 0.0 {
+            let post_liquidity = if post_deposit_liabilities <= 0.0 {
                 1.0
             } else {
-                (post_reserve / deposit_liabilities).clamp(0.0, 10.0)
+                (post_reserve / post_deposit_liabilities).clamp(0.0, 10.0)
             };
             let resolution_required = paid_from_bank_total + 0.01 < requested_total
                 && post_liquidity < params.resolution_liquidity_floor.max(0.0);
+            let was_in_resolution = self
+                .bank_by_id(bank_id)
+                .is_some_and(|bank| bank.is_in_resolution);
 
             if let Some(bank) = self.bank_by_id_mut(bank_id) {
-                bank.reserve_balance = post_reserve;
-                bank.set_resolution_state(resolution_required);
+                bank.apply_resolution_signal(
+                    resolution_required,
+                    params.resolution_entry_consecutive_months,
+                    params.resolution_exit_consecutive_months,
+                );
                 bank.update_run_intensity(stress);
             }
 
-            if resolution_required && treasury_support_total > 0.0 {
+            let now_in_resolution = self
+                .bank_by_id(bank_id)
+                .is_some_and(|bank| bank.is_in_resolution);
+            if !was_in_resolution && now_in_resolution && treasury_support_total > 0.0 {
                 if self.treasury_balance + 0.01 < treasury_support_total {
                     let shortfall =
                         round_cents((treasury_support_total - self.treasury_balance).max(0.0));
@@ -299,25 +359,6 @@ impl Country {
                 .unwrap_or(false)
             {
                 terminal_failures.push(bank_id);
-            }
-
-            self.pending_events.push(SimEvent::BankRunWithdrawal {
-                country_name: self.name.clone(),
-                bank_id,
-                entities_affected,
-                requested: requested_total,
-                haircut_loss: haircut_loss_total,
-                day: self.day,
-            });
-
-            for (person_idx, target_id) in person_switches {
-                self.move_person_deposit_bank(person_idx, target_id);
-            }
-            for (company_idx, target_id) in company_switches {
-                self.move_company_deposit_bank(company_idx, target_id);
-            }
-            if let Some(target_id) = treasury_switch {
-                self.move_treasury_deposit_bank(target_id);
             }
         }
 
@@ -394,6 +435,8 @@ impl Country {
             let scale = paid_for_bank / total_gross;
             if let Some(bank) = self.bank_by_id_mut(bank_id) {
                 bank.reserve_balance = round_cents(bank.reserve_balance - paid_for_bank);
+                bank.last_month_deposit_interest_expense =
+                    round_cents(bank.last_month_deposit_interest_expense + paid_for_bank);
             }
 
             for (idx, gross) in people_interest {

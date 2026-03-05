@@ -121,3 +121,39 @@ fn private_bank_count_respects_population_capacity() {
         );
     }
 }
+
+#[test]
+fn banks_accumulate_cross_country_stock_positions() {
+    let mut world = build_world();
+    for country in &mut world.countries {
+        country.bank.reserve_balance = country.bank.reserve_balance.max(2_000_000.0);
+        for bank in &mut country.banks {
+            bank.reserve_balance = bank.reserve_balance.max(500_000.0);
+        }
+    }
+    for _ in 0..180 {
+        world.tick_day();
+    }
+
+    let mut found_cross_country_position = false;
+    for country in &world.countries {
+        for bank in std::iter::once(&country.bank).chain(country.banks.iter()) {
+            if bank
+                .stock_positions
+                .values()
+                .any(|position| position.security_id.country_id != country.id)
+            {
+                found_cross_country_position = true;
+                break;
+            }
+        }
+        if found_cross_country_position {
+            break;
+        }
+    }
+
+    assert!(
+        found_cross_country_position,
+        "expected at least one bank to hold stocks from a foreign country after 6 months"
+    );
+}

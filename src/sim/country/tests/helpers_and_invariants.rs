@@ -189,6 +189,94 @@ pub(super) fn daily_job_market_hires_qualified_unemployed_people() {
 }
 
 #[test]
+pub(super) fn daily_job_market_hires_bank_workers_even_without_companies() {
+    let mut person = Person::new_with_profile(
+        99,
+        EmploymentStatus::Unemployed,
+        10,
+        35 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    person.cash_balance = -5_000.0;
+    let mut country = Country::with_economy(
+        1,
+        "A".to_string(),
+        vec![person],
+        Vec::new(),
+        0.0,
+    );
+    country.bank.add_opening(2, 1);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.labor = LaborParams {
+        seek_base: 1.0,
+        seek_age_slope: 0.0,
+        seek_cash_pressure_scale: 0.0,
+        seek_cash_reference: 1.0,
+        seek_probability_cap: 1.0,
+        ..LaborParams::default()
+    };
+    country.sim_params = params;
+
+    country.tick_day_without_month();
+
+    assert_eq!(
+        country.people[0].employer_bank_id(),
+        Some(country.bank.id),
+        "unemployed person should be hired by bank when only bank openings exist"
+    );
+}
+
+#[test]
+pub(super) fn daily_job_market_balances_company_and_bank_hiring() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].add_opening(2, 20);
+
+    let mut people = Vec::new();
+    for id in 1..=20_u32 {
+        people.push(Person::new_with_profile(
+            id,
+            EmploymentStatus::Unemployed,
+            id * 3,
+            28 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        ));
+    }
+    let mut country = Country::with_economy(1, "A".to_string(), people, companies, 0.0);
+    country.bank.add_opening(2, 20);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.labor = LaborParams {
+        seek_base: 1.0,
+        seek_age_slope: 0.0,
+        seek_cash_pressure_scale: 0.0,
+        seek_cash_reference: 1.0,
+        seek_probability_cap: 1.0,
+        ..LaborParams::default()
+    };
+    country.sim_params = params;
+
+    country.tick_day_without_month();
+
+    let bank_hires = country
+        .people
+        .iter()
+        .filter(|person| person.employer_bank_id().is_some())
+        .count();
+    let company_hires = country
+        .people
+        .iter()
+        .filter(|person| person.employer_company_id().is_some())
+        .count();
+
+    assert!(bank_hires > 0, "bank should get at least one hire");
+    assert!(company_hires > 0, "company should get at least one hire");
+}
+
+#[test]
 pub(super) fn daily_deaths_remove_people_and_write_off_loans() {
     let companies = build_default_companies("A", 1);
     let mut person = Person::new_with_profile(

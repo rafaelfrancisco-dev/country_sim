@@ -50,9 +50,9 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   1. age progression and habilitation refresh
   2. age-driven mortality
   3. births using population-rate + carry model
-  4. daily job-seeking and hiring against company vacancies
+  4. daily job-seeking and balanced hiring across company + bank vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing with resolution hysteresis**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), and close.
 - Maintains `next_startup_serial` so startup names remain unique across company removals.
 
 ### `World`
@@ -60,6 +60,9 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Running views: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
+- Monthly world passes include:
+  - cross-country deposits
+  - cross-country bank stock investing (banks accumulate foreign positions keyed by `(country_id, company_id)`)
 
 ### UI State
 - Navigation state (`selected rows/pages`, `details mode`, active running tab) is held in `UiState` on the UI side.

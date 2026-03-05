@@ -15,6 +15,7 @@ impl Country {
         self.process_daily_job_market();
 
         self.recompute_company_headcounts();
+        self.recompute_bank_headcounts();
         self.recompute_aggregates();
     }
 
@@ -40,6 +41,8 @@ impl Country {
         let started = Instant::now();
         self.recompute_company_headcounts();
         let recompute_headcounts_ms = crate::sim::trace::duration_ms(started.elapsed());
+
+        self.recompute_bank_headcounts();
 
         let started = Instant::now();
         self.recompute_aggregates();
@@ -182,10 +185,6 @@ impl Country {
     }
 
     fn process_daily_job_market(&mut self) {
-        if self.companies.is_empty() {
-            return;
-        }
-
         let day = self.day;
         let country_id = self.id;
         let labor_params = self.sim_params.labor;
@@ -257,50 +256,6 @@ impl Country {
         let mut hires_total = 0_u64;
         let day_val = self.day;
 
-        // Company hiring pass
-        {
-            let (people, companies) = (&mut self.people, &mut self.companies);
-            for chunk_intents in &intents_by_chunk {
-                for intent in chunk_intents {
-                    let Some(person) = people.get_mut(intent.person_idx) else {
-                        continue;
-                    };
-                    if person.is_employed() || !person.can_seek_job() {
-                        continue;
-                    }
-
-                    if let Some((company_idx, job_type_id)) = intent.preferred
-                        && let Some(company) = companies.get_mut(company_idx)
-                        && let Some((job_id, offered_salary)) =
-                            consume_opening_by_job_type(company, job_type_id)
-                    {
-                        person.set_employment_with_salary(
-                            company_idx as u16,
-                            job_id,
-                            offered_salary,
-                            day_val,
-                        );
-                        hires_total = hires_total.saturating_add(1);
-                        continue;
-                    }
-
-                    if let Some((company_id, job_id, offered_salary)) =
-                        consume_matching_opening(companies, intent.qualification, intent.seek_seed)
-                    {
-                        person.set_employment_with_salary(
-                            company_id,
-                            job_id,
-                            offered_salary,
-                            day_val,
-                        );
-                        hires_total = hires_total.saturating_add(1);
-                    }
-                }
-            }
-        } // company borrows drop here
-
-        // Bank hiring pass: collect then apply to avoid split-borrow conflicts
-        let mut bank_pending: Vec<(usize, usize, JobTypeId)> = Vec::new();
         for chunk_intents in &intents_by_chunk {
             for intent in chunk_intents {
                 if self
@@ -310,43 +265,153 @@ impl Country {
                 {
                     continue;
                 }
-                if let Some(pb) = intent.preferred_bank {
-                    bank_pending.push((intent.person_idx, pb.0, pb.1));
-                }
-            }
-        }
-        for (person_idx, bank_snap_idx, job_type_id) in bank_pending {
-            if self
-                .people
-                .get(person_idx)
-                .map_or(true, |p| p.is_employed() || !p.can_seek_job())
-            {
-                continue;
-            }
-            let Some((bank_id, _)) = bank_openings_snapshot.get(bank_snap_idx) else {
-                continue;
-            };
-            let bank_id = *bank_id;
-            let hire = if self.bank.id == bank_id {
-                consume_bank_opening_by_job_type(&mut self.bank, job_type_id)
-            } else {
-                self.banks
-                    .iter_mut()
-                    .find(|b| b.id == bank_id)
-                    .and_then(|b| consume_bank_opening_by_job_type(b, job_type_id))
-            };
-            let Some((job_id, offered_salary)) = hire else {
-                continue;
-            };
-            if let Some(person) = self.people.get_mut(person_idx) {
-                if !person.is_employed() {
-                    person.set_bank_employment(bank_id, job_id, offered_salary, day_val);
+
+                let try_bank_first = match (intent.preferred, intent.preferred_bank) {
+                    (Some(_), Some(_)) => hash64(intent.seek_seed ^ 0x4241_4e4b_u64).is_multiple_of(2),
+                    (None, Some(_)) => true,
+                    _ => false,
+                };
+
+                let hired = if try_bank_first {
+                    self.try_hire_person_to_bank(
+                        intent.person_idx,
+                        intent.preferred_bank,
+                        intent.qualification,
+                        intent.seek_seed,
+                        day_val,
+                        &bank_openings_snapshot,
+                    ) || self.try_hire_person_to_company(
+                        intent.person_idx,
+                        intent.preferred,
+                        intent.qualification,
+                        intent.seek_seed,
+                        day_val,
+                    )
+                } else {
+                    self.try_hire_person_to_company(
+                        intent.person_idx,
+                        intent.preferred,
+                        intent.qualification,
+                        intent.seek_seed,
+                        day_val,
+                    ) || self.try_hire_person_to_bank(
+                        intent.person_idx,
+                        intent.preferred_bank,
+                        intent.qualification,
+                        intent.seek_seed,
+                        day_val,
+                        &bank_openings_snapshot,
+                    )
+                };
+
+                if hired {
                     hires_total = hires_total.saturating_add(1);
                 }
             }
         }
 
         self.monthly_hires_total = self.monthly_hires_total.saturating_add(hires_total);
+    }
+
+    fn try_hire_person_to_company(
+        &mut self,
+        person_idx: usize,
+        preferred: Option<(usize, JobTypeId)>,
+        qualification: HabilitationLevel,
+        seed: u64,
+        day: u64,
+    ) -> bool {
+        if self
+            .people
+            .get(person_idx)
+            .map_or(true, |p| p.is_employed() || !p.can_seek_job())
+        {
+            return false;
+        }
+
+        if let Some((company_idx, job_type_id)) = preferred
+            && let Some(company) = self.companies.get_mut(company_idx)
+            && let Some((job_id, offered_salary)) = consume_opening_by_job_type(company, job_type_id)
+        {
+            if let Some(person) = self.people.get_mut(person_idx)
+                && !person.is_employed()
+            {
+                person.set_employment_with_salary(company_idx as u16, job_id, offered_salary, day);
+                return true;
+            }
+        }
+
+        if let Some((company_id, job_id, offered_salary)) =
+            consume_matching_opening(&mut self.companies, qualification, seed ^ 0xC01A_0001_u64)
+            && let Some(person) = self.people.get_mut(person_idx)
+            && !person.is_employed()
+        {
+            person.set_employment_with_salary(company_id, job_id, offered_salary, day);
+            return true;
+        }
+        false
+    }
+
+    fn try_hire_person_to_bank(
+        &mut self,
+        person_idx: usize,
+        preferred_bank: Option<(usize, JobTypeId)>,
+        qualification: HabilitationLevel,
+        seed: u64,
+        day: u64,
+        bank_openings_snapshot: &[(BankId, Vec<BankJobOpening>)],
+    ) -> bool {
+        if self
+            .people
+            .get(person_idx)
+            .map_or(true, |p| p.is_employed() || !p.can_seek_job())
+        {
+            return false;
+        }
+
+        if let Some((bank_snap_idx, job_type_id)) = preferred_bank
+            && let Some((bank_id, _)) = bank_openings_snapshot.get(bank_snap_idx)
+            && let Some((job_id, offered_salary)) = self.consume_bank_hire(*bank_id, job_type_id)
+            && let Some(person) = self.people.get_mut(person_idx)
+            && !person.is_employed()
+        {
+            person.set_bank_employment(*bank_id, job_id, offered_salary, day);
+            return true;
+        }
+
+        let bank_openings_flat: Vec<Vec<BankJobOpening>> = std::iter::once(&self.bank)
+            .chain(self.banks.iter())
+            .map(|bank| bank.open_positions.clone())
+            .collect();
+        if let Some((bank_idx, job_type_id)) =
+            select_matching_bank_opening(&bank_openings_flat, qualification, seed ^ 0xBA1A_0002_u64)
+        {
+            let current_bank_id = if bank_idx == 0 {
+                self.bank.id
+            } else if let Some(bank) = self.banks.get(bank_idx.saturating_sub(1)) {
+                bank.id
+            } else {
+                return false;
+            };
+            if let Some((job_id, offered_salary)) = self.consume_bank_hire(current_bank_id, job_type_id)
+                && let Some(person) = self.people.get_mut(person_idx)
+                && !person.is_employed()
+            {
+                person.set_bank_employment(current_bank_id, job_id, offered_salary, day);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn consume_bank_hire(&mut self, bank_id: BankId, job_type_id: JobTypeId) -> Option<(JobTypeId, f64)> {
+        if self.bank.id == bank_id {
+            return consume_bank_opening_by_job_type(&mut self.bank, job_type_id);
+        }
+        self.banks
+            .iter_mut()
+            .find(|bank| bank.id == bank_id)
+            .and_then(|bank| consume_bank_opening_by_job_type(bank, job_type_id))
     }
 
     #[cfg(feature = "bench-trace")]

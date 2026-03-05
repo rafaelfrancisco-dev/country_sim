@@ -166,7 +166,10 @@ impl World {
         let stock_bank_equity_exposure = self
             .countries
             .iter()
-            .map(|country| country.stock_market.bank_equity_exposure())
+            .map(|country| {
+                country.stock_market.bank_equity_exposure()
+                    + country.bank_cross_country_equity_exposure_cost()
+            })
             .sum();
 
         MetricPoint {
@@ -228,7 +231,8 @@ impl World {
             monthly_savings_interest_paid: country.monthly_savings_interest_paid,
             bonds_outstanding: country.bonds_outstanding,
             stock_market_cap: country.stock_market.total_market_cap(),
-            stock_bank_equity_exposure: country.stock_market.bank_equity_exposure(),
+            stock_bank_equity_exposure: country.stock_market.bank_equity_exposure()
+                + country.bank_cross_country_equity_exposure_cost(),
         }
     }
 

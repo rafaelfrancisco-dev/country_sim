@@ -1,5 +1,6 @@
 mod bank_history;
 mod cross_country_banking;
+mod cross_country_stock_investing;
 mod export;
 mod goods_market;
 mod history;
@@ -193,6 +194,7 @@ impl World {
             hooks.on_monthly_start();
             hooks.run_monthly_country_processing(self);
             self.process_cross_country_deposits();
+            self.process_cross_country_bank_stock_investing();
             hooks.run_monthly_tariff_adjust(self);
             hooks.run_monthly_rate_update(self);
             hooks.run_monthly_capture_snapshot(self);

@@ -38,6 +38,10 @@ impl Country {
         self.recompute_company_headcounts();
         self.recompute_bank_headcounts();
         self.close_company_months();
+        self.bank.close_month();
+        for bank in &mut self.banks {
+            bank.close_month();
+        }
         self.process_stock_dividends();
         self.recompute_cpi(); // [F]
         self.recompute_bank_deposit_liabilities();
@@ -75,6 +79,10 @@ impl Country {
         time_op!(self.process_monthly_labor_churn());
         let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
         let close_company_months_ms = time_op!(self.close_company_months());
+        self.bank.close_month();
+        for bank in &mut self.banks {
+            bank.close_month();
+        }
         let dividends_ms = time_op!(self.process_stock_dividends());
         let cpi_ms = time_op!(self.recompute_cpi());
         time_op!(self.recompute_bank_deposit_liabilities());

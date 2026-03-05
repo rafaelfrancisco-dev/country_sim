@@ -62,9 +62,13 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - Banking system additions:
   - Countries now support multiple banks with explicit `Public` / `Private` kinds
   - People and companies are assigned to a deposit bank (`deposit_bank_id`) and savings interest is paid per bank
-  - Monthly private-bank run dynamics include stricter stress gating, depositor switching with reserve transfer, and resolution outcomes (insured support + uninsured haircut) with terminal closure after prolonged failed resolution
+  - Daily hiring now balances company and bank openings in one pass; bank hiring still works when there are zero companies
+  - Monthly private-bank run dynamics now use post-switch liquidity, reserve-safe depositor switching, and resolution hysteresis (`entry`/`exit` consecutive-month windows)
+  - Resolution outcomes still support insured treasury backstop + uninsured haircut, with terminal closure after prolonged failed resolution
+  - Bank monthly profitability diagnostics are tracked (`interest income`, `deposit interest expense`, `credit losses`, `profit`)
   - Monthly bank formation path added (market-constrained private founder-capital formation; no fixed private-bank-count cap)
   - Public bank remains unique per country and is recapitalized in place under sustained stress
+  - Monthly cross-country bank investing pass: every bank can accumulate foreign listed-equity positions keyed by `(country_id, company_id)`
   - New banking events: `BankFounded`, `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankClosed`, `BankDepositHaircut`
 
 ## Documentation

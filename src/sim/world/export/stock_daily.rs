@@ -81,7 +81,8 @@ impl World {
                     total_volume,
                     total_turnover,
                     index_value: country.stock_market.index_value(),
-                    bank_equity_exposure: country.stock_market.bank_equity_exposure(),
+                    bank_equity_exposure: country.stock_market.bank_equity_exposure()
+                        + country.bank_cross_country_equity_exposure_cost(),
                     bank_reserve_balance: country.total_bank_reserves(),
                     active_traders_count: country.stock_market.day_active_traders_count,
                     buy_orders_count: country.stock_market.day_buy_orders_count,

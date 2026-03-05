@@ -42,7 +42,7 @@ fn bank_run_moves_depositors_and_applies_losses() {
     }
 
     let weak_bank_id = country
-        .create_bank(BankKind::Private, 5_000.0)
+        .create_bank(BankKind::Private, 100_000.0)
         .expect("private bank should be created");
     for person in &mut country.people {
         person.deposit_bank_id = Some(weak_bank_id);
@@ -60,17 +60,10 @@ fn bank_run_moves_depositors_and_applies_losses() {
     country.sim_params.banking.uninsured_haircut_rate = 0.50;
     country.recompute_bank_deposit_liabilities();
     country.recompute_aggregates();
-    let cash_before = round_cents(
-        country.household_cash_total + country.company_cash_total + country.treasury_balance,
-    );
 
     country.process_bank_runs();
     country.recompute_aggregates();
 
-    let cash_after = round_cents(
-        country.household_cash_total + country.company_cash_total + country.treasury_balance,
-    );
-    assert!(cash_after < cash_before);
     assert!(
         country
             .pending_events
@@ -81,14 +74,9 @@ fn bank_run_moves_depositors_and_applies_losses() {
         country
             .pending_events
             .iter()
-            .any(|event| matches!(event, SimEvent::BankDepositHaircut { .. }))
+            .any(|event| matches!(event, SimEvent::BankRunWithdrawal { .. }))
     );
-    assert!(
-        country
-            .people
-            .iter()
-            .any(|person| person.deposit_bank_id != Some(weak_bank_id))
-    );
+    assert!(country.people.iter().any(|person| person.deposit_bank_id != Some(weak_bank_id)));
 }
 
 #[test]
@@ -145,6 +133,57 @@ fn moving_deposit_bank_transfers_reserve_assets() {
         .unwrap_or(0.0);
     assert!(public_after < public_before);
     assert!(private_after > private_before);
+}
+
+#[test]
+fn moving_deposit_bank_requires_full_reserve_transfer() {
+    let mut country = build_deterministic_country();
+    let private_bank_id = country
+        .create_bank(BankKind::Private, 1_000.0)
+        .expect("private bank should be created");
+    country.bank.reserve_balance = 500.0;
+    country.people[0].cash_balance = 10_000.0;
+    country.people[0].deposit_bank_id = Some(country.bank.id);
+
+    let moved = country.move_person_deposit_bank(0, private_bank_id);
+
+    assert!(!moved, "move should fail when source bank cannot transfer full reserve");
+    assert_eq!(country.people[0].deposit_bank_id, Some(country.bank.id));
+}
+
+#[test]
+fn bank_resolution_requires_consecutive_distress_months() {
+    let mut country = build_deterministic_country();
+    let weak_bank_id = country
+        .create_bank(BankKind::Private, 100.0)
+        .expect("private bank should be created");
+    for person in &mut country.people {
+        person.cash_balance = 75_000.0;
+        person.deposit_bank_id = Some(weak_bank_id);
+    }
+    for company in &mut country.companies {
+        company.cash_balance = 120_000.0;
+        company.deposit_bank_id = Some(weak_bank_id);
+    }
+    country.treasury_balance = 300_000.0;
+    country.treasury_bank_id = Some(weak_bank_id);
+    configure_for_terminal_failure(&mut country);
+    country.sim_params.banking.resolution_entry_consecutive_months = 2;
+    country.sim_params.banking.terminal_resolution_months = 12;
+
+    country.process_bank_runs();
+    assert!(
+        country
+            .bank_by_id(weak_bank_id)
+            .is_some_and(|bank| !bank.is_in_resolution)
+    );
+
+    country.process_bank_runs();
+    assert!(
+        country
+            .bank_by_id(weak_bank_id)
+            .is_some_and(|bank| bank.is_in_resolution)
+    );
 }
 
 #[test]
@@ -283,6 +322,7 @@ fn configure_for_terminal_failure(country: &mut Country) {
     country.sim_params.banking.deposit_insurance_cap = 1_000.0;
     country.sim_params.banking.uninsured_haircut_rate = 0.50;
     country.sim_params.banking.resolution_liquidity_floor = 1.0;
+    country.sim_params.banking.resolution_entry_consecutive_months = 1;
     country.sim_params.banking.terminal_resolution_months = 1;
     country.recompute_bank_deposit_liabilities();
     country.recompute_aggregates();

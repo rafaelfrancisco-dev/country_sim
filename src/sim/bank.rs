@@ -2,6 +2,7 @@ use super::{
     job::{JobTypeId, salary_for_job},
     money::round_cents,
 };
+use std::collections::HashMap;
 
 pub const DEFAULT_LOAN_APR: f64 = 0.12;
 pub const DEFAULT_LOAN_TERM_MONTHS: u16 = 12;
@@ -9,6 +10,12 @@ pub const DEFAULT_MAX_DEBT_TO_INCOME: f64 = 0.35;
 pub const DEFAULT_BANK_NAME: &str = "National Bank";
 
 pub type BankId = u16;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct BankSecurityId {
+    pub country_id: u16,
+    pub company_id: u16,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BankKind {
@@ -77,12 +84,20 @@ pub struct Bank {
     pub run_intensity: f64,
     pub is_in_resolution: bool,
     pub months_in_resolution: u16,
+    pub resolution_distress_streak: u16,
+    pub resolution_stable_streak: u16,
     // --- Employment ---
     pub open_positions: Vec<JobOpening>,
     pub employee_count: u32,
     pub monthly_payroll_budget: f64,
     pub last_month_payroll_paid: f64,
     pub wage_offer_multiplier: f64,
+    // --- Profitability diagnostics ---
+    pub last_month_interest_income: f64,
+    pub last_month_deposit_interest_expense: f64,
+    pub last_month_credit_losses: f64,
+    pub last_month_profit: f64,
+    pub stock_positions: HashMap<BankSecurityId, BankStockPosition>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -90,6 +105,13 @@ pub struct JobOpening {
     pub job_type_id: JobTypeId,
     pub slots: u16,
     pub offered_monthly_salary: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BankStockPosition {
+    pub security_id: BankSecurityId,
+    pub shares: u64,
+    pub avg_cost: f64,
 }
 
 impl Default for Bank {
@@ -118,11 +140,18 @@ impl Bank {
             run_intensity: 0.0,
             is_in_resolution: false,
             months_in_resolution: 0,
+            resolution_distress_streak: 0,
+            resolution_stable_streak: 0,
             open_positions: Vec::new(),
             employee_count: 0,
             monthly_payroll_budget: 0.0,
             last_month_payroll_paid: 0.0,
             wage_offer_multiplier: 1.15,
+            last_month_interest_income: 0.0,
+            last_month_deposit_interest_expense: 0.0,
+            last_month_credit_losses: 0.0,
+            last_month_profit: 0.0,
+            stock_positions: HashMap::new(),
         }
     }
 
@@ -175,6 +204,19 @@ impl Bank {
     pub fn open_month(&mut self) {
         self.monthly_payroll_budget = 0.0;
         self.last_month_payroll_paid = 0.0;
+        self.last_month_interest_income = 0.0;
+        self.last_month_deposit_interest_expense = 0.0;
+        self.last_month_credit_losses = 0.0;
+        self.last_month_profit = 0.0;
+    }
+
+    pub fn close_month(&mut self) {
+        self.last_month_profit = round_cents(
+            self.last_month_interest_income
+                - self.last_month_deposit_interest_expense
+                - self.last_month_credit_losses
+                - self.last_month_payroll_paid,
+        );
     }
 
     pub fn target_employee_count(
@@ -296,6 +338,8 @@ impl Bank {
             round_cents((account.created_principal_outstanding - principal_paid).max(0.0));
 
         self.reserve_balance = round_cents(self.reserve_balance + interest_paid);
+        self.last_month_interest_income =
+            round_cents(self.last_month_interest_income + interest_paid);
         self.created_money_outstanding =
             round_cents((self.created_money_outstanding - principal_paid).max(0.0));
         self.total_principal_repaid = round_cents(self.total_principal_repaid + principal_paid);
@@ -327,6 +371,7 @@ impl Bank {
         let written_off = round_cents(account.created_principal_outstanding.max(0.0));
         self.created_money_outstanding =
             round_cents((self.created_money_outstanding - written_off).max(0.0));
+        self.last_month_credit_losses = round_cents(self.last_month_credit_losses + written_off);
         written_off
     }
 
@@ -432,6 +477,73 @@ impl Bank {
             self.months_in_resolution = 0;
         }
         self.is_in_resolution = in_resolution;
+    }
+
+    pub fn apply_resolution_signal(
+        &mut self,
+        resolution_required: bool,
+        entry_months: u16,
+        exit_months: u16,
+    ) {
+        if resolution_required {
+            self.resolution_distress_streak = self.resolution_distress_streak.saturating_add(1);
+            self.resolution_stable_streak = 0;
+        } else {
+            self.resolution_stable_streak = self.resolution_stable_streak.saturating_add(1);
+            self.resolution_distress_streak = 0;
+        }
+
+        let entry_months = entry_months.max(1);
+        let exit_months = exit_months.max(1);
+        if self.is_in_resolution {
+            if resolution_required {
+                self.set_resolution_state(true);
+            } else if self.resolution_stable_streak >= exit_months {
+                self.set_resolution_state(false);
+            }
+            return;
+        }
+
+        if resolution_required && self.resolution_distress_streak >= entry_months {
+            self.set_resolution_state(true);
+        }
+    }
+
+    pub fn stock_position_shares(&self, security_id: BankSecurityId) -> u64 {
+        self.stock_positions
+            .get(&security_id)
+            .map_or(0, |position| position.shares)
+    }
+
+    pub fn add_stock_shares(
+        &mut self,
+        security_id: BankSecurityId,
+        shares: u64,
+        cost_per_share: f64,
+    ) {
+        if shares == 0 {
+            return;
+        }
+        let cost_per_share = round_cents(cost_per_share.max(0.0));
+        if let Some(position) = self.stock_positions.get_mut(&security_id) {
+            let total_cost =
+                position.avg_cost * position.shares as f64 + cost_per_share * shares as f64;
+            position.shares = position.shares.saturating_add(shares);
+            position.avg_cost = if position.shares == 0 {
+                0.0
+            } else {
+                round_cents(total_cost / position.shares as f64)
+            };
+            return;
+        }
+        self.stock_positions.insert(
+            security_id,
+            BankStockPosition {
+                security_id,
+                shares,
+                avg_cost: cost_per_share,
+            },
+        );
     }
 }
 
