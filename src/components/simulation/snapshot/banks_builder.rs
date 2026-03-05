@@ -167,6 +167,10 @@ fn event_matches_bank(event: &SimEvent, selected_country_name: &str, bank_id: u1
             bank_id: event_bank_id,
             ..
         }
+        | SimEvent::BankClosed {
+            bank_id: event_bank_id,
+            ..
+        }
         | SimEvent::BankDepositHaircut {
             bank_id: event_bank_id,
             ..
@@ -191,6 +195,7 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::BankRunWithdrawal { country_name, .. }
         | SimEvent::BankResolutionStarted { country_name, .. }
         | SimEvent::BankResolved { country_name, .. }
+        | SimEvent::BankClosed { country_name, .. }
         | SimEvent::BankDepositHaircut { country_name, .. }
         | SimEvent::CompanyWageCut { country_name, .. }
         | SimEvent::CompanyLayoffs { country_name, .. }

@@ -268,7 +268,10 @@ impl Country {
             };
             let previous_salary = person.monthly_salary();
             let previous = person.clear_employment();
-            if let Some(crate::sim::person::ClearedEmployment::Company { company_id: old_company_id, job_type_id: old_job_id }) = previous
+            if let Some(crate::sim::person::ClearedEmployment::Company {
+                company_id: old_company_id,
+                job_type_id: old_job_id,
+            }) = previous
                 && let Some(old_company) = self.companies.get_mut(old_company_id as usize)
             {
                 old_company.add_opening_with_salary(old_job_id, 1, previous_salary);

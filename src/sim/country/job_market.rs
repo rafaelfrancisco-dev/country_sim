@@ -60,8 +60,10 @@ pub(super) fn select_matching_bank_opening(
             }
             let slots = u64::from(opening.slots);
             seen_slots = seen_slots.saturating_add(slots);
-            let local_seed =
-                seed ^ 0x0ba1_1000_0000_u64 ^ (u64::from(bank_idx as u32) << 32) ^ u64::from(opening_idx as u32);
+            let local_seed = seed
+                ^ 0x0ba1_1000_0000_u64
+                ^ (u64::from(bank_idx as u32) << 32)
+                ^ u64::from(opening_idx as u32);
             if hash64(local_seed) % seen_slots < slots {
                 chosen = Some((bank_idx, opening.job_type_id, seen_slots));
             }

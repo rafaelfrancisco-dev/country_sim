@@ -284,7 +284,8 @@ impl Country {
             let payment = if let Some(idx) = lender_idx {
                 self.banks[idx].collect_monthly_payment(&mut person.cash_balance, &mut person.loan)
             } else {
-                self.bank.collect_monthly_payment(&mut person.cash_balance, &mut person.loan)
+                self.bank
+                    .collect_monthly_payment(&mut person.cash_balance, &mut person.loan)
             };
             person.last_month_loan_payment = payment.amount_paid;
             if payment.unpaid_amount > 0.0 {

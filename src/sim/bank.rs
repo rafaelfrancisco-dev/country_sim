@@ -419,11 +419,19 @@ impl Bank {
 
     pub fn update_run_intensity(&mut self, stress: f64) {
         self.run_intensity = round_cents(stress.clamp(0.0, 1.0));
-        if self.run_intensity > 0.0 {
-            self.months_in_resolution = self.months_in_resolution.saturating_add(1);
+    }
+
+    pub fn set_resolution_state(&mut self, in_resolution: bool) {
+        if in_resolution {
+            if self.is_in_resolution {
+                self.months_in_resolution = self.months_in_resolution.saturating_add(1);
+            } else {
+                self.months_in_resolution = 1;
+            }
         } else {
             self.months_in_resolution = 0;
         }
+        self.is_in_resolution = in_resolution;
     }
 }
 

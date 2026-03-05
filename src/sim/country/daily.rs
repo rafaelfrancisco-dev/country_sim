@@ -99,12 +99,18 @@ impl Country {
                 }
 
                 match person.clear_employment() {
-                    Some(ClearedEmployment::Company { company_id, job_type_id }) => {
+                    Some(ClearedEmployment::Company {
+                        company_id,
+                        job_type_id,
+                    }) => {
                         if let Some(company) = self.companies.get_mut(company_id as usize) {
                             company.add_opening(job_type_id, 1);
                         }
                     }
-                    Some(ClearedEmployment::Bank { bank_id, job_type_id }) => {
+                    Some(ClearedEmployment::Bank {
+                        bank_id,
+                        job_type_id,
+                    }) => {
                         if let Some(bank) = self.bank_by_id_mut(bank_id) {
                             bank.add_opening(job_type_id, 1);
                         }
@@ -329,7 +335,9 @@ impl Country {
                     .find(|b| b.id == bank_id)
                     .and_then(|b| consume_bank_opening_by_job_type(b, job_type_id))
             };
-            let Some((job_id, offered_salary)) = hire else { continue };
+            let Some((job_id, offered_salary)) = hire else {
+                continue;
+            };
             if let Some(person) = self.people.get_mut(person_idx) {
                 if !person.is_employed() {
                     person.set_bank_employment(bank_id, job_id, offered_salary, day_val);

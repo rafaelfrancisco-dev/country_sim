@@ -378,9 +378,10 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
   - remaining uninsured gap is treasury-supported (with monetization fallback)
   - resolution is entered only if there is payout shortfall **and** post-withdraw liquidity is below `resolution_liquidity_floor`
   - if the bank later stabilizes and run intensity decays under threshold, it exits resolution (`BankResolved`)
-  - banks are not removed from `Country.banks` by resolution mechanics
+  - if a private bank remains in resolution for `terminal_resolution_months`, it is terminally closed (`BankClosed`)
+  - closure migrates deposits and loans to a surviving acquirer bank, transfers residual reserves, and removes the failed private bank from `Country.banks`
 - Bank-run visibility is event-driven:
-  - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankDepositHaircut`
+  - `BankRunStarted`, `BankRunWithdrawal`, `BankResolutionStarted`, `BankResolved`, `BankClosed`, `BankDepositHaircut`
 
 ### Cross-Country Deposits
 - When a foreign bank offers a deposit rate meaningfully higher than the home country's best rate, eligible people move a portion of their savings abroad.
@@ -407,6 +408,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 | `run_min_uninsured_share_trigger` | 0.20 | Minimum shortfall ratio needed before run stress executes |
 | `resolution_liquidity_floor` | 0.05 | Resolution requires post-withdraw liquidity below this floor |
 | `run_intensity_decay_monthly` | 0.75 | Monthly decay factor used in recovery logic |
+| `terminal_resolution_months` | 6 | Consecutive months in resolution before terminal private-bank closure |
 | `min_private_bank_founders` | 8 | Minimum founders for private-bank creation |
 | `min_founder_cash_after_contribution` | 25000.0 | Required founder cash cushion after seed contribution |
 | `min_private_bank_seed_capital` | 500000.0 | Minimum private-bank seed capital |

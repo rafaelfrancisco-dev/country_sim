@@ -171,6 +171,23 @@ impl SimEvent {
                     "[RESOK] Day {day:>6} | {country_name}: Bank #{bank_id} ({bank_name}) resolved"
                 )
             }
+            Self::BankClosed {
+                country_name,
+                bank_id,
+                bank_name,
+                acquired_by_bank_id,
+                acquired_by_bank_name,
+                migrated_depositors,
+                migrated_companies,
+                migrated_loans,
+                transferred_reserves,
+                day,
+            } => {
+                format!(
+                    "[BCLSD] Day {day:>6} | {country_name}: Bank #{bank_id} ({bank_name}) closed -> Bank #{acquired_by_bank_id} ({acquired_by_bank_name}), migrated {migrated_depositors} people, {migrated_companies} companies, {migrated_loans} loans, reserves {}",
+                    format_money(*transferred_reserves, currency_symbol)
+                )
+            }
             Self::BankDepositHaircut {
                 country_name,
                 bank_id,

@@ -12,6 +12,8 @@ impl Country {
             .collect::<Vec<_>>();
         let run_threshold = params.run_health_threshold.clamp(0.0, 1.0);
         let run_decay = (1.0 - params.run_intensity_decay_monthly.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+        let terminal_resolution_months = params.terminal_resolution_months.max(1);
+        let mut terminal_failures: Vec<u16> = Vec::new();
 
         for bank_id in bank_ids {
             let Some(bank) = self.bank_by_id(bank_id) else {
@@ -22,7 +24,7 @@ impl Country {
             if kind != BankKind::Private {
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     bank.update_run_intensity(0.0);
-                    bank.is_in_resolution = false;
+                    bank.set_resolution_state(false);
                 }
                 continue;
             }
@@ -32,7 +34,7 @@ impl Country {
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
                     if bank.is_in_resolution && bank.run_intensity <= 0.01 {
-                        bank.is_in_resolution = false;
+                        bank.set_resolution_state(false);
                         resolved_bank_name = Some(bank.name.clone());
                     }
                 }
@@ -64,6 +66,22 @@ impl Country {
             let withdraw_fraction =
                 (params.run_withdraw_fraction * stress * private_mult).clamp(0.0, 1.0);
             if withdraw_fraction <= 0.0 {
+                let mut resolved_bank_name: Option<String> = None;
+                if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
+                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
+                        bank.set_resolution_state(false);
+                        resolved_bank_name = Some(bank.name.clone());
+                    }
+                }
+                if let Some(bank_name) = resolved_bank_name {
+                    self.pending_events.push(SimEvent::BankResolved {
+                        country_name: self.name.clone(),
+                        bank_id,
+                        bank_name,
+                        day: self.day,
+                    });
+                }
                 continue;
             }
 
@@ -75,14 +93,43 @@ impl Country {
                 .unwrap_or(0.0);
             let requested_total = self.total_run_requested_for_bank(bank_id, withdraw_fraction);
             if requested_total <= 0.0 {
+                let mut resolved_bank_name: Option<String> = None;
+                if let Some(bank) = self.bank_by_id_mut(bank_id) {
+                    bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
+                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
+                        bank.set_resolution_state(false);
+                        resolved_bank_name = Some(bank.name.clone());
+                    }
+                }
+                if let Some(bank_name) = resolved_bank_name {
+                    self.pending_events.push(SimEvent::BankResolved {
+                        country_name: self.name.clone(),
+                        bank_id,
+                        bank_name,
+                        day: self.day,
+                    });
+                }
                 continue;
             }
             let shortfall_ratio = ((requested_total - available_reserve).max(0.0)
                 / requested_total.max(0.01))
             .clamp(0.0, 1.0);
             if shortfall_ratio < params.run_min_uninsured_share_trigger.clamp(0.0, 1.0) {
+                let mut resolved_bank_name: Option<String> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
+                    if bank.is_in_resolution && bank.run_intensity <= 0.01 {
+                        bank.set_resolution_state(false);
+                        resolved_bank_name = Some(bank.name.clone());
+                    }
+                }
+                if let Some(bank_name) = resolved_bank_name {
+                    self.pending_events.push(SimEvent::BankResolved {
+                        country_name: self.name.clone(),
+                        bank_id,
+                        bank_name,
+                        day: self.day,
+                    });
                 }
                 continue;
             }
@@ -221,7 +268,7 @@ impl Country {
 
             if let Some(bank) = self.bank_by_id_mut(bank_id) {
                 bank.reserve_balance = post_reserve;
-                bank.is_in_resolution = resolution_required;
+                bank.set_resolution_state(resolution_required);
                 bank.update_run_intensity(stress);
             }
 
@@ -244,6 +291,16 @@ impl Country {
                 });
             }
 
+            if self
+                .bank_by_id(bank_id)
+                .map(|bank| {
+                    bank.is_in_resolution && bank.months_in_resolution >= terminal_resolution_months
+                })
+                .unwrap_or(false)
+            {
+                terminal_failures.push(bank_id);
+            }
+
             self.pending_events.push(SimEvent::BankRunWithdrawal {
                 country_name: self.name.clone(),
                 bank_id,
@@ -262,6 +319,12 @@ impl Country {
             if let Some(target_id) = treasury_switch {
                 self.move_treasury_deposit_bank(target_id);
             }
+        }
+
+        terminal_failures.sort_unstable();
+        terminal_failures.dedup();
+        for failed_bank_id in terminal_failures {
+            self.close_private_bank_terminally(failed_bank_id);
         }
 
         self.recompute_bank_deposit_liabilities();

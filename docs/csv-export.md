@@ -148,7 +148,7 @@ Discrete simulation event counts per country per month. Each column is the count
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
 
-Note: bank-run and bank-resolution events are present in the runtime event log but are not yet exported as dedicated monthly count columns in `events_<seed>.csv`.
+Note: bank-run, bank-resolution, and bank-closure events are present in the runtime event log but are not yet exported as dedicated monthly count columns in `events_<seed>.csv`.
 
 ---
 

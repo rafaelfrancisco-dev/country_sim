@@ -49,8 +49,9 @@ fn collect_country_data(
         }
         if person.is_labor_force_participant() {
             match person.employment {
-                EmploymentStatus::Employed { .. }
-                | EmploymentStatus::EmployedAtBank { .. } => employed_count += 1,
+                EmploymentStatus::Employed { .. } | EmploymentStatus::EmployedAtBank { .. } => {
+                    employed_count += 1
+                }
                 EmploymentStatus::Unemployed => unemployed_count += 1,
             }
             labor_force_count += 1;
@@ -341,6 +342,9 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::BankResolved {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::BankClosed {
+            country_name, day, ..
+        } => (country_name, *day),
         SimEvent::BankDepositHaircut {
             country_name, day, ..
         } => (country_name, *day),
@@ -393,10 +397,14 @@ fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
             country_name, day, ..
         } => (country_name, *day),
         SimEvent::ForeignDepositOpened {
-            home_country_name: country_name, day, ..
+            home_country_name: country_name,
+            day,
+            ..
         } => (country_name, *day),
         SimEvent::ForeignDepositClosed {
-            home_country_name: country_name, day, ..
+            home_country_name: country_name,
+            day,
+            ..
         } => (country_name, *day),
     }
 }

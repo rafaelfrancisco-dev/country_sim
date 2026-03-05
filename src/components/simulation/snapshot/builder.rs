@@ -516,6 +516,7 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::BankRunWithdrawal { country_name, .. }
         | SimEvent::BankResolutionStarted { country_name, .. }
         | SimEvent::BankResolved { country_name, .. }
+        | SimEvent::BankClosed { country_name, .. }
         | SimEvent::BankDepositHaircut { country_name, .. }
         | SimEvent::CompanyWageCut { country_name, .. }
         | SimEvent::CompanyLayoffs { country_name, .. }
@@ -533,7 +534,13 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::BondMatured { country_name, .. }
         | SimEvent::BondDefault { country_name, .. }
         | SimEvent::StockSecondaryOffering { country_name, .. } => country_name,
-        | SimEvent::ForeignDepositOpened { home_country_name: country_name, .. }
-        | SimEvent::ForeignDepositClosed { home_country_name: country_name, .. } => country_name,
+        SimEvent::ForeignDepositOpened {
+            home_country_name: country_name,
+            ..
+        }
+        | SimEvent::ForeignDepositClosed {
+            home_country_name: country_name,
+            ..
+        } => country_name,
     }
 }

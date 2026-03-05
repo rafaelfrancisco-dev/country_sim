@@ -131,6 +131,8 @@ pub struct BankingSystemParams {
     pub resolution_liquidity_floor: f64,
     /// Fraction of run intensity that decays each stable month.
     pub run_intensity_decay_monthly: f64,
+    /// Consecutive months in resolution after which a private bank is terminally closed.
+    pub terminal_resolution_months: u16,
     pub min_private_bank_founders: usize,
     /// Minimum founder cash kept after seed contribution.
     pub min_founder_cash_after_contribution: f64,
@@ -188,6 +190,7 @@ impl Default for BankingSystemParams {
             run_min_uninsured_share_trigger: 0.20,
             resolution_liquidity_floor: 0.05,
             run_intensity_decay_monthly: 0.75,
+            terminal_resolution_months: 6,
             min_private_bank_founders: 8,
             min_founder_cash_after_contribution: 25_000.0,
             min_private_bank_seed_capital: 500_000.0,

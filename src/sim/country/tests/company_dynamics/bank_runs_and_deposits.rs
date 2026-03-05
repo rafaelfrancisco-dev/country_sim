@@ -152,3 +152,138 @@ fn public_bank_health_is_not_pinned_near_zero() {
     let country = build_deterministic_country();
     assert!(country.bank_health_score(country.bank.id) > 0.20);
 }
+
+#[test]
+fn private_bank_terminal_failure_closes_and_removes_bank() {
+    let mut country = build_deterministic_country();
+    let weak_bank_id = country
+        .create_bank(BankKind::Private, 100.0)
+        .expect("private bank should be created");
+    for person in &mut country.people {
+        person.cash_balance = 50_000.0;
+        person.deposit_bank_id = Some(weak_bank_id);
+    }
+    for company in &mut country.companies {
+        company.cash_balance = 120_000.0;
+        company.deposit_bank_id = Some(weak_bank_id);
+    }
+    country.treasury_balance = 500_000.0;
+    country.treasury_bank_id = Some(weak_bank_id);
+    configure_for_terminal_failure(&mut country);
+
+    country.process_bank_runs();
+
+    assert!(country.bank_by_id(weak_bank_id).is_none());
+    assert!(country.pending_events.iter().any(|event| matches!(
+        event,
+        SimEvent::BankClosed { bank_id, .. } if *bank_id == weak_bank_id
+    )));
+    assert!(
+        country
+            .people
+            .iter()
+            .all(|person| person.deposit_bank_id != Some(weak_bank_id))
+    );
+    assert!(
+        country
+            .companies
+            .iter()
+            .all(|company| company.deposit_bank_id != Some(weak_bank_id))
+    );
+    assert_ne!(country.treasury_bank_id, Some(weak_bank_id));
+}
+
+#[test]
+fn private_bank_terminal_failure_reassigns_loans_and_clears_bank_employment() {
+    let mut country = build_deterministic_country();
+    let weak_bank_id = country
+        .create_bank(BankKind::Private, 100.0)
+        .expect("private bank should be created");
+    for person in &mut country.people {
+        person.cash_balance = 60_000.0;
+        person.deposit_bank_id = Some(weak_bank_id);
+    }
+    for company in &mut country.companies {
+        company.cash_balance = 80_000.0;
+        company.deposit_bank_id = Some(weak_bank_id);
+    }
+    country.people[0].loan = Some(crate::sim::bank::LoanAccount::new_with_lender(
+        20_000.0,
+        0.10,
+        24,
+        weak_bank_id,
+    ));
+    country.companies[0].loan = Some(crate::sim::bank::LoanAccount::new_with_lender(
+        75_000.0,
+        0.08,
+        36,
+        weak_bank_id,
+    ));
+    country.people[0].set_bank_employment(weak_bank_id, 2, 3_500.0, country.day);
+    configure_for_terminal_failure(&mut country);
+
+    country.process_bank_runs();
+
+    assert!(country.bank_by_id(weak_bank_id).is_none());
+    let acquiring_bank_id = country
+        .pending_events
+        .iter()
+        .find_map(|event| match event {
+            SimEvent::BankClosed {
+                bank_id,
+                acquired_by_bank_id,
+                ..
+            } if *bank_id == weak_bank_id => Some(*acquired_by_bank_id),
+            _ => None,
+        })
+        .expect("bank closed event should include acquiring bank");
+    assert_eq!(
+        country.people[0]
+            .loan
+            .as_ref()
+            .map(|loan| loan.lender_bank_id),
+        Some(acquiring_bank_id)
+    );
+    assert_eq!(
+        country.companies[0]
+            .loan
+            .as_ref()
+            .map(|loan| loan.lender_bank_id),
+        Some(acquiring_bank_id)
+    );
+    assert!(!country.people[0].is_employed());
+}
+
+#[test]
+fn create_bank_id_does_not_reuse_removed_bank_id() {
+    let mut country = build_deterministic_country();
+    let first_id = country
+        .create_bank(BankKind::Private, 10_000.0)
+        .expect("first private bank should be created");
+    let second_id = country
+        .create_bank(BankKind::Private, 10_000.0)
+        .expect("second private bank should be created");
+
+    assert!(country.close_private_bank_terminally(second_id));
+
+    let third_id = country
+        .create_bank(BankKind::Private, 10_000.0)
+        .expect("third private bank should be created");
+    assert_eq!(first_id, 1);
+    assert_eq!(second_id, 2);
+    assert_eq!(third_id, 3);
+}
+
+fn configure_for_terminal_failure(country: &mut Country) {
+    country.sim_params.banking.run_health_threshold = 0.98;
+    country.sim_params.banking.run_withdraw_fraction = 1.0;
+    country.sim_params.banking.run_switch_fraction = 0.0;
+    country.sim_params.banking.private_bank_failure_sensitivity = 1.0;
+    country.sim_params.banking.run_min_uninsured_share_trigger = 0.0;
+    country.sim_params.banking.deposit_insurance_cap = 1_000.0;
+    country.sim_params.banking.uninsured_haircut_rate = 0.50;
+    country.sim_params.banking.resolution_liquidity_floor = 1.0;
+    country.sim_params.banking.terminal_resolution_months = 1;
+    country.recompute_bank_deposit_liabilities();
+    country.recompute_aggregates();
+}

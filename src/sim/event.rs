@@ -136,6 +136,18 @@ pub enum SimEvent {
         bank_name: String,
         day: u64,
     },
+    BankClosed {
+        country_name: String,
+        bank_id: u16,
+        bank_name: String,
+        acquired_by_bank_id: u16,
+        acquired_by_bank_name: String,
+        migrated_depositors: u32,
+        migrated_companies: u32,
+        migrated_loans: u32,
+        transferred_reserves: f64,
+        day: u64,
+    },
     BankDepositHaircut {
         country_name: String,
         bank_id: u16,
@@ -302,6 +314,7 @@ impl SimEvent {
             | Self::BankRunWithdrawal { .. }
             | Self::BankResolutionStarted { .. }
             | Self::BankResolved { .. }
+            | Self::BankClosed { .. }
             | Self::BankDepositHaircut { .. } => EventCategory::BankruptciesDistress,
             Self::StockIpo { .. }
             | Self::StockDividend { .. }

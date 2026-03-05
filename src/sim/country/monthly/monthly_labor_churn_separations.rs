@@ -71,13 +71,19 @@ impl Country {
             }
 
             match cleared {
-                ClearedEmployment::Company { company_id, job_type_id: jt } => {
+                ClearedEmployment::Company {
+                    company_id,
+                    job_type_id: jt,
+                } => {
                     if let Some(company) = self.companies.get_mut(company_id as usize) {
                         company.add_opening_with_salary(jt, 1, monthly_salary);
                         replacement_openings = replacement_openings.saturating_add(1);
                     }
                 }
-                ClearedEmployment::Bank { bank_id, job_type_id: jt } => {
+                ClearedEmployment::Bank {
+                    bank_id,
+                    job_type_id: jt,
+                } => {
                     let bank_opt = if self.bank.id == bank_id {
                         Some(&mut self.bank)
                     } else {
