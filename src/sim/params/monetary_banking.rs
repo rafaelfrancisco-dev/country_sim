@@ -75,6 +75,9 @@ pub struct MonetaryPolicyParams {
     pub mint_unemployment_gap_weight: f64,
     /// Max monthly minted amount as a fraction of expected money supply.
     pub mint_max_fraction_expected_supply: f64,
+    /// Multiplier on `target_inflation_rate` forming the hard cap: if
+    /// `monthly_inflation_rate > target * multiplier`, unemployment minting is zeroed.
+    pub mint_unemployment_inflation_cap_multiplier: f64,
 }
 
 impl Default for MonetaryPolicyParams {
@@ -116,6 +119,7 @@ impl Default for MonetaryPolicyParams {
             mint_inflation_gap_weight: 0.20,
             mint_unemployment_gap_weight: 0.10,
             mint_max_fraction_expected_supply: 0.01,
+            mint_unemployment_inflation_cap_multiplier: 1.5,
         }
     }
 }

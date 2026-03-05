@@ -65,7 +65,12 @@ impl Country {
 
     pub(super) fn process_government_spending(&mut self) {
         let fiscal = self.sim_params.fiscal;
-        let benefit_amount = round_cents(fiscal.monthly_unemployment_benefit());
+        let base_benefit = round_cents(fiscal.monthly_unemployment_benefit());
+        let austerity_benefit_amount = if self.austerity_active {
+            round_cents(base_benefit * (1.0 - fiscal.austerity_benefit_reduction))
+        } else {
+            base_benefit
+        };
         let basic_threshold = fiscal.basic_needs_cash_threshold;
 
         // Essential needs goods are IDs 0–4 (water, food, housing, electricity, medicine).
@@ -79,9 +84,22 @@ impl Country {
             let age = person.age_years();
             let is_working_age = (18..=65).contains(&age);
 
-            if !person.is_employed() && is_working_age && benefit_amount > 0.0 {
+            // Track consecutive unemployment months
+            if person.is_employed() {
+                person.months_unemployed = 0;
+            } else if is_working_age {
+                person.months_unemployed = person.months_unemployed.saturating_add(1);
+            }
+
+            let within_duration_cap = person.months_unemployed <= fiscal.max_benefit_months;
+            if !person.is_employed()
+                && is_working_age
+                && austerity_benefit_amount > 0.0
+                && within_duration_cap
+            {
                 // Pay unemployment benefit from treasury
-                let payout = round_cents(benefit_amount.min(self.treasury_balance.max(0.0)));
+                let payout =
+                    round_cents(austerity_benefit_amount.min(self.treasury_balance.max(0.0)));
                 if payout > 0.0 {
                     person.cash_balance = round_cents(person.cash_balance + payout);
                     self.treasury_balance = round_cents(self.treasury_balance - payout);
@@ -93,7 +111,7 @@ impl Country {
             if person.cash_balance < basic_threshold
                 && (person.last_month_unmet_needs_mask & ESSENTIAL_NEEDS_MASK) != 0
             {
-                // Top up to basic_threshold for people with unmet essential needs
+                // Top up to basic_threshold for people with unmet essential needs (unconditional)
                 let top_up = round_cents(basic_threshold - person.cash_balance);
                 let payout = round_cents(top_up.min(self.treasury_balance.max(0.0)));
                 if payout > 0.0 {

@@ -159,6 +159,7 @@ fn basic_needs_top_up_raises_cash_to_threshold_for_person_with_unmet_essential_n
         unemployment_benefit_rate: 0.0, // disable unemployment benefit path
         median_income_reference: 2_000.0,
         basic_needs_cash_threshold: threshold,
+        ..Default::default()
     };
 
     // Employed adult (no unemployment benefit), low cash, has unmet water need (bit 0)
@@ -187,6 +188,7 @@ fn unemployed_with_unmet_essential_needs_can_receive_benefit_and_top_up_in_same_
         unemployment_benefit_rate: 0.2, // 200/month with reference 1_000
         median_income_reference: 1_000.0,
         basic_needs_cash_threshold: 500.0,
+        ..Default::default()
     };
     let mut person = unemployed_adult(1, 100.0);
     person.last_month_unmet_needs_mask = 1; // unmet water need (essential)
@@ -541,4 +543,238 @@ fn monthly_labor_churn_channel_order_prefers_retirement_then_layoff_over_quit() 
             ..
         }
     )));
+}
+
+// ---------------------------------------------------------------------------
+// Feature: Corporate profit tax
+// ---------------------------------------------------------------------------
+
+#[test]
+fn corporate_tax_collected_from_profitable_company() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 200_000.0;
+    companies[0].last_month_profit = 100_000.0; // bracket_1_max = 50k, rest in bracket 2
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![], companies, 0.0, params);
+
+    country.process_month_end();
+
+    // Expected tax: 50_000 * 0.15 + 50_000 * 0.25 = 7_500 + 12_500 = 20_000
+    let expected_tax = 50_000.0 * 0.15 + 50_000.0 * 0.25;
+    assert!(
+        (country.monthly_corporate_tax_collected - expected_tax).abs() < 0.01,
+        "corporate tax should be {expected_tax}; got {}",
+        country.monthly_corporate_tax_collected
+    );
+    assert!(
+        (country.monthly_tax_collected - expected_tax).abs() < 0.01,
+        "monthly_tax_collected should include corporate tax; got {}",
+        country.monthly_tax_collected
+    );
+    assert!(
+        (country.companies[0].cash_balance - (200_000.0 - expected_tax)).abs() < 0.01,
+        "company cash should decrease by tax; got {}",
+        country.companies[0].cash_balance
+    );
+}
+
+#[test]
+fn corporate_tax_not_collected_from_unprofitable_company() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 100_000.0;
+    companies[0].last_month_profit = -5_000.0; // loss
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![], companies, 0.0, params);
+
+    country.process_month_end();
+
+    assert!(
+        (country.monthly_corporate_tax_collected - 0.0).abs() < 0.01,
+        "no corporate tax should be collected on a loss; got {}",
+        country.monthly_corporate_tax_collected
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Feature: Unemployment benefit duration cap
+// ---------------------------------------------------------------------------
+
+#[test]
+fn benefit_not_paid_after_duration_cap_exceeded() {
+    let fiscal = FiscalParams {
+        max_benefit_months: 2,
+        ..FiscalParams::default()
+    };
+    let mut person = unemployed_adult(1, 0.0);
+    // Simulate person already at the cap: set months_unemployed to cap value
+    // (process_government_spending will increment it to cap+1, blocking payout)
+    person.months_unemployed = 2;
+    let treasury_start = 50_000.0;
+
+    let mut country = make_gov_country(vec![person], treasury_start, fiscal);
+    // Disable bank recapitalization so treasury changes reflect only gov spending.
+    country.sim_params.banking.public_bank_recapitalize_amount = f64::MAX;
+    country.process_month_end();
+
+    // months_unemployed will become 3, which exceeds cap of 2 → no benefit
+    assert!(
+        (country.monthly_gov_spending - 0.0).abs() < 0.01,
+        "no gov spending should occur after duration cap; got {}",
+        country.monthly_gov_spending
+    );
+    assert!(
+        country.people[0].months_unemployed > fiscal.max_benefit_months,
+        "months_unemployed should exceed cap; got {}",
+        country.people[0].months_unemployed
+    );
+}
+
+#[test]
+fn benefit_paid_while_within_duration_cap() {
+    let benefit = FiscalParams::default().monthly_unemployment_benefit();
+    let fiscal = FiscalParams {
+        max_benefit_months: 12,
+        ..FiscalParams::default()
+    };
+    let mut person = unemployed_adult(1, 0.0);
+    person.months_unemployed = 5; // will become 6 — within cap
+    let treasury_start = 50_000.0;
+
+    let mut country = make_gov_country(vec![person], treasury_start, fiscal);
+    // Disable bank recapitalization so gov spending is the only treasury outflow.
+    country.sim_params.banking.public_bank_recapitalize_amount = f64::MAX;
+    country.process_month_end();
+
+    assert!(
+        (country.monthly_gov_spending - benefit).abs() < 0.01,
+        "benefit should be paid within duration cap; got {}",
+        country.monthly_gov_spending
+    );
+    assert!(
+        country.people[0].months_unemployed <= fiscal.max_benefit_months,
+        "months_unemployed should be within cap; got {}",
+        country.people[0].months_unemployed
+    );
+}
+
+#[test]
+fn months_unemployed_resets_to_zero_on_employment() {
+    let mut person = unemployed_adult(1, 0.0);
+    person.months_unemployed = 10;
+
+    let employed = employed_adult(2, 0.0);
+
+    let fiscal = FiscalParams::default();
+    let treasury_start = 50_000.0;
+    let mut country = make_gov_country(vec![person, employed], treasury_start, fiscal);
+
+    country.process_month_end();
+
+    // The employed person (index 1) should have months_unemployed reset to 0
+    assert_eq!(
+        country.people[1].months_unemployed, 0,
+        "employed person months_unemployed should reset to 0"
+    );
+    // The unemployed person (index 0) should have months_unemployed incremented
+    assert!(
+        country.people[0].months_unemployed > 0,
+        "unemployed person months_unemployed should be incremented"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Feature: Debt-to-GDP austerity trigger
+// ---------------------------------------------------------------------------
+
+#[test]
+fn austerity_activates_when_debt_exceeds_gdp_threshold() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+    companies[0].last_month_sales = 1_000.0; // monthly GDP = 1_000, annual = 12_000
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.fiscal.austerity_debt_gdp_threshold = 0.80;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![], companies, 0.0, params);
+    // Set debt above 80% of annual GDP (80% of 12_000 = 9_600)
+    country.gov_debt = 10_000.0;
+
+    country.process_month_end();
+
+    assert!(
+        country.austerity_active,
+        "austerity should be active when debt/GDP > threshold"
+    );
+}
+
+#[test]
+fn austerity_does_not_activate_below_threshold() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+    companies[0].last_month_sales = 1_000_000.0; // large GDP
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.fiscal.austerity_debt_gdp_threshold = 0.80;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![], companies, 0.0, params);
+    country.gov_debt = 1_000.0; // well below 80% of 12_000_000
+
+    country.process_month_end();
+
+    assert!(
+        !country.austerity_active,
+        "austerity should not be active below threshold"
+    );
+}
+
+#[test]
+fn austerity_reduces_benefit_payout() {
+    let fiscal = FiscalParams {
+        austerity_benefit_reduction: 0.30,
+        austerity_debt_gdp_threshold: 0.80,
+        ..FiscalParams::default()
+    };
+    let base_benefit = fiscal.monthly_unemployment_benefit();
+    let expected_reduced = round_cents(base_benefit * 0.70);
+
+    let mut person = unemployed_adult(1, 0.0);
+    person.months_unemployed = 0;
+    let treasury_start = 50_000.0;
+
+    let mut country = make_gov_country(vec![person], treasury_start, fiscal);
+    // Disable bank recapitalization so gov spending is the only treasury outflow.
+    country.sim_params.banking.public_bank_recapitalize_amount = f64::MAX;
+    // Force small GDP and large debt to trigger austerity
+    country.gov_debt = 1_000_000.0;
+    // Use a tiny GDP so debt/annual_GDP > 0.80 (annual GDP = 1_200; debt/GDP = 833)
+    country.companies[0].last_month_sales = 100.0;
+
+    country.process_month_end();
+
+    assert!(country.austerity_active, "austerity should be active");
+    assert!(
+        (country.monthly_gov_spending - expected_reduced).abs() < 0.01,
+        "benefit should be reduced 30% under austerity; expected {expected_reduced}, got {}",
+        country.monthly_gov_spending
+    );
 }

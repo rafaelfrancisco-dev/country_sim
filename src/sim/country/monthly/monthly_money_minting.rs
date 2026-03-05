@@ -5,8 +5,15 @@ impl Country {
         let monetary = self.sim_params.monetary;
         let inflation_shortfall =
             (monetary.target_inflation_rate - self.monthly_inflation_rate).max(0.0);
-        let unemployment_gap =
+        let raw_unemployment_gap =
             (self.labor_force_unemployment_rate() - monetary.natural_unemployment_rate).max(0.0);
+        let inflation_overshoot_threshold =
+            monetary.target_inflation_rate * monetary.mint_unemployment_inflation_cap_multiplier;
+        let unemployment_gap = if self.monthly_inflation_rate > inflation_overshoot_threshold {
+            0.0
+        } else {
+            raw_unemployment_gap
+        };
 
         let mint_fraction_raw = inflation_shortfall * monetary.mint_inflation_gap_weight.max(0.0)
             + unemployment_gap * monetary.mint_unemployment_gap_weight.max(0.0);

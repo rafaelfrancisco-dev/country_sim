@@ -342,6 +342,12 @@ pub struct TaxPolicyParams {
     pub rate_1: f64,
     pub rate_2: f64,
     pub rate_3: f64,
+    // Corporate profit tax brackets (applied to last_month_profit)
+    pub corp_bracket_1_max: f64,
+    pub corp_bracket_2_max: f64,
+    pub corp_rate_1: f64,
+    pub corp_rate_2: f64,
+    pub corp_rate_3: f64,
 }
 
 impl Default for TaxPolicyParams {
@@ -352,6 +358,11 @@ impl Default for TaxPolicyParams {
             rate_1: 0.10,
             rate_2: 0.20,
             rate_3: 0.30,
+            corp_bracket_1_max: 50_000.0,
+            corp_bracket_2_max: 200_000.0,
+            corp_rate_1: 0.15,
+            corp_rate_2: 0.25,
+            corp_rate_3: 0.35,
         }
     }
 }
@@ -366,6 +377,14 @@ pub struct FiscalParams {
     /// If an unemployed person's cash is below this threshold AND they have
     /// unmet essential needs, the government tops up their cash to this amount.
     pub basic_needs_cash_threshold: f64,
+    /// Maximum months a person can receive unemployment benefit (duration cap).
+    pub max_benefit_months: u32,
+    /// Debt-to-annual-GDP ratio above which austerity mode activates.
+    pub austerity_debt_gdp_threshold: f64,
+    /// Fraction by which unemployment benefit is reduced during austerity.
+    pub austerity_benefit_reduction: f64,
+    /// Surcharge added to each corporate tax rate bracket during austerity.
+    pub austerity_corporate_tax_surcharge: f64,
 }
 
 impl Default for FiscalParams {
@@ -374,6 +393,10 @@ impl Default for FiscalParams {
             unemployment_benefit_rate: 0.50,
             median_income_reference: 2_000.0,
             basic_needs_cash_threshold: 500.0,
+            max_benefit_months: 12,
+            austerity_debt_gdp_threshold: 0.80,
+            austerity_benefit_reduction: 0.30,
+            austerity_corporate_tax_surcharge: 0.05,
         }
     }
 }

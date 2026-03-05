@@ -111,6 +111,8 @@ pub struct Person {
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
     pub last_month_savings_interest: f64,
+    /// Consecutive months this person has been unemployed (resets to 0 on employment).
+    pub months_unemployed: u32,
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
     pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
     /// Deposit held at a bank in another country, if any.
@@ -163,6 +165,7 @@ impl Person {
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
             last_month_savings_interest: 0.0,
+            months_unemployed: 0,
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
             foreign_deposit: None,

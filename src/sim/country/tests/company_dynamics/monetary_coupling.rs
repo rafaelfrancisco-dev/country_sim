@@ -212,6 +212,9 @@ fn auto_money_minting_caps_and_tracks_monthly_and_cumulative_amounts() {
     params.monetary.mint_unemployment_gap_weight = 0.10;
     params.monetary.mint_max_fraction_expected_supply = 0.01;
     params.monetary.deposit_spread = 1.0;
+    // Disable bank recapitalization so it doesn't create spurious bank-created money
+    // that would inflate expected_money_supply independently of minting.
+    params.banking.public_bank_recapitalize_amount = f64::MAX;
 
     let people = vec![
         make_employed_person(1, 0, 3_000.0, 10_000.0),
@@ -249,6 +252,9 @@ fn auto_money_minting_skips_when_no_positive_inflation_or_unemployment_gap() {
     params.monetary.mint_unemployment_gap_weight = 0.50;
     params.monetary.mint_max_fraction_expected_supply = 0.05;
     params.monetary.deposit_spread = 1.0;
+    // Disable bank recapitalization so it doesn't create spurious bank-created money
+    // that would inflate expected_money_supply independently of minting.
+    params.banking.public_bank_recapitalize_amount = f64::MAX;
 
     let people = vec![make_employed_person(1, 0, 3_000.0, 10_000.0)];
     let mut country =
@@ -266,5 +272,62 @@ fn auto_money_minting_skips_when_no_positive_inflation_or_unemployment_gap() {
             .pending_events
             .iter()
             .any(|event| matches!(event, SimEvent::MoneyMinted { .. }))
+    );
+}
+
+#[test]
+fn unemployment_minting_is_blocked_when_inflation_exceeds_cap() {
+    // Set up a country with high unemployment (would normally trigger minting)
+    // but with inflation above target * cap_multiplier (should block unemployment minting).
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.mint_inflation_gap_weight = 0.0; // disable inflation-gap minting
+    params.monetary.mint_unemployment_gap_weight = 1.0;
+    params.monetary.mint_max_fraction_expected_supply = 0.05;
+    params.monetary.deposit_spread = 1.0;
+    params.monetary.target_inflation_rate = 0.02;
+    params.monetary.mint_unemployment_inflation_cap_multiplier = 1.5; // cap at 3%
+    // Disable bank recapitalization so it doesn't create spurious bank-created money
+    // that would inflate expected_money_supply independently of minting.
+    params.banking.public_bank_recapitalize_amount = f64::MAX;
+
+    // 1 employed + 1 unemployed → 50% unemployment → large unemployment gap
+    let people = vec![
+        make_employed_person(1, 0, 3_000.0, 10_000.0),
+        make_unemployed_person(2, 10_000.0),
+    ];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+    // Pre-set inflation well above the 3% overshoot threshold
+    country.monthly_inflation_rate = 0.10; // 10% — far above cap
+    let expected_before = country.expected_money_supply;
+
+    country.process_month_end();
+
+    // Unemployment minting should be fully blocked; inflation-gap minting is also 0
+    // (since inflation > target). So no minting should occur.
+    assert!(
+        country.monthly_money_minted < 0.01,
+        "no minting should occur when inflation exceeds cap; got {}",
+        country.monthly_money_minted
+    );
+    assert!(
+        country.last_mint_unemployment_gap < 0.01,
+        "last_mint_unemployment_gap should be zeroed when inflation exceeds cap; got {}",
+        country.last_mint_unemployment_gap
+    );
+    // expected_money_supply should not have grown from minting
+    assert!(
+        (country.expected_money_supply - expected_before).abs() < 100.0,
+        "expected_money_supply should not grow from minting; delta = {}",
+        country.expected_money_supply - expected_before
     );
 }

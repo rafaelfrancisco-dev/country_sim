@@ -8,6 +8,7 @@ impl Country {
     }
 
     pub(crate) fn process_month_end(&mut self) {
+        self.compute_monthly_gdp_and_austerity();
         self.ensure_entity_deposit_assignments();
         self.recompute_company_headcounts();
         self.recompute_bank_headcounts();
@@ -15,6 +16,7 @@ impl Country {
 
         self.ensure_company_payroll_liquidity();
         self.process_payroll_and_taxes();
+        self.process_corporate_taxes();
         self.process_government_spending();
         self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
@@ -56,9 +58,11 @@ impl Country {
     pub(crate) fn process_month_end_traced(&mut self) -> crate::sim::trace::CountryMonthlyTrace {
         let total_started = ::std::time::Instant::now();
 
+        self.compute_monthly_gdp_and_austerity();
         let recompute_headcounts_before_ms = time_op!(self.recompute_company_headcounts());
         let payroll_liquidity_ms = time_op!(self.ensure_company_payroll_liquidity());
         let payroll_taxes_ms = time_op!(self.process_payroll_and_taxes());
+        self.process_corporate_taxes();
         let gov_spending_ms = time_op!(self.process_government_spending());
         let bond_coupon_ms = time_op!(self.process_bond_coupon_and_maturity());
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
@@ -125,6 +129,9 @@ impl Country {
 
     pub(crate) fn reset_month_trackers(&mut self) {
         self.monthly_tax_collected = 0.0;
+        self.monthly_corporate_tax_collected = 0.0;
+        self.monthly_gdp = 0.0;
+        // austerity_active is NOT reset here — persists until recomputed at start of next month
         self.monthly_household_spending = 0.0;
         self.monthly_tariff_collected = 0.0;
         self.monthly_goods_import_spending = 0.0;
@@ -236,6 +243,63 @@ impl Country {
                 });
             }
         }
+    }
+
+    pub(super) fn compute_monthly_gdp_and_austerity(&mut self) {
+        let gdp: f64 = self.companies.iter().map(|c| c.last_month_sales).sum();
+        self.monthly_gdp = round_cents(gdp);
+        let fiscal = self.sim_params.fiscal;
+        let annual_gdp = self.monthly_gdp * 12.0;
+        self.austerity_active = if annual_gdp > 0.0 {
+            self.gov_debt / annual_gdp > fiscal.austerity_debt_gdp_threshold
+        } else {
+            false
+        };
+    }
+
+    pub(super) fn process_corporate_taxes(&mut self) {
+        let tax = self.sim_params.tax;
+        let fiscal = self.sim_params.fiscal;
+        let surcharge = if self.austerity_active {
+            fiscal.austerity_corporate_tax_surcharge
+        } else {
+            0.0
+        };
+
+        let rate_1 = (tax.corp_rate_1 + surcharge).clamp(0.0, 1.0);
+        let rate_2 = (tax.corp_rate_2 + surcharge).clamp(0.0, 1.0);
+        let rate_3 = (tax.corp_rate_3 + surcharge).clamp(0.0, 1.0);
+
+        let mut total_collected: f64 = 0.0;
+        for company in &mut self.companies {
+            let profit = company.last_month_profit;
+            if profit <= 0.0 {
+                continue;
+            }
+            // Tiered bracket logic on prior-month profit
+            let tax_owed = if profit <= tax.corp_bracket_1_max {
+                profit * rate_1
+            } else if profit <= tax.corp_bracket_2_max {
+                tax.corp_bracket_1_max * rate_1
+                    + (profit - tax.corp_bracket_1_max) * rate_2
+            } else {
+                tax.corp_bracket_1_max * rate_1
+                    + (tax.corp_bracket_2_max - tax.corp_bracket_1_max) * rate_2
+                    + (profit - tax.corp_bracket_2_max) * rate_3
+            };
+            let tax_owed = round_cents(tax_owed);
+            let actual = round_cents(tax_owed.min(company.cash_balance.max(0.0)));
+            if actual <= 0.0 {
+                continue;
+            }
+            company.cash_balance = round_cents(company.cash_balance - actual);
+            total_collected = round_cents(total_collected + actual);
+        }
+
+        self.treasury_balance = round_cents(self.treasury_balance + total_collected);
+        self.monthly_corporate_tax_collected =
+            round_cents(self.monthly_corporate_tax_collected + total_collected);
+        self.monthly_tax_collected = round_cents(self.monthly_tax_collected + total_collected);
     }
 
     pub(super) fn process_payroll_and_taxes(&mut self) {
