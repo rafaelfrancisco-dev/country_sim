@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::bank::BankKind;
+use crate::sim::good::common_goods;
 
 impl Country {
     pub(super) fn update_company_growth_openings(&mut self) {
@@ -294,6 +295,7 @@ impl Country {
         for good_id in missing_goods {
             self.create_public_essential_company(good_id, backfill);
         }
+        self.expand_essential_capacity_under_shortage(backfill);
         self.spawn_countercyclical_public_employers(backfill);
     }
 
@@ -307,6 +309,70 @@ impl Country {
                     .any(|company| company.produced_good_id == *good_id)
             })
             .collect()
+    }
+
+    fn expand_essential_capacity_under_shortage(&mut self, backfill: GovernmentBackfillParams) {
+        let population = self.people.len().max(1) as f64;
+        let unmet_events_per_capita = self.monthly_unmet_need_events as f64 / population;
+        if unmet_events_per_capita < 0.75 {
+            return;
+        }
+
+        let max_extra_companies = (unmet_events_per_capita / 2.0).ceil() as u16;
+        let max_extra_companies = max_extra_companies.clamp(1, 3);
+        for _ in 0..max_extra_companies {
+            let Some(good_id) = self.most_underprovided_essential_good(
+                backfill.essential_good_max_id_inclusive,
+                unmet_events_per_capita,
+            ) else {
+                break;
+            };
+            self.create_public_essential_company(good_id, backfill);
+        }
+    }
+
+    fn most_underprovided_essential_good(
+        &self,
+        max_good_id_inclusive: u8,
+        unmet_events_per_capita: f64,
+    ) -> Option<u8> {
+        let max_good_id = max_good_id_inclusive.min(GOODS_COUNT.saturating_sub(1) as u8);
+        let pop_scale = (self.people.len().max(1) as f64 / 1_000.0).max(1.0);
+        let market_depth = pop_scale.sqrt();
+        let stress_bonus = (unmet_events_per_capita / 2.0).ceil() as u16;
+        let stress_bonus = stress_bonus.clamp(1, 3);
+        let mut best: Option<(u8, i32)> = None;
+
+        for good_id in 0..=max_good_id {
+            let Some(good) = common_goods().get(good_id as usize) else {
+                continue;
+            };
+            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
+            let base_target = ((market_depth * labor_load) / 12.0).ceil() as u16;
+            let desired_producers = base_target.saturating_add(stress_bonus).clamp(1, 10);
+            let current_producers = self
+                .companies
+                .iter()
+                .filter(|company| company.produced_good_id == good_id)
+                .count() as u16;
+            let shortfall = i32::from(desired_producers) - i32::from(current_producers);
+            if shortfall <= 0 {
+                continue;
+            }
+
+            match best {
+                None => best = Some((good_id, shortfall)),
+                Some((best_good_id, best_shortfall))
+                    if shortfall > best_shortfall
+                        || (shortfall == best_shortfall && good_id < best_good_id) =>
+                {
+                    best = Some((good_id, shortfall));
+                }
+                _ => {}
+            }
+        }
+
+        best.map(|(good_id, _)| good_id)
     }
 
     pub(crate) fn create_public_essential_company(

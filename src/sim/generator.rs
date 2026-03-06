@@ -1,7 +1,7 @@
 use super::{
-    company::{Company, DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies},
+    company::{Company, DEFAULT_COMPANIES_PER_COUNTRY},
     country::Country,
-    good::{common_goods, good_by_id},
+    good::{GOODS_COUNT, common_goods, good_by_id},
     job::{JobTypeId, common_job_types},
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
@@ -184,7 +184,8 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     } else {
         config.companies_per_country
     };
-    let mut companies = build_default_companies(&country_name, company_count);
+    let mut companies =
+        build_initial_companies(&country_name, config.population_per_country, company_count);
     randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
     let job_cache = build_job_selection_cache(&companies, &mut rng);
 
@@ -242,17 +243,96 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
 }
 
 fn derive_initial_company_count(population_per_country: u32) -> u16 {
-    let pop_scale = (population_per_country as f64 / 1_000.0).max(1.0);
-    let market_depth = pop_scale.sqrt();
-    let mut total = 0_u32;
-    for good in common_goods() {
-        let firms = ((market_depth * good.monthly_demand_factor) / 4.0).ceil() as u32;
-        total = total.saturating_add(firms.clamp(1, 5));
-    }
+    let total = target_initial_company_counts(population_per_country)
+        .iter()
+        .copied()
+        .map(u32::from)
+        .sum::<u32>();
     total
         .clamp(15, u32::from(u16::MAX))
         .try_into()
         .unwrap_or(u16::MAX)
+}
+
+fn target_initial_company_counts(population_per_country: u32) -> [u16; GOODS_COUNT] {
+    let pop_scale = (population_per_country as f64 / 1_000.0).max(1.0);
+    let market_depth = pop_scale.sqrt();
+    std::array::from_fn(|good_idx| {
+        let good = common_goods()[good_idx];
+        let labor_load = good.monthly_demand_factor * good.effort_per_unit;
+        let firms = ((market_depth * labor_load) / 12.0).ceil() as u16;
+        firms.clamp(1, 8)
+    })
+}
+
+fn build_initial_companies(
+    country_name: &str,
+    population_per_country: u32,
+    company_count: u16,
+) -> Vec<Company> {
+    let company_count = usize::from(company_count);
+    if company_count == 0 {
+        return Vec::new();
+    }
+
+    let target_counts = target_initial_company_counts(population_per_country);
+    let desired_total = target_counts
+        .iter()
+        .copied()
+        .map(usize::from)
+        .sum::<usize>();
+    let company_goods = if company_count == desired_total {
+        let mut goods = Vec::with_capacity(company_count);
+        for (good_idx, count) in target_counts.iter().copied().enumerate() {
+            for _ in 0..count {
+                goods.push(common_goods()[good_idx].id);
+            }
+        }
+        goods
+    } else {
+        allocate_company_goods_dhondt(company_count, &target_counts)
+    };
+
+    let available_job_ids = common_job_types()
+        .iter()
+        .map(|job| job.id)
+        .collect::<Vec<_>>();
+    company_goods
+        .into_iter()
+        .enumerate()
+        .map(|(idx, good_id)| {
+            Company::new(
+                idx as u16,
+                format!("{country_name} Co {}", idx + 1),
+                available_job_ids.clone(),
+                good_id,
+            )
+        })
+        .collect()
+}
+
+fn allocate_company_goods_dhondt(company_count: usize, target_counts: &[u16]) -> Vec<u8> {
+    let mut allocations = vec![0_u16; target_counts.len()];
+    for _ in 0..company_count {
+        let mut best_idx = 0usize;
+        let mut best_score = f64::NEG_INFINITY;
+        for (good_idx, &target) in target_counts.iter().enumerate() {
+            let score = f64::from(target) / f64::from(allocations[good_idx].saturating_add(1));
+            if score > best_score {
+                best_score = score;
+                best_idx = good_idx;
+            }
+        }
+        allocations[best_idx] = allocations[best_idx].saturating_add(1);
+    }
+
+    let mut goods = Vec::with_capacity(company_count);
+    for (good_idx, count) in allocations.into_iter().enumerate() {
+        for _ in 0..count {
+            goods.push(common_goods()[good_idx].id);
+        }
+    }
+    goods
 }
 
 fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
@@ -329,7 +409,15 @@ fn build_company_hiring_weights(
 ) -> Vec<u16> {
     companies
         .iter()
-        .map(|_| rng.next_u16_inclusive(1, 100))
+        .map(|company| {
+            let Some(good) = good_by_id(company.produced_good_id) else {
+                return rng.next_u16_inclusive(1, 100);
+            };
+            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
+            let jitter = 0.85 + 0.30 * rng.next_f64();
+            let weight = (labor_load * 10.0 * jitter).round() as u16;
+            weight.max(1)
+        })
         .collect()
 }
 
@@ -508,6 +596,31 @@ mod tests {
             .collect::<std::collections::BTreeSet<_>>();
 
         assert!(unique_prices.len() > 10);
+    }
+
+    #[test]
+    fn target_initial_company_counts_scale_essentials_for_large_populations() {
+        let counts = target_initial_company_counts(100_000);
+
+        assert_eq!(counts[0], 5);
+        assert_eq!(counts[1], 5);
+        assert_eq!(counts[2], 3);
+        assert_eq!(counts[3], 2);
+        assert_eq!(counts[4], 1);
+        assert_eq!(counts.iter().copied().map(u32::from).sum::<u32>(), 53);
+    }
+
+    #[test]
+    fn build_initial_companies_matches_default_good_targets() {
+        let company_count = derive_initial_company_count(100_000);
+        let companies = build_initial_companies("A", 100_000, company_count);
+        let mut counts = [0_u16; GOODS_COUNT];
+        for company in companies {
+            counts[company.produced_good_id as usize] =
+                counts[company.produced_good_id as usize].saturating_add(1);
+        }
+
+        assert_eq!(counts, target_initial_company_counts(100_000));
     }
 
     #[test]

@@ -17,7 +17,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         name: "Water",
         necessity_rank: 1,
         effort_per_unit: 2.5,
-        monthly_demand_factor: 4.0,
+        monthly_demand_factor: 2.2,
         base_unit_cost: 6.0,
     },
     Good {
@@ -25,7 +25,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         name: "Food",
         necessity_rank: 2,
         effort_per_unit: 3.0,
-        monthly_demand_factor: 3.2,
+        monthly_demand_factor: 1.8,
         base_unit_cost: 14.0,
     },
     Good {
@@ -33,7 +33,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         name: "Housing",
         necessity_rank: 3,
         effort_per_unit: 8.0,
-        monthly_demand_factor: 1.0,
+        monthly_demand_factor: 0.45,
         base_unit_cost: 520.0,
     },
     Good {
@@ -41,7 +41,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         name: "Electricity",
         necessity_rank: 4,
         effort_per_unit: 6.5,
-        monthly_demand_factor: 1.1,
+        monthly_demand_factor: 0.35,
         base_unit_cost: 95.0,
     },
     Good {
@@ -49,7 +49,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         name: "Medicine",
         necessity_rank: 5,
         effort_per_unit: 5.0,
-        monthly_demand_factor: 0.9,
+        monthly_demand_factor: 0.15,
         base_unit_cost: 60.0,
     },
     Good {

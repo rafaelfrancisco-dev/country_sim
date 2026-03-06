@@ -160,3 +160,41 @@ fn government_backfill_financing_uses_treasury_then_deficit() {
     assert!(country.treasury_balance.abs() < 0.01);
     assert!(country.validate_money_invariants().is_empty());
 }
+
+#[test]
+fn government_backfill_adds_capacity_when_essential_shortage_is_persistent() {
+    let companies = build_default_companies("A", 5);
+    let people = (0..50_u32)
+        .map(|idx| {
+            Person::new_with_profile(
+                idx + 1,
+                EmploymentStatus::Unemployed,
+                idx + 500,
+                30 * DAYS_PER_YEAR,
+                EducationTrack::HighSchool,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill = GovernmentBackfillParams {
+        enabled: true,
+        essential_good_max_id_inclusive: 4,
+        ..GovernmentBackfillParams::default()
+    };
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 500_000.0, params);
+    country.treasury_balance = 500_000.0;
+    country.monthly_unmet_need_events = 200;
+
+    country.process_month_end();
+
+    assert!(country.companies.len() > 5);
+    assert!(
+        country.companies.iter().any(|company| company.is_essential_backfill),
+        "high shortage pressure should trigger extra public essential capacity"
+    );
+}
