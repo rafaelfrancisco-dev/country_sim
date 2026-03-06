@@ -159,8 +159,12 @@ fn build_symbol_contexts(
                     debt,
                     equity.shares_outstanding,
                 );
+                // Add dividend capitalization: trailing annual DPS / required return.
+                // A stock paying dividends is worth more than its P/S anchor alone.
+                let div_value = equity.trailing_annual_dps() / 0.08;
+                let fundamental = anchor + div_value;
                 if last_price > 0.0 {
-                    (anchor - last_price) / last_price
+                    (fundamental - last_price) / last_price
                 } else {
                     0.0
                 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 
 impl Country {
@@ -8,6 +10,14 @@ impl Country {
 
         let payout_ratio = self.sim_params.stock_market.dividend_payout_ratio;
         let runway_months = self.sim_params.stock_market.dividend_min_runway_months;
+
+        // Build O(1) person lookup once for all companies.
+        let person_idx_by_id: HashMap<u32, usize> = self
+            .people
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (p.id, i))
+            .collect();
 
         let company_ids: Vec<u16> = self.stock_market.listed.keys().copied().collect();
 
@@ -71,8 +81,10 @@ impl Country {
                         // Household dividend — apply withholding tax (same bracket logic)
                         let tax = round_cents(gross * 0.15); // flat 15% withholding
                         let net = round_cents(gross - tax);
-                        if let Some(person) = self.people.iter_mut().find(|p| p.id == *pid) {
-                            person.cash_balance = round_cents(person.cash_balance + net);
+                        if let Some(&idx) = person_idx_by_id.get(pid) {
+                            if let Some(person) = self.people.get_mut(idx) {
+                                person.cash_balance = round_cents(person.cash_balance + net);
+                            }
                         }
                         self.treasury_balance = round_cents(self.treasury_balance + tax);
                         self.monthly_tax_collected = round_cents(self.monthly_tax_collected + tax);
@@ -103,6 +115,11 @@ impl Country {
 
             self.stock_market.dividends_paid_mtd =
                 round_cents(self.stock_market.dividends_paid_mtd + total_paid);
+
+            // Record DPS in the trailing-12-month ring buffer for valuation.
+            if let Some(equity) = self.stock_market.listed.get_mut(&company_id) {
+                equity.record_monthly_dps(per_share);
+            }
 
             let ticker = self
                 .stock_market

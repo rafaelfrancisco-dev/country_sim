@@ -162,6 +162,9 @@ pub struct ListedEquity {
     pub price_history: Vec<f64>,
     pub volume_history: Vec<u64>,
     pub market_cap_history: Vec<f64>,
+    /// Per-share dividends paid per month (ring buffer, trailing 12 months).
+    pub monthly_dps: [f64; 12],
+    pub dps_cursor: u8,
 }
 
 impl ListedEquity {
@@ -188,7 +191,22 @@ impl ListedEquity {
             price_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
             volume_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
             market_cap_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
+            monthly_dps: [0.0; 12],
+            dps_cursor: 0,
         }
+    }
+
+    /// Sum of trailing 12-month per-share dividends.
+    pub fn trailing_annual_dps(&self) -> f64 { self.monthly_dps.iter().sum() }
+
+    pub fn record_monthly_dps(&mut self, per_share: f64) {
+        self.monthly_dps[self.dps_cursor as usize] += per_share;
+    }
+
+    pub fn advance_dps_cursor(&mut self) {
+        let next = (self.dps_cursor as usize + 1) % 12;
+        self.dps_cursor = next as u8;
+        self.monthly_dps[next] = 0.0;
     }
 
     pub fn day_pct_change(&self) -> f64 {
@@ -364,6 +382,9 @@ impl StockMarket {
         }
         self.bank_portfolio.realized_pnl_mtd = 0.0;
         self.bank_portfolio.dividends_mtd = 0.0;
+        for equity in self.listed.values_mut() {
+            equity.advance_dps_cursor();
+        }
     }
 
     fn ticker_in_use_by_other(&self, ticker: &str, company_id: u16) -> bool {
