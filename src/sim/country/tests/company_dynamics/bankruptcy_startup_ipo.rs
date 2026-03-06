@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 #[test]
 fn bankruptcy_physically_removes_company_and_remaps_employers() {
@@ -137,7 +139,7 @@ fn growth_ipo_lists_company_and_pays_founder_secondary_proceeds() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].cash_balance = 10_000.0;
-    companies[0].sales_history = vec![900_000.0, 1_000_000.0, 1_100_000.0];
+    companies[0].sales_history = VecDeque::from(vec![900_000.0, 1_000_000.0, 1_100_000.0]);
     companies[0].last_month_sales = 1_000_000.0;
     companies[0].consecutive_profitable_months = 2;
     companies[0].age_months = 12;
@@ -230,7 +232,7 @@ fn distress_ipo_keeps_secondary_zero() {
     companies[0].consecutive_missed_loan_payments = 2;
     companies[0].consecutive_loss_months = 6;
     companies[0].last_month_sales = 0.0;
-    companies[0].sales_history = vec![0.0, 0.0, 0.0];
+    companies[0].sales_history = VecDeque::from(vec![0.0, 0.0, 0.0]);
     companies[0].age_months = 24;
 
     let mut people = Vec::new();

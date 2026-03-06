@@ -147,12 +147,24 @@ impl UiState {
                     self.goods_main_page = self.goods_main_page.toggle();
                 }
             }
-            UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
-            UiCommand::GoodsNextCountry => self.select_next_country_row(world),
+            UiCommand::GoodsPrevCountry => {
+                self.select_prev_country_row(world);
+                self.selection_focus = SelectionFocus::Company;
+            }
+            UiCommand::GoodsNextCountry => {
+                self.select_next_country_row(world);
+                self.selection_focus = SelectionFocus::Company;
+            }
             UiCommand::GoodsProductionPagePrev => self.prev_goods_production_page(),
             UiCommand::GoodsProductionPageNext => self.next_goods_production_page(),
-            UiCommand::BanksPrevCountry => self.select_prev_country_row(world),
-            UiCommand::BanksNextCountry => self.select_next_country_row(world),
+            UiCommand::BanksPrevCountry => {
+                self.select_prev_country_row(world);
+                self.selection_focus = SelectionFocus::Bank;
+            }
+            UiCommand::BanksNextCountry => {
+                self.select_next_country_row(world);
+                self.selection_focus = SelectionFocus::Bank;
+            }
             UiCommand::EventsScrollUp => {
                 self.events_scroll = self.events_scroll.saturating_sub(1);
             }

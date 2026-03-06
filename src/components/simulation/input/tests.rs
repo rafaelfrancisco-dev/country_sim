@@ -336,7 +336,7 @@ fn company_workers_page_uses_worker_scroll_controls() {
 }
 
 #[test]
-fn banks_list_keymap_focuses_table_and_opens_details() {
+fn banks_list_keymap_navigates_and_opens_details() {
     let simulation = Simulation::new();
     let banks_list_state = RunningInputState {
         details_view: DetailsView::List,
@@ -350,11 +350,11 @@ fn banks_list_keymap_focuses_table_and_opens_details() {
 
     assert_eq!(
         simulation.map_running_key(KeyEvent::from(KeyCode::Char('a')), banks_list_state),
-        Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection))
+        None
     );
     assert_eq!(
         simulation.map_running_key(KeyEvent::from(KeyCode::Char('d')), banks_list_state),
-        Some(SimulationCommand::Ui(UiCommand::FocusBankSelection))
+        None
     );
     assert_eq!(
         simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), banks_list_state),

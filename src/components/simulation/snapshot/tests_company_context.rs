@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 
 #[test]
@@ -8,14 +10,14 @@ fn company_related_events_preserve_matches_for_historical_company_ids() {
         vec![Person::new(1, 30, 0, 11)],
     )]);
     world.countries[0].companies[0].remember_historical_id(1);
-    world.event_log = vec![SimEvent::JobSwitched {
+    world.event_log = VecDeque::from(vec![SimEvent::JobSwitched {
         country_name: "A".to_string(),
         person_id: 1,
         from_company_id: 1,
         to_company_id: 2,
         monthly_salary: 100.0,
         day: 4,
-    }];
+    }]);
 
     let ui = UiState {
         active_tab: RunningTab::Goods,

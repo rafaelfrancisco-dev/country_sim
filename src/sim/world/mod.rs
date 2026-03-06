@@ -19,6 +19,8 @@ pub use export::{
 };
 pub use invariants::InvariantViolation;
 
+use std::collections::VecDeque;
+
 use super::{country::Country, event::SimEvent};
 
 pub const HISTORY_LIMIT: usize = 120;
@@ -72,10 +74,10 @@ pub struct World {
     pub(crate) countries: Vec<Country>,
     pub(crate) paused: bool,
     pub(crate) policy_rate: f64,
-    pub(crate) world_history: Vec<MetricPoint>,
-    pub(crate) country_history: Vec<Vec<MetricPoint>>,
-    pub(crate) bank_history: std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>>,
-    pub(crate) event_log: Vec<SimEvent>,
+    pub(crate) world_history: VecDeque<MetricPoint>,
+    pub(crate) country_history: Vec<VecDeque<MetricPoint>>,
+    pub(crate) bank_history: std::collections::HashMap<(usize, u16), VecDeque<BankMetricPoint>>,
+    pub(crate) event_log: VecDeque<SimEvent>,
     pub(crate) export_queue: Vec<MonthlyExportData>,
     pub(crate) export_queue_active: bool,
     pub(crate) stock_country_export_queue: Vec<StockDailyCountryExportData>,

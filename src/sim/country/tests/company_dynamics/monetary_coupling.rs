@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 use crate::sim::bank::{
     DEFAULT_LOAN_TERM_MONTHS, DEFAULT_MAX_DEBT_TO_INCOME, max_principal_for_payment,
@@ -67,7 +69,7 @@ fn end_of_month_loan_approval_is_higher_when_policy_rate_is_lower() {
 fn company_loan_capacity_math_is_tighter_when_rates_are_higher() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
-    companies[0].sales_history = vec![10_000.0, 10_000.0, 10_000.0];
+    companies[0].sales_history = VecDeque::from(vec![10_000.0, 10_000.0, 10_000.0]);
     companies[0].loan = Some(LoanAccount::new(35_000.0, 0.12, 12));
 
     let mut params = SimulationParams::default();

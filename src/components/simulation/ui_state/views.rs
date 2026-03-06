@@ -102,6 +102,11 @@ impl UiState {
             RunningTab::Charts => RunningTab::Events,
             RunningTab::Events => RunningTab::Main,
         };
+        match self.active_tab {
+            RunningTab::Goods => self.selection_focus = SelectionFocus::Company,
+            RunningTab::Banks => self.selection_focus = SelectionFocus::Bank,
+            _ => {}
+        }
     }
 
     pub(super) fn prev_tab(&mut self) {
@@ -114,6 +119,11 @@ impl UiState {
             RunningTab::Charts => RunningTab::Disasters,
             RunningTab::Events => RunningTab::Charts,
         };
+        match self.active_tab {
+            RunningTab::Goods => self.selection_focus = SelectionFocus::Company,
+            RunningTab::Banks => self.selection_focus = SelectionFocus::Bank,
+            _ => {}
+        }
     }
 
     pub(super) fn toggle_chart_scope(&mut self) {

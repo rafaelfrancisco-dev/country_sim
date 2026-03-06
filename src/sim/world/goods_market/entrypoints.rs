@@ -24,7 +24,7 @@ impl World {
                     continue;
                 }
 
-                if let Some(&last_sold) = company.sold_units_history.last()
+                if let Some(&last_sold) = company.sold_units_history.back()
                     && last_sold > 0
                 {
                     let months_of_inventory = company.inventory_units as f64 / last_sold as f64;

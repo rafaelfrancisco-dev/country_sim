@@ -1,9 +1,11 @@
+use std::collections::VecDeque;
+
 use super::*;
 
 #[test]
 fn average_monthly_revenue_uses_available_history() {
     let mut company = Company::new(1, "Test".to_string(), vec![0, 1, 2], 1);
-    company.sales_history = vec![10.0, 20.0, 40.0];
+    company.sales_history = VecDeque::from(vec![10.0, 20.0, 40.0]);
 
     assert!((company.average_monthly_revenue() - 23.33).abs() < 0.01);
 }
@@ -11,7 +13,7 @@ fn average_monthly_revenue_uses_available_history() {
 #[test]
 fn average_profit_over_months_requires_enough_history() {
     let mut company = Company::new(1, "Test".to_string(), vec![0, 1, 2], 1);
-    company.profit_history = vec![10.0, 20.0, 40.0];
+    company.profit_history = VecDeque::from(vec![10.0, 20.0, 40.0]);
 
     assert!((company.average_profit_over_months(4) - 0.0).abs() < 0.01);
     assert!((company.average_profit_over_months(3) - 23.33).abs() < 0.01);

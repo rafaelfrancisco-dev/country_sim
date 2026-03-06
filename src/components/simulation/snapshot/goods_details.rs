@@ -33,9 +33,9 @@ pub(in crate::components::simulation) fn selected_company_histories(
             .iter()
             .map(|count| f64::from(*count))
             .collect(),
-        company.price_history.clone(),
-        company.loan_payment_history.clone(),
-        company.cash_balance_history.clone(),
+        company.price_history.iter().copied().collect(),
+        company.loan_payment_history.iter().copied().collect(),
+        company.cash_balance_history.iter().copied().collect(),
     )
 }
 

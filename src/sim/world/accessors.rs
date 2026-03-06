@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::{
     BankMetricPoint, Country, HISTORY_LIMIT, MetricPoint, MonthlyExportData, SimEvent, World,
 };
@@ -21,10 +23,10 @@ impl World {
             countries,
             paused: false,
             policy_rate: initial_policy_rate,
-            world_history: Vec::with_capacity(HISTORY_LIMIT),
-            country_history: vec![Vec::with_capacity(HISTORY_LIMIT); country_count],
+            world_history: VecDeque::with_capacity(HISTORY_LIMIT),
+            country_history: vec![VecDeque::with_capacity(HISTORY_LIMIT); country_count],
             bank_history: std::collections::HashMap::new(),
-            event_log: Vec::with_capacity(crate::sim::event::EVENT_LOG_LIMIT),
+            event_log: VecDeque::with_capacity(crate::sim::event::EVENT_LOG_LIMIT),
             export_queue: Vec::new(),
             export_queue_active: false,
             stock_country_export_queue: Vec::new(),
@@ -70,19 +72,21 @@ impl World {
         self.countries.len()
     }
 
-    pub fn world_history(&self) -> &[MetricPoint] {
+    pub fn world_history(&self) -> &VecDeque<MetricPoint> {
         &self.world_history
     }
 
-    pub fn country_history(&self) -> &[Vec<MetricPoint>] {
+    pub fn country_history(&self) -> &[VecDeque<MetricPoint>] {
         &self.country_history
     }
 
-    pub fn bank_history(&self) -> &std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>> {
+    pub fn bank_history(
+        &self,
+    ) -> &std::collections::HashMap<(usize, u16), VecDeque<BankMetricPoint>> {
         &self.bank_history
     }
 
-    pub fn event_log(&self) -> &[SimEvent] {
+    pub fn event_log(&self) -> &VecDeque<SimEvent> {
         &self.event_log
     }
 

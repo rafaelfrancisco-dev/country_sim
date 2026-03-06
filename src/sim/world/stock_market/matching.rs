@@ -144,12 +144,13 @@ fn build_symbol_contexts(world: &World, day: u64) -> Vec<SymbolContext> {
             let market_open = last_price > 0.0 && float_shares > 0;
             let max_order_by_float = ((float_shares as f64 * max_float_frac).floor() as u64).max(1);
 
-            let history = equity.price_history.as_slice();
-            let ma_window = history.len().min(20);
+            let history_len = equity.price_history.len();
+            let ma_window = history_len.min(20);
             let avg_price = if ma_window == 0 {
                 last_price
             } else {
-                history[history.len() - ma_window..].iter().sum::<f64>() / ma_window as f64
+                // Sum the most recent ma_window entries (order doesn't matter for mean).
+                equity.price_history.iter().rev().take(ma_window).sum::<f64>() / ma_window as f64
             };
             let trend = if avg_price > 0.0 {
                 (last_price - avg_price) / avg_price

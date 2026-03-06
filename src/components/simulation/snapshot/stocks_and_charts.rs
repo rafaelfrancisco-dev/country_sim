@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
+use crate::sim::world::MetricPoint;
 
 #[path = "stocks_and_charts_format.rs"]
 mod format;
@@ -36,13 +37,13 @@ pub(in crate::components::simulation) fn build_charts_tab_snapshot(
 ) -> RunningTabSnapshot {
     let chart_scope_label = chart_scope_label(world, ui);
     let pie_page = build_pie_charts_page(world, ui);
-    let chart_history = match ui.chart_scope {
+    let chart_history: Vec<MetricPoint> = match ui.chart_scope {
         ChartScope::SelectedCountry => world
             .country_history
             .get(ui.selected_country)
-            .cloned()
+            .map(|h| h.iter().copied().collect())
             .unwrap_or_default(),
-        ChartScope::WorldAggregate => world.world_history.clone(),
+        ChartScope::WorldAggregate => world.world_history.iter().copied().collect(),
     };
     let disaster_days = match ui.chart_scope {
         ChartScope::SelectedCountry => selected_country_disaster_days.to_vec(),
@@ -331,8 +332,8 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
 
     // Charts for the selected stock
     let selected_equity = equities.get(ui.stock_selected_row);
-    let price_history = selected_equity
-        .map(|e| e.price_history.clone())
+    let price_history: Vec<f64> = selected_equity
+        .map(|e| e.price_history.iter().copied().collect())
         .unwrap_or_default();
     let volume_history = selected_equity
         .map(|e| e.volume_history.iter().map(|&v| v as f64).collect())

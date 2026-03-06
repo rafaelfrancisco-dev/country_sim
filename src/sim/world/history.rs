@@ -1,3 +1,5 @@
+use std::collections::{HashSet, VecDeque};
+
 use super::{BankMetricPoint, HISTORY_LIMIT, MetricPoint, World};
 use crate::sim::bank::Bank;
 use crate::sim::country::Country;
@@ -16,13 +18,22 @@ impl World {
                 let history = self
                     .bank_history
                     .entry(key)
-                    .or_insert_with(|| Vec::with_capacity(HISTORY_LIMIT));
+                    .or_insert_with(|| VecDeque::with_capacity(HISTORY_LIMIT));
                 Self::push_bank_metric_point(history, bank_point);
             }
         }
 
         let aggregate = self.aggregate_metric_point();
         Self::push_metric_point(&mut self.world_history, aggregate);
+
+        // Prune history for banks that no longer exist to prevent unbounded growth.
+        let live_keys: HashSet<(usize, u16)> = self
+            .countries
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, country)| country.all_banks().map(move |bank| (idx, bank.id)))
+            .collect();
+        self.bank_history.retain(|key, _| live_keys.contains(key));
     }
 
     fn aggregate_metric_point(&self) -> MetricPoint {
@@ -286,11 +297,11 @@ impl World {
         }
     }
 
-    fn push_metric_point(history: &mut Vec<MetricPoint>, point: MetricPoint) {
-        history.push(point);
-        if history.len() > HISTORY_LIMIT {
-            history.remove(0);
+    fn push_metric_point(history: &mut VecDeque<MetricPoint>, point: MetricPoint) {
+        if history.len() >= HISTORY_LIMIT {
+            history.pop_front();
         }
+        history.push_back(point);
     }
 
     fn bank_metric_point(month: u64, bank: &Bank) -> BankMetricPoint {
@@ -305,10 +316,10 @@ impl World {
         }
     }
 
-    fn push_bank_metric_point(history: &mut Vec<BankMetricPoint>, point: BankMetricPoint) {
-        history.push(point);
-        if history.len() > HISTORY_LIMIT {
-            history.remove(0);
+    fn push_bank_metric_point(history: &mut VecDeque<BankMetricPoint>, point: BankMetricPoint) {
+        if history.len() >= HISTORY_LIMIT {
+            history.pop_front();
         }
+        history.push_back(point);
     }
 }

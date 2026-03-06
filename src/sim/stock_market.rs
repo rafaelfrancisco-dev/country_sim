@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use super::money::round_cents;
 
@@ -25,9 +25,9 @@ pub struct ListedEquity {
     pub day_turnover: f64,
     pub day_trades_count: u64,
     pub market_cap: f64,
-    pub price_history: Vec<f64>,
-    pub volume_history: Vec<u64>,
-    pub market_cap_history: Vec<f64>,
+    pub price_history: VecDeque<f64>,
+    pub volume_history: VecDeque<u64>,
+    pub market_cap_history: VecDeque<f64>,
     /// Per-share dividends paid per month (ring buffer, trailing 12 months).
     pub monthly_dps: [f64; 12],
     pub dps_cursor: u8,
@@ -56,9 +56,9 @@ impl ListedEquity {
             day_turnover: 0.0,
             day_trades_count: 0,
             market_cap,
-            price_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
-            volume_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
-            market_cap_history: Vec::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
+            price_history: VecDeque::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
+            volume_history: VecDeque::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
+            market_cap_history: VecDeque::with_capacity(STOCK_PRICE_HISTORY_WINDOW),
             monthly_dps: [0.0; 12],
             dps_cursor: 0,
         }
@@ -152,7 +152,7 @@ pub struct StockMarket {
     /// Listed companies keyed by stable listing id.
     pub listed: HashMap<u16, ListedEquity>,
     /// Country-level daily index history.
-    pub daily_index_history: Vec<DailyIndexPoint>,
+    pub daily_index_history: VecDeque<DailyIndexPoint>,
     /// Index base value (market cap at first listing).
     pub index_base: f64,
     // MTD trackers
@@ -171,7 +171,7 @@ impl Default for StockMarket {
             person_portfolios: HashMap::new(),
             bank_portfolio: Portfolio::default(),
             listed: HashMap::new(),
-            daily_index_history: Vec::new(),
+            daily_index_history: VecDeque::new(),
             index_base: 0.0,
             ipo_raised_mtd: 0.0,
             dividends_paid_mtd: 0.0,
@@ -439,12 +439,12 @@ impl StockMarket {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Push to a capped ring-like Vec (remove oldest when over capacity).
-fn push_capped<T>(v: &mut Vec<T>, item: T, limit: usize) {
+/// Push to a capped ring buffer (drop oldest when at capacity). O(1) amortized.
+fn push_capped<T>(v: &mut VecDeque<T>, item: T, limit: usize) {
     if v.len() >= limit {
-        v.remove(0);
+        v.pop_front();
     }
-    v.push(item);
+    v.push_back(item);
 }
 
 // ---------------------------------------------------------------------------

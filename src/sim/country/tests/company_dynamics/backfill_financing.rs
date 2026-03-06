@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 #[test]
 fn startup_can_form_with_unemployed_founders_when_enabled() {
@@ -7,7 +9,7 @@ fn startup_can_form_with_unemployed_founders_when_enabled() {
     companies[0].produced_good_id = 0;
     companies[0].last_month_sales = 500_000.0;
     companies[0].last_month_profit = 200_000.0;
-    companies[0].sales_history = vec![450_000.0, 500_000.0, 520_000.0];
+    companies[0].sales_history = VecDeque::from(vec![450_000.0, 500_000.0, 520_000.0]);
 
     let mut people = Vec::new();
     for idx in 0..3_u32 {
@@ -56,7 +58,7 @@ fn startup_viability_gate_blocks_non_viable_plans() {
     companies[0].produced_good_id = 0;
     companies[0].last_month_sales = 1_000.0;
     companies[0].last_month_profit = 400.0;
-    companies[0].sales_history = vec![900.0, 1_000.0, 1_100.0];
+    companies[0].sales_history = VecDeque::from(vec![900.0, 1_000.0, 1_100.0]);
 
     let mut people = Vec::new();
     for idx in 0..3_u32 {

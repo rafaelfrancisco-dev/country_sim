@@ -27,7 +27,7 @@ impl World {
 
 fn collect_country_data(
     country: &Country,
-    event_log: &[SimEvent],
+    event_log: &std::collections::VecDeque<SimEvent>,
     month_start_day: u64,
     month: u64,
 ) -> CountryExportData {
@@ -425,7 +425,8 @@ mod tests {
         companies[0].is_public_utility = true;
 
         let country = Country::with_economy(1, "A".to_string(), vec![person], companies, 0.0);
-        let data = collect_country_data(&country, &[], 1, 1);
+        let empty_log = std::collections::VecDeque::new();
+        let data = collect_country_data(&country, &empty_log, 1, 1);
 
         assert_eq!(data.essential_goods[0].unmet_share_pct, 100.0);
         assert_eq!(data.essential_goods[0].severe_unmet_share_pct, 100.0);

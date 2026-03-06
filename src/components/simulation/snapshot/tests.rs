@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 use crate::components::simulation::ui_state::{DetailsView, GoodsMainPage};
 use crate::sim::{
@@ -86,7 +88,7 @@ fn inactive_tabs_skip_heavy_data() {
     );
 
     let expected_chart_points = match engine.phase() {
-        GamePhase::Running(world) => world.country_history.first().map_or(0, Vec::len),
+        GamePhase::Running(world) => world.country_history.first().map_or(0, |v| v.len()),
         GamePhase::Setup(_) => 0,
     };
     let charts = running_snapshot_for_tab(&engine, RunningTab::Charts);
@@ -147,7 +149,7 @@ fn charts_snapshot_uses_doctor_label_for_education_track() {
 fn events_category_filter_limits_results() {
     let people = vec![Person::new(1, 30, 0, 11)];
     let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
-    world.event_log = vec![
+    world.event_log = VecDeque::from(vec![
         SimEvent::PopBirth {
             country_name: "A".to_string(),
             count: 1,
@@ -176,7 +178,7 @@ fn events_category_filter_limits_results() {
             unpaid_amount: 5.0,
             day: 1,
         },
-    ];
+    ]);
 
     let ui = UiState {
         active_tab: RunningTab::Events,
@@ -197,7 +199,7 @@ fn events_category_filter_limits_results() {
 fn events_search_intersects_with_category_filter() {
     let people = vec![Person::new(1, 30, 0, 11)];
     let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
-    world.event_log = vec![
+    world.event_log = VecDeque::from(vec![
         SimEvent::CompanyBankrupt {
             country_name: "A".to_string(),
             company_id: 1,
@@ -213,7 +215,7 @@ fn events_search_intersects_with_category_filter() {
             unpaid_amount: 3.0,
             day: 2,
         },
-    ];
+    ]);
 
     let ui = UiState {
         active_tab: RunningTab::Events,
@@ -308,7 +310,7 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
         Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
         Country::new(2, "B".to_string(), vec![Person::new(1, 30, 0, 22)]),
     ]);
-    world.event_log = vec![
+    world.event_log = VecDeque::from(vec![
         SimEvent::StockMarginCall {
             country_name: "A".to_string(),
             person_id: 1,
@@ -339,7 +341,7 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
             founder_payout_total: 1.0,
             day: 3,
         },
-    ];
+    ]);
 
     let ui = UiState {
         active_tab: RunningTab::Main,
@@ -367,7 +369,7 @@ fn company_related_events_match_company_references_and_selected_country_only() {
         Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
         Country::new(2, "B".to_string(), vec![Person::new(1, 30, 0, 22)]),
     ]);
-    world.event_log = vec![
+    world.event_log = VecDeque::from(vec![
         SimEvent::JobSwitched {
             country_name: "A".to_string(),
             person_id: 1,
@@ -384,7 +386,7 @@ fn company_related_events_match_company_references_and_selected_country_only() {
             monthly_salary: 110.0,
             day: 4,
         },
-    ];
+    ]);
 
     let ui = UiState {
         active_tab: RunningTab::Goods,
@@ -412,7 +414,7 @@ fn bank_related_events_match_selected_bank_only() {
         "A".to_string(),
         vec![Person::new(1, 30, 0, 11)],
     )]);
-    world.event_log = vec![
+    world.event_log = VecDeque::from(vec![
         SimEvent::BankRunStarted {
             country_name: "A".to_string(),
             bank_id: 0,
@@ -427,7 +429,7 @@ fn bank_related_events_match_selected_bank_only() {
             health: 0.31,
             day: 5,
         },
-    ];
+    ]);
 
     let ui = UiState {
         active_tab: RunningTab::Banks,

@@ -4,6 +4,7 @@ use rayon::prelude::*;
 
 impl World {
     fn trim_event_log(&mut self) {
+        // VecDeque::drain(0..n) drops n elements from the front in O(n) without shifting.
         if self.event_log.len() > EVENT_LOG_LIMIT {
             let evict = EVENT_LOG_LIMIT / 4;
             self.event_log.drain(0..evict);

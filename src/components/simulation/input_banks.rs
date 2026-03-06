@@ -1,10 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 use super::{RunningInputState, Simulation, SimulationCommand, ui_state::DetailsView};
-use crate::{
-    components::simulation::hotkeys, components::simulation::ui_state::SelectionFocus,
-    sim::UiCommand,
-};
+use crate::{components::simulation::hotkeys, sim::UiCommand};
 
 impl Simulation {
     pub(super) fn map_banks_key(
@@ -51,56 +48,19 @@ impl Simulation {
             }
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
-                    && c.eq_ignore_ascii_case(&'a')
-                    && input_state.details_view == DetailsView::List =>
-            {
-                Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection))
-            }
-            KeyCode::Char(c)
-                if key.modifiers.is_empty()
-                    && c.eq_ignore_ascii_case(&'d')
-                    && input_state.details_view == DetailsView::List =>
-            {
-                Some(SimulationCommand::Ui(UiCommand::FocusBankSelection))
-            }
-            KeyCode::Char(c)
-                if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'w')
                     && input_state.details_view == DetailsView::List =>
             {
-                match input_state.selection_focus {
-                    SelectionFocus::Country => {
-                        Some(SimulationCommand::Ui(UiCommand::SelectPrevCountryRow))
-                    }
-                    SelectionFocus::Bank => {
-                        Some(SimulationCommand::Ui(UiCommand::SelectPrevBankRow))
-                    }
-                    SelectionFocus::People | SelectionFocus::Company | SelectionFocus::Stock => {
-                        None
-                    }
-                }
+                Some(SimulationCommand::Ui(UiCommand::SelectPrevBankRow))
             }
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'s')
                     && input_state.details_view == DetailsView::List =>
             {
-                match input_state.selection_focus {
-                    SelectionFocus::Country => {
-                        Some(SimulationCommand::Ui(UiCommand::SelectNextCountryRow))
-                    }
-                    SelectionFocus::Bank => {
-                        Some(SimulationCommand::Ui(UiCommand::SelectNextBankRow))
-                    }
-                    SelectionFocus::People | SelectionFocus::Company | SelectionFocus::Stock => {
-                        None
-                    }
-                }
+                Some(SimulationCommand::Ui(UiCommand::SelectNextBankRow))
             }
-            KeyCode::Enter
-                if input_state.details_view == DetailsView::List
-                    && input_state.selection_focus == SelectionFocus::Bank =>
-            {
+            KeyCode::Enter if input_state.details_view == DetailsView::List => {
                 Some(SimulationCommand::Ui(UiCommand::OpenSelectedBankDetails))
             }
             KeyCode::Esc if input_state.details_view != DetailsView::List => {
@@ -109,28 +69,12 @@ impl Simulation {
             _ if hotkeys::is_page_prev_key(key)
                 && input_state.details_view == DetailsView::List =>
             {
-                match input_state.selection_focus {
-                    SelectionFocus::Country => {
-                        Some(SimulationCommand::Ui(UiCommand::CountryPagePrev))
-                    }
-                    SelectionFocus::Bank => Some(SimulationCommand::Ui(UiCommand::BankPagePrev)),
-                    SelectionFocus::People | SelectionFocus::Company | SelectionFocus::Stock => {
-                        None
-                    }
-                }
+                Some(SimulationCommand::Ui(UiCommand::BankPagePrev))
             }
             _ if hotkeys::is_page_next_key(key)
                 && input_state.details_view == DetailsView::List =>
             {
-                match input_state.selection_focus {
-                    SelectionFocus::Country => {
-                        Some(SimulationCommand::Ui(UiCommand::CountryPageNext))
-                    }
-                    SelectionFocus::Bank => Some(SimulationCommand::Ui(UiCommand::BankPageNext)),
-                    SelectionFocus::People | SelectionFocus::Company | SelectionFocus::Stock => {
-                        None
-                    }
-                }
+                Some(SimulationCommand::Ui(UiCommand::BankPageNext))
             }
             _ => None,
         }

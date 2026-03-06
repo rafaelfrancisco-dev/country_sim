@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::{
     bank::{BankId, LoanAccount},
     good::{GoodId, common_goods, good_by_id},
@@ -59,13 +61,13 @@ pub struct Company {
     pub last_month_export_units_sold: u32,
     pub last_month_domestic_units_sold: u32,
     pub last_month_sell_through: f64,
-    pub sales_history: Vec<f64>,
-    pub profit_history: Vec<f64>,
-    pub sold_units_history: Vec<u32>,
-    pub employee_count_history: Vec<u32>,
-    pub price_history: Vec<f64>,
-    pub loan_payment_history: Vec<f64>,
-    pub cash_balance_history: Vec<f64>,
+    pub sales_history: VecDeque<f64>,
+    pub profit_history: VecDeque<f64>,
+    pub sold_units_history: VecDeque<u32>,
+    pub employee_count_history: VecDeque<u32>,
+    pub price_history: VecDeque<f64>,
+    pub loan_payment_history: VecDeque<f64>,
+    pub cash_balance_history: VecDeque<f64>,
     pub age_months: u16,
     pub ipo_cooldown_months: u8,
     pub failed_ipo_attempts: u8,
@@ -120,13 +122,13 @@ impl Company {
             last_month_export_units_sold: 0,
             last_month_domestic_units_sold: 0,
             last_month_sell_through: 0.0,
-            sales_history: Vec::with_capacity(3),
-            profit_history: Vec::with_capacity(PROFIT_HISTORY_WINDOW),
-            sold_units_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
-            employee_count_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
-            price_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
-            loan_payment_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
-            cash_balance_history: Vec::with_capacity(COMPANY_HISTORY_WINDOW),
+            sales_history: VecDeque::with_capacity(3),
+            profit_history: VecDeque::with_capacity(PROFIT_HISTORY_WINDOW),
+            sold_units_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
+            employee_count_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
+            price_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
+            loan_payment_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
+            cash_balance_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
             age_months: 0,
             ipo_cooldown_months: 0,
             failed_ipo_attempts: 0,
@@ -259,10 +261,10 @@ impl Company {
             self.unit_price = round_cents(next_price.max(min_price));
         }
 
-        if self.sales_history.len() == 3 {
-            self.sales_history.remove(0);
+        if self.sales_history.len() >= 3 {
+            self.sales_history.pop_front();
         }
-        self.sales_history.push(round_cents(self.last_month_sales));
+        self.sales_history.push_back(round_cents(self.last_month_sales));
         Self::push_history_f64(
             &mut self.profit_history,
             round_cents(self.last_month_profit),
@@ -323,8 +325,7 @@ impl Company {
             return 0.0;
         }
 
-        let start = self.profit_history.len() - months;
-        let total: f64 = self.profit_history[start..].iter().sum();
+        let total: f64 = self.profit_history.iter().rev().take(months).sum();
         round_cents(total / months as f64)
     }
 
@@ -404,18 +405,18 @@ impl Company {
         slots_to_add
     }
 
-    fn push_history_f64(history: &mut Vec<f64>, value: f64, max_len: usize) {
-        if history.len() == max_len {
-            history.remove(0);
+    fn push_history_f64(history: &mut VecDeque<f64>, value: f64, max_len: usize) {
+        if history.len() >= max_len {
+            history.pop_front();
         }
-        history.push(value);
+        history.push_back(value);
     }
 
-    fn push_history_u32(history: &mut Vec<u32>, value: u32, max_len: usize) {
-        if history.len() == max_len {
-            history.remove(0);
+    fn push_history_u32(history: &mut VecDeque<u32>, value: u32, max_len: usize) {
+        if history.len() >= max_len {
+            history.pop_front();
         }
-        history.push(value);
+        history.push_back(value);
     }
 }
 

@@ -89,19 +89,25 @@ impl Country {
                 }
             });
 
-        let people = std::mem::take(&mut self.people);
+        // Compact survivors in-place (swap-write cursor); reuses the existing Vec allocation.
+        let mut people = std::mem::take(&mut self.people);
         let mut deaths = 0_u32;
-        let mut survivors = Vec::with_capacity(people.len());
+        let mut write_idx = 0_usize;
 
-        for (mut person, died) in people.into_iter().zip(death_flags.into_iter()) {
-            if died {
+        for read_idx in 0..people.len() {
+            if death_flags[read_idx] {
                 deaths = deaths.saturating_add(1);
-                if person.cash_balance > 0.0 {
-                    self.treasury_balance =
-                        round_cents(self.treasury_balance + person.cash_balance);
+                let cash = people[read_idx].cash_balance;
+                let person_id = people[read_idx].id;
+                let cleared = people[read_idx].clear_employment();
+                let mut loan = people[read_idx].loan.take();
+                let housing = people[read_idx].housing.clone();
+
+                if cash > 0.0 {
+                    self.treasury_balance = round_cents(self.treasury_balance + cash);
                 }
 
-                match person.clear_employment() {
+                match cleared {
                     Some(ClearedEmployment::Company {
                         company_id,
                         job_type_id,
@@ -121,19 +127,18 @@ impl Country {
                     None => {}
                 }
 
-                let written_off = self.primary_bank_mut().write_off_loan(&mut person.loan);
+                let written_off = self.primary_bank_mut().write_off_loan(&mut loan);
                 if written_off > 0.0 {
                     self.pending_events.push(SimEvent::LoanWrittenOff {
                         country_name: self.name.clone(),
-                        entity_id: person.id,
+                        entity_id: person_id,
                         principal_lost: written_off,
                         day: self.day,
                     });
                 }
 
-                // Release housing on death
                 use crate::sim::person::HousingStatus;
-                match &person.housing {
+                match &housing {
                     HousingStatus::Owner => {
                         self.housing_stock_occupied_owned =
                             self.housing_stock_occupied_owned.saturating_sub(1);
@@ -158,7 +163,6 @@ impl Country {
                         landlord_country_id,
                         ..
                     } if *landlord_country_id == self.id => {
-                        // Company retains ownership of the unit; it becomes vacant.
                         self.housing_stock_occupied_rented =
                             self.housing_stock_occupied_rented.saturating_sub(1);
                         self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
@@ -166,11 +170,15 @@ impl Country {
                     _ => {}
                 }
             } else {
-                survivors.push(person);
+                if write_idx != read_idx {
+                    people.swap(write_idx, read_idx);
+                }
+                write_idx += 1;
             }
         }
 
-        self.people = survivors;
+        people.truncate(write_idx);
+        self.people = people;
         self.last_day_deaths = deaths;
         if deaths > 0 {
             self.pending_events.push(SimEvent::PopDeath {
@@ -228,18 +236,15 @@ impl Country {
             .iter()
             .map(|company| company.open_positions.clone())
             .collect::<Vec<_>>();
-        // Snapshot of all bank openings: (bank_id, openings)
         let bank_openings_snapshot: Vec<(BankId, Vec<BankJobOpening>)> =
             std::iter::once(self.primary_bank())
                 .chain(self.banks.iter())
                 .map(|bank| (bank.id, bank.open_positions.clone()))
                 .collect();
-        // Flat vec of openings indexed by bank position for the selection function
         let bank_openings_flat: Vec<Vec<BankJobOpening>> = bank_openings_snapshot
             .iter()
             .map(|(_, openings)| openings.clone())
             .collect();
-
         let intents_by_chunk = self
             .people
             .par_chunks(PEOPLE_CHUNK_SIZE)
@@ -317,6 +322,7 @@ impl Country {
                         intent.seek_seed,
                         day_val,
                         &bank_openings_snapshot,
+                        &bank_openings_flat,
                     ) || self.try_hire_person_to_company(
                         intent.person_idx,
                         intent.preferred,
@@ -338,6 +344,7 @@ impl Country {
                         intent.seek_seed,
                         day_val,
                         &bank_openings_snapshot,
+                        &bank_openings_flat,
                     )
                 };
 
@@ -396,6 +403,7 @@ impl Country {
         seed: u64,
         day: u64,
         bank_openings_snapshot: &[(BankId, Vec<BankJobOpening>)],
+        bank_openings_flat: &[Vec<BankJobOpening>],
     ) -> bool {
         if self
             .people
@@ -415,17 +423,12 @@ impl Country {
             return true;
         }
 
-        let bank_openings_flat: Vec<Vec<BankJobOpening>> = std::iter::once(self.primary_bank())
-            .chain(self.banks.iter())
-            .map(|bank| bank.open_positions.clone())
-            .collect();
         if let Some((bank_idx, job_type_id)) =
-            select_matching_bank_opening(&bank_openings_flat, qualification, seed ^ 0xBA1A_0002_u64)
+            select_matching_bank_opening(bank_openings_flat, qualification, seed ^ 0xBA1A_0002_u64)
         {
-            let current_bank_id = if bank_idx == 0 {
-                self.primary_bank().id
-            } else if let Some(bank) = self.banks.get(bank_idx.saturating_sub(1)) {
-                bank.id
+            let current_bank_id = if let Some((bank_id, _)) = bank_openings_snapshot.get(bank_idx)
+            {
+                *bank_id
             } else {
                 return false;
             };

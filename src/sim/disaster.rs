@@ -75,7 +75,7 @@ pub(crate) fn apply_disaster_requests(
         }
         applied = applied.saturating_add(1);
 
-        world.event_log.push(SimEvent::DisasterApplied {
+        world.event_log.push_back(SimEvent::DisasterApplied {
             country_name: country.name.clone(),
             disaster_label: request.kind.label().to_string(),
             intensity_pct,

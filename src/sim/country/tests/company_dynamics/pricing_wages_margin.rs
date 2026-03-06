@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 #[test]
 fn public_backfill_creation_clamps_price_to_dynamic_macro_cap() {
@@ -285,9 +287,9 @@ fn annual_market_raise_updates_contracts_and_openings_on_year_boundary() {
         params,
     );
     country.month = 11;
-    country.companies[0].profit_history = vec![1_000.0; 12];
+    country.companies[0].profit_history = VecDeque::from(vec![1_000.0; 12]);
     country.companies[0].cash_balance = 50_000.0;
-    country.companies[1].profit_history = vec![1_000.0; 12];
+    country.companies[1].profit_history = VecDeque::from(vec![1_000.0; 12]);
     country.companies[1].cash_balance = 50_000.0;
 
     country.process_month_end();
@@ -346,7 +348,7 @@ fn annual_market_raise_skips_non_boundary_months() {
         params,
     );
     country.month = 10;
-    country.companies[0].profit_history = vec![1_000.0; 12];
+    country.companies[0].profit_history = VecDeque::from(vec![1_000.0; 12]);
     country.companies[0].cash_balance = 50_000.0;
 
     country.process_month_end();
@@ -399,7 +401,7 @@ fn annual_market_raise_requires_min_profit_history() {
         params,
     );
     country.month = 11;
-    country.companies[0].profit_history = vec![1_000.0; 10];
+    country.companies[0].profit_history = VecDeque::from(vec![1_000.0; 10]);
     country.companies[0].cash_balance = 50_000.0;
 
     country.process_month_end();
@@ -452,7 +454,7 @@ fn annual_market_raise_requires_cash_runway() {
         params,
     );
     country.month = 11;
-    country.companies[0].profit_history = vec![1_000.0; 11];
+    country.companies[0].profit_history = VecDeque::from(vec![1_000.0; 11]);
     country.companies[0].cash_balance = 10.0;
 
     country.process_month_end();

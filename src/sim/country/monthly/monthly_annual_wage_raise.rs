@@ -118,8 +118,8 @@ impl Country {
                 continue;
             }
 
-            let history_start = company.profit_history.len() - prior_history_months;
-            let recent_history_sum: f64 = company.profit_history[history_start..].iter().sum();
+            let recent_history_sum: f64 =
+                company.profit_history.iter().rev().take(prior_history_months).sum();
             let avg_profit = round_cents(
                 (recent_history_sum + company.last_month_profit) / min_history_months as f64,
             );
