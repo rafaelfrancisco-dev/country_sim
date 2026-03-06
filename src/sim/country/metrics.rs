@@ -74,7 +74,40 @@ impl Country {
             });
         }
 
-        // Stock invariants
+        // Housing stock invariants
+        {
+            let total = self.housing_stock_total;
+            let expected_total = self
+                .housing_stock_occupied_owned
+                .saturating_add(self.housing_stock_occupied_rented)
+                .saturating_add(self.housing_stock_vacant);
+            if total != expected_total {
+                violations.push(InvariantViolation {
+                    code: "housing_stock_total_mismatch",
+                    message: format!(
+                        "housing_stock_total {total} != owned {} + rented {} + vacant {} (= {expected_total})",
+                        self.housing_stock_occupied_owned,
+                        self.housing_stock_occupied_rented,
+                        self.housing_stock_vacant,
+                    ),
+                });
+            }
+
+            // Company rental_units_owned tracks total company-owned units (occupied + vacant),
+            // so it can exceed housing_stock_occupied_rented (actual renters).
+            let company_rentals: u32 = self.companies.iter().map(|c| c.rental_units_owned).sum();
+            if company_rentals < self.housing_stock_occupied_rented {
+                violations.push(InvariantViolation {
+                    code: "housing_rental_units_undercount",
+                    message: format!(
+                        "Σ company.rental_units_owned {company_rentals} < housing_stock_occupied_rented {}",
+                        self.housing_stock_occupied_rented,
+                    ),
+                });
+            }
+        }
+
+        // Stock market invariants
         if self.sim_params.stock_market.enabled {
             for (cid, equity) in &self.stock_market.listed {
                 if !equity.last_price.is_finite() || equity.last_price <= 0.0 {

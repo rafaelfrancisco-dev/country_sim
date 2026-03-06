@@ -1,4 +1,88 @@
 use super::*;
+use crate::sim::person::HousingStatus;
+
+#[test]
+fn generated_world_2x1k_360_days_housing_market_is_sane() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 360, 2);
+    assert!(
+        world.validate_invariants().is_empty(),
+        "invariant violations: {:?}",
+        world.validate_invariants()
+    );
+
+    for country in &world.countries {
+        // Stock accounting invariant
+        let total = country.housing_stock_total();
+        let owned = country.housing_stock_occupied_owned;
+        let rented = country.housing_stock_occupied_rented;
+        let vacant = country.housing_stock_vacant;
+        assert_eq!(
+            total,
+            owned + rented + vacant,
+            "country {}: housing stock {} != owned {} + rented {} + vacant {}",
+            country.name,
+            total,
+            owned,
+            rented,
+            vacant
+        );
+
+        // Company rental units >= occupied rented (companies may also own vacant units)
+        let company_rentals: u32 = country.companies.iter().map(|c| c.rental_units_owned).sum();
+        assert!(
+            company_rentals >= rented,
+            "country {}: Σ company.rental_units_owned {} < housing_stock_occupied_rented {}",
+            country.name,
+            company_rentals,
+            rented
+        );
+
+        // Person housing status counts match stock counters
+        let mut person_owned = 0_u32;
+        let mut person_rented = 0_u32;
+        for person in &country.people {
+            match &person.housing {
+                HousingStatus::Owner | HousingStatus::Mortgaged { .. } => person_owned += 1,
+                HousingStatus::Renter { .. } => person_rented += 1,
+                HousingStatus::Unhoused => {}
+            }
+        }
+        assert_eq!(
+            person_owned, owned,
+            "country {}: persons Owner/Mortgaged {} != housing_stock_occupied_owned {}",
+            country.name, person_owned, owned
+        );
+        assert_eq!(
+            person_rented, rented,
+            "country {}: persons Renter {} != housing_stock_occupied_rented {}",
+            country.name, person_rented, rented
+        );
+
+        // Price index is positive and finite
+        let price = country.housing_price_index();
+        assert!(
+            price > 0.0 && price.is_finite(),
+            "country {}: housing_price_index {price} not positive-finite",
+            country.name
+        );
+
+        // Monthly rent is a reasonable fraction of price index
+        let rent = country.monthly_rent();
+        assert!(
+            rent > 0.0 && rent.is_finite(),
+            "country {}: monthly_rent {rent} not positive-finite",
+            country.name
+        );
+
+        // Homeownership rate in plausible range (20–95%)
+        let ownership_rate = country.homeownership_rate();
+        assert!(
+            ownership_rate >= 0.20 && ownership_rate <= 0.95,
+            "country {}: homeownership_rate {ownership_rate:.3} out of range [0.20, 0.95]",
+            country.name
+        );
+    }
+}
 
 #[test]
 #[ignore = "long-run stability scenario (730 days, 3 x 15k)"]

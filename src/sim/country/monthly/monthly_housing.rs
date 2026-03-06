@@ -28,12 +28,10 @@ impl Country {
 
         if new_units > 0 {
             self.housing_stock_total = self.housing_stock_total.saturating_add(new_units);
-            self.housing_stock_occupied_rented =
-                self.housing_stock_occupied_rented.saturating_add(new_units);
+            // Newly built units are vacant until a person moves in.
+            self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(new_units);
             self.monthly_housing_units_built =
                 self.monthly_housing_units_built.saturating_add(new_units);
-            // New units go directly to rental stock (already occupied by company ownership).
-            // Vacancy is unchanged because they are claimed immediately.
         }
     }
 

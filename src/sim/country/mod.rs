@@ -790,10 +790,11 @@ impl Country {
     }
 
     pub fn homeownership_rate(&self) -> f64 {
-        if self.housing_stock_total == 0 {
+        let pop = self.people.len();
+        if pop == 0 {
             return 0.0;
         }
-        self.housing_stock_occupied_owned as f64 / self.housing_stock_total as f64
+        self.housing_stock_occupied_owned as f64 / pop as f64
     }
 
     pub fn monthly_home_purchases(&self) -> u32 {
