@@ -114,7 +114,8 @@ pub(in crate::components::simulation) fn person_details_lines(
             }
         }
         HousingStatus::Renter {
-            landlord_company_id, ..
+            landlord_company_id,
+            ..
         } => {
             if let Some(name) = country.company_name(*landlord_company_id) {
                 lines.push(format!("Landlord: {name}"));
@@ -156,6 +157,19 @@ pub(in crate::components::simulation) fn person_details_lines(
     lines.push(format!(
         "Needs Unmet: {}",
         goods_mask_names(person.last_month_unmet_needs_mask)
+    ));
+    lines.push(format!(
+        "Severe Unmet: {}",
+        goods_mask_names(person.last_month_severe_unmet_needs_mask)
+    ));
+    lines.push(format!(
+        "Chronic Unmet: {} ({} month(s))",
+        if person.last_month_chronic_unmet {
+            "Yes"
+        } else {
+            "No"
+        },
+        person.consecutive_severe_unmet_months
     ));
 
     lines.push(String::new());

@@ -137,35 +137,31 @@ impl Country {
                     HousingStatus::Owner => {
                         self.housing_stock_occupied_owned =
                             self.housing_stock_occupied_owned.saturating_sub(1);
-                        self.housing_stock_vacant =
-                            self.housing_stock_vacant.saturating_add(1);
+                        self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
                     }
                     HousingStatus::Mortgaged { mortgage } => {
                         let bank_id = mortgage.lender_bank_id;
                         let principal = mortgage.principal_balance.max(0.0);
                         if let Some(bank) = self.bank_by_id_mut(bank_id) {
-                            bank.created_money_outstanding =
-                                crate::sim::money::round_cents(
-                                    (bank.created_money_outstanding - principal).max(0.0),
-                                );
-                            bank.last_month_credit_losses =
-                                crate::sim::money::round_cents(
-                                    bank.last_month_credit_losses + principal,
-                                );
+                            bank.created_money_outstanding = crate::sim::money::round_cents(
+                                (bank.created_money_outstanding - principal).max(0.0),
+                            );
+                            bank.last_month_credit_losses = crate::sim::money::round_cents(
+                                bank.last_month_credit_losses + principal,
+                            );
                         }
                         self.housing_stock_occupied_owned =
                             self.housing_stock_occupied_owned.saturating_sub(1);
-                        self.housing_stock_vacant =
-                            self.housing_stock_vacant.saturating_add(1);
+                        self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
                     }
                     HousingStatus::Renter {
-                        landlord_country_id, ..
+                        landlord_country_id,
+                        ..
                     } if *landlord_country_id == self.id => {
                         // Company retains ownership of the unit; it becomes vacant.
                         self.housing_stock_occupied_rented =
                             self.housing_stock_occupied_rented.saturating_sub(1);
-                        self.housing_stock_vacant =
-                            self.housing_stock_vacant.saturating_add(1);
+                        self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
                     }
                     _ => {}
                 }

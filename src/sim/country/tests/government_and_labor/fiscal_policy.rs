@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::person::{ESSENTIAL_STOCK_SLOT_COUNT, HousingStatus};
 
 #[test]
 fn benefit_not_paid_after_duration_cap_exceeded() {
@@ -8,6 +9,8 @@ fn benefit_not_paid_after_duration_cap_exceeded() {
     };
     let mut person = unemployed_adult(1, 0.0);
     person.months_unemployed = 2;
+    person.housing = HousingStatus::Owner;
+    person.essential_stock_units = [4.0; ESSENTIAL_STOCK_SLOT_COUNT];
     let treasury_start = 50_000.0;
 
     let mut country = make_gov_country(vec![person], treasury_start, fiscal);

@@ -127,6 +127,8 @@ pub(super) fn world_state_hash(world: &World) -> u64 {
         mix_hash(&mut hash, country.people.len() as u64);
         mix_hash(&mut hash, country.companies.len() as u64);
         mix_hash(&mut hash, country.monthly_unmet_need_events);
+        mix_hash(&mut hash, country.monthly_severe_unmet_need_events);
+        mix_hash(&mut hash, country.monthly_chronic_unmet_need_count);
         mix_hash(&mut hash, country.monthly_household_spending.to_bits());
         mix_hash(&mut hash, country.monthly_tariff_collected.to_bits());
         mix_hash(&mut hash, country.monthly_goods_import_spending.to_bits());
@@ -160,8 +162,18 @@ pub(super) fn world_state_hash(world: &World) -> u64 {
             mix_hash(&mut hash, u64::from(person.name_seed));
             mix_hash(&mut hash, u64::from(person.age_days));
             mix_hash(&mut hash, u64::from(person.last_month_goods_units_bought));
+            mix_hash(&mut hash, u64::from(person.household_id));
             mix_hash(&mut hash, u64::from(person.last_month_needs_met_mask));
             mix_hash(&mut hash, u64::from(person.last_month_unmet_needs_mask));
+            mix_hash(
+                &mut hash,
+                u64::from(person.last_month_severe_unmet_needs_mask),
+            );
+            mix_hash(&mut hash, u64::from(person.consecutive_severe_unmet_months));
+            mix_hash(&mut hash, u64::from(person.last_month_chronic_unmet));
+            for stock_units in person.essential_stock_units {
+                mix_hash(&mut hash, u64::from(stock_units.to_bits()));
+            }
             for stock_units in person.superficial_stock_units {
                 mix_hash(&mut hash, u64::from(stock_units));
             }

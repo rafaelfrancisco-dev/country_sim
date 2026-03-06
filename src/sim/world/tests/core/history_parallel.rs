@@ -107,6 +107,8 @@ fn aggregate_history_matches_country_sums() {
             monthly_goods_import_spending: 0.0,
             monthly_goods_export_revenue: 0.0,
             monthly_unmet_need_events: 0.0,
+            monthly_severe_unmet_need_events: 0.0,
+            monthly_chronic_unmet_need_count: 0.0,
             monthly_essential_debt_spending: 0.0,
             cpi_index: 0.0,
             inflation_rate: 0.0,
@@ -149,6 +151,10 @@ fn aggregate_history_matches_country_sums() {
                 + point.monthly_goods_export_revenue,
             monthly_unmet_need_events: acc.monthly_unmet_need_events
                 + point.monthly_unmet_need_events,
+            monthly_severe_unmet_need_events: acc.monthly_severe_unmet_need_events
+                + point.monthly_severe_unmet_need_events,
+            monthly_chronic_unmet_need_count: acc.monthly_chronic_unmet_need_count
+                + point.monthly_chronic_unmet_need_count,
             monthly_essential_debt_spending: acc.monthly_essential_debt_spending
                 + point.monthly_essential_debt_spending,
             cpi_index: acc.cpi_index + point.cpi_index,

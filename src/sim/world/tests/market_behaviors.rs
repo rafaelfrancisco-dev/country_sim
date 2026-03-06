@@ -64,7 +64,7 @@ fn essentials_can_push_cash_negative_and_are_tracked_as_essential_debt_spending(
     assert!(world.countries[0].monthly_essential_debt_spending > 0.0);
     assert!(person.last_month_goods_spending > 0.0);
     assert!(person.cash_balance < 0.0);
-    assert!((person.last_month_needs_met_mask & 1_u16) != 0);
+    assert!(person.essential_stock_units[0] > 0.0);
 }
 
 #[test]
@@ -245,10 +245,9 @@ fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_u
     let mut world = World::new(vec![country_a, country_b]);
     let before = world.countries[1].export_tariffs_by_good[0];
 
-    for _ in 0..20 {
+    for _ in 0..30 {
         world.tick_day();
     }
-    world.adjust_dynamic_country_tariffs();
 
     let after = world.countries[1].export_tariffs_by_good[0];
 
@@ -310,4 +309,39 @@ fn scarce_supply_is_shared_across_countries_with_round_robin_allocation() {
 
     assert!(world.countries[0].monthly_household_spending > 0.0);
     assert!(world.countries[1].monthly_household_spending > 0.0);
+}
+
+#[test]
+fn households_group_adults_for_shared_utilities() {
+    let people = vec![unemployed_person(1, 200.0), unemployed_person(2, 200.0)];
+    let country = Country::with_economy(0, "A".to_string(), people, vec![], 400.0);
+
+    assert_eq!(country.households.len(), 1);
+    assert_eq!(country.household_size_for_person(0), 2);
+    assert_eq!(
+        country.people[0].household_id,
+        country.people[1].household_id
+    );
+}
+
+#[test]
+fn repeated_severe_shortage_becomes_chronic() {
+    let mut country = Country::with_economy(
+        0,
+        "A".to_string(),
+        vec![unemployed_person(1, 0.0)],
+        vec![],
+        0.0,
+    );
+
+    for _ in 0..2 {
+        country.process_month_end();
+        country.reset_month_trackers();
+    }
+    country.process_month_end();
+
+    let person = &country.people[0];
+    assert!(person.last_month_severe_unmet_needs_mask != 0);
+    assert!(person.last_month_chronic_unmet);
+    assert!(country.monthly_chronic_unmet_need_count >= 1);
 }

@@ -289,8 +289,8 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     assert_eq!(water_row.produced_units, "50");
     assert_eq!(water_row.sold_units, "43");
     assert_eq!(water_row.export_units, "7");
-    assert_eq!(water_row.est_daily_demand_units, "4");
-    assert_eq!(water_row.est_mtd_demand_units, "40");
+    assert_eq!(water_row.est_daily_demand_units, "2");
+    assert_eq!(water_row.est_mtd_demand_units, "22");
 
     let medicine_row = goods_tab
         .production_demand_rows

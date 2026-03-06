@@ -104,6 +104,16 @@ impl World {
             .iter()
             .map(|country| country.monthly_unmet_need_events() as f64)
             .sum();
+        let monthly_severe_unmet_need_events = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_severe_unmet_need_events() as f64)
+            .sum();
+        let monthly_chronic_unmet_need_count = self
+            .countries
+            .iter()
+            .map(|country| country.monthly_chronic_unmet_need_count() as f64)
+            .sum();
         let monthly_essential_debt_spending = self
             .countries
             .iter()
@@ -212,6 +222,8 @@ impl World {
             monthly_goods_import_spending,
             monthly_goods_export_revenue,
             monthly_unmet_need_events,
+            monthly_severe_unmet_need_events,
+            monthly_chronic_unmet_need_count,
             monthly_essential_debt_spending,
             cpi_index,
             inflation_rate,
@@ -253,6 +265,8 @@ impl World {
             monthly_goods_import_spending: country.monthly_goods_import_spending(),
             monthly_goods_export_revenue: country.monthly_goods_export_revenue(),
             monthly_unmet_need_events: country.monthly_unmet_need_events() as f64,
+            monthly_severe_unmet_need_events: country.monthly_severe_unmet_need_events() as f64,
+            monthly_chronic_unmet_need_count: country.monthly_chronic_unmet_need_count() as f64,
             monthly_essential_debt_spending: country.monthly_essential_debt_spending(),
             cpi_index: country.cpi_index(),
             inflation_rate: country.monthly_inflation_rate(),

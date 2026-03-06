@@ -142,6 +142,8 @@ pub struct CountryExportData {
     pub monthly_goods_import_spending: f64,
     pub monthly_goods_export_revenue: f64,
     pub monthly_unmet_need_events: u64,
+    pub monthly_severe_unmet_need_events: u64,
+    pub monthly_chronic_unmet_need_count: u64,
     pub monthly_essential_debt_spending: f64,
     pub total_money_supply: f64,
     pub household_cash_total: f64,
@@ -187,6 +189,8 @@ pub struct CountryExportData {
     pub count_with_active_loans: usize,
     pub avg_loan_balance: f64,
     pub count_with_unmet_needs: usize,
+    pub count_with_severe_unmet_needs: usize,
+    pub count_with_chronic_unmet_needs: usize,
 
     // company_agg
     pub total_companies: usize,

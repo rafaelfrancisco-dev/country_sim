@@ -194,7 +194,10 @@ fn government_backfill_adds_capacity_when_essential_shortage_is_persistent() {
 
     assert!(country.companies.len() > 5);
     assert!(
-        country.companies.iter().any(|company| company.is_essential_backfill),
+        country
+            .companies
+            .iter()
+            .any(|company| company.is_essential_backfill),
         "high shortage pressure should trigger extra public essential capacity"
     );
 }

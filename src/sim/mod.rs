@@ -3,6 +3,7 @@ pub mod company;
 pub mod country;
 pub mod disaster;
 pub mod engine;
+pub mod essentials;
 pub mod event;
 pub mod generator;
 mod generator_banks;

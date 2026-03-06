@@ -3,6 +3,7 @@ use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
     bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, FounderStake, JobOpening},
+    essentials::{Household, TARGET_HOUSEHOLD_SIZE},
     event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
     job::{JobTypeId, job_is_eligible_for_habilitation},
@@ -32,6 +33,7 @@ pub struct Country {
     pub(crate) name: String,
     pub(crate) people: Vec<Person>,
     pub(crate) companies: Vec<Company>,
+    pub(crate) households: Vec<Household>,
     pub(crate) day: u64,
     pub(crate) month: u64,
     pub(crate) next_startup_serial: u32,
@@ -49,6 +51,8 @@ pub struct Country {
     pub(crate) monthly_goods_import_spending: f64,
     pub(crate) monthly_goods_export_revenue: f64,
     pub(crate) monthly_unmet_need_events: u64,
+    pub(crate) monthly_severe_unmet_need_events: u64,
+    pub(crate) monthly_chronic_unmet_need_count: u64,
     pub(crate) monthly_essential_debt_spending: f64,
     pub(crate) monthly_hires_total: u64,
     pub(crate) monthly_private_banks_founded: u64,
@@ -163,6 +167,7 @@ impl Country {
             name,
             people,
             companies,
+            households: Vec::new(),
             day: 0,
             month: 0,
             next_startup_serial: 1,
@@ -180,6 +185,8 @@ impl Country {
             monthly_goods_import_spending: 0.0,
             monthly_goods_export_revenue: 0.0,
             monthly_unmet_need_events: 0,
+            monthly_severe_unmet_need_events: 0,
+            monthly_chronic_unmet_need_count: 0,
             monthly_essential_debt_spending: 0.0,
             monthly_hires_total: 0,
             monthly_private_banks_founded: 0,
@@ -238,12 +245,85 @@ impl Country {
         country.last_month_cpi_index = initial_cpi;
         country.monthly_inflation_rate = 0.0;
         country.recompute_company_headcounts();
+        country.rebuild_households();
         country.recompute_aggregates();
         country
     }
 
     pub fn population(&self) -> usize {
         self.people.len()
+    }
+
+    pub fn rebuild_households(&mut self) {
+        let population = self.people.len();
+        if population == 0 {
+            self.households.clear();
+            return;
+        }
+
+        let housed_adults = self
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, person)| {
+                person.age_years() >= 18
+                    && !matches!(person.housing, super::person::HousingStatus::Unhoused)
+            })
+            .map(|(idx, _)| idx)
+            .collect::<Vec<_>>();
+        let desired_count = population.div_ceil(TARGET_HOUSEHOLD_SIZE).max(1);
+        let household_count = if housed_adults.is_empty() {
+            desired_count.min(population)
+        } else {
+            desired_count.min(housed_adults.len()).max(1)
+        };
+
+        let mut member_counts = vec![0_u16; household_count];
+        for person in &mut self.people {
+            person.household_id = u32::MAX;
+        }
+
+        for (offset, person_idx) in housed_adults.iter().copied().enumerate() {
+            let household_idx = offset % household_count;
+            self.people[person_idx].household_id = household_idx as u32;
+            member_counts[household_idx] = member_counts[household_idx].saturating_add(1);
+        }
+
+        let mut next_household_idx = 0usize;
+        for person in &mut self.people {
+            if person.household_id != u32::MAX {
+                continue;
+            }
+            let household_idx = next_household_idx % household_count;
+            person.household_id = household_idx as u32;
+            member_counts[household_idx] = member_counts[household_idx].saturating_add(1);
+            next_household_idx = next_household_idx.saturating_add(1);
+        }
+
+        let mut sheltered = vec![false; household_count];
+        for person in &self.people {
+            let household_idx = person.household_id as usize;
+            if household_idx < household_count
+                && !matches!(person.housing, super::person::HousingStatus::Unhoused)
+            {
+                sheltered[household_idx] = true;
+            }
+        }
+
+        self.households = (0..household_count)
+            .map(|idx| Household {
+                id: idx as u32,
+                member_count: member_counts[idx].max(1),
+                sheltered: sheltered[idx],
+            })
+            .collect();
+    }
+
+    pub fn household_size_for_person(&self, person_idx: usize) -> usize {
+        self.people
+            .get(person_idx)
+            .and_then(|person| self.households.get(person.household_id as usize))
+            .map_or(1, |household| household.member_count.max(1) as usize)
     }
 
     pub fn id(&self) -> u16 {
@@ -384,6 +464,14 @@ impl Country {
 
     pub fn monthly_unmet_need_events(&self) -> u64 {
         self.monthly_unmet_need_events
+    }
+
+    pub fn monthly_severe_unmet_need_events(&self) -> u64 {
+        self.monthly_severe_unmet_need_events
+    }
+
+    pub fn monthly_chronic_unmet_need_count(&self) -> u64 {
+        self.monthly_chronic_unmet_need_count
     }
 
     pub fn monthly_essential_debt_spending(&self) -> f64 {

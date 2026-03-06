@@ -43,6 +43,8 @@ fn collect_country_data(
     let mut count_with_active_loans = 0usize;
     let mut total_loan_balance = 0.0_f64;
     let mut count_with_unmet_needs = 0usize;
+    let mut count_with_severe_unmet_needs = 0usize;
+    let mut count_with_chronic_unmet_needs = 0usize;
 
     for person in country.people() {
         if person.is_employed() {
@@ -70,6 +72,12 @@ fn collect_country_data(
         }
         if person.last_month_unmet_needs_mask != 0 {
             count_with_unmet_needs += 1;
+        }
+        if person.last_month_severe_unmet_needs_mask != 0 {
+            count_with_severe_unmet_needs += 1;
+        }
+        if person.last_month_chronic_unmet {
+            count_with_chronic_unmet_needs += 1;
         }
     }
 
@@ -277,6 +285,8 @@ fn collect_country_data(
         monthly_goods_import_spending: country.monthly_goods_import_spending(),
         monthly_goods_export_revenue: country.monthly_goods_export_revenue(),
         monthly_unmet_need_events: country.monthly_unmet_need_events(),
+        monthly_severe_unmet_need_events: country.monthly_severe_unmet_need_events(),
+        monthly_chronic_unmet_need_count: country.monthly_chronic_unmet_need_count(),
         monthly_essential_debt_spending: country.monthly_essential_debt_spending(),
         total_money_supply: country.total_money_supply(),
         household_cash_total: country.household_cash_total(),
@@ -320,6 +330,8 @@ fn collect_country_data(
         count_with_active_loans,
         avg_loan_balance,
         count_with_unmet_needs,
+        count_with_severe_unmet_needs,
+        count_with_chronic_unmet_needs,
         total_companies: country.companies().len(),
         total_employees,
         total_open_positions,

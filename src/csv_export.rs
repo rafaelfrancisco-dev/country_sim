@@ -55,6 +55,8 @@ impl CsvExporter {
             "monthly_goods_import_spending",
             "monthly_goods_export_revenue",
             "monthly_unmet_need_events",
+            "monthly_severe_unmet_need_events",
+            "monthly_chronic_unmet_need_count",
             "monthly_essential_debt_spending",
             "total_money_supply",
             "household_cash_total",
@@ -115,6 +117,8 @@ impl CsvExporter {
             "count_with_active_loans",
             "avg_loan_balance",
             "count_with_unmet_needs",
+            "count_with_severe_unmet_needs",
+            "count_with_chronic_unmet_needs",
         ])?;
 
         company_agg.write_record([
@@ -243,6 +247,8 @@ impl CsvExporter {
             format!("{:.2}", data.monthly_goods_import_spending),
             format!("{:.2}", data.monthly_goods_export_revenue),
             data.monthly_unmet_need_events.to_string(),
+            data.monthly_severe_unmet_need_events.to_string(),
+            data.monthly_chronic_unmet_need_count.to_string(),
             format!("{:.2}", data.monthly_essential_debt_spending),
             format!("{:.2}", data.total_money_supply),
             format!("{:.2}", data.household_cash_total),
@@ -303,6 +309,8 @@ impl CsvExporter {
             data.count_with_active_loans.to_string(),
             format!("{:.2}", data.avg_loan_balance),
             data.count_with_unmet_needs.to_string(),
+            data.count_with_severe_unmet_needs.to_string(),
+            data.count_with_chronic_unmet_needs.to_string(),
         ])?;
 
         self.company_agg.write_record([

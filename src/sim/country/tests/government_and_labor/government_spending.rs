@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::person::{ESSENTIAL_STOCK_SLOT_COUNT, HousingStatus};
 
 #[test]
 fn unemployment_benefit_increases_cash_and_decreases_treasury() {
@@ -55,6 +56,8 @@ fn child_below_working_age_does_not_receive_unemployment_benefit() {
         EducationTrack::BasicOnly,
     );
     child.cash_balance = 0.0;
+    child.housing = HousingStatus::Owner;
+    child.essential_stock_units = [4.0; ESSENTIAL_STOCK_SLOT_COUNT];
     let mut country = make_gov_country(vec![child], treasury_start, FiscalParams::default());
 
     country.process_month_end();
@@ -82,6 +85,8 @@ fn senior_above_working_age_does_not_receive_unemployment_benefit() {
         EducationTrack::BasicOnly,
     );
     senior.cash_balance = 0.0;
+    senior.housing = HousingStatus::Owner;
+    senior.essential_stock_units = [4.0; ESSENTIAL_STOCK_SLOT_COUNT];
     let mut country = make_gov_country(vec![senior], treasury_start, FiscalParams::default());
 
     country.process_month_end();

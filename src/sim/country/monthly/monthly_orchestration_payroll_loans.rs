@@ -17,6 +17,7 @@ impl Country {
         self.ensure_company_payroll_liquidity();
         self.process_payroll_and_taxes();
         self.process_corporate_taxes();
+        self.evaluate_stockable_essential_needs();
         self.process_government_spending();
         // Housing market (runs after payroll so people have income to pay rent/mortgages)
         self.process_housing_construction();
@@ -24,6 +25,7 @@ impl Country {
         self.collect_rent();
         self.collect_mortgage_payments();
         self.process_renter_to_owner_transitions();
+        self.finalize_housing_and_chronic_unmet();
         self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
@@ -67,7 +69,14 @@ impl Country {
         let payroll_liquidity_ms = time_op!(self.ensure_company_payroll_liquidity());
         let payroll_taxes_ms = time_op!(self.process_payroll_and_taxes());
         self.process_corporate_taxes();
+        time_op!(self.evaluate_stockable_essential_needs());
         let gov_spending_ms = time_op!(self.process_government_spending());
+        time_op!(self.process_housing_construction());
+        time_op!(self.update_housing_price_index());
+        time_op!(self.collect_rent());
+        time_op!(self.collect_mortgage_payments());
+        time_op!(self.process_renter_to_owner_transitions());
+        time_op!(self.finalize_housing_and_chronic_unmet());
         let bond_coupon_ms = time_op!(self.process_bond_coupon_and_maturity());
         let stock_collateral_ms = time_op!(self.process_stock_collateral_seizure());
         let loan_repayments_ms = time_op!(self.collect_monthly_loan_repayments());
@@ -140,6 +149,8 @@ impl Country {
         self.monthly_goods_import_spending = 0.0;
         self.monthly_goods_export_revenue = 0.0;
         self.monthly_unmet_need_events = 0;
+        self.monthly_severe_unmet_need_events = 0;
+        self.monthly_chronic_unmet_need_count = 0;
         self.monthly_essential_debt_spending = 0.0;
         self.monthly_hires_total = 0;
         self.monthly_private_banks_founded = 0;

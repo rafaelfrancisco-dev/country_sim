@@ -74,6 +74,14 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(
             "MTD Unmet Need Events: {}",
             compact_count(country.monthly_unmet_need_events as f64)
         ),
+        format!(
+            "MTD Severe Unmet Events: {}",
+            compact_count(country.monthly_severe_unmet_need_events as f64)
+        ),
+        format!(
+            "MTD Chronic Unmet People: {}",
+            compact_count(country.monthly_chronic_unmet_need_count as f64)
+        ),
     ]
 }
 

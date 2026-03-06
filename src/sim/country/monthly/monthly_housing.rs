@@ -1,9 +1,6 @@
 use super::*;
 use crate::sim::{
-    bank::MortgageAccount,
-    bank::payment_for,
-    event::SimEvent,
-    money::round_cents,
+    bank::MortgageAccount, bank::payment_for, event::SimEvent, money::round_cents,
     person::HousingStatus,
 };
 
@@ -52,7 +49,8 @@ impl Country {
 
         let old_index = self.housing_price_index;
         self.housing_price_index = round_cents(self.housing_price_index * (1.0 + change));
-        self.monthly_rent = round_cents(self.housing_price_index * params.rent_as_fraction_of_price);
+        self.monthly_rent =
+            round_cents(self.housing_price_index * params.rent_as_fraction_of_price);
 
         if change.abs() > 0.005 {
             self.pending_events.push(SimEvent::HousingPriceChanged {
@@ -106,7 +104,8 @@ impl Country {
         for entry in entries {
             let person = &mut self.people[entry.person_idx];
             person.cash_balance = round_cents(person.cash_balance - entry.amount_paid);
-            person.last_month_rent_paid = round_cents(person.last_month_rent_paid + entry.amount_paid);
+            person.last_month_rent_paid =
+                round_cents(person.last_month_rent_paid + entry.amount_paid);
 
             if let Some(company) = self.companies.get_mut(entry.company_id as usize) {
                 company.cash_balance = round_cents(company.cash_balance + entry.amount_paid);
@@ -127,7 +126,8 @@ impl Country {
             }
         }
 
-        self.monthly_rent_collected = round_cents(self.monthly_rent_collected + total_rent_collected);
+        self.monthly_rent_collected =
+            round_cents(self.monthly_rent_collected + total_rent_collected);
         self.pending_events.extend(pending_events);
     }
 
@@ -167,9 +167,8 @@ impl Country {
 
             let interest_paid = round_cents(amount_paid.min(interest_due));
             let principal_paid = round_cents((amount_paid - interest_paid).max(0.0));
-            let new_balance = round_cents(
-                (mortgage.principal_balance + interest_due - amount_paid).max(0.0),
-            );
+            let new_balance =
+                round_cents((mortgage.principal_balance + interest_due - amount_paid).max(0.0));
 
             let new_months_missed = if missed {
                 mortgage.months_missed.saturating_add(1)
@@ -304,12 +303,11 @@ impl Country {
 
         // Update housing stock for foreclosures
         if foreclosed_count > 0 {
-            self.housing_stock_occupied_owned =
-                self.housing_stock_occupied_owned.saturating_sub(foreclosed_count);
-            self.housing_stock_vacant =
-                self.housing_stock_vacant.saturating_add(foreclosed_count);
-            self.monthly_foreclosures =
-                self.monthly_foreclosures.saturating_add(foreclosed_count);
+            self.housing_stock_occupied_owned = self
+                .housing_stock_occupied_owned
+                .saturating_sub(foreclosed_count);
+            self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(foreclosed_count);
+            self.monthly_foreclosures = self.monthly_foreclosures.saturating_add(foreclosed_count);
         }
 
         self.monthly_mortgage_payments =
@@ -432,10 +430,12 @@ impl Country {
 
         // Phase 4: update housing stock counters
         let purchase_count = purchases.len() as u32;
-        self.housing_stock_occupied_rented =
-            self.housing_stock_occupied_rented.saturating_sub(purchase_count);
-        self.housing_stock_occupied_owned =
-            self.housing_stock_occupied_owned.saturating_add(purchase_count);
+        self.housing_stock_occupied_rented = self
+            .housing_stock_occupied_rented
+            .saturating_sub(purchase_count);
+        self.housing_stock_occupied_owned = self
+            .housing_stock_occupied_owned
+            .saturating_add(purchase_count);
         self.monthly_home_purchases = self.monthly_home_purchases.saturating_add(purchase_count);
 
         self.pending_events.extend(pending_events);

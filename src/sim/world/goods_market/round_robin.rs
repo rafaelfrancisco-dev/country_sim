@@ -1,4 +1,8 @@
 use super::*;
+use crate::sim::essentials::{
+    is_essential_good, is_stockable_essential_good, monthly_requirement_for_good,
+    stockable_essential_slot, target_buffer_units,
+};
 
 impl World {
     pub(in crate::sim::world) fn process_good_round_robin(
@@ -21,38 +25,58 @@ impl World {
             .for_each(|(country_pending, country)| {
                 let country_id = country.id;
                 if country.people.len() <= PEOPLE_CHUNK_SIZE {
-                    for (pending, person) in country_pending.iter_mut().zip(country.people.iter()) {
-                        *pending = demand_units_for_person_good(
-                            day,
-                            country_id,
-                            person.id,
-                            person.name_seed,
-                            good_id,
-                            monthly_demand_factor,
-                        );
+                    for (person_idx, (pending, person)) in country_pending
+                        .iter_mut()
+                        .zip(country.people.iter())
+                        .enumerate()
+                    {
+                        *pending = if is_stockable_essential_good(good_id) {
+                            self.stockable_essential_purchase_gap(country, person_idx, good_id)
+                        } else {
+                            demand_units_for_person_good(
+                                day,
+                                country_id,
+                                person.id,
+                                person.name_seed,
+                                good_id,
+                                monthly_demand_factor,
+                            )
+                        };
                     }
                 } else {
                     country_pending
                         .par_chunks_mut(PEOPLE_CHUNK_SIZE)
                         .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
-                        .for_each(|(pending_chunk, people_chunk)| {
-                            for (pending, person) in
-                                pending_chunk.iter_mut().zip(people_chunk.iter())
+                        .enumerate()
+                        .for_each(|(chunk_idx, (pending_chunk, people_chunk))| {
+                            let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
+                            for (offset, (pending, person)) in pending_chunk
+                                .iter_mut()
+                                .zip(people_chunk.iter())
+                                .enumerate()
                             {
-                                *pending = demand_units_for_person_good(
-                                    day,
-                                    country_id,
-                                    person.id,
-                                    person.name_seed,
-                                    good_id,
-                                    monthly_demand_factor,
-                                );
+                                let person_idx = base_idx + offset;
+                                *pending = if is_stockable_essential_good(good_id) {
+                                    self.stockable_essential_purchase_gap(
+                                        country, person_idx, good_id,
+                                    )
+                                } else {
+                                    demand_units_for_person_good(
+                                        day,
+                                        country_id,
+                                        person.id,
+                                        person.name_seed,
+                                        good_id,
+                                        monthly_demand_factor,
+                                    )
+                                };
                             }
                         });
                 }
             });
 
-        let essential = necessity_rank <= ESSENTIAL_GOODS_COUNT;
+        let essential = is_essential_good(good_id) || necessity_rank <= 4;
+        let deferred_unmet = is_stockable_essential_good(good_id);
         let mut round = 0_u64;
         let needs_mask_bit = 1_u16 << good_id;
         scratch
@@ -121,8 +145,10 @@ impl World {
                         person_idx,
                         pending_units,
                     } => {
-                        scratch.needs_unmet[buyer_country_idx][person_idx] = 1;
-                        self.bump_unmet_need_events(buyer_country_idx, pending_units);
+                        if !deferred_unmet {
+                            scratch.needs_unmet[buyer_country_idx][person_idx] = 1;
+                            self.bump_unmet_need_events(buyer_country_idx, pending_units);
+                        }
                         scratch.pending_demands[buyer_country_idx][person_idx] = 0;
                     }
                     IntentDecision::Candidate(intent) => {
@@ -131,19 +157,30 @@ impl World {
                                 let pending = &mut scratch.pending_demands
                                     [intent.buyer_country_idx][intent.person_idx];
                                 *pending = pending.saturating_sub(1);
-                                scratch.needs_met[intent.buyer_country_idx][intent.person_idx] = 1;
+                                if deferred_unmet {
+                                    self.record_stockable_essential_purchase(
+                                        intent.buyer_country_idx,
+                                        intent.person_idx,
+                                        good_id,
+                                    );
+                                } else {
+                                    scratch.needs_met[intent.buyer_country_idx]
+                                        [intent.person_idx] = 1;
+                                }
                                 progress = true;
                             }
                             ApplyPlannedIntentOutcome::InventoryUnavailable => {
                                 // Leave pending to be retried next round.
                             }
                             ApplyPlannedIntentOutcome::Unmet => {
-                                scratch.needs_unmet[intent.buyer_country_idx][intent.person_idx] =
-                                    1;
-                                self.bump_unmet_need_events(
-                                    intent.buyer_country_idx,
-                                    intent.pending_units,
-                                );
+                                if !deferred_unmet {
+                                    scratch.needs_unmet[intent.buyer_country_idx]
+                                        [intent.person_idx] = 1;
+                                    self.bump_unmet_need_events(
+                                        intent.buyer_country_idx,
+                                        intent.pending_units,
+                                    );
+                                }
                                 scratch.pending_demands[intent.buyer_country_idx]
                                     [intent.person_idx] = 0;
                             }
@@ -153,10 +190,14 @@ impl World {
             }
 
             if !progress {
-                self.finalize_remaining_pending_as_unmet(
-                    &mut scratch.pending_demands,
-                    &mut scratch.needs_unmet,
-                );
+                if deferred_unmet {
+                    self.clear_remaining_pending(&mut scratch.pending_demands);
+                } else {
+                    self.finalize_remaining_pending_as_unmet(
+                        &mut scratch.pending_demands,
+                        &mut scratch.needs_unmet,
+                    );
+                }
                 break;
             }
 
@@ -167,6 +208,9 @@ impl World {
             let Some(country) = self.countries.get_mut(country_idx) else {
                 continue;
             };
+            if deferred_unmet {
+                continue;
+            }
             let needs_met = &scratch.needs_met[country_idx];
             let needs_unmet = &scratch.needs_unmet[country_idx];
             for (person_idx, person) in country.people.iter_mut().enumerate() {
@@ -181,6 +225,25 @@ impl World {
                 }
             }
         }
+    }
+
+    fn stockable_essential_purchase_gap(
+        &self,
+        country: &crate::sim::country::Country,
+        person_idx: usize,
+        good_id: GoodId,
+    ) -> u32 {
+        let Some(slot_idx) = stockable_essential_slot(good_id) else {
+            return 0;
+        };
+        let Some(person) = country.people.get(person_idx) else {
+            return 0;
+        };
+        let household_size = country.household_size_for_person(person_idx);
+        let target_units = monthly_requirement_for_good(good_id, household_size)
+            + target_buffer_units(good_id, household_size);
+        let current_units = person.essential_stock_units[slot_idx].max(0.0);
+        (target_units - current_units).ceil().max(0.0) as u32
     }
 
     pub(in crate::sim::world) fn plan_intent_for_slot(
@@ -307,6 +370,32 @@ impl World {
                 self.bump_unmet_need_events(country_idx, pending_units);
                 country_pending[person_idx] = 0;
             }
+        }
+    }
+
+    fn clear_remaining_pending(&mut self, pending_demands: &mut [Vec<u32>]) {
+        for country_pending in pending_demands {
+            for pending_units in country_pending {
+                *pending_units = 0;
+            }
+        }
+    }
+
+    fn record_stockable_essential_purchase(
+        &mut self,
+        buyer_country_idx: usize,
+        person_idx: usize,
+        good_id: GoodId,
+    ) {
+        let Some(slot_idx) = stockable_essential_slot(good_id) else {
+            return;
+        };
+        if let Some(person) = self
+            .countries
+            .get_mut(buyer_country_idx)
+            .and_then(|country| country.people.get_mut(person_idx))
+        {
+            person.essential_stock_units[slot_idx] += 1.0;
         }
     }
 

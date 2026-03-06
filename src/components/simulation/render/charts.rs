@@ -96,7 +96,11 @@ impl Simulation {
 
     fn chart_page_label(page_idx: usize, total_pages: usize) -> String {
         match page_idx {
-            4 => format!("Chart Page {}/{} (Housing Market)", page_idx + 1, total_pages),
+            4 => format!(
+                "Chart Page {}/{} (Housing Market)",
+                page_idx + 1,
+                total_pages
+            ),
             5 => format!(
                 "Chart Page {}/{} (Pie 1/2: World)",
                 page_idx + 1,

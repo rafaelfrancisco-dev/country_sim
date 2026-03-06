@@ -49,6 +49,8 @@ pub struct MetricPoint {
     pub monthly_goods_import_spending: f64,
     pub monthly_goods_export_revenue: f64,
     pub monthly_unmet_need_events: f64,
+    pub monthly_severe_unmet_need_events: f64,
+    pub monthly_chronic_unmet_need_count: f64,
     pub monthly_essential_debt_spending: f64,
     pub cpi_index: f64,
     pub inflation_rate: f64,

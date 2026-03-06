@@ -239,6 +239,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
     seed_initial_housing(&mut country, &mut rng);
+    country.rebuild_households();
     country.seed_initial_ipos();
     country
 }
@@ -530,8 +531,7 @@ fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
     country.monthly_rent = monthly_rent;
 
     // Total stock accounts for initial vacancy
-    let total_stock =
-        ((population as f64) / (1.0 - params.target_vacancy_rate)).ceil() as u32;
+    let total_stock = ((population as f64) / (1.0 - params.target_vacancy_rate)).ceil() as u32;
     country.housing_stock_total = total_stock;
 
     let housing_companies: Vec<usize> = country
@@ -544,7 +544,8 @@ fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
 
     // Assign housing statuses deterministically
     let owner_threshold = (params.initial_owner_rate * 10_000.0) as u64;
-    let renter_threshold = ((params.initial_owner_rate + params.initial_renter_rate) * 10_000.0) as u64;
+    let renter_threshold =
+        ((params.initial_owner_rate + params.initial_renter_rate) * 10_000.0) as u64;
 
     let mut occupied_owned: u32 = 0;
     let mut occupied_rented: u32 = 0;
@@ -562,7 +563,8 @@ fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
             occupied_owned = occupied_owned.saturating_add(1);
         } else if roll < renter_threshold {
             if !housing_companies.is_empty() {
-                let company_idx = housing_companies[rng.next_u64() as usize % housing_companies.len()];
+                let company_idx =
+                    housing_companies[rng.next_u64() as usize % housing_companies.len()];
                 person.housing = HousingStatus::Renter {
                     landlord_company_id: company_idx as u16,
                     landlord_country_id: country.id,

@@ -41,7 +41,9 @@ Fiscal and monetary state per country per month.
 | `monthly_household_spending` | float | Total household goods spending this month |
 | `monthly_goods_import_spending` | float | Household spending on imported goods this month |
 | `monthly_goods_export_revenue` | float | Revenue from goods exported to other countries this month |
-| `monthly_unmet_need_events` | integer | Count of unmet-essential-need events this month |
+| `monthly_unmet_need_events` | integer | Broad count of unmet essential events this month (`any unmet`) |
+| `monthly_severe_unmet_need_events` | integer | Unmet essential events that crossed the severe-shortfall threshold |
+| `monthly_chronic_unmet_need_count` | integer | People currently in chronic severe unmet status |
 | `monthly_essential_debt_spending` | float | Essential goods paid via negative cash (debt) this month |
 | `total_money_supply` | float | `household_cash + company_cash + bank_reserve + treasury` |
 | `household_cash_total` | float | Sum of all person cash balances |
@@ -110,6 +112,8 @@ Population and labour aggregates per country per month.
 | `count_with_active_loans` | integer | Persons currently carrying a loan |
 | `avg_loan_balance` | float | Mean outstanding debt balance among persons with loans |
 | `count_with_unmet_needs` | integer | Persons with at least one unmet essential good last month |
+| `count_with_severe_unmet_needs` | integer | Persons with at least one severe unmet essential good last month |
+| `count_with_chronic_unmet_needs` | integer | Persons whose severe unmet status has persisted for multiple months |
 
 ---
 
@@ -179,6 +183,7 @@ Discrete simulation event counts per country per month. Each column is the count
 ## Implementation Notes
 
 - Snapshot timing: the export pass runs after `capture_snapshot()` and **before** `Country::reset_month_trackers()`, so all `monthly_*` fields are still populated at collection time. Month-end events (from `process_month_end`) are still in `country.pending_events` at that point and are counted directly; events from days 1–29 are filtered from `world.event_log` by day range.
+- Essential unmet semantics: stockable essentials now buy toward a monthly target plus buffer and are scored at month-end. The old broad unmet fields remain for compatibility, and the severe/chronic fields are additive refinements rather than replacements.
 - The `CsvExporter` is opened lazily on the first month boundary, so the files are only created if the simulation actually runs past day 30.
 - Each run opens files with `File::create` (truncate), so re-running with the same seed and output directory will overwrite the previous files.
 - Relevant source: `src/csv_export.rs`, `src/sim/world/export.rs`, `src/sim/engine.rs` (`drain_export_queue`, `enable_export_queue`).

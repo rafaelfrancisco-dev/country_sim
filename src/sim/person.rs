@@ -1,5 +1,6 @@
 use super::{
     bank::{BankId, LoanAccount, MortgageAccount},
+    essentials::STOCKABLE_ESSENTIAL_GOOD_IDS,
     job::{JobTypeId, salary_for_job},
 };
 
@@ -37,6 +38,7 @@ pub struct ForeignDeposit {
 
 pub const DAYS_PER_YEAR: u16 = 365;
 pub const SUPERFICIAL_GOOD_SLOT_COUNT: usize = 5;
+pub const ESSENTIAL_STOCK_SLOT_COUNT: usize = STOCKABLE_ESSENTIAL_GOOD_IDS.len();
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HabilitationLevel {
@@ -118,6 +120,7 @@ pub struct Person {
     pub agreed_monthly_salary: f64,
     pub cash_balance: f64,
     pub deposit_bank_id: Option<BankId>,
+    pub household_id: u32,
     pub name_seed: u32,
     pub age_days: u16,
     pub education_track: EducationTrack,
@@ -135,6 +138,9 @@ pub struct Person {
     pub last_month_goods_units_bought: u32,
     pub last_month_needs_met_mask: u16,
     pub last_month_unmet_needs_mask: u16,
+    pub last_month_severe_unmet_needs_mask: u16,
+    pub consecutive_severe_unmet_months: u8,
+    pub last_month_chronic_unmet: bool,
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
     pub last_month_savings_interest: f64,
@@ -143,6 +149,7 @@ pub struct Person {
     pub housing: HousingStatus,
     /// Consecutive months this person has been unemployed (resets to 0 on employment).
     pub months_unemployed: u32,
+    pub essential_stock_units: [f32; ESSENTIAL_STOCK_SLOT_COUNT],
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
     pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
     /// Deposit held at a bank in another country, if any.
@@ -178,6 +185,7 @@ impl Person {
             agreed_monthly_salary: 0.0,
             cash_balance: 0.0,
             deposit_bank_id: None,
+            household_id: id,
             name_seed,
             age_days,
             education_track,
@@ -195,6 +203,9 @@ impl Person {
             last_month_goods_units_bought: 0,
             last_month_needs_met_mask: 0,
             last_month_unmet_needs_mask: 0,
+            last_month_severe_unmet_needs_mask: 0,
+            consecutive_severe_unmet_months: 0,
+            last_month_chronic_unmet: false,
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
             last_month_savings_interest: 0.0,
@@ -202,6 +213,7 @@ impl Person {
             last_month_mortgage_payment: 0.0,
             housing: HousingStatus::Unhoused,
             months_unemployed: 0,
+            essential_stock_units: [0.0; ESSENTIAL_STOCK_SLOT_COUNT],
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
             foreign_deposit: None,
@@ -431,6 +443,8 @@ impl Person {
         self.last_month_goods_units_bought = 0;
         self.last_month_needs_met_mask = 0;
         self.last_month_unmet_needs_mask = 0;
+        self.last_month_severe_unmet_needs_mask = 0;
+        self.last_month_chronic_unmet = false;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
         self.last_month_savings_interest = 0.0;
