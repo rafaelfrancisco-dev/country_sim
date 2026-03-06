@@ -99,6 +99,50 @@ fn inactive_tabs_skip_heavy_data() {
 }
 
 #[test]
+fn charts_snapshot_uses_doctor_label_for_education_track() {
+    use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
+
+    let doctor = Person::new_with_profile(
+        1,
+        EmploymentStatus::Unemployed,
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::Doctor,
+    );
+    let bachelor = Person::new_with_profile(
+        2,
+        EmploymentStatus::Unemployed,
+        202,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::Bachelor,
+    );
+    let world = World::new(vec![Country::new(
+        1,
+        "A".to_string(),
+        vec![doctor, bachelor],
+    )]);
+    let ui = UiState {
+        active_tab: RunningTab::Charts,
+        ..UiState::default()
+    };
+
+    let snapshot = snapshot_from_world_with_ui(world, ui);
+    let RunningTabSnapshot::Charts(charts_tab) = snapshot.tab else {
+        panic!("charts tab payload expected");
+    };
+    let labels = charts_tab
+        .pie_page
+        .education_tracks
+        .slices
+        .iter()
+        .map(|slice| slice.label.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(labels.contains(&"Doctor"));
+    assert!(!labels.contains(&"MedicalDoctor"));
+}
+
+#[test]
 fn events_category_filter_limits_results() {
     let people = vec![Person::new(1, 30, 0, 11)];
     let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);

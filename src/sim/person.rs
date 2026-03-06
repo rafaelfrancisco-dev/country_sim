@@ -38,7 +38,7 @@ pub enum EducationTrack {
     BasicOnly,
     HighSchool,
     Bachelor,
-    MedicalDoctor,
+    Doctor,
 }
 
 impl EducationTrack {
@@ -46,7 +46,7 @@ impl EducationTrack {
         match self {
             EducationTrack::BasicOnly | EducationTrack::HighSchool => 18,
             EducationTrack::Bachelor => 21,
-            EducationTrack::MedicalDoctor => 23,
+            EducationTrack::Doctor => 23,
         }
     }
 
@@ -55,7 +55,7 @@ impl EducationTrack {
             EducationTrack::BasicOnly => "Basic",
             EducationTrack::HighSchool => "High School",
             EducationTrack::Bachelor => "Bachelor",
-            EducationTrack::MedicalDoctor => "Medical Doctor",
+            EducationTrack::Doctor => "Doctor",
         }
     }
 }
@@ -364,7 +364,7 @@ impl Person {
                         HabilitationLevel::HighSchool
                     }
                 }
-                EducationTrack::MedicalDoctor => {
+                EducationTrack::Doctor => {
                     if age >= 23 {
                         HabilitationLevel::HigherLearning
                     } else {
@@ -505,17 +505,34 @@ mod tests {
             20 * DAYS_PER_YEAR,
             EducationTrack::Bachelor,
         );
-        let md = Person::new_with_profile(
+        let doctor = Person::new_with_profile(
             3,
             EmploymentStatus::Unemployed,
             3,
             22 * DAYS_PER_YEAR,
-            EducationTrack::MedicalDoctor,
+            EducationTrack::Doctor,
         );
 
         assert!(basic.can_seek_job());
         assert!(!bachelor.can_seek_job());
-        assert!(!md.can_seek_job());
+        assert!(!doctor.can_seek_job());
+    }
+
+    #[test]
+    fn doctor_track_reaches_higher_learning_at_age_twenty_three() {
+        let mut person = Person::new_with_profile(
+            10,
+            EmploymentStatus::Unemployed,
+            11,
+            22 * DAYS_PER_YEAR,
+            EducationTrack::Doctor,
+        );
+        assert_eq!(person.habilitation, HabilitationLevel::HighSchool);
+
+        person.age_days = 23 * DAYS_PER_YEAR;
+        person.refresh_habilitation_from_age();
+
+        assert_eq!(person.habilitation, HabilitationLevel::HigherLearning);
     }
 
     #[test]

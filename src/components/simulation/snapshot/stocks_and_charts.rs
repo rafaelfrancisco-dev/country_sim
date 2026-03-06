@@ -101,7 +101,7 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
     let mut education_basic_only = 0.0;
     let mut education_high_school = 0.0;
     let mut education_bachelor = 0.0;
-    let mut education_medical_doctor = 0.0;
+    let mut education_doctor = 0.0;
     let mut unemployed = 0.0;
     let mut employed_company = 0.0;
     let mut employed_bank = 0.0;
@@ -114,7 +114,7 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
             EducationTrack::BasicOnly => education_basic_only += 1.0,
             EducationTrack::HighSchool => education_high_school += 1.0,
             EducationTrack::Bachelor => education_bachelor += 1.0,
-            EducationTrack::MedicalDoctor => education_medical_doctor += 1.0,
+            EducationTrack::Doctor => education_doctor += 1.0,
         }
 
         match person.employment {
@@ -144,7 +144,7 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
                 ("BasicOnly".to_string(), education_basic_only),
                 ("HighSchool".to_string(), education_high_school),
                 ("Bachelor".to_string(), education_bachelor),
-                ("MedicalDoctor".to_string(), education_medical_doctor),
+                ("Doctor".to_string(), education_doctor),
             ],
         ),
         employment_status: build_pie_chart(

@@ -75,7 +75,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   - 50% to companies
 - Initial demographics:
   - age pyramid distribution (0-14, 15-24, 25-54, 55-64, 65-74, 75+)
-  - education-track distribution (`BasicOnly`, `HighSchool`, `Bachelor`, `MedicalDoctor`)
+  - education-track distribution (`BasicOnly`, `HighSchool`, `Bachelor`, `Doctor`)
   - baseline unemployment applied to work-eligible adults
 
 ## UI Contract

@@ -104,7 +104,7 @@ impl Simulation {
                 "BasicOnly" => Color::Gray,
                 "HighSchool" => Color::Cyan,
                 "Bachelor" => Color::Green,
-                "MedicalDoctor" => Color::LightRed,
+                "Doctor" => Color::LightRed,
                 _ => COUNTRY_COLORS[idx % COUNTRY_COLORS.len()],
             },
             "Employment Status" => match slice.label.as_str() {

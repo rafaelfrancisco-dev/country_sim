@@ -28,7 +28,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Job-seeking eligibility by education track:
   - BasicOnly / HighSchool tracks: age 18+
   - Bachelor track: age 21+
-  - MedicalDoctor track: age 23+
+  - Doctor track: age 23+ (doctoral/PhD path, not medical doctor)
 - Hiring is qualification-gated and interview-free.
 - Job contracts are salary-aware:
   - each opening carries an `offered_monthly_salary`

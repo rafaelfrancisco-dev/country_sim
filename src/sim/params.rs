@@ -50,7 +50,7 @@ pub struct EducationParams {
     pub basic_only_share: f64,
     pub high_school_share: f64,
     pub bachelor_share: f64,
-    pub medical_doctor_share: f64,
+    pub doctor_share: f64,
 }
 
 impl Default for EducationParams {
@@ -59,7 +59,7 @@ impl Default for EducationParams {
             basic_only_share: 0.38,
             high_school_share: 0.37,
             bachelor_share: 0.22,
-            medical_doctor_share: 0.03,
+            doctor_share: 0.03,
         }
     }
 }
@@ -78,7 +78,7 @@ impl EducationParams {
         } else if roll < threshold_bachelor {
             EducationTrack::Bachelor
         } else {
-            EducationTrack::MedicalDoctor
+            EducationTrack::Doctor
         }
     }
 }

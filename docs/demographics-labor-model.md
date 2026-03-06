@@ -15,7 +15,7 @@ Each `Country` day tick executes in this order:
 ## Person Model
 People carry:
 - `age_days`
-- `education_track`: `BasicOnly`, `HighSchool`, `Bachelor`, `MedicalDoctor`
+- `education_track`: `BasicOnly`, `HighSchool`, `Bachelor`, `Doctor`
 - `habilitation`: `NoSchoolYet`, `BasicSchool`, `HighSchool`, `HigherLearning`
 - `employment`: `Unemployed` or `Employed { job_type_id, employer_company_id }`
 - `agreed_monthly_salary` (employment contract salary; 0 for unemployed)
@@ -27,13 +27,15 @@ People carry:
   - `BasicOnly`: `BasicSchool`
   - `HighSchool`: `HighSchool`
   - `Bachelor`: `HigherLearning` from age 21, else `HighSchool`
-  - `MedicalDoctor`: `HigherLearning` from age 23, else `HighSchool`
+  - `Doctor`: `HigherLearning` from age 23, else `HighSchool`
 
 ### Job Seeking Gate
 `can_seek_job()` minimum age by track:
 - `BasicOnly` / `HighSchool`: 18
 - `Bachelor`: 21
-- `MedicalDoctor`: 23
+- `Doctor`: 23
+
+The `Doctor` track represents doctoral or PhD-level academic study, not medical doctors.
 
 ## Demographic Rates
 ### Births
