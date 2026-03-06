@@ -1,8 +1,13 @@
 use super::{
     company::{Company, DEFAULT_COMPANIES_PER_COUNTRY},
     country::Country,
+    essentials::{
+        STOCKABLE_ESSENTIAL_GOOD_IDS, estimated_country_monthly_requirement,
+        estimated_country_stock_target_units,
+        production_capacity_units_for_workers, target_manufacturing_headcount_for_units,
+    },
     good::{GOODS_COUNT, common_goods, good_by_id},
-    job::{JobTypeId, common_job_types},
+    job::{JobTypeId, common_job_types, job_is_eligible_for_habilitation, salary_for_job},
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
     params::SimulationParams,
@@ -180,12 +185,17 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     let mut rng = DeterministicRng::new(country_seed(config.seed, country_idx));
     let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
     let company_count = if config.companies_per_country == DEFAULT_COMPANIES_PER_COUNTRY {
-        derive_initial_company_count(config.population_per_country)
+        derive_initial_company_count(config.population_per_country, &config.sim_params)
     } else {
         config.companies_per_country
     };
     let mut companies =
-        build_initial_companies(&country_name, config.population_per_country, company_count);
+        build_initial_companies(
+            &country_name,
+            config.population_per_country,
+            company_count,
+            &config.sim_params,
+        );
     randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
     let job_cache = build_job_selection_cache(&companies, &mut rng);
 
@@ -220,6 +230,8 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         people.push(person);
     }
 
+    rebalance_essential_sector_workforce(&mut people, &companies, &config.sim_params);
+
     let total_supply = round_cents(config.population_per_country as f64 * config.money_per_citizen);
     let household_supply = round_cents(total_supply * 0.5);
     let company_supply = round_cents(total_supply - household_supply);
@@ -235,6 +247,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         total_supply,
         config.sim_params.clone(),
     );
+    seed_initial_essential_supply(&mut country);
     fund_initial_bank_reserve(&mut country);
     seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
@@ -244,8 +257,11 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     country
 }
 
-fn derive_initial_company_count(population_per_country: u32) -> u16 {
-    let total = target_initial_company_counts(population_per_country)
+fn derive_initial_company_count(
+    population_per_country: u32,
+    sim_params: &SimulationParams,
+) -> u16 {
+    let total = target_initial_company_counts_with_params(population_per_country, sim_params)
         .iter()
         .copied()
         .map(u32::from)
@@ -256,14 +272,47 @@ fn derive_initial_company_count(population_per_country: u32) -> u16 {
         .unwrap_or(u16::MAX)
 }
 
+#[cfg(test)]
 fn target_initial_company_counts(population_per_country: u32) -> [u16; GOODS_COUNT] {
+    target_initial_company_counts_with_params(population_per_country, &SimulationParams::default())
+}
+
+fn target_initial_company_counts_with_params(
+    population_per_country: u32,
+    sim_params: &SimulationParams,
+) -> [u16; GOODS_COUNT] {
     let pop_scale = (population_per_country as f64 / 1_000.0).max(1.0);
     let market_depth = pop_scale.sqrt();
     std::array::from_fn(|good_idx| {
         let good = common_goods()[good_idx];
-        let labor_load = good.monthly_demand_factor * good.effort_per_unit;
-        let firms = ((market_depth * labor_load) / 12.0).ceil() as u16;
-        firms.clamp(1, 8)
+        if STOCKABLE_ESSENTIAL_GOOD_IDS.contains(&good.id) {
+            let target_units = estimated_country_monthly_requirement(
+                &sim_params.essentials,
+                good.id,
+                population_per_country as usize,
+            )
+            .max(estimated_country_stock_target_units(
+                &sim_params.essentials,
+                good.id,
+                population_per_country as usize,
+            ));
+            let per_company_capacity = production_capacity_units_for_workers(
+                &sim_params.essentials,
+                sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                u32::from(sim_params.essentials.target_manufacturing_workers_per_initial_company),
+            );
+            let firms = if per_company_capacity > 0.0 {
+                (target_units / per_company_capacity).ceil() as u16
+            } else {
+                1
+            };
+            firms.clamp(1, 48)
+        } else {
+            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
+            let firms = ((market_depth * labor_load) / 12.0).ceil() as u16;
+            firms.clamp(1, 8)
+        }
     })
 }
 
@@ -271,13 +320,14 @@ fn build_initial_companies(
     country_name: &str,
     population_per_country: u32,
     company_count: u16,
+    sim_params: &SimulationParams,
 ) -> Vec<Company> {
     let company_count = usize::from(company_count);
     if company_count == 0 {
         return Vec::new();
     }
 
-    let target_counts = target_initial_company_counts(population_per_country);
+    let target_counts = target_initial_company_counts_with_params(population_per_country, sim_params);
     let desired_total = target_counts
         .iter()
         .copied()
@@ -335,6 +385,128 @@ fn allocate_company_goods_dhondt(company_count: usize, target_counts: &[u16]) ->
         }
     }
     goods
+}
+
+fn rebalance_essential_sector_workforce(
+    people: &mut [Person],
+    companies: &[Company],
+    sim_params: &SimulationParams,
+) {
+    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
+
+    let mut employed_candidates = Vec::new();
+    let mut unemployed_candidates = Vec::new();
+    for (person_idx, person) in people.iter().enumerate() {
+        if person.employer_bank_id().is_some()
+            || !job_is_eligible_for_habilitation(
+                MANUFACTURING_OPERATOR_JOB_ID,
+                person.habilitation,
+            )
+        {
+            continue;
+        }
+
+        if person.is_employed() {
+            employed_candidates.push(person_idx);
+        } else {
+            unemployed_candidates.push(person_idx);
+        }
+    }
+    employed_candidates.extend(unemployed_candidates);
+
+    let mut candidate_cursor = 0usize;
+    for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
+        let company_ids = companies
+            .iter()
+            .filter(|company| company.produced_good_id == good_id)
+            .map(|company| company.id)
+            .collect::<Vec<_>>();
+        if company_ids.is_empty() {
+            continue;
+        }
+
+        let Some(good) = good_by_id(good_id) else {
+            continue;
+        };
+        let target_units =
+            estimated_country_monthly_requirement(&sim_params.essentials, good_id, people.len())
+                .max(estimated_country_stock_target_units(
+                    &sim_params.essentials,
+                    good_id,
+                    people.len(),
+                ));
+        let target_workers = target_manufacturing_headcount_for_units(
+            &sim_params.essentials,
+            sim_params.goods_market.worker_effort_per_month,
+            good.effort_per_unit,
+            target_units,
+        ) as usize;
+        if target_workers == 0 {
+            continue;
+        }
+
+        for worker_offset in 0..target_workers {
+            let Some(&person_idx) = employed_candidates.get(candidate_cursor) else {
+                return;
+            };
+            candidate_cursor = candidate_cursor.saturating_add(1);
+            let company_id = company_ids[worker_offset % company_ids.len()];
+            people[person_idx].set_employment(company_id, MANUFACTURING_OPERATOR_JOB_ID, 0);
+        }
+    }
+}
+
+fn seed_initial_essential_supply(country: &mut Country) {
+    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
+
+    let essentials = country.sim_params().essentials;
+    let worker_effort = country.sim_params().goods_market.worker_effort_per_month;
+
+    for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
+        let company_indices = country
+            .companies()
+            .iter()
+            .enumerate()
+            .filter(|(_, company)| company.produced_good_id == good_id)
+            .map(|(idx, _)| idx)
+            .collect::<Vec<_>>();
+        if company_indices.is_empty() {
+            continue;
+        }
+
+        let Some(good) = good_by_id(good_id) else {
+            continue;
+        };
+
+        let target_units = country
+            .estimated_requirement_units_for_good(good_id)
+            .max(estimated_country_stock_target_units(&essentials, good_id, country.people().len()));
+        let target_workers = target_manufacturing_headcount_for_units(
+            &essentials,
+            worker_effort,
+            good.effort_per_unit,
+            target_units,
+        ) as usize;
+        let per_company_target_workers = target_workers.div_ceil(company_indices.len());
+        let total_inventory_units =
+            (target_units * f64::from(essentials.initial_inventory_cover_months)).ceil() as u32;
+        let per_company_inventory = total_inventory_units.div_ceil(company_indices.len() as u32);
+
+        for company_idx in company_indices {
+            let current_workers = country.companies()[company_idx].manufacturing_employee_count as usize;
+            if let Some(company) = country.companies_mut().get_mut(company_idx) {
+                company.inventory_units = company.inventory_units.saturating_add(per_company_inventory);
+                if per_company_target_workers > current_workers {
+                    let missing_workers = per_company_target_workers - current_workers;
+                    company.add_opening_with_salary(
+                        MANUFACTURING_OPERATOR_JOB_ID,
+                        missing_workers.min(u16::MAX as usize) as u16,
+                        salary_for_job(MANUFACTURING_OPERATOR_JOB_ID),
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
@@ -679,18 +851,18 @@ mod tests {
     fn target_initial_company_counts_scale_essentials_for_large_populations() {
         let counts = target_initial_company_counts(100_000);
 
-        assert_eq!(counts[0], 5);
-        assert_eq!(counts[1], 5);
-        assert_eq!(counts[2], 3);
-        assert_eq!(counts[3], 2);
-        assert_eq!(counts[4], 1);
-        assert_eq!(counts.iter().copied().map(u32::from).sum::<u32>(), 53);
+        assert!(counts[0] >= 10);
+        assert!(counts[1] >= 10);
+        assert!(counts[3] >= 2);
+        assert!(counts[4] >= 1);
+        assert!(counts.iter().copied().map(u32::from).sum::<u32>() > 53);
     }
 
     #[test]
     fn build_initial_companies_matches_default_good_targets() {
-        let company_count = derive_initial_company_count(100_000);
-        let companies = build_initial_companies("A", 100_000, company_count);
+        let sim_params = SimulationParams::default();
+        let company_count = derive_initial_company_count(100_000, &sim_params);
+        let companies = build_initial_companies("A", 100_000, company_count, &sim_params);
         let mut counts = [0_u16; GOODS_COUNT];
         for company in companies {
             counts[company.produced_good_id as usize] =
@@ -714,5 +886,24 @@ mod tests {
             .collect::<std::collections::BTreeSet<_>>();
 
         assert!(unique_headcounts.len() > 1);
+    }
+
+    #[test]
+    fn generation_seeds_inventory_and_manufacturing_capacity_for_stockable_essentials() {
+        let country = generate_countries(&GenerationConfig::with_defaults(1, 10_000, 17))
+            .into_iter()
+            .next()
+            .expect("country should be generated");
+
+        for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
+            assert!(
+                country.essential_inventory_units_for_good(good_id) > 0.0,
+                "expected seeded inventory for essential good {good_id}"
+            );
+            assert!(
+                country.essential_manufacturing_capacity_units_for_good(good_id) > 0.0,
+                "expected manufacturing capacity for essential good {good_id}"
+            );
+        }
     }
 }

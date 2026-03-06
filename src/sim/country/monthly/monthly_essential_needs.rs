@@ -1,12 +1,12 @@
 use super::*;
 use crate::sim::essentials::{
-    CHRONIC_UNMET_MONTHS_THRESHOLD, ESSENTIAL_NEEDS_MASK, HOUSING_GOOD_ID,
-    SEVERE_UNMET_SHARE_THRESHOLD, STOCKABLE_ESSENTIAL_GOOD_IDS, housing_is_met,
+    ESSENTIAL_NEEDS_MASK, HOUSING_GOOD_ID, STOCKABLE_ESSENTIAL_GOOD_IDS, housing_is_met,
     monthly_requirement_for_good, stockable_essential_slot,
 };
 
 impl Country {
     pub(super) fn evaluate_stockable_essential_needs(&mut self) {
+        let essentials = self.sim_params.essentials;
         self.monthly_unmet_need_events = 0;
         self.monthly_severe_unmet_need_events = 0;
         self.monthly_chronic_unmet_need_count = 0;
@@ -23,7 +23,7 @@ impl Country {
                 let Some(slot_idx) = stockable_essential_slot(good_id) else {
                     continue;
                 };
-                let required_units = monthly_requirement_for_good(good_id, household_size);
+                let required_units = monthly_requirement_for_good(&essentials, good_id, household_size);
                 if required_units <= 0.0 {
                     continue;
                 }
@@ -44,7 +44,7 @@ impl Country {
                     self.monthly_unmet_need_events.saturating_add(unmet_events);
 
                 let unmet_share = unmet_units / required_units.max(0.01);
-                if unmet_share >= SEVERE_UNMET_SHARE_THRESHOLD {
+                if unmet_share >= essentials.severe_unmet_share_threshold {
                     person.last_month_severe_unmet_needs_mask |= bit;
                     self.monthly_severe_unmet_need_events = self
                         .monthly_severe_unmet_need_events
@@ -55,6 +55,7 @@ impl Country {
     }
 
     pub(super) fn finalize_housing_and_chronic_unmet(&mut self) {
+        let essentials = self.sim_params.essentials;
         self.rebuild_households();
 
         let mut sheltered_by_household = vec![false; self.households.len()];
@@ -64,6 +65,7 @@ impl Country {
                 continue;
             }
             if housing_is_met(
+                &essentials,
                 &person.housing,
                 person.last_month_rent_paid,
                 person.last_month_mortgage_payment,
@@ -108,7 +110,8 @@ impl Country {
                 person.consecutive_severe_unmet_months = 0;
             }
             person.last_month_chronic_unmet =
-                person.consecutive_severe_unmet_months >= CHRONIC_UNMET_MONTHS_THRESHOLD;
+                person.consecutive_severe_unmet_months
+                    >= essentials.chronic_unmet_months_threshold;
             if person.last_month_chronic_unmet {
                 chronic_count = chronic_count.saturating_add(1);
             }

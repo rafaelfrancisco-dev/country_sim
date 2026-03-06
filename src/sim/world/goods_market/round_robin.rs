@@ -240,8 +240,9 @@ impl World {
             return 0;
         };
         let household_size = country.household_size_for_person(person_idx);
-        let target_units = monthly_requirement_for_good(good_id, household_size)
-            + target_buffer_units(good_id, household_size);
+        let essentials = &country.sim_params.essentials;
+        let target_units = monthly_requirement_for_good(essentials, good_id, household_size)
+            + target_buffer_units(essentials, good_id, household_size);
         let current_units = person.essential_stock_units[slot_idx].max(0.0);
         (target_units - current_units).ceil().max(0.0) as u32
     }

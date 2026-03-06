@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::essentials::ESSENTIAL_GOOD_IDS;
 
 // ---------------------------------------------------------------------------
 // Daily stock export types
@@ -124,6 +125,15 @@ pub struct MonthlyExportData {
     pub countries: Vec<CountryExportData>,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct EssentialGoodExportData {
+    pub unmet_share_pct: f64,
+    pub severe_unmet_share_pct: f64,
+    pub producer_count: usize,
+    pub public_utility_count: usize,
+    pub inventory_cover_months: f64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CountryExportData {
     pub month: u64,
@@ -191,6 +201,7 @@ pub struct CountryExportData {
     pub count_with_unmet_needs: usize,
     pub count_with_severe_unmet_needs: usize,
     pub count_with_chronic_unmet_needs: usize,
+    pub essential_goods: [EssentialGoodExportData; ESSENTIAL_GOOD_IDS.len()],
 
     // company_agg
     pub total_companies: usize,

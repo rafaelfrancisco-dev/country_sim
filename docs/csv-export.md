@@ -45,6 +45,31 @@ Fiscal and monetary state per country per month.
 | `monthly_severe_unmet_need_events` | integer | Unmet essential events that crossed the severe-shortfall threshold |
 | `monthly_chronic_unmet_need_count` | integer | People currently in chronic severe unmet status |
 | `monthly_essential_debt_spending` | float | Essential goods paid via negative cash (debt) this month |
+| `water_unmet_share_pct` | float | Share of people with unmet water needs last month |
+| `water_severe_unmet_share_pct` | float | Share of people with severe unmet water needs last month |
+| `water_producer_count` | integer | Active water-producing companies |
+| `water_public_utility_count` | integer | Public utilities producing water |
+| `water_inventory_cover_months` | float | End-of-month water inventory divided by monthly requirement |
+| `food_unmet_share_pct` | float | Share of people with unmet food needs last month |
+| `food_severe_unmet_share_pct` | float | Share of people with severe unmet food needs last month |
+| `food_producer_count` | integer | Active food-producing companies |
+| `food_public_utility_count` | integer | Public utilities producing food |
+| `food_inventory_cover_months` | float | End-of-month food inventory divided by monthly requirement |
+| `housing_unmet_share_pct` | float | Share of people with unmet housing needs last month |
+| `housing_severe_unmet_share_pct` | float | Share of people with severe unmet housing needs last month |
+| `housing_producer_count` | integer | Active housing companies |
+| `housing_public_utility_count` | integer | Public utilities producing housing |
+| `housing_inventory_cover_months` | float | Housing cover proxy (currently `0` because housing is not stock-tracked) |
+| `electricity_unmet_share_pct` | float | Share of people with unmet electricity needs last month |
+| `electricity_severe_unmet_share_pct` | float | Share of people with severe unmet electricity needs last month |
+| `electricity_producer_count` | integer | Active electricity-producing companies |
+| `electricity_public_utility_count` | integer | Public utilities producing electricity |
+| `electricity_inventory_cover_months` | float | End-of-month electricity inventory divided by monthly requirement |
+| `medicine_unmet_share_pct` | float | Share of people with unmet medicine needs last month |
+| `medicine_severe_unmet_share_pct` | float | Share of people with severe unmet medicine needs last month |
+| `medicine_producer_count` | integer | Active medicine-producing companies |
+| `medicine_public_utility_count` | integer | Public utilities producing medicine |
+| `medicine_inventory_cover_months` | float | End-of-month medicine inventory divided by monthly requirement |
 | `total_money_supply` | float | `household_cash + company_cash + bank_reserve + treasury` |
 | `household_cash_total` | float | Sum of all person cash balances |
 | `company_cash_total` | float | Sum of all company cash balances |
@@ -111,7 +136,7 @@ Population and labour aggregates per country per month.
 | `total_goods_spending` | float | Sum of last-month goods spending across all persons |
 | `count_with_active_loans` | integer | Persons currently carrying a loan |
 | `avg_loan_balance` | float | Mean outstanding debt balance among persons with loans |
-| `count_with_unmet_needs` | integer | Persons with at least one unmet essential good last month |
+| `count_with_unmet_needs` | integer | Persons with at least one unmet essential good last month (masked to goods `0..=4`) |
 | `count_with_severe_unmet_needs` | integer | Persons with at least one severe unmet essential good last month |
 | `count_with_chronic_unmet_needs` | integer | Persons whose severe unmet status has persisted for multiple months |
 
@@ -183,7 +208,7 @@ Discrete simulation event counts per country per month. Each column is the count
 ## Implementation Notes
 
 - Snapshot timing: the export pass runs after `capture_snapshot()` and **before** `Country::reset_month_trackers()`, so all `monthly_*` fields are still populated at collection time. Month-end events (from `process_month_end`) are still in `country.pending_events` at that point and are counted directly; events from days 1–29 are filtered from `world.event_log` by day range.
-- Essential unmet semantics: stockable essentials now buy toward a monthly target plus buffer and are scored at month-end. The old broad unmet fields remain for compatibility, and the severe/chronic fields are additive refinements rather than replacements.
+- Essential unmet semantics: stockable essentials now buy toward a monthly target plus buffer and are scored at month-end. `count_with_unmet_needs` is now masked to essential goods only, so the headline people aggregate no longer mixes in non-essential deprivation.
 - The `CsvExporter` is opened lazily on the first month boundary, so the files are only created if the simulation actually runs past day 30.
 - Each run opens files with `File::create` (truncate), so re-running with the same seed and output directory will overwrite the previous files.
 - Relevant source: `src/csv_export.rs`, `src/sim/world/export.rs`, `src/sim/engine.rs` (`drain_export_queue`, `enable_export_queue`).

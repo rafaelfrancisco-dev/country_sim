@@ -201,3 +201,48 @@ fn government_backfill_adds_capacity_when_essential_shortage_is_persistent() {
         "high shortage pressure should trigger extra public essential capacity"
     );
 }
+
+#[test]
+fn public_essential_company_scales_manufacturing_openings_with_population_need() {
+    let people = (0..10_000_u32)
+        .map(|idx| {
+            Person::new_with_profile(
+                idx + 1,
+                EmploymentStatus::Unemployed,
+                idx + 700,
+                30 * DAYS_PER_YEAR,
+                EducationTrack::HighSchool,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill = GovernmentBackfillParams {
+        enabled: true,
+        essential_good_max_id_inclusive: 0,
+        ..GovernmentBackfillParams::default()
+    };
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, vec![], 500_000.0, params);
+    country.treasury_balance = 500_000.0;
+    country.create_public_essential_company(0, country.sim_params.government_backfill);
+
+    let company = country
+        .companies
+        .iter()
+        .find(|company| company.is_public_utility)
+        .expect("public utility should exist");
+    let manufacturing_opening = company
+        .open_positions
+        .iter()
+        .find(|opening| opening.job_type_id == 5)
+        .expect("manufacturing openings should exist");
+
+    assert!(
+        manufacturing_opening.slots > country.sim_params.government_backfill.manufacturing_openings,
+        "manufacturing openings should scale above the fixed backfill floor"
+    );
+}

@@ -1,13 +1,55 @@
 # Essential Needs Validation (2026-03-06)
 
 ## Scope
-One-year fixed-seed headless validation after the household/shared-utility, stock-buffer, and unmet-severity redesign.
+This document now has two checkpoints:
+- the original post-redesign baseline
+- the structural calibration pass that adds essential-capacity seeding, per-good shortage diagnostics, and essential-only `people_agg` headline masking
+
+Both runs are one-year fixed-seed headless validations.
 
 This run checks two things:
 - the simulation still completes cleanly over a full year
 - the new any/severe/chronic unmet signals are exported and directionally interpretable
 
-It does **not** show that the model is now calibrated to real life. The unmet rates remain too high.
+The newer run materially improves realism, but it still does **not** fully hit the aggressive target band.
+
+## Structural Calibration Pass
+
+### Commands
+```bash
+cargo test generator::tests
+cargo test backfill
+cargo test market_behaviors
+cargo test collect_country_data_populates_per_good_essential_export_metrics
+
+cargo bench -q --features manual-harness --bench manual_export_csv
+```
+
+### Outputs
+- `/tmp/country_sim_year1/country_metrics_000000005eedc0de.csv`
+- `/tmp/country_sim_year1/people_agg_000000005eedc0de.csv`
+
+### Results
+#### 100k, 1 country, 365 days
+- completed 12 monthly exports without harness failure
+- average any-unmet share: `14.58%`
+- average severe-unmet share: `14.58%`
+- average chronic-unmet share: `3.76%`
+- final-month any-unmet share: `0.01%`
+- final-month severe-unmet share: `0.01%`
+- final-month chronic-unmet share: `0.00%`
+- average CPI: `1.0444`
+- average water unmet share: `0.00%`
+- average food unmet share: `0.00%`
+- average housing unmet share: `0.01%`
+- average electricity unmet share: `14.57%`
+- average medicine unmet share: `2.68%`
+
+### Interpretation
+- Stability: the year-long headless run still completes cleanly after the calibration changes.
+- Major improvement: the essential-only headline fell from the prior `~97.9% / 95.1% / 78.4%` baseline to `14.6% / 14.6% / 3.8%` in the same 100k scenario.
+- Metric fix: `people_agg.count_with_unmet_needs` now correctly masks to essential goods only, so the headline no longer includes non-essential deprivation spillover.
+- Remaining gap: electricity still front-loads too much unmet in months 1–4, which keeps severe unmet above the aggressive `<5%` target even though late-year unmet is effectively zero.
 
 ## Commands
 ```bash

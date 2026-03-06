@@ -1,5 +1,7 @@
 use super::monthly_events::{EventCounts, event_country_and_day};
+use super::stock_daily::EssentialGoodExportData;
 use super::*;
+use crate::sim::essentials::{ESSENTIAL_GOOD_IDS, ESSENTIAL_NEEDS_MASK};
 
 impl World {
     pub(in crate::sim::world) fn push_export_snapshot(&mut self) {
@@ -70,7 +72,7 @@ fn collect_country_data(
             count_with_active_loans += 1;
             total_loan_balance += loan.debt_balance;
         }
-        if person.last_month_unmet_needs_mask != 0 {
+        if (person.last_month_unmet_needs_mask & ESSENTIAL_NEEDS_MASK) != 0 {
             count_with_unmet_needs += 1;
         }
         if person.last_month_severe_unmet_needs_mask != 0 {
@@ -102,6 +104,20 @@ fn collect_country_data(
     } else {
         0.0
     };
+    let essential_goods = std::array::from_fn(|idx| {
+        let good_id = ESSENTIAL_GOOD_IDS[idx];
+        let (unmet_count, severe_count) = country.essential_people_counts_for_good(good_id);
+        let (producer_count, public_utility_count) = country.essential_company_counts_for_good(good_id);
+        let denominator = population.max(1) as f64;
+
+        EssentialGoodExportData {
+            unmet_share_pct: unmet_count as f64 / denominator * 100.0,
+            severe_unmet_share_pct: severe_count as f64 / denominator * 100.0,
+            producer_count,
+            public_utility_count,
+            inventory_cover_months: country.essential_inventory_cover_months_for_good(good_id),
+        }
+    });
 
     // Company aggregates
     let mut total_employees = 0u32;
@@ -332,6 +348,7 @@ fn collect_country_data(
         count_with_unmet_needs,
         count_with_severe_unmet_needs,
         count_with_chronic_unmet_needs,
+        essential_goods,
         total_companies: country.companies().len(),
         total_employees,
         total_open_positions,
@@ -379,5 +396,40 @@ fn collect_country_data(
         cpi_index: country.cpi_index(),
         inflation_rate: country.monthly_inflation_rate(),
         policy_rate: country.policy_rate(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sim::{
+        company::build_default_companies,
+        person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus, Person},
+    };
+
+    #[test]
+    fn collect_country_data_populates_per_good_essential_export_metrics() {
+        let mut person = Person::new_with_profile(
+            1,
+            EmploymentStatus::Unemployed,
+            7,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        person.last_month_unmet_needs_mask = 1;
+        person.last_month_severe_unmet_needs_mask = 1;
+
+        let mut companies = build_default_companies("A", 1);
+        companies[0].inventory_units = 9;
+        companies[0].is_public_utility = true;
+
+        let country = Country::with_economy(1, "A".to_string(), vec![person], companies, 0.0);
+        let data = collect_country_data(&country, &[], 1, 1);
+
+        assert_eq!(data.essential_goods[0].unmet_share_pct, 100.0);
+        assert_eq!(data.essential_goods[0].severe_unmet_share_pct, 100.0);
+        assert_eq!(data.essential_goods[0].producer_count, 1);
+        assert_eq!(data.essential_goods[0].public_utility_count, 1);
+        assert!(data.essential_goods[0].inventory_cover_months > 0.0);
     }
 }

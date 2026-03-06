@@ -1,6 +1,9 @@
 use super::*;
 use crate::sim::bank::BankKind;
-use crate::sim::good::common_goods;
+use crate::sim::essentials::{
+    ESSENTIAL_GOOD_IDS, is_stockable_essential_good, production_capacity_units_for_workers,
+    target_manufacturing_headcount_for_units,
+};
 
 impl Country {
     pub(super) fn update_company_growth_openings(&mut self) {
@@ -312,67 +315,73 @@ impl Country {
     }
 
     fn expand_essential_capacity_under_shortage(&mut self, backfill: GovernmentBackfillParams) {
-        let population = self.people.len().max(1) as f64;
-        let unmet_events_per_capita = self.monthly_unmet_need_events as f64 / population;
-        if unmet_events_per_capita < 0.75 {
-            return;
-        }
+        let essentials = self.sim_params.essentials;
+        let population = self.people.len().max(1);
+        let max_good_id = backfill
+            .essential_good_max_id_inclusive
+            .min(GOODS_COUNT.saturating_sub(1) as u8);
 
-        let max_extra_companies = (unmet_events_per_capita / 2.0).ceil() as u16;
-        let max_extra_companies = max_extra_companies.clamp(1, 3);
-        for _ in 0..max_extra_companies {
-            let Some(good_id) = self.most_underprovided_essential_good(
-                backfill.essential_good_max_id_inclusive,
-                unmet_events_per_capita,
-            ) else {
-                break;
-            };
-            self.create_public_essential_company(good_id, backfill);
-        }
-    }
-
-    fn most_underprovided_essential_good(
-        &self,
-        max_good_id_inclusive: u8,
-        unmet_events_per_capita: f64,
-    ) -> Option<u8> {
-        let max_good_id = max_good_id_inclusive.min(GOODS_COUNT.saturating_sub(1) as u8);
-        let pop_scale = (self.people.len().max(1) as f64 / 1_000.0).max(1.0);
-        let market_depth = pop_scale.sqrt();
-        let stress_bonus = (unmet_events_per_capita / 2.0).ceil() as u16;
-        let stress_bonus = stress_bonus.clamp(1, 3);
-        let mut best: Option<(u8, i32)> = None;
-
-        for good_id in 0..=max_good_id {
-            let Some(good) = common_goods().get(good_id as usize) else {
+        for good_id in ESSENTIAL_GOOD_IDS
+            .into_iter()
+            .filter(|good_id| *good_id <= max_good_id && is_stockable_essential_good(*good_id))
+        {
+            let Some(good) = good_by_id(good_id) else {
                 continue;
             };
-            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
-            let base_target = ((market_depth * labor_load) / 12.0).ceil() as u16;
-            let desired_producers = base_target.saturating_add(stress_bonus).clamp(1, 10);
-            let current_producers = self
-                .companies
-                .iter()
-                .filter(|company| company.produced_good_id == good_id)
-                .count() as u16;
-            let shortfall = i32::from(desired_producers) - i32::from(current_producers);
-            if shortfall <= 0 {
+
+            let required_units = self
+                .essential_requirement_units_for_good(good_id)
+                .max(self.estimated_requirement_units_for_good(good_id));
+            if required_units <= 0.0 {
                 continue;
             }
 
-            match best {
-                None => best = Some((good_id, shortfall)),
-                Some((best_good_id, best_shortfall))
-                    if shortfall > best_shortfall
-                        || (shortfall == best_shortfall && good_id < best_good_id) =>
-                {
-                    best = Some((good_id, shortfall));
-                }
-                _ => {}
+            let (unmet_count, severe_count) = self.essential_people_counts_for_good(good_id);
+            let unmet_share = unmet_count as f64 / population as f64;
+            let severe_share = severe_count as f64 / population as f64;
+            let inventory_cover = self.essential_inventory_cover_months_for_good(good_id);
+            let current_capacity = self.essential_manufacturing_capacity_units_for_good(good_id)
+                + self.essential_inventory_units_for_good(good_id);
+            let target_capacity = required_units * essentials.shortage_target_months_of_cover;
+
+            let trigger_shortage = unmet_share >= essentials.shortage_unmet_share_trigger
+                || severe_share >= essentials.shortage_severe_share_trigger
+                || inventory_cover < essentials.shortage_inventory_cover_months_trigger
+                || current_capacity + 0.01 < target_capacity;
+            if !trigger_shortage {
+                continue;
+            }
+
+            let per_company_capacity = production_capacity_units_for_workers(
+                &essentials,
+                self.sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                u32::from(essentials.target_manufacturing_workers_per_backfill_company),
+            );
+            if per_company_capacity <= 0.0 {
+                continue;
+            }
+
+            let gap_units = (target_capacity - current_capacity).max(required_units * 0.10);
+            let companies_needed = (gap_units / per_company_capacity).ceil() as u16;
+            let companies_to_create = companies_needed
+                .clamp(1, essentials.max_backfill_companies_per_good_per_month);
+            let manufacturing_target = target_manufacturing_headcount_for_units(
+                &essentials,
+                self.sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                gap_units.min(per_company_capacity),
+            )
+            .clamp(1, u16::MAX as u32) as u16;
+
+            for _ in 0..companies_to_create {
+                self.create_public_essential_company_with_target(
+                    good_id,
+                    backfill,
+                    manufacturing_target,
+                );
             }
         }
-
-        best.map(|(good_id, _)| good_id)
     }
 
     pub(crate) fn create_public_essential_company(
@@ -380,13 +389,18 @@ impl Country {
         good_id: u8,
         backfill: GovernmentBackfillParams,
     ) {
+        self.create_public_essential_company_with_target(good_id, backfill, 0);
+    }
+
+    fn create_public_essential_company_with_target(
+        &mut self,
+        good_id: u8,
+        backfill: GovernmentBackfillParams,
+        target_manufacturing_openings: u16,
+    ) {
         if self.companies.len() >= u16::MAX as usize {
             return;
         }
-
-        let opening_count = backfill.openings_total.max(1);
-        let manufacturing_openings = backfill.manufacturing_openings.min(opening_count);
-        let mixed_openings = opening_count.saturating_sub(manufacturing_openings);
 
         let company_id = self.companies.len() as u16;
         let company_name = format!("{} Utility {}", self.name, self.next_startup_serial);
@@ -413,6 +427,38 @@ impl Country {
         }
 
         const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
+        let essentials = self.sim_params.essentials;
+        let manufacturing_openings = if target_manufacturing_openings > 0 {
+            target_manufacturing_openings
+        } else if is_stockable_essential_good(good_id) {
+            let Some(good) = good_by_id(good_id) else {
+                return;
+            };
+            let required_units = self
+                .essential_requirement_units_for_good(good_id)
+                .max(self.estimated_requirement_units_for_good(good_id));
+            let per_company_capacity = production_capacity_units_for_workers(
+                &essentials,
+                self.sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                u32::from(essentials.target_manufacturing_workers_per_backfill_company),
+            );
+            target_manufacturing_headcount_for_units(
+                &essentials,
+                self.sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                required_units.min(per_company_capacity),
+            )
+            .clamp(u32::from(backfill.manufacturing_openings.max(1)), u16::MAX as u32) as u16
+        } else {
+            backfill.manufacturing_openings.max(1)
+        };
+        let support_openings = ((manufacturing_openings as f64) / 6.0).ceil() as u16;
+        let baseline_support = backfill
+            .openings_total
+            .saturating_sub(backfill.manufacturing_openings);
+        let mixed_openings = support_openings.max(baseline_support);
+
         if manufacturing_openings > 0 {
             let offer = self.public_opening_offer(MANUFACTURING_OPERATOR_JOB_ID, backfill);
             company.add_opening_with_salary(
@@ -420,6 +466,18 @@ impl Country {
                 manufacturing_openings,
                 offer,
             );
+        }
+        if is_stockable_essential_good(good_id) {
+            let Some(good) = good_by_id(good_id) else {
+                return;
+            };
+            let seed_inventory_units = production_capacity_units_for_workers(
+                &essentials,
+                self.sim_params.goods_market.worker_effort_per_month,
+                good.effort_per_unit,
+                u32::from(manufacturing_openings),
+            ) * f64::from(essentials.initial_inventory_cover_months);
+            company.inventory_units = seed_inventory_units.ceil().max(0.0) as u32;
         }
 
         let mixed_weighted_jobs = common_job_types()

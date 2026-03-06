@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::params::SimulationParams;
 
 #[test]
 fn global_goods_market_chooses_cheapest_landed_supplier_and_collects_tariff() {
@@ -217,37 +218,41 @@ fn production_uses_only_manufacturing_workers() {
 
 #[test]
 fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_unmet() {
+    let mut params = SimulationParams::default();
+    params.goods_market.tariff_rate = 0.0;
+
     let mut country_a_companies = vec![Company::new(0, "A Water".to_string(), vec![0, 5], 0)];
     country_a_companies[0].inventory_units = 0;
     country_a_companies[0].unit_price = 50.0;
     country_a_companies[0].cash_balance = 1_000.0;
 
     let mut country_b_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
-    country_b_companies[0].inventory_units = 4;
+    country_b_companies[0].inventory_units = 0;
     country_b_companies[0].unit_price = 10.0;
     country_b_companies[0].cash_balance = 1_000.0;
+    country_b_companies[0].last_month_export_units_sold = 1;
 
-    let country_a = Country::with_economy(
+    let country_a = Country::with_economy_and_params(
         0,
         "A".to_string(),
         vec![unemployed_person(1, 300.0)],
         country_a_companies,
         1_300.0,
+        params.clone(),
     );
-    let country_b = Country::with_economy(
+    let mut country_b = Country::with_economy_and_params(
         1,
         "B".to_string(),
-        vec![unemployed_person(2, 300.0)],
+        vec![unemployed_person(2, 300.0), unemployed_person(3, 300.0)],
         country_b_companies,
-        1_300.0,
+        1_600.0,
+        params,
     );
+    country_b.people[0].last_month_unmet_needs_mask = 1;
 
     let mut world = World::new(vec![country_a, country_b]);
     let before = world.countries[1].export_tariffs_by_good[0];
-
-    for _ in 0..30 {
-        world.tick_day();
-    }
+    world.adjust_dynamic_country_tariffs();
 
     let after = world.countries[1].export_tariffs_by_good[0];
 

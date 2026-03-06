@@ -3,7 +3,7 @@ use super::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use super::{
     bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, FounderStake, JobOpening},
-    essentials::{Household, TARGET_HOUSEHOLD_SIZE},
+    essentials::{Household, estimated_household_count},
     event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
     job::{JobTypeId, job_is_eligible_for_habilitation},
@@ -19,6 +19,7 @@ mod banking;
 mod daily;
 #[cfg(feature = "bench-trace")]
 mod daily_bench_trace;
+mod essential_economy;
 mod metrics;
 mod monthly;
 mod tax;
@@ -271,7 +272,7 @@ impl Country {
             })
             .map(|(idx, _)| idx)
             .collect::<Vec<_>>();
-        let desired_count = population.div_ceil(TARGET_HOUSEHOLD_SIZE).max(1);
+        let desired_count = estimated_household_count(&self.sim_params.essentials, population);
         let household_count = if housed_adults.is_empty() {
             desired_count.min(population)
         } else {

@@ -408,6 +408,61 @@ impl FiscalParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct EssentialEconomyParams {
+    pub water_monthly_units_per_person: f32,
+    pub food_monthly_units_per_person: f32,
+    pub electricity_household_base_units: f32,
+    pub electricity_monthly_units_per_person: f32,
+    pub medicine_monthly_units_per_person: f32,
+    pub water_buffer_months: f32,
+    pub food_buffer_months: f32,
+    pub electricity_buffer_months: f32,
+    pub medicine_buffer_months: f32,
+    pub medicine_min_buffer_units: f32,
+    pub severe_unmet_share_threshold: f32,
+    pub chronic_unmet_months_threshold: u8,
+    pub target_household_size: usize,
+    pub target_manufacturing_workers_per_initial_company: u16,
+    pub target_manufacturing_workers_per_backfill_company: u16,
+    pub production_staffing_buffer: f64,
+    pub initial_inventory_cover_months: f32,
+    pub shortage_unmet_share_trigger: f64,
+    pub shortage_severe_share_trigger: f64,
+    pub shortage_inventory_cover_months_trigger: f64,
+    pub shortage_target_months_of_cover: f64,
+    pub max_backfill_companies_per_good_per_month: u16,
+}
+
+impl Default for EssentialEconomyParams {
+    fn default() -> Self {
+        Self {
+            water_monthly_units_per_person: 1.8,
+            food_monthly_units_per_person: 1.5,
+            electricity_household_base_units: 0.12,
+            electricity_monthly_units_per_person: 0.05,
+            medicine_monthly_units_per_person: 0.08,
+            water_buffer_months: 0.20,
+            food_buffer_months: 0.20,
+            electricity_buffer_months: 0.10,
+            medicine_buffer_months: 0.20,
+            medicine_min_buffer_units: 0.25,
+            severe_unmet_share_threshold: 0.25,
+            chronic_unmet_months_threshold: 3,
+            target_household_size: 3,
+            target_manufacturing_workers_per_initial_company: 80,
+            target_manufacturing_workers_per_backfill_company: 120,
+            production_staffing_buffer: 1.15,
+            initial_inventory_cover_months: 0.75,
+            shortage_unmet_share_trigger: 0.02,
+            shortage_severe_share_trigger: 0.005,
+            shortage_inventory_cover_months_trigger: 0.30,
+            shortage_target_months_of_cover: 1.10,
+            max_backfill_companies_per_good_per_month: 2,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GovernmentBackfillParams {
     pub enabled: bool,
     pub essential_good_max_id_inclusive: u8,
@@ -480,6 +535,7 @@ pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
+    pub essentials: EssentialEconomyParams,
     pub annual_wage_raise: AnnualWageRaiseParams,
     pub labor_churn: LaborChurnParams,
     pub labor_demand: LaborDemandParams,
