@@ -1,4 +1,11 @@
-use super::*;
+use crate::{
+    components::simulation::{
+        RunningInputState, Simulation, SimulationCommand,
+        ui_state::{DetailsView, GoodsMainPage, RunningTab, SelectionFocus},
+    },
+    sim::UiCommand,
+};
+use crossterm::event::{KeyCode, KeyEvent};
 
 #[test]
 fn running_keymap_maps_tab_and_chart_controls() {

@@ -107,7 +107,8 @@ fn collect_country_data(
     let essential_goods = std::array::from_fn(|idx| {
         let good_id = ESSENTIAL_GOOD_IDS[idx];
         let (unmet_count, severe_count) = country.essential_people_counts_for_good(good_id);
-        let (producer_count, public_utility_count) = country.essential_company_counts_for_good(good_id);
+        let (producer_count, public_utility_count) =
+            country.essential_company_counts_for_good(good_id);
         let denominator = population.max(1) as f64;
 
         EssentialGoodExportData {

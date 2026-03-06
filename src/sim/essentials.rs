@@ -1,8 +1,4 @@
-use crate::sim::{
-    good::GoodId,
-    params::EssentialEconomyParams,
-    person::HousingStatus,
-};
+use crate::sim::{good::GoodId, params::EssentialEconomyParams, person::HousingStatus};
 
 pub const WATER_GOOD_ID: GoodId = 0;
 pub const FOOD_GOOD_ID: GoodId = 1;
@@ -49,11 +45,10 @@ pub fn stockable_essential_slot(good_id: GoodId) -> Option<usize> {
         .position(|candidate| *candidate == good_id)
 }
 
-pub fn estimated_household_count(
-    params: &EssentialEconomyParams,
-    population: usize,
-) -> usize {
-    population.div_ceil(params.target_household_size.max(1)).max(1)
+pub fn estimated_household_count(params: &EssentialEconomyParams, population: usize) -> usize {
+    population
+        .div_ceil(params.target_household_size.max(1))
+        .max(1)
 }
 
 pub fn estimated_country_monthly_requirement(
@@ -103,7 +98,8 @@ pub fn target_manufacturing_headcount_for_units(
         return 0;
     }
 
-    ((monthly_units * effort_per_unit * params.production_staffing_buffer) / worker_effort_per_month)
+    ((monthly_units * effort_per_unit * params.production_staffing_buffer)
+        / worker_effort_per_month)
         .ceil()
         .max(0.0) as u32
 }
@@ -172,8 +168,7 @@ pub fn housing_is_met(
             let scheduled = mortgage.monthly_payment.max(0.0);
             scheduled <= 0.0
                 || last_month_mortgage_payment + 0.01
-                    >= scheduled
-                        * f64::from(1.0_f32 - params.severe_unmet_share_threshold)
+                    >= scheduled * f64::from(1.0_f32 - params.severe_unmet_share_threshold)
         }
         HousingStatus::Renter { .. } => {
             let due = monthly_rent.max(0.0);

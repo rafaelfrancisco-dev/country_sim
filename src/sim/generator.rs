@@ -3,8 +3,8 @@ use super::{
     country::Country,
     essentials::{
         STOCKABLE_ESSENTIAL_GOOD_IDS, estimated_country_monthly_requirement,
-        estimated_country_stock_target_units,
-        production_capacity_units_for_workers, target_manufacturing_headcount_for_units,
+        estimated_country_stock_target_units, production_capacity_units_for_workers,
+        target_manufacturing_headcount_for_units,
     },
     good::{GOODS_COUNT, common_goods, good_by_id},
     job::{JobTypeId, common_job_types, job_is_eligible_for_habilitation, salary_for_job},
@@ -14,6 +14,11 @@ use super::{
     person::{EmploymentStatus, HabilitationLevel, HousingStatus, Person},
 };
 use rayon::prelude::*;
+
+#[path = "generator/companies.rs"]
+mod companies;
+#[path = "generator/population.rs"]
+mod population;
 
 pub const DEFAULT_MONEY_PER_CITIZEN: f64 = 50_000.0;
 
@@ -136,7 +141,7 @@ fn build_job_selection_cache(
         }
     }
 
-    let hiring_weights = build_company_hiring_weights(companies, rng);
+    let hiring_weights = population::build_company_hiring_weights(companies, rng);
     let max_job_id = jobs.iter().map(|job| job.id as usize).max().unwrap_or(0);
     let mut employer_pickers = vec![EmployerPicker::default(); max_job_id.saturating_add(1)];
     for job in jobs {
@@ -185,23 +190,22 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     let mut rng = DeterministicRng::new(country_seed(config.seed, country_idx));
     let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
     let company_count = if config.companies_per_country == DEFAULT_COMPANIES_PER_COUNTRY {
-        derive_initial_company_count(config.population_per_country, &config.sim_params)
+        companies::derive_initial_company_count(config.population_per_country, &config.sim_params)
     } else {
         config.companies_per_country
     };
-    let mut companies =
-        build_initial_companies(
-            &country_name,
-            config.population_per_country,
-            company_count,
-            &config.sim_params,
-        );
-    randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
+    let mut companies = companies::build_initial_companies(
+        &country_name,
+        config.population_per_country,
+        company_count,
+        &config.sim_params,
+    );
+    companies::randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
     let job_cache = build_job_selection_cache(&companies, &mut rng);
 
     let mut people = Vec::with_capacity(config.population_per_country as usize);
     for person_id in 0..config.population_per_country {
-        let age_days = pick_initial_age_days(&mut rng);
+        let age_days = population::pick_initial_age_days(&mut rng);
         let education_track = config.sim_params.education.pick_track(rng.next_f64());
         let name_seed = rng.next_u32();
 
@@ -215,10 +219,13 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
 
         if person.can_seek_job()
             && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
-            && let Some(job_type_id) =
-                pick_weighted_job_id_for_habilitation(&mut rng, person.habilitation, &job_cache)
+            && let Some(job_type_id) = population::pick_weighted_job_id_for_habilitation(
+                &mut rng,
+                person.habilitation,
+                &job_cache,
+            )
         {
-            let employer_company_id = pick_employer_for_job(
+            let employer_company_id = population::pick_employer_for_job(
                 job_type_id,
                 companies.len(),
                 &job_cache.employer_pickers,
@@ -230,14 +237,14 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         people.push(person);
     }
 
-    rebalance_essential_sector_workforce(&mut people, &companies, &config.sim_params);
+    companies::rebalance_essential_sector_workforce(&mut people, &companies, &config.sim_params);
 
     let total_supply = round_cents(config.population_per_country as f64 * config.money_per_citizen);
     let household_supply = round_cents(total_supply * 0.5);
     let company_supply = round_cents(total_supply - household_supply);
 
-    seed_balances_to_people(&mut people, household_supply);
-    seed_balances_to_companies(&mut companies, company_supply);
+    population::seed_balances_to_people(&mut people, household_supply);
+    population::seed_balances_to_companies(&mut companies, company_supply);
 
     let mut country = Country::with_economy_and_params(
         country_idx,
@@ -247,663 +254,16 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         total_supply,
         config.sim_params.clone(),
     );
-    seed_initial_essential_supply(&mut country);
-    fund_initial_bank_reserve(&mut country);
-    seed_initial_bank_openings(&mut country);
+    companies::seed_initial_essential_supply(&mut country);
+    companies::fund_initial_bank_reserve(&mut country);
+    companies::seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
-    seed_initial_housing(&mut country, &mut rng);
+    population::seed_initial_housing(&mut country, &mut rng);
     country.rebuild_households();
     country.seed_initial_ipos();
     country
 }
 
-fn derive_initial_company_count(
-    population_per_country: u32,
-    sim_params: &SimulationParams,
-) -> u16 {
-    let total = target_initial_company_counts_with_params(population_per_country, sim_params)
-        .iter()
-        .copied()
-        .map(u32::from)
-        .sum::<u32>();
-    total
-        .clamp(15, u32::from(u16::MAX))
-        .try_into()
-        .unwrap_or(u16::MAX)
-}
-
 #[cfg(test)]
-fn target_initial_company_counts(population_per_country: u32) -> [u16; GOODS_COUNT] {
-    target_initial_company_counts_with_params(population_per_country, &SimulationParams::default())
-}
-
-fn target_initial_company_counts_with_params(
-    population_per_country: u32,
-    sim_params: &SimulationParams,
-) -> [u16; GOODS_COUNT] {
-    let pop_scale = (population_per_country as f64 / 1_000.0).max(1.0);
-    let market_depth = pop_scale.sqrt();
-    std::array::from_fn(|good_idx| {
-        let good = common_goods()[good_idx];
-        if STOCKABLE_ESSENTIAL_GOOD_IDS.contains(&good.id) {
-            let target_units = estimated_country_monthly_requirement(
-                &sim_params.essentials,
-                good.id,
-                population_per_country as usize,
-            )
-            .max(estimated_country_stock_target_units(
-                &sim_params.essentials,
-                good.id,
-                population_per_country as usize,
-            ));
-            let per_company_capacity = production_capacity_units_for_workers(
-                &sim_params.essentials,
-                sim_params.goods_market.worker_effort_per_month,
-                good.effort_per_unit,
-                u32::from(sim_params.essentials.target_manufacturing_workers_per_initial_company),
-            );
-            let firms = if per_company_capacity > 0.0 {
-                (target_units / per_company_capacity).ceil() as u16
-            } else {
-                1
-            };
-            firms.clamp(1, 48)
-        } else {
-            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
-            let firms = ((market_depth * labor_load) / 12.0).ceil() as u16;
-            firms.clamp(1, 8)
-        }
-    })
-}
-
-fn build_initial_companies(
-    country_name: &str,
-    population_per_country: u32,
-    company_count: u16,
-    sim_params: &SimulationParams,
-) -> Vec<Company> {
-    let company_count = usize::from(company_count);
-    if company_count == 0 {
-        return Vec::new();
-    }
-
-    let target_counts = target_initial_company_counts_with_params(population_per_country, sim_params);
-    let desired_total = target_counts
-        .iter()
-        .copied()
-        .map(usize::from)
-        .sum::<usize>();
-    let company_goods = if company_count == desired_total {
-        let mut goods = Vec::with_capacity(company_count);
-        for (good_idx, count) in target_counts.iter().copied().enumerate() {
-            for _ in 0..count {
-                goods.push(common_goods()[good_idx].id);
-            }
-        }
-        goods
-    } else {
-        allocate_company_goods_dhondt(company_count, &target_counts)
-    };
-
-    let available_job_ids = common_job_types()
-        .iter()
-        .map(|job| job.id)
-        .collect::<Vec<_>>();
-    company_goods
-        .into_iter()
-        .enumerate()
-        .map(|(idx, good_id)| {
-            Company::new(
-                idx as u16,
-                format!("{country_name} Co {}", idx + 1),
-                available_job_ids.clone(),
-                good_id,
-            )
-        })
-        .collect()
-}
-
-fn allocate_company_goods_dhondt(company_count: usize, target_counts: &[u16]) -> Vec<u8> {
-    let mut allocations = vec![0_u16; target_counts.len()];
-    for _ in 0..company_count {
-        let mut best_idx = 0usize;
-        let mut best_score = f64::NEG_INFINITY;
-        for (good_idx, &target) in target_counts.iter().enumerate() {
-            let score = f64::from(target) / f64::from(allocations[good_idx].saturating_add(1));
-            if score > best_score {
-                best_score = score;
-                best_idx = good_idx;
-            }
-        }
-        allocations[best_idx] = allocations[best_idx].saturating_add(1);
-    }
-
-    let mut goods = Vec::with_capacity(company_count);
-    for (good_idx, count) in allocations.into_iter().enumerate() {
-        for _ in 0..count {
-            goods.push(common_goods()[good_idx].id);
-        }
-    }
-    goods
-}
-
-fn rebalance_essential_sector_workforce(
-    people: &mut [Person],
-    companies: &[Company],
-    sim_params: &SimulationParams,
-) {
-    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
-
-    let mut employed_candidates = Vec::new();
-    let mut unemployed_candidates = Vec::new();
-    for (person_idx, person) in people.iter().enumerate() {
-        if person.employer_bank_id().is_some()
-            || !job_is_eligible_for_habilitation(
-                MANUFACTURING_OPERATOR_JOB_ID,
-                person.habilitation,
-            )
-        {
-            continue;
-        }
-
-        if person.is_employed() {
-            employed_candidates.push(person_idx);
-        } else {
-            unemployed_candidates.push(person_idx);
-        }
-    }
-    employed_candidates.extend(unemployed_candidates);
-
-    let mut candidate_cursor = 0usize;
-    for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
-        let company_ids = companies
-            .iter()
-            .filter(|company| company.produced_good_id == good_id)
-            .map(|company| company.id)
-            .collect::<Vec<_>>();
-        if company_ids.is_empty() {
-            continue;
-        }
-
-        let Some(good) = good_by_id(good_id) else {
-            continue;
-        };
-        let target_units =
-            estimated_country_monthly_requirement(&sim_params.essentials, good_id, people.len())
-                .max(estimated_country_stock_target_units(
-                    &sim_params.essentials,
-                    good_id,
-                    people.len(),
-                ));
-        let target_workers = target_manufacturing_headcount_for_units(
-            &sim_params.essentials,
-            sim_params.goods_market.worker_effort_per_month,
-            good.effort_per_unit,
-            target_units,
-        ) as usize;
-        if target_workers == 0 {
-            continue;
-        }
-
-        for worker_offset in 0..target_workers {
-            let Some(&person_idx) = employed_candidates.get(candidate_cursor) else {
-                return;
-            };
-            candidate_cursor = candidate_cursor.saturating_add(1);
-            let company_id = company_ids[worker_offset % company_ids.len()];
-            people[person_idx].set_employment(company_id, MANUFACTURING_OPERATOR_JOB_ID, 0);
-        }
-    }
-}
-
-fn seed_initial_essential_supply(country: &mut Country) {
-    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
-
-    let essentials = country.sim_params().essentials;
-    let worker_effort = country.sim_params().goods_market.worker_effort_per_month;
-
-    for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
-        let company_indices = country
-            .companies()
-            .iter()
-            .enumerate()
-            .filter(|(_, company)| company.produced_good_id == good_id)
-            .map(|(idx, _)| idx)
-            .collect::<Vec<_>>();
-        if company_indices.is_empty() {
-            continue;
-        }
-
-        let Some(good) = good_by_id(good_id) else {
-            continue;
-        };
-
-        let target_units = country
-            .estimated_requirement_units_for_good(good_id)
-            .max(estimated_country_stock_target_units(&essentials, good_id, country.people().len()));
-        let target_workers = target_manufacturing_headcount_for_units(
-            &essentials,
-            worker_effort,
-            good.effort_per_unit,
-            target_units,
-        ) as usize;
-        let per_company_target_workers = target_workers.div_ceil(company_indices.len());
-        let total_inventory_units =
-            (target_units * f64::from(essentials.initial_inventory_cover_months)).ceil() as u32;
-        let per_company_inventory = total_inventory_units.div_ceil(company_indices.len() as u32);
-
-        for company_idx in company_indices {
-            let current_workers = country.companies()[company_idx].manufacturing_employee_count as usize;
-            if let Some(company) = country.companies_mut().get_mut(company_idx) {
-                company.inventory_units = company.inventory_units.saturating_add(per_company_inventory);
-                if per_company_target_workers > current_workers {
-                    let missing_workers = per_company_target_workers - current_workers;
-                    company.add_opening_with_salary(
-                        MANUFACTURING_OPERATOR_JOB_ID,
-                        missing_workers.min(u16::MAX as usize) as u16,
-                        salary_for_job(MANUFACTURING_OPERATOR_JOB_ID),
-                    );
-                }
-            }
-        }
-    }
-}
-
-fn pick_initial_age_days(rng: &mut DeterministicRng) -> u16 {
-    let roll = rng.next_f64();
-    let age_years = if roll < 0.25 {
-        rng.next_u16_inclusive(0, 14)
-    } else if roll < 0.41 {
-        rng.next_u16_inclusive(15, 24)
-    } else if roll < 0.82 {
-        rng.next_u16_inclusive(25, 54)
-    } else if roll < 0.92 {
-        rng.next_u16_inclusive(55, 64)
-    } else if roll < 0.97 {
-        rng.next_u16_inclusive(65, 74)
-    } else {
-        rng.next_u16_inclusive(75, 100)
-    };
-
-    let day_of_year = rng.next_u16_inclusive(0, 364);
-    age_years.saturating_mul(365).saturating_add(day_of_year)
-}
-
-fn pick_weighted_job_id_for_habilitation(
-    rng: &mut DeterministicRng,
-    habilitation: HabilitationLevel,
-    job_cache: &JobSelectionCache,
-) -> Option<JobTypeId> {
-    let bucket = habilitation_bucket(habilitation);
-    let total_weight = job_cache.total_weights_by_habilitation[bucket];
-    if total_weight == 0 {
-        return None;
-    }
-
-    let roll = rng.next_u64() % total_weight;
-    let index = job_cache.cumulative_weights_by_habilitation[bucket]
-        .partition_point(|&weight| weight <= roll);
-    job_cache.job_ids_by_habilitation[bucket]
-        .get(index)
-        .copied()
-        .or_else(|| job_cache.job_ids_by_habilitation[bucket].last().copied())
-}
-
-fn pick_employer_for_job(
-    job_type_id: JobTypeId,
-    companies_len: usize,
-    employer_pickers: &[EmployerPicker],
-    rng: &mut DeterministicRng,
-) -> u16 {
-    if companies_len == 0 {
-        return 0;
-    }
-
-    if let Some(picker) = employer_pickers.get(job_type_id as usize)
-        && picker.total_weight > 0
-    {
-        let roll = rng.next_u64() % picker.total_weight;
-        let index = picker
-            .cumulative_weights
-            .partition_point(|&weight| weight <= roll);
-        if let Some(&company_id) = picker.company_ids.get(index) {
-            return company_id;
-        }
-        if let Some(&company_id) = picker.company_ids.last() {
-            return company_id;
-        }
-    }
-
-    (rng.next_u64() as usize % companies_len) as u16
-}
-
-fn build_company_hiring_weights(
-    companies: &[super::company::Company],
-    rng: &mut DeterministicRng,
-) -> Vec<u16> {
-    companies
-        .iter()
-        .map(|company| {
-            let Some(good) = good_by_id(company.produced_good_id) else {
-                return rng.next_u16_inclusive(1, 100);
-            };
-            let labor_load = good.monthly_demand_factor * good.effort_per_unit;
-            let jitter = 0.85 + 0.30 * rng.next_f64();
-            let weight = (labor_load * 10.0 * jitter).round() as u16;
-            weight.max(1)
-        })
-        .collect()
-}
-
-fn randomize_company_prices(
-    companies: &mut [super::company::Company],
-    sim_params: &SimulationParams,
-    rng: &mut DeterministicRng,
-) {
-    for company in companies {
-        let Some(good) = good_by_id(company.produced_good_id) else {
-            continue;
-        };
-
-        let min_price = good.base_unit_cost * (1.0 + sim_params.goods_market.min_margin_rate);
-        let price_factor = 0.85 + 0.30 * rng.next_f64();
-        let candidate = company.unit_price * price_factor;
-        company.unit_price = round_cents(candidate.max(min_price));
-    }
-}
-
-fn fund_initial_bank_reserve(country: &mut Country) {
-    let target = round_cents(
-        country
-            .sim_params()
-            .stock_market
-            .maker_bootstrap_reserve
-            .max(0.0),
-    );
-    if target <= 0.0 || country.companies().is_empty() {
-        return;
-    }
-
-    let total_company_cash: f64 = country.companies().iter().map(|c| c.cash_balance).sum();
-    let transfer_total = round_cents(target.min(total_company_cash.max(0.0)));
-    if transfer_total <= 0.0 {
-        return;
-    }
-
-    let mut remaining = transfer_total;
-    let company_count = country.companies().len() as f64;
-    let companies_len = country.companies().len();
-    for (idx, company) in country.companies_mut().iter_mut().enumerate() {
-        if remaining <= 0.0 {
-            break;
-        }
-        let planned = if idx + 1 == companies_len {
-            remaining
-        } else {
-            round_cents(transfer_total / company_count)
-        };
-        let pulled = round_cents(planned.min(company.cash_balance.max(0.0)));
-        company.cash_balance = round_cents(company.cash_balance - pulled);
-        remaining = round_cents((remaining - pulled).max(0.0));
-    }
-    let actual_transfer = round_cents(transfer_total - remaining);
-    let primary_bank = country.primary_bank_mut();
-    primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance + actual_transfer);
-    country.recompute_aggregates();
-}
-
-fn seed_initial_bank_openings(country: &mut Country) {
-    let params = country.sim_params().banking;
-    let job_types = params.bank_employee_job_types;
-    let multiplier = params.bank_wage_multiplier.max(1.0);
-
-    let primary_bank = country.primary_bank_mut();
-    let target = primary_bank.target_employee_count(
-        primary_bank.deposit_liabilities,
-        params.bank_min_employees,
-        params.bank_max_employees,
-        params.bank_employees_per_deposit_unit,
-    );
-    for i in 0..target {
-        use super::job::salary_for_job;
-        use super::money::round_cents;
-        let job_id = job_types[i as usize % job_types.len()];
-        let salary = round_cents(salary_for_job(job_id) * multiplier);
-        primary_bank.add_opening_with_salary(job_id, 1, salary);
-    }
-}
-
-fn seed_balances_to_people(people: &mut [Person], total_supply: f64) {
-    if people.is_empty() {
-        return;
-    }
-
-    let total_cents = to_cents(total_supply);
-    let base = total_cents / people.len() as i64;
-    let remainder = total_cents % people.len() as i64;
-
-    for (idx, person) in people.iter_mut().enumerate() {
-        let extra = if (idx as i64) < remainder { 1 } else { 0 };
-        person.cash_balance = from_cents(base + extra);
-    }
-}
-
-const HOUSING_GOOD_ID: u8 = 2;
-
-fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
-    let params = country.sim_params().housing;
-    let population = country.people.len();
-    if population == 0 {
-        return;
-    }
-
-    let initial_price = round_cents(params.initial_price_index.max(0.0));
-    let monthly_rent = round_cents(initial_price * params.rent_as_fraction_of_price);
-    country.housing_price_index = initial_price;
-    country.monthly_rent = monthly_rent;
-
-    // Total stock accounts for initial vacancy
-    let total_stock = ((population as f64) / (1.0 - params.target_vacancy_rate)).ceil() as u32;
-    country.housing_stock_total = total_stock;
-
-    let housing_companies: Vec<usize> = country
-        .companies
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| c.produced_good_id == HOUSING_GOOD_ID)
-        .map(|(idx, _)| idx)
-        .collect();
-
-    // Assign housing statuses deterministically
-    let owner_threshold = (params.initial_owner_rate * 10_000.0) as u64;
-    let renter_threshold =
-        ((params.initial_owner_rate + params.initial_renter_rate) * 10_000.0) as u64;
-
-    let mut occupied_owned: u32 = 0;
-    let mut occupied_rented: u32 = 0;
-
-    for person in &mut country.people {
-        let age = person.age_years();
-        // Children are always unhoused (living with parents, not counted as separate housing units)
-        if age < 18 {
-            continue;
-        }
-
-        let roll = mix_seed(u64::from(person.id).wrapping_add(0xc0ffee)) % 10_000;
-        if roll < owner_threshold {
-            person.housing = HousingStatus::Owner;
-            occupied_owned = occupied_owned.saturating_add(1);
-        } else if roll < renter_threshold {
-            if !housing_companies.is_empty() {
-                let company_idx =
-                    housing_companies[rng.next_u64() as usize % housing_companies.len()];
-                person.housing = HousingStatus::Renter {
-                    landlord_company_id: company_idx as u16,
-                    landlord_country_id: country.id,
-                };
-                occupied_rented = occupied_rented.saturating_add(1);
-            }
-        }
-        // else: Unhoused (default)
-    }
-
-    country.housing_stock_occupied_owned = occupied_owned;
-    country.housing_stock_occupied_rented = occupied_rented;
-    let occupied_total = occupied_owned.saturating_add(occupied_rented);
-    country.housing_stock_vacant = total_stock.saturating_sub(occupied_total);
-
-    // Distribute rental units to housing companies proportionally
-    if !housing_companies.is_empty() && occupied_rented > 0 {
-        let units_per_company = occupied_rented / housing_companies.len() as u32;
-        let remainder = occupied_rented % housing_companies.len() as u32;
-        for (i, &company_idx) in housing_companies.iter().enumerate() {
-            let extra = if (i as u32) < remainder { 1 } else { 0 };
-            country.companies[company_idx].rental_units_owned = units_per_company + extra;
-        }
-    }
-}
-
-fn seed_balances_to_companies(companies: &mut [super::company::Company], total_supply: f64) {
-    if companies.is_empty() {
-        return;
-    }
-
-    let total_cents = to_cents(total_supply);
-    let base = total_cents / companies.len() as i64;
-    let remainder = total_cents % companies.len() as i64;
-
-    for (idx, company) in companies.iter_mut().enumerate() {
-        let extra = if (idx as i64) < remainder { 1 } else { 0 };
-        company.cash_balance = from_cents(base + extra);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn config(seed: u64) -> GenerationConfig {
-        GenerationConfig::with_defaults(2, 8, seed)
-    }
-
-    #[test]
-    fn generated_counts_are_exact() {
-        let countries = generate_countries(&config(1));
-
-        assert_eq!(countries.len(), 2);
-        assert_eq!(countries[0].people.len(), 8);
-        assert_eq!(countries[1].people.len(), 8);
-    }
-
-    #[test]
-    fn every_company_offers_multiple_job_types() {
-        let countries = generate_countries(&config(2));
-
-        assert!(
-            countries
-                .iter()
-                .flat_map(|country| country.companies.iter())
-                .all(|company| company.offered_job_types.len() > 1)
-        );
-    }
-
-    #[test]
-    fn initial_money_supply_is_split_between_people_and_companies() {
-        let countries = generate_countries(&config(3));
-
-        for country in countries {
-            let non_household_cash =
-                round_cents(country.company_cash_total + country.total_bank_reserves());
-            assert!((country.household_cash_total - non_household_cash).abs() <= 0.01);
-            let expected_total = round_cents(country.initial_money_supply);
-            assert!((country.total_money_supply - expected_total).abs() <= 0.01);
-        }
-    }
-
-    #[test]
-    fn generation_creates_unemployed_population_slice() {
-        let countries = generate_countries(&GenerationConfig::with_defaults(1, 500, 11));
-        let unemployed = countries[0]
-            .people
-            .iter()
-            .filter(|person| !person.is_employed())
-            .count();
-
-        assert!(unemployed > 0);
-    }
-
-    #[test]
-    fn setup_randomizes_initial_company_prices() {
-        let countries = generate_countries(&GenerationConfig::with_defaults(2, 500, 9));
-        let prices = countries
-            .iter()
-            .flat_map(|country| country.companies.iter().map(|company| company.unit_price))
-            .collect::<Vec<_>>();
-        let unique_prices = prices
-            .iter()
-            .map(|price| (price * 100.0).round() as i64)
-            .collect::<std::collections::BTreeSet<_>>();
-
-        assert!(unique_prices.len() > 10);
-    }
-
-    #[test]
-    fn target_initial_company_counts_scale_essentials_for_large_populations() {
-        let counts = target_initial_company_counts(100_000);
-
-        assert!(counts[0] >= 10);
-        assert!(counts[1] >= 10);
-        assert!(counts[3] >= 2);
-        assert!(counts[4] >= 1);
-        assert!(counts.iter().copied().map(u32::from).sum::<u32>() > 53);
-    }
-
-    #[test]
-    fn build_initial_companies_matches_default_good_targets() {
-        let sim_params = SimulationParams::default();
-        let company_count = derive_initial_company_count(100_000, &sim_params);
-        let companies = build_initial_companies("A", 100_000, company_count, &sim_params);
-        let mut counts = [0_u16; GOODS_COUNT];
-        for company in companies {
-            counts[company.produced_good_id as usize] =
-                counts[company.produced_good_id as usize].saturating_add(1);
-        }
-
-        assert_eq!(counts, target_initial_company_counts(100_000));
-    }
-
-    #[test]
-    fn setup_creates_uneven_initial_company_headcounts() {
-        let countries = generate_countries(&GenerationConfig::with_defaults(1, 10_000, 13));
-        let headcounts = countries[0]
-            .companies
-            .iter()
-            .map(|company| company.employee_count)
-            .collect::<Vec<_>>();
-        let unique_headcounts = headcounts
-            .iter()
-            .copied()
-            .collect::<std::collections::BTreeSet<_>>();
-
-        assert!(unique_headcounts.len() > 1);
-    }
-
-    #[test]
-    fn generation_seeds_inventory_and_manufacturing_capacity_for_stockable_essentials() {
-        let country = generate_countries(&GenerationConfig::with_defaults(1, 10_000, 17))
-            .into_iter()
-            .next()
-            .expect("country should be generated");
-
-        for good_id in STOCKABLE_ESSENTIAL_GOOD_IDS {
-            assert!(
-                country.essential_inventory_units_for_good(good_id) > 0.0,
-                "expected seeded inventory for essential good {good_id}"
-            );
-            assert!(
-                country.essential_manufacturing_capacity_units_for_good(good_id) > 0.0,
-                "expected manufacturing capacity for essential good {good_id}"
-            );
-        }
-    }
-}
+#[path = "generator/tests.rs"]
+mod tests;

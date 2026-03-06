@@ -242,7 +242,11 @@ fn public_essential_company_scales_manufacturing_openings_with_population_need()
         .expect("manufacturing openings should exist");
 
     assert!(
-        manufacturing_opening.slots > country.sim_params.government_backfill.manufacturing_openings,
+        manufacturing_opening.slots
+            > country
+                .sim_params
+                .government_backfill
+                .manufacturing_openings,
         "manufacturing openings should scale above the fixed backfill floor"
     );
 }

@@ -1,6 +1,12 @@
 use super::*;
 use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
 
+#[path = "stocks_and_charts_format.rs"]
+mod format;
+pub(in crate::components::simulation) use format::{
+    compact_count, compact_num, money, normalized_currency_symbol,
+};
+
 type StockTabData = (
     Vec<StockRowSnapshot>,
     Vec<String>,
@@ -465,70 +471,6 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
     lines
 }
 
-pub(in crate::components::simulation) fn compact_num(n: f64) -> String {
-    let abs = n.abs();
-    let (divisor, suffix) = if abs >= 1_000_000.0 {
-        (1_000_000.0, "M")
-    } else if abs >= 10_000.0 {
-        (1_000.0, "k")
-    } else {
-        return format!("{n:.2}");
-    };
-    let scaled = n / divisor;
-    let r = (scaled * 10.0).round() / 10.0;
-    if r.fract() == 0.0 {
-        format!("{r:.0}{suffix}")
-    } else {
-        format!("{r:.1}{suffix}")
-    }
-}
-
-pub(in crate::components::simulation) fn compact_count(n: impl Into<f64>) -> String {
-    let n: f64 = n.into();
-    let abs = n.abs();
-    let (divisor, suffix) = if abs >= 1_000_000.0 {
-        (1_000_000.0, "M")
-    } else if abs >= 10_000.0 {
-        (1_000.0, "k")
-    } else {
-        return format!("{n:.0}");
-    };
-    let scaled = n / divisor;
-    let r = (scaled * 10.0).round() / 10.0;
-    if r.fract() == 0.0 {
-        format!("{r:.0}{suffix}")
-    } else {
-        format!("{r:.1}{suffix}")
-    }
-}
-
-pub(in crate::components::simulation) fn normalized_currency_symbol(raw: &str) -> &str {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        crate::sim::setup::DEFAULT_CURRENCY_SYMBOL
-    } else {
-        trimmed
-    }
-}
-
-pub(in crate::components::simulation) fn money(amount: f64, currency_symbol: &str) -> String {
-    let symbol = normalized_currency_symbol(currency_symbol);
-    let sign = if amount < 0.0 { "-" } else { "" };
-    format!("{sign}{symbol}{}", compact_num(amount.abs()))
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn money_formats_with_currency_and_k_suffix() {
-        assert_eq!(money(11_500.0, "€"), "€11.5k");
-        assert_eq!(money(-11_500.0, "€"), "-€11.5k");
-    }
-
-    #[test]
-    fn money_falls_back_to_default_symbol_when_empty() {
-        assert_eq!(money(99.0, ""), "€99.00");
-    }
-}
+#[path = "stocks_and_charts_tests.rs"]
+mod tests;

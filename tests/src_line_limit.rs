@@ -1,6 +1,6 @@
 use std::path::Path;
 
-const MAX_LINES: usize = 550;
+const MAX_LINES: usize = 500;
 
 fn visit_rs_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     let entries = match std::fs::read_dir(dir) {

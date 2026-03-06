@@ -69,25 +69,26 @@ impl Country {
 
     pub(crate) fn essential_people_counts_for_good(&self, good_id: u8) -> (usize, usize) {
         let bit = 1_u16 << good_id;
-        self.people.iter().fold((0_usize, 0_usize), |(unmet, severe), person| {
-            (
-                unmet + usize::from((person.last_month_unmet_needs_mask & bit) != 0),
-                severe + usize::from((person.last_month_severe_unmet_needs_mask & bit) != 0),
-            )
-        })
+        self.people
+            .iter()
+            .fold((0_usize, 0_usize), |(unmet, severe), person| {
+                (
+                    unmet + usize::from((person.last_month_unmet_needs_mask & bit) != 0),
+                    severe + usize::from((person.last_month_severe_unmet_needs_mask & bit) != 0),
+                )
+            })
     }
 
     pub(crate) fn essential_company_counts_for_good(&self, good_id: u8) -> (usize, usize) {
-        self.companies.iter().fold((0_usize, 0_usize), |(all, public), company| {
-            if company.produced_good_id != good_id {
-                return (all, public);
-            }
+        self.companies
+            .iter()
+            .fold((0_usize, 0_usize), |(all, public), company| {
+                if company.produced_good_id != good_id {
+                    return (all, public);
+                }
 
-            (
-                all + 1,
-                public + usize::from(company.is_public_utility),
-            )
-        })
+                (all + 1, public + usize::from(company.is_public_utility))
+            })
     }
 
     pub(crate) fn essential_inventory_cover_months_for_good(&self, good_id: u8) -> f64 {

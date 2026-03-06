@@ -23,7 +23,8 @@ impl Country {
                 let Some(slot_idx) = stockable_essential_slot(good_id) else {
                     continue;
                 };
-                let required_units = monthly_requirement_for_good(&essentials, good_id, household_size);
+                let required_units =
+                    monthly_requirement_for_good(&essentials, good_id, household_size);
                 if required_units <= 0.0 {
                     continue;
                 }
@@ -110,8 +111,7 @@ impl Country {
                 person.consecutive_severe_unmet_months = 0;
             }
             person.last_month_chronic_unmet =
-                person.consecutive_severe_unmet_months
-                    >= essentials.chronic_unmet_months_threshold;
+                person.consecutive_severe_unmet_months >= essentials.chronic_unmet_months_threshold;
             if person.last_month_chronic_unmet {
                 chronic_count = chronic_count.saturating_add(1);
             }
