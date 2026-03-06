@@ -8,6 +8,7 @@ mod disaster_markers;
 mod disasters;
 mod events;
 mod goods;
+mod goods_overview;
 mod running;
 mod setup;
 mod stocks;

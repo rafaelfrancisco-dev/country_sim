@@ -52,11 +52,62 @@ fn ensure_valid_resets_chart_page_when_world_is_empty() {
     let world = World::new(vec![]);
     let mut ui = UiState {
         chart_page: 2,
+        goods_main_page: GoodsMainPage::ProductionDemand,
+        goods_production_page: 3,
         ..UiState::default()
     };
 
     ui.ensure_valid(&world);
     assert_eq!(ui.chart_page, 0);
+    assert_eq!(ui.goods_main_page, GoodsMainPage::Companies);
+    assert_eq!(ui.goods_production_page, 0);
+}
+
+#[test]
+fn goods_main_page_toggle_and_overview_pagination_clamp() {
+    let world = sample_world();
+    let mut ui = UiState {
+        active_tab: RunningTab::Goods,
+        ..UiState::default()
+    };
+
+    ui.apply(UiCommand::ToggleGoodsMainPage, &world);
+    assert_eq!(ui.goods_main_page, GoodsMainPage::ProductionDemand);
+
+    for _ in 0..8 {
+        ui.apply(UiCommand::GoodsProductionPageNext, &world);
+    }
+    assert_eq!(
+        ui.goods_production_page,
+        ui.total_goods_production_pages() - 1
+    );
+
+    ui.apply(UiCommand::GoodsProductionPagePrev, &world);
+    assert_eq!(
+        ui.goods_production_page,
+        ui.total_goods_production_pages().saturating_sub(2)
+    );
+}
+
+#[test]
+fn changing_country_preserves_goods_main_page_and_clamps_overview_page() {
+    let world = sample_world_two_countries();
+    let mut ui = UiState {
+        active_tab: RunningTab::Goods,
+        goods_main_page: GoodsMainPage::ProductionDemand,
+        goods_production_page: 99,
+        selected_country: 0,
+        ..UiState::default()
+    };
+
+    ui.apply(UiCommand::SelectNextCountryRow, &world);
+
+    assert_eq!(ui.selected_country, 1);
+    assert_eq!(ui.goods_main_page, GoodsMainPage::ProductionDemand);
+    assert_eq!(
+        ui.goods_production_page,
+        ui.total_goods_production_pages() - 1
+    );
 }
 
 #[test]

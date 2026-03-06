@@ -1,7 +1,8 @@
 use super::*;
-use crate::components::simulation::ui_state::DetailsView;
+use crate::components::simulation::ui_state::{DetailsView, GoodsMainPage};
 use crate::sim::{
     GameCommand, GameEngine, GamePhase,
+    company::Company,
     country::Country,
     event::{EntityKind, IpoReason, SimEvent},
     person::Person,
@@ -227,6 +228,78 @@ fn events_search_intersects_with_category_filter() {
     };
     assert_eq!(events_tab.events_total_count, 1);
     assert!(events_tab.event_log_lines[0].contains("bankrupt"));
+}
+
+#[test]
+fn goods_snapshot_builds_production_demand_rows_for_each_good() {
+    let people = (0..30)
+        .map(|idx| Person::new(idx as u32 + 1, 30, 0, idx as u32 + 100))
+        .collect::<Vec<_>>();
+    let mut water_a = Company::new(1, "Water Works A".to_string(), vec![], 0);
+    water_a.unit_price = 10.0;
+    water_a.inventory_units = 30;
+    water_a.last_month_units_produced = 40;
+    water_a.last_month_units_sold = 35;
+    water_a.last_month_export_units_sold = 5;
+    let mut water_b = Company::new(2, "Water Works B".to_string(), vec![], 0);
+    water_b.unit_price = 20.0;
+    water_b.inventory_units = 5;
+    water_b.last_month_units_produced = 10;
+    water_b.last_month_units_sold = 8;
+    water_b.last_month_export_units_sold = 2;
+    let mut food = Company::new(3, "Food Co".to_string(), vec![], 1);
+    food.unit_price = 12.0;
+    food.inventory_units = 9;
+    food.last_month_units_produced = 11;
+    food.last_month_units_sold = 7;
+
+    let country = Country::with_economy(
+        1,
+        "A".to_string(),
+        people,
+        vec![water_a, water_b, food],
+        0.0,
+    );
+    let mut world = World::new(vec![country]);
+    world.day = 9;
+
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Goods,
+            goods_main_page: GoodsMainPage::ProductionDemand,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
+        panic!("goods tab payload expected");
+    };
+
+    assert_eq!(goods_tab.total_goods_production_pages, 2);
+    assert_eq!(goods_tab.goods_production_page, 0);
+
+    let water_row = goods_tab
+        .production_demand_rows
+        .iter()
+        .find(|row| row.good == "Water")
+        .expect("water row");
+    assert_eq!(water_row.producer_count, "2");
+    assert_eq!(water_row.avg_price, "€15.00");
+    assert_eq!(water_row.inventory_units, "35");
+    assert_eq!(water_row.produced_units, "50");
+    assert_eq!(water_row.sold_units, "43");
+    assert_eq!(water_row.export_units, "7");
+    assert_eq!(water_row.est_daily_demand_units, "4");
+    assert_eq!(water_row.est_mtd_demand_units, "40");
+
+    let medicine_row = goods_tab
+        .production_demand_rows
+        .iter()
+        .find(|row| row.good == "Medicine")
+        .expect("medicine row");
+    assert_eq!(medicine_row.producer_count, "0");
+    assert_eq!(medicine_row.avg_price, "N/A");
+    assert_eq!(medicine_row.inventory_units, "0");
 }
 
 #[test]

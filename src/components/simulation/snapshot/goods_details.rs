@@ -1,7 +1,18 @@
 use super::*;
+use crate::sim::country::DAYS_PER_MONTH;
 use std::cmp::Ordering;
 
 type CompanyHistorySeries = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>);
+
+#[derive(Debug, Clone, Copy, Default)]
+struct GoodAggregate {
+    producer_count: usize,
+    total_price: f64,
+    inventory_units: u32,
+    produced_units: u32,
+    sold_units: u32,
+    export_units: u32,
+}
 
 pub(in crate::components::simulation) fn selected_company_histories(
     world: &World,
@@ -64,6 +75,135 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(
             compact_count(country.monthly_unmet_need_events as f64)
         ),
     ]
+}
+
+pub(in crate::components::simulation) fn production_demand_summary_lines(
+    world: &World,
+    ui: &UiState,
+) -> Vec<String> {
+    let Some(country) = ui.selected_country(world) else {
+        return vec!["No country is currently selected.".to_string()];
+    };
+
+    let day_in_month = world.day % DAYS_PER_MONTH + 1;
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
+    let aggregates = goods_production_demand_aggregates(country);
+    let total_modeled_daily_demand = common_goods()
+        .iter()
+        .map(|good| country.population() as f64 * good.monthly_demand_factor.max(0.0) / 30.0)
+        .sum::<f64>();
+    let total_modeled_mtd_demand = total_modeled_daily_demand * day_in_month as f64;
+    let zero_producer_goods = aggregates
+        .iter()
+        .filter(|row| row.producer_count == 0)
+        .count();
+    let total_inventory_units = aggregates
+        .iter()
+        .map(|row| u64::from(row.inventory_units))
+        .sum::<u64>();
+    let total_produced_units = aggregates
+        .iter()
+        .map(|row| u64::from(row.produced_units))
+        .sum::<u64>();
+    let total_sold_units = aggregates
+        .iter()
+        .map(|row| u64::from(row.sold_units))
+        .sum::<u64>();
+
+    vec![
+        format!(
+            "Country: {} (Month {}, Day {day_in_month})",
+            country.name, country.month
+        ),
+        format!("Population: {}", compact_count(country.population() as f64)),
+        format!(
+            "Modeled Daily Demand: {} units",
+            compact_count(total_modeled_daily_demand)
+        ),
+        format!(
+            "Modeled MTD Demand: {} units",
+            compact_count(total_modeled_mtd_demand)
+        ),
+        format!(
+            "MTD Produced / Sold: {} / {} units",
+            compact_count(total_produced_units as f64),
+            compact_count(total_sold_units as f64)
+        ),
+        format!(
+            "Inventory Units / Zero-Producer Goods: {} / {}",
+            compact_count(total_inventory_units as f64),
+            zero_producer_goods
+        ),
+        format!(
+            "Avg Local Household Spend: {}",
+            money(country.monthly_household_spending, currency_symbol)
+        ),
+    ]
+}
+
+pub(in crate::components::simulation) fn production_demand_rows(
+    world: &World,
+    ui: &UiState,
+    currency_symbol: &str,
+) -> Vec<GoodsProductionDemandRowSnapshot> {
+    let Some(country) = ui.selected_country(world) else {
+        return Vec::new();
+    };
+
+    let day_in_month = world.day % DAYS_PER_MONTH + 1;
+    let aggregates = goods_production_demand_aggregates(country);
+    common_goods()
+        .iter()
+        .enumerate()
+        .map(|(idx, good)| {
+            let aggregate = aggregates.get(idx).copied().unwrap_or_default();
+            let avg_price = if aggregate.producer_count == 0 {
+                "N/A".to_string()
+            } else {
+                money(
+                    aggregate.total_price / aggregate.producer_count as f64,
+                    currency_symbol,
+                )
+            };
+            let est_daily_demand =
+                country.population() as f64 * good.monthly_demand_factor.max(0.0) / 30.0;
+            let est_mtd_demand = est_daily_demand * day_in_month as f64;
+
+            GoodsProductionDemandRowSnapshot {
+                good: good.name.to_string(),
+                producer_count: aggregate.producer_count.to_string(),
+                avg_price,
+                inventory_units: compact_count(aggregate.inventory_units),
+                produced_units: compact_count(aggregate.produced_units),
+                sold_units: compact_count(aggregate.sold_units),
+                export_units: compact_count(aggregate.export_units),
+                est_daily_demand_units: compact_count(est_daily_demand),
+                est_mtd_demand_units: compact_count(est_mtd_demand),
+            }
+        })
+        .collect()
+}
+
+fn goods_production_demand_aggregates(
+    country: &crate::sim::country::Country,
+) -> Vec<GoodAggregate> {
+    let mut aggregates = vec![GoodAggregate::default(); common_goods().len()];
+    for company in &country.companies {
+        let Some(row) = aggregates.get_mut(company.produced_good_id as usize) else {
+            continue;
+        };
+        row.producer_count += 1;
+        row.total_price += company.unit_price;
+        row.inventory_units = row.inventory_units.saturating_add(company.inventory_units);
+        row.produced_units = row
+            .produced_units
+            .saturating_add(company.last_month_units_produced);
+        row.sold_units = row.sold_units.saturating_add(company.last_month_units_sold);
+        row.export_units = row
+            .export_units
+            .saturating_add(company.last_month_export_units_sold);
+    }
+    aggregates
 }
 
 pub(in crate::components::simulation) fn selected_company_worker_rows(

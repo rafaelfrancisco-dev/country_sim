@@ -185,6 +185,10 @@ impl Simulation {
                     company_money_history: Arc::default(),
                     disaster_days: Arc::default(),
                     country_goods_summary_lines: Vec::new(),
+                    production_demand_summary_lines: Vec::new(),
+                    production_demand_rows: Vec::new(),
+                    goods_production_page: 0,
+                    total_goods_production_pages: 1,
                 };
                 self.draw_company_details(frame, body, world, &empty_goods);
                 match world.details_page {

@@ -142,8 +142,15 @@ impl UiState {
             UiCommand::ChartPageNext => self.next_chart_page(),
             UiCommand::ChartPrevCountry => self.select_prev_country_row(world),
             UiCommand::ChartNextCountry => self.select_next_country_row(world),
+            UiCommand::ToggleGoodsMainPage => {
+                if self.details_view == DetailsView::List {
+                    self.goods_main_page = self.goods_main_page.toggle();
+                }
+            }
             UiCommand::GoodsPrevCountry => self.select_prev_country_row(world),
             UiCommand::GoodsNextCountry => self.select_next_country_row(world),
+            UiCommand::GoodsProductionPagePrev => self.prev_goods_production_page(),
+            UiCommand::GoodsProductionPageNext => self.next_goods_production_page(),
             UiCommand::BanksPrevCountry => self.select_prev_country_row(world),
             UiCommand::BanksNextCountry => self.select_next_country_row(world),
             UiCommand::EventsScrollUp => {

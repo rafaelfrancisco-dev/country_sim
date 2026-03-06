@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::good::common_goods;
 
 impl UiState {
     pub fn ensure_valid(&mut self, world: &World) {
@@ -10,6 +11,8 @@ impl UiState {
             self.selected_person_row = 0;
             self.company_page = 0;
             self.selected_company_row = 0;
+            self.goods_main_page = GoodsMainPage::Companies;
+            self.goods_production_page = 0;
             self.bank_page = 0;
             self.selected_bank_row = 0;
             self.disaster_selected_row = 0;
@@ -23,6 +26,9 @@ impl UiState {
 
         self.selected_country = self.selected_country.min(world.countries.len() - 1);
         self.chart_page = self.chart_page.min(CHART_PAGE_COUNT.saturating_sub(1));
+        self.goods_production_page = self
+            .goods_production_page
+            .min(self.total_goods_production_pages().saturating_sub(1));
         let people_pages = self.total_people_pages(world);
         self.people_page = self.people_page.min(people_pages.saturating_sub(1));
         self.clamp_selected_person_row(world);
@@ -209,6 +215,17 @@ impl UiState {
         self.selected_company_row = self.selected_company_row.saturating_sub(1);
     }
 
+    pub(super) fn next_goods_production_page(&mut self) {
+        let max_page = self.total_goods_production_pages().saturating_sub(1);
+        if self.goods_production_page < max_page {
+            self.goods_production_page += 1;
+        }
+    }
+
+    pub(super) fn prev_goods_production_page(&mut self) {
+        self.goods_production_page = self.goods_production_page.saturating_sub(1);
+    }
+
     pub(super) fn next_bank_page(&mut self, world: &World) {
         self.selection_focus = SelectionFocus::Bank;
         let max_page = self.total_bank_pages(world).saturating_sub(1);
@@ -222,6 +239,13 @@ impl UiState {
         self.selection_focus = SelectionFocus::Bank;
         self.bank_page = self.bank_page.saturating_sub(1);
         self.clamp_selected_bank_row(world);
+    }
+
+    pub fn total_goods_production_pages(&self) -> usize {
+        common_goods()
+            .len()
+            .div_ceil(GOODS_PRODUCTION_PAGE_SIZE)
+            .max(1)
     }
 
     pub(super) fn select_next_bank_row(&mut self, world: &World) {

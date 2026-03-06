@@ -202,6 +202,7 @@ impl UiSnapshot {
                     company_money_history,
                 ) = selected_company_histories(world, ui);
                 let company_worker_rows = selected_company_worker_rows(world, ui, currency_symbol);
+                let production_demand_rows = production_demand_rows(world, ui, currency_symbol);
 
                 RunningTabSnapshot::Goods(Box::new(GoodsTabSnapshot {
                     company_rows,
@@ -215,6 +216,10 @@ impl UiSnapshot {
                     company_money_history: company_money_history.into(),
                     disaster_days: selected_country_disaster_days.clone().into(),
                     country_goods_summary_lines: country_goods_summary_lines(world, ui),
+                    production_demand_summary_lines: production_demand_summary_lines(world, ui),
+                    production_demand_rows,
+                    goods_production_page: ui.goods_production_page,
+                    total_goods_production_pages: ui.total_goods_production_pages(),
                 }))
             }
             RunningTab::Banks => build_banks_tab_snapshot(world, ui, currency_symbol),
@@ -264,6 +269,7 @@ impl UiSnapshot {
                 selected_country_month,
                 paused: world.paused,
                 active_tab: ui.active_tab,
+                goods_main_page: ui.goods_main_page,
                 details_view: ui.details_view,
                 details_page: ui.details_page,
                 selection_focus: ui.selection_focus,

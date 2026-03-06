@@ -45,6 +45,11 @@ The running UI uses one navigation convention across tabs:
     - `Mint Unemployment Gap Weight`
     - `Mint Max Fraction Expected Supply`
 - `Goods`: country/company navigation, company details panel.
+  - Top-level Goods pages while in list mode:
+    - page 1: company list + goods summary
+    - page 2: selected-country production and demand overview
+  - `g` toggles between the two Goods pages.
+  - Goods page 2 uses `PageUp` / `PageDown` to paginate the per-good overview table.
   - Company details use fixed pages:
     - page 1: company overview details
     - page 2: company history charts
@@ -61,6 +66,7 @@ The running UI uses one navigation convention across tabs:
   - Bank page 3 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
   - Bank page 4 uses `w/s` to scroll depositors.
 - `Main`/`Goods`/`Banks` details view: `PageUp` / `PageDown` navigate detail pages.
+- On Goods page 2, `PageUp` / `PageDown` page the per-good production/demand table instead of the company list.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
   - Person stock-holdings details can include foreign securities; foreign holdings are prefixed with the listing-country name.
 - `Disasters`: selected-country disaster controls.

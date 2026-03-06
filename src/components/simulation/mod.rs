@@ -30,7 +30,7 @@ mod ui_state;
 mod worker;
 
 use snapshot::{SnapshotPhase, UiSnapshot};
-use ui_state::{DetailsView, RunningTab, SelectionFocus};
+use ui_state::{DetailsView, GoodsMainPage, RunningTab, SelectionFocus};
 use worker::{RenderSnapshot, SimulationWorker, WorkerEvent, WorkerHealth};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +45,7 @@ pub(super) struct RunningInputState {
     pub details_page: usize,
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
+    pub goods_main_page: GoodsMainPage,
     pub events_search_active: bool,
     pub country_policy_is_editing: bool,
 }
@@ -116,6 +117,7 @@ impl Simulation {
                 details_page: 0,
                 selection_focus: SelectionFocus::Country,
                 active_tab: RunningTab::Main,
+                goods_main_page: GoodsMainPage::Companies,
                 events_search_active: false,
                 country_policy_is_editing: false,
             },
@@ -148,6 +150,7 @@ impl Simulation {
                     details_page: world.details_page,
                     selection_focus: world.selection_focus,
                     active_tab: world.active_tab,
+                    goods_main_page: world.goods_main_page,
                     events_search_active: world.events_search_active,
                     country_policy_is_editing: world.country_policy_is_editing,
                 };

@@ -8,6 +8,7 @@ fn running_keymap_maps_tab_and_chart_controls() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Main,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -58,6 +59,7 @@ fn running_keymap_maps_person_details_company_jump() {
         details_page: 0,
         selection_focus: SelectionFocus::People,
         active_tab: RunningTab::Main,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -76,6 +78,7 @@ fn chart_and_events_remap_applies_strict_keys() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Charts,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -105,6 +108,7 @@ fn chart_and_events_remap_applies_strict_keys() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Events,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -130,6 +134,7 @@ fn events_search_mode_keeps_characters_for_query() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Events,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: true,
         country_policy_is_editing: false,
     };
@@ -149,6 +154,7 @@ fn detail_page_keys_map_in_main_and_goods_details_views() {
         details_page: 0,
         selection_focus: SelectionFocus::People,
         active_tab: RunningTab::Main,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -175,6 +181,7 @@ fn detail_page_keys_map_in_main_and_goods_details_views() {
         details_page: 0,
         selection_focus: SelectionFocus::Company,
         active_tab: RunningTab::Goods,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -192,6 +199,7 @@ fn country_policy_keymap_uses_form_mode_controls() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Main,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -242,6 +250,7 @@ fn person_related_events_page_uses_events_controls() {
         details_page: 1,
         selection_focus: SelectionFocus::People,
         active_tab: RunningTab::Main,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -281,6 +290,7 @@ fn company_related_events_page_uses_events_controls() {
         details_page: 2,
         selection_focus: SelectionFocus::Company,
         active_tab: RunningTab::Goods,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -303,6 +313,7 @@ fn company_workers_page_uses_worker_scroll_controls() {
         details_page: 3,
         selection_focus: SelectionFocus::Company,
         active_tab: RunningTab::Goods,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -325,6 +336,7 @@ fn banks_list_keymap_focuses_table_and_opens_details() {
         details_page: 0,
         selection_focus: SelectionFocus::Bank,
         active_tab: RunningTab::Banks,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -359,6 +371,7 @@ fn bank_detail_pages_map_events_and_depositor_scroll() {
         details_page: 2,
         selection_focus: SelectionFocus::Bank,
         active_tab: RunningTab::Banks,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -389,6 +402,7 @@ fn disasters_tab_maps_navigation_toggle_and_apply_keys() {
         details_page: 0,
         selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Disasters,
+        goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,
         country_policy_is_editing: false,
     };
@@ -424,5 +438,49 @@ fn disasters_tab_maps_navigation_toggle_and_apply_keys() {
     assert_eq!(
         simulation.map_running_key(KeyEvent::from(KeyCode::Enter), disasters_state),
         Some(SimulationCommand::Ui(UiCommand::DisastersApply))
+    );
+}
+
+#[test]
+fn goods_main_page_toggle_and_pagination_use_dedicated_commands() {
+    let simulation = Simulation::new();
+    let goods_list_state = RunningInputState {
+        details_view: DetailsView::List,
+        details_page: 0,
+        selection_focus: SelectionFocus::Company,
+        active_tab: RunningTab::Goods,
+        goods_main_page: GoodsMainPage::Companies,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('g')), goods_list_state),
+        Some(SimulationCommand::Ui(UiCommand::ToggleGoodsMainPage))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), goods_list_state),
+        Some(SimulationCommand::Ui(UiCommand::CompanyPageNext))
+    );
+
+    let production_state = RunningInputState {
+        goods_main_page: GoodsMainPage::ProductionDemand,
+        ..goods_list_state
+    };
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::PageUp), production_state),
+        Some(SimulationCommand::Ui(UiCommand::GoodsProductionPagePrev))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::PageDown), production_state),
+        Some(SimulationCommand::Ui(UiCommand::GoodsProductionPageNext))
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Enter), production_state),
+        None
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), production_state),
+        None
     );
 }

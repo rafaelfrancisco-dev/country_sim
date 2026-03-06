@@ -4,10 +4,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
-    widgets::{
-        Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, Table, Wrap,
-    },
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -16,7 +13,7 @@ use super::events::event_search_hint;
 use crate::components::simulation::{
     hotkeys,
     snapshot::{GoodsTabSnapshot, RunningSnapshot},
-    ui_state::{DetailsView, SelectionFocus},
+    ui_state::{DetailsView, GoodsMainPage},
 };
 
 fn compact_count_f64(n: f64) -> String {
@@ -87,168 +84,27 @@ impl Simulation {
                     ),
                 }
             }
-            _ => {
-                let [top, bottom] =
-                    Layout::vertical([Constraint::Length(8), Constraint::Min(10)]).areas(body);
+            _ => match world.goods_main_page {
+                GoodsMainPage::Companies => {
+                    let [top, bottom] =
+                        Layout::vertical([Constraint::Length(8), Constraint::Min(10)]).areas(body);
 
-                self.draw_goods_summary(frame, top, tab);
-                self.draw_goods_company_table(frame, bottom, world, tab);
+                    self.draw_goods_summary(frame, top, tab);
+                    self.draw_goods_company_table(frame, bottom, world, tab);
 
-                format!(
-                    "Controls: {}  [,/.] change country  [a/d] focus country/company  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] company details | Country Page {}/{} | Company Page {}/{}",
-                    hotkeys::GLOBAL_RUNNING_HINT,
-                    world.country_page + 1,
-                    world.total_country_pages,
-                    world.company_page + 1,
-                    world.total_company_pages,
-                )
-            }
-        }
-    }
-
-    fn draw_goods_summary(&self, frame: &mut Frame, area: Rect, tab: &GoodsTabSnapshot) {
-        let lines = tab
-            .country_goods_summary_lines
-            .iter()
-            .map(|line| Line::from(line.as_str()))
-            .collect::<Vec<_>>();
-
-        frame.render_widget(
-            Paragraph::new(lines)
-                .style(theme::primary_text())
-                .wrap(Wrap { trim: true })
-                .block(
-                    Block::default()
-                        .title(" Goods Summary ")
-                        .borders(Borders::ALL)
-                        .border_style(theme::neutral_border())
-                        .title_style(theme::primary_text()),
-                ),
-            area,
-        );
-    }
-
-    fn draw_goods_company_table(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        world: &RunningSnapshot,
-        tab: &GoodsTabSnapshot,
-    ) {
-        let avg_label = format!("Avg {}", world.currency_symbol);
-        let header = Row::new([
-            Cell::from("ID"),
-            Cell::from("Company"),
-            Cell::from("Good"),
-            Cell::from("Price"),
-            Cell::from(avg_label),
-            Cell::from("Inv"),
-            Cell::from("Prod"),
-            Cell::from("Sold"),
-            Cell::from("Tot Sold"),
-            Cell::from("Export"),
-            Cell::from("D/X"),
-            Cell::from("Sales"),
-        ])
-        .style(
-            Style::default()
-                .fg(Color::Yellow)
-                .bg(Color::Rgb(27, 39, 61))
-                .add_modifier(Modifier::BOLD),
-        );
-
-        let total_rows = tab.company_rows.len();
-        let visible_height = area.height.saturating_sub(3) as usize;
-        let selected_idx = tab
-            .company_rows
-            .iter()
-            .position(|r| r.is_selected)
-            .unwrap_or(0);
-        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
-
-        let rows = tab
-            .company_rows
-            .iter()
-            .skip(view_scroll)
-            .take(visible_height)
-            .map(|company| {
-                let style =
-                    if company.is_selected && world.selection_focus == SelectionFocus::Company {
-                        Style::default()
-                            .fg(theme::TEXT_PRIMARY)
-                            .bg(theme::HIGHLIGHT_BG)
-                            .add_modifier(Modifier::BOLD)
-                    } else if company.is_even {
-                        Style::default().fg(theme::TEXT_PRIMARY)
-                    } else {
-                        Style::default()
-                            .fg(theme::TEXT_PRIMARY)
-                            .bg(Color::Rgb(23, 31, 48))
-                    };
-
-                Row::new([
-                    Cell::from(company.company_id.clone()),
-                    Cell::from(company.name.clone()),
-                    Cell::from(company.good.clone()),
-                    Cell::from(company.price.clone()),
-                    Cell::from(company.avg_price.clone()),
-                    Cell::from(company.inventory.clone()),
-                    Cell::from(company.produced.clone()),
-                    Cell::from(company.sold.clone()),
-                    Cell::from(company.total_sold.clone()),
-                    Cell::from(company.export_sold.clone()),
-                    Cell::from(company.domestic_export_split.clone()),
-                    Cell::from(company.sales.clone()),
-                ])
-                .style(style)
-            });
-
-        let widths = [
-            Constraint::Length(4),
-            Constraint::Length(18),
-            Constraint::Length(18),
-            Constraint::Length(9),
-            Constraint::Length(9),
-            Constraint::Length(7),
-            Constraint::Length(7),
-            Constraint::Length(8),
-            Constraint::Length(8),
-            Constraint::Length(10),
-            Constraint::Length(12),
-        ];
-
-        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
-        let end = (view_scroll + visible_height).min(total_rows);
-        let title = if total_rows == 0 {
-            " Companies By Goods ".to_string()
-        } else {
-            format!(" Companies By Goods ({}-{} of {}) ", start, end, total_rows)
-        };
-
-        let table = Table::new(rows, widths)
-            .header(header)
-            .column_spacing(1)
-            .block(
-                Block::default()
-                    .title(title)
-                    .borders(Borders::ALL)
-                    .border_style(if world.selection_focus == SelectionFocus::Company {
-                        theme::active_border()
-                    } else {
-                        theme::neutral_border()
-                    })
-                    .title_style(theme::primary_text()),
-            );
-
-        frame.render_widget(table, area);
-        if total_rows > visible_height {
-            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
-                .position(view_scroll);
-            frame.render_stateful_widget(
-                Scrollbar::new(ScrollbarOrientation::VerticalRight),
-                area,
-                &mut sb_state,
-            );
+                    format!(
+                        "Controls: {}  [,/.] change country  [a/d] focus country/company  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] company details  [g] production/demand | Goods Page 1/2 | Country Page {}/{} | Company Page {}/{}",
+                        hotkeys::GLOBAL_RUNNING_HINT,
+                        world.country_page + 1,
+                        world.total_country_pages,
+                        world.company_page + 1,
+                        world.total_company_pages,
+                    )
+                }
+                GoodsMainPage::ProductionDemand => {
+                    self.draw_goods_production_overview(frame, body, world, tab)
+                }
+            },
         }
     }
 

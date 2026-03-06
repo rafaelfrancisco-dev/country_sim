@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use crate::{
-    components::simulation::ui_state::{DetailsView, RunningTab, SelectionFocus},
+    components::simulation::ui_state::{DetailsView, GoodsMainPage, RunningTab, SelectionFocus},
     sim::{
         runtime::SimulationMode, setup::SetupField, stock_market::StockRowSnapshot,
         world::MetricPoint,
@@ -85,6 +85,19 @@ pub(in crate::components::simulation) struct CompanyWorkerRowSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct GoodsProductionDemandRowSnapshot {
+    pub good: String,
+    pub producer_count: String,
+    pub avg_price: String,
+    pub inventory_units: String,
+    pub produced_units: String,
+    pub sold_units: String,
+    pub export_units: String,
+    pub est_daily_demand_units: String,
+    pub est_mtd_demand_units: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct BankRowSnapshot {
     pub bank_id: String,
     pub name: String,
@@ -129,6 +142,7 @@ pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub selected_country_month: u64,
     pub paused: bool,
     pub active_tab: RunningTab,
+    pub goods_main_page: GoodsMainPage,
     pub details_view: DetailsView,
     pub details_page: usize,
     pub selection_focus: SelectionFocus,
@@ -192,6 +206,10 @@ pub(in crate::components::simulation) struct GoodsTabSnapshot {
     pub company_money_history: Arc<[f64]>,
     pub disaster_days: Arc<[u64]>,
     pub country_goods_summary_lines: Vec<String>,
+    pub production_demand_summary_lines: Vec<String>,
+    pub production_demand_rows: Vec<GoodsProductionDemandRowSnapshot>,
+    pub goods_production_page: usize,
+    pub total_goods_production_pages: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]

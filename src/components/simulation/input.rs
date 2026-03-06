@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use super::{RunningInputState, Simulation, SimulationCommand, ui_state::DetailsView};
 use crate::{
     components::simulation::hotkeys,
-    components::simulation::ui_state::{RunningTab, SelectionFocus},
+    components::simulation::ui_state::{GoodsMainPage, RunningTab, SelectionFocus},
     sim::{GameCommand, UiCommand},
 };
 
@@ -83,6 +83,9 @@ impl Simulation {
         key: KeyEvent,
         input_state: RunningInputState,
     ) -> Option<SimulationCommand> {
+        if hotkeys::is_char(key, 'g') && input_state.details_view == DetailsView::List {
+            return Some(SimulationCommand::Ui(UiCommand::ToggleGoodsMainPage));
+        }
         if hotkeys::is_country_prev_key(key) {
             return Some(SimulationCommand::Ui(UiCommand::GoodsPrevCountry));
         }
@@ -123,21 +126,24 @@ impl Simulation {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'a')
-                    && input_state.details_view == DetailsView::List =>
+                    && input_state.details_view == DetailsView::List
+                    && input_state.goods_main_page == GoodsMainPage::Companies =>
             {
                 Some(SimulationCommand::Ui(UiCommand::FocusCountrySelection))
             }
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'d')
-                    && input_state.details_view == DetailsView::List =>
+                    && input_state.details_view == DetailsView::List
+                    && input_state.goods_main_page == GoodsMainPage::Companies =>
             {
                 Some(SimulationCommand::Ui(UiCommand::FocusCompanySelection))
             }
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'w')
-                    && input_state.details_view == DetailsView::List =>
+                    && input_state.details_view == DetailsView::List
+                    && input_state.goods_main_page == GoodsMainPage::Companies =>
             {
                 match input_state.selection_focus {
                     SelectionFocus::Country => {
@@ -152,7 +158,8 @@ impl Simulation {
             KeyCode::Char(c)
                 if key.modifiers.is_empty()
                     && c.eq_ignore_ascii_case(&'s')
-                    && input_state.details_view == DetailsView::List =>
+                    && input_state.details_view == DetailsView::List
+                    && input_state.goods_main_page == GoodsMainPage::Companies =>
             {
                 match input_state.selection_focus {
                     SelectionFocus::Country => {
@@ -166,7 +173,8 @@ impl Simulation {
             }
             KeyCode::Enter
                 if input_state.details_view == DetailsView::List
-                    && input_state.selection_focus == SelectionFocus::Company =>
+                    && input_state.selection_focus == SelectionFocus::Company
+                    && input_state.goods_main_page == GoodsMainPage::Companies =>
             {
                 Some(SimulationCommand::Ui(UiCommand::OpenSelectedCompanyDetails))
             }
@@ -176,6 +184,9 @@ impl Simulation {
             _ if hotkeys::is_page_prev_key(key)
                 && input_state.details_view == DetailsView::List =>
             {
+                if input_state.goods_main_page == GoodsMainPage::ProductionDemand {
+                    return Some(SimulationCommand::Ui(UiCommand::GoodsProductionPagePrev));
+                }
                 match input_state.selection_focus {
                     SelectionFocus::Country => {
                         Some(SimulationCommand::Ui(UiCommand::CountryPagePrev))
@@ -189,6 +200,9 @@ impl Simulation {
             _ if hotkeys::is_page_next_key(key)
                 && input_state.details_view == DetailsView::List =>
             {
+                if input_state.goods_main_page == GoodsMainPage::ProductionDemand {
+                    return Some(SimulationCommand::Ui(UiCommand::GoodsProductionPageNext));
+                }
                 match input_state.selection_focus {
                     SelectionFocus::Country => {
                         Some(SimulationCommand::Ui(UiCommand::CountryPageNext))

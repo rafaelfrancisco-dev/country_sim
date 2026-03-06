@@ -2,6 +2,7 @@ pub const PEOPLE_PAGE_SIZE: usize = 50;
 pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
 pub const BANK_PAGE_SIZE: usize = 12;
+pub const GOODS_PRODUCTION_PAGE_SIZE: usize = 8;
 pub const CHART_PAGE_COUNT: usize = 6;
 pub const DISASTER_INTENSITY_COUNT: usize = crate::sim::DISASTER_INTENSITY_LEVELS.len();
 pub const DISASTER_KIND_COUNT: usize = crate::sim::DISASTER_KIND_COUNT;
@@ -105,6 +106,21 @@ pub enum RunningTab {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum GoodsMainPage {
+    Companies,
+    ProductionDemand,
+}
+
+impl GoodsMainPage {
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Companies => Self::ProductionDemand,
+            Self::ProductionDemand => Self::Companies,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EventsSort {
     NewestFirst,
     OldestFirst,
@@ -158,6 +174,7 @@ pub struct UiState {
     pub details_view: DetailsView,
     pub selection_focus: SelectionFocus,
     pub active_tab: RunningTab,
+    pub goods_main_page: GoodsMainPage,
     pub chart_scope: ChartScope,
     pub chart_page: usize,
     pub details_page: usize,
@@ -166,6 +183,7 @@ pub struct UiState {
     pub selected_person_row: usize,
     pub company_page: usize,
     pub selected_company_row: usize,
+    pub goods_production_page: usize,
     pub bank_page: usize,
     pub selected_bank_row: usize,
     pub events_scroll: usize,
@@ -191,6 +209,7 @@ impl Default for UiState {
             details_view: DetailsView::List,
             selection_focus: SelectionFocus::Country,
             active_tab: RunningTab::Main,
+            goods_main_page: GoodsMainPage::Companies,
             chart_scope: ChartScope::SelectedCountry,
             chart_page: 0,
             details_page: 0,
@@ -199,6 +218,7 @@ impl Default for UiState {
             selected_person_row: 0,
             company_page: 0,
             selected_company_row: 0,
+            goods_production_page: 0,
             bank_page: 0,
             selected_bank_row: 0,
             events_scroll: 0,
