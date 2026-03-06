@@ -38,3 +38,36 @@ fn insert_listing_preserve_index_assigns_distinct_ticker_symbols() {
         second_ticker
     );
 }
+
+#[test]
+fn reset_mtd_trackers_preserves_last_completed_month_dividends() {
+    let mut market = StockMarket::new();
+    let portfolio = market.person_portfolio_mut(7);
+    portfolio.dividends_mtd = 12.5;
+    market.dividends_paid_mtd = 40.0;
+
+    market.reset_mtd_trackers();
+
+    assert!((market.dividends_paid_mtd - 0.0).abs() < f64::EPSILON);
+    assert!((market.last_completed_month_dividends_paid - 40.0).abs() < f64::EPSILON);
+    assert!(
+        (market
+            .person_portfolios
+            .get(&7)
+            .expect("portfolio should exist")
+            .dividends_mtd
+            - 0.0)
+            .abs()
+            < f64::EPSILON
+    );
+    assert!(
+        (market
+            .person_portfolios
+            .get(&7)
+            .expect("portfolio should exist")
+            .last_completed_month_dividends
+            - 12.5)
+            .abs()
+            < f64::EPSILON
+    );
+}

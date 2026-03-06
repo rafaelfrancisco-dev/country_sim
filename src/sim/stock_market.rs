@@ -32,6 +32,7 @@ pub struct Portfolio {
     pub positions: Vec<Position>,
     pub realized_pnl_mtd: f64,
     pub dividends_mtd: f64,
+    pub last_completed_month_dividends: f64,
 }
 
 impl Portfolio {
@@ -288,6 +289,7 @@ pub struct StockMarket {
     // MTD trackers
     pub ipo_raised_mtd: f64,
     pub dividends_paid_mtd: f64,
+    pub last_completed_month_dividends_paid: f64,
     pub forced_liquidations_mtd: f64,
     pub day_active_traders_count: usize,
     pub day_buy_orders_count: u64,
@@ -304,6 +306,7 @@ impl Default for StockMarket {
             index_base: 0.0,
             ipo_raised_mtd: 0.0,
             dividends_paid_mtd: 0.0,
+            last_completed_month_dividends_paid: 0.0,
             forced_liquidations_mtd: 0.0,
             day_active_traders_count: 0,
             day_buy_orders_count: 0,
@@ -374,13 +377,16 @@ impl StockMarket {
     /// Reset MTD accumulators (called at month end after capturing history).
     pub fn reset_mtd_trackers(&mut self) {
         self.ipo_raised_mtd = 0.0;
+        self.last_completed_month_dividends_paid = self.dividends_paid_mtd;
         self.dividends_paid_mtd = 0.0;
         self.forced_liquidations_mtd = 0.0;
         for portfolio in self.person_portfolios.values_mut() {
             portfolio.realized_pnl_mtd = 0.0;
+            portfolio.last_completed_month_dividends = portfolio.dividends_mtd;
             portfolio.dividends_mtd = 0.0;
         }
         self.bank_portfolio.realized_pnl_mtd = 0.0;
+        self.bank_portfolio.last_completed_month_dividends = self.bank_portfolio.dividends_mtd;
         self.bank_portfolio.dividends_mtd = 0.0;
         for equity in self.listed.values_mut() {
             equity.advance_dps_cursor();

@@ -102,6 +102,9 @@ pub struct Person {
     pub last_month_gross_pay: f64,
     pub last_month_tax_paid: f64,
     pub last_month_net_pay: f64,
+    pub last_completed_month_gross_pay: f64,
+    pub last_completed_month_tax_paid: f64,
+    pub last_completed_month_net_pay: f64,
     pub last_month_spending: f64,
     pub last_month_goods_spending: f64,
     pub last_month_imported_goods_spending: f64,
@@ -156,6 +159,9 @@ impl Person {
             last_month_gross_pay: 0.0,
             last_month_tax_paid: 0.0,
             last_month_net_pay: 0.0,
+            last_completed_month_gross_pay: 0.0,
+            last_completed_month_tax_paid: 0.0,
+            last_completed_month_net_pay: 0.0,
             last_month_spending: 0.0,
             last_month_goods_spending: 0.0,
             last_month_imported_goods_spending: 0.0,
@@ -383,6 +389,9 @@ impl Person {
     }
 
     pub fn reset_monthly_trackers(&mut self) {
+        self.last_completed_month_gross_pay = self.last_month_gross_pay;
+        self.last_completed_month_tax_paid = self.last_month_tax_paid;
+        self.last_completed_month_net_pay = self.last_month_net_pay;
         self.last_month_gross_pay = 0.0;
         self.last_month_tax_paid = 0.0;
         self.last_month_net_pay = 0.0;
@@ -428,6 +437,7 @@ mod tests {
         person.cash_balance = 50.0;
         person.last_month_gross_pay = 10.0;
         person.last_month_tax_paid = 2.0;
+        person.last_month_net_pay = 8.0;
         person.last_month_goods_spending = 33.0;
         person.superficial_stock_units[0] = 3;
 
@@ -436,6 +446,10 @@ mod tests {
         assert!((person.cash_balance - 50.0).abs() < f64::EPSILON);
         assert!((person.last_month_gross_pay - 0.0).abs() < f64::EPSILON);
         assert!((person.last_month_tax_paid - 0.0).abs() < f64::EPSILON);
+        assert!((person.last_month_net_pay - 0.0).abs() < f64::EPSILON);
+        assert!((person.last_completed_month_gross_pay - 10.0).abs() < f64::EPSILON);
+        assert!((person.last_completed_month_tax_paid - 2.0).abs() < f64::EPSILON);
+        assert!((person.last_completed_month_net_pay - 8.0).abs() < f64::EPSILON);
         assert!((person.last_month_goods_spending - 0.0).abs() < f64::EPSILON);
         assert_eq!(person.superficial_stock_units[0], 3);
     }

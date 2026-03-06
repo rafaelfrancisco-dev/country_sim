@@ -259,8 +259,8 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
             money(market.ipo_raised_mtd, currency_symbol)
         ),
         format!(
-            "MTD Dividends Paid: {}",
-            money(market.dividends_paid_mtd, currency_symbol)
+            "Last Month Dividends Paid: {}",
+            money(market.last_completed_month_dividends_paid, currency_symbol)
         ),
         format!(
             "MTD Forced Liquidations: {}",
@@ -393,8 +393,8 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
             money(portfolio.realized_pnl_mtd, currency_symbol)
         ),
         format!(
-            "MTD Dividends: {}",
-            money(portfolio.dividends_mtd, currency_symbol)
+            "Last Month Dividends: {}",
+            money(portfolio.last_completed_month_dividends, currency_symbol)
         ),
     ];
 

@@ -47,6 +47,53 @@ fn person_details_include_superficial_goods_and_stock_holdings() {
 }
 
 #[test]
+fn person_details_show_last_completed_month_income_and_dividends() {
+    let mut person = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        123,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    person.last_month_gross_pay = 1_000.0;
+    person.last_month_tax_paid = 200.0;
+    person.last_month_net_pay = 800.0;
+    person.reset_monthly_trackers();
+
+    let mut country = Country::new(1, "A".to_string(), vec![person]);
+    country.stock_market.listed.insert(
+        0,
+        ListedEquity::new(0, "ACO".to_string(), 12.5, 10_000, 8_000),
+    );
+    {
+        let portfolio = country.stock_market.person_portfolio_mut(1);
+        portfolio.add_shares(0, 25, 10.0);
+        portfolio.dividends_mtd = 15.0;
+    }
+    country.stock_market.reset_mtd_trackers();
+
+    let world = World::new(vec![country]);
+    let ui = UiState {
+        details_view: DetailsView::Person,
+        ..UiState::default()
+    };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
+    let text = person_details_lines(&world, &ui).join("\n");
+
+    assert!(text.contains("Last Month Gross Pay:"));
+    assert!(text.contains(&money(1_000.0, currency_symbol)));
+    assert!(text.contains("Last Month Tax Paid:"));
+    assert!(text.contains(&money(200.0, currency_symbol)));
+    assert!(text.contains("Last Month Net Pay:"));
+    assert!(text.contains(&money(800.0, currency_symbol)));
+    assert!(text.contains("Last Month Dividends:"));
+    assert!(text.contains(&money(15.0, currency_symbol)));
+}
+
+#[test]
 fn company_details_include_listing_and_financial_stress_metrics() {
     let world = sample_world_with_stock();
     let ui = UiState {

@@ -60,16 +60,16 @@ pub(in crate::components::simulation) fn person_details_lines(
         ),
         String::new(),
         format!(
-            "MTD Gross Pay: {}",
-            money(person.last_month_gross_pay, currency_symbol)
+            "Last Month Gross Pay: {}",
+            money(person.last_completed_month_gross_pay, currency_symbol)
         ),
         format!(
-            "MTD Tax Paid: {}",
-            money(person.last_month_tax_paid, currency_symbol)
+            "Last Month Tax Paid: {}",
+            money(person.last_completed_month_tax_paid, currency_symbol)
         ),
         format!(
-            "MTD Net Pay: {}",
-            money(person.last_month_net_pay, currency_symbol)
+            "Last Month Net Pay: {}",
+            money(person.last_completed_month_net_pay, currency_symbol)
         ),
         format!(
             "MTD Spending: {}",
