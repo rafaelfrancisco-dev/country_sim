@@ -140,8 +140,7 @@ impl Country {
     }
 
     pub(crate) fn healthiest_acquirer_bank_id(&self, failed_bank_id: BankId) -> Option<BankId> {
-        std::iter::once(&self.bank)
-            .chain(self.banks.iter())
+        self.all_banks()
             .filter(|bank| bank.id != failed_bank_id && !bank.is_in_resolution)
             .max_by(|a, b| {
                 self.bank_health_score(a.id)
@@ -149,12 +148,8 @@ impl Country {
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|bank| bank.id)
-            .or({
-                if self.bank.id != failed_bank_id {
-                    Some(self.bank.id)
-                } else {
-                    None
-                }
+            .or_else(|| {
+                (self.primary_bank().id != failed_bank_id).then_some(self.primary_bank().id)
             })
     }
 
@@ -315,9 +310,10 @@ impl Country {
             *entry = round_cents(*entry + self.treasury_balance.max(0.0));
         }
 
-        self.bank.set_deposit_liabilities(
+        let primary_bank_id = self.primary_bank().id;
+        self.primary_bank_mut().set_deposit_liabilities(
             liabilities_by_bank
-                .remove(&self.bank.id)
+                .remove(&primary_bank_id)
                 .unwrap_or_default()
                 .max(0.0),
         );
@@ -330,8 +326,7 @@ impl Country {
     pub fn create_bank(&mut self, kind: BankKind, seed_capital: f64) -> Option<BankId> {
         let mut bank_id = self.next_bank_id.max(1);
         loop {
-            let occupied =
-                bank_id == self.bank.id || self.banks.iter().any(|bank| bank.id == bank_id);
+            let occupied = self.banks.iter().any(|bank| bank.id == bank_id);
             if !occupied {
                 break;
             }

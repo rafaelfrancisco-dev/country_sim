@@ -58,7 +58,8 @@ impl Country {
         self.monthly_coupon_paid = round_cents(self.monthly_coupon_paid + monthly_coupon);
 
         // Bank portion flows to bank reserve
-        self.bank.reserve_balance = round_cents(self.bank.reserve_balance + bank_coupon);
+        let primary_bank = self.primary_bank_mut();
+        primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance + bank_coupon);
 
         // Retail portion distributed evenly to the top-N wealthiest people
         if retail_coupon > 0.0 {
@@ -86,7 +87,9 @@ impl Country {
                 self.treasury_balance = round_cents(self.treasury_balance - face_value);
                 let bank_repay = round_cents(face_value * bank_fraction);
                 let retail_repay = round_cents(face_value - bank_repay);
-                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + bank_repay);
+                let primary_bank = self.primary_bank_mut();
+                primary_bank.reserve_balance =
+                    round_cents(primary_bank.reserve_balance + bank_repay);
                 if retail_repay > 0.0 {
                     self.distribute_to_top_n_people(retail_repay);
                 }
@@ -99,12 +102,14 @@ impl Country {
                 // Partial treasury + monetized shortfall
                 let shortfall = round_cents(face_value - available_treasury);
                 self.treasury_balance = round_cents(self.treasury_balance - available_treasury);
-                let monetized = self.bank.fund_government_deficit(shortfall);
+                let monetized = self.primary_bank_mut().fund_government_deficit(shortfall);
                 self.gov_debt = round_cents(self.gov_debt + monetized);
                 let total_paid = round_cents(available_treasury + monetized);
                 let bank_repay = round_cents(total_paid * bank_fraction);
                 let retail_repay = round_cents(total_paid - bank_repay);
-                self.bank.reserve_balance = round_cents(self.bank.reserve_balance + bank_repay);
+                let primary_bank = self.primary_bank_mut();
+                primary_bank.reserve_balance =
+                    round_cents(primary_bank.reserve_balance + bank_repay);
                 if retail_repay > 0.0 {
                     self.distribute_to_top_n_people(retail_repay);
                 }
@@ -151,12 +156,13 @@ impl Country {
         let retail_portion = round_cents(face_value - bank_portion);
 
         // Bank provides its portion; reserve decreases
-        let bank_funded = if self.bank.reserve_balance >= bank_portion {
-            self.bank.reserve_balance = round_cents(self.bank.reserve_balance - bank_portion);
+        let bank_funded = if self.primary_bank().reserve_balance >= bank_portion {
+            let primary_bank = self.primary_bank_mut();
+            primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance - bank_portion);
             bank_portion
         } else {
-            let available = self.bank.reserve_balance.max(0.0);
-            self.bank.reserve_balance = 0.0;
+            let available = self.primary_bank().reserve_balance.max(0.0);
+            self.primary_bank_mut().reserve_balance = 0.0;
             available
         };
         self.treasury_balance = round_cents(self.treasury_balance + bank_funded);

@@ -18,9 +18,9 @@ fn cross_country_deposit_open_targets_best_foreign_private_bank() {
     let foreign_private_bank_id = foreign
         .create_bank(BankKind::Private, 1_000.0)
         .expect("private foreign bank should be created");
-    foreign.bank.reserve_balance = 2_500.0;
+    foreign.primary_bank_mut().reserve_balance = 2_500.0;
 
-    let public_reserve_before = foreign.bank.reserve_balance;
+    let public_reserve_before = foreign.primary_bank().reserve_balance;
     let private_reserve_before = foreign
         .bank_by_id(foreign_private_bank_id)
         .expect("private foreign bank should exist")
@@ -42,8 +42,14 @@ fn cross_country_deposit_open_targets_best_foreign_private_bank() {
         })
     );
     assert_eq!(home.people[0].cash_balance, 15_000.0);
-    assert_eq!(foreign.bank.reserve_balance, public_reserve_before);
-    assert_eq!(foreign.bank.foreign_deposit_liabilities, 0.0);
+    assert_eq!(
+        foreign.public_bank().unwrap().reserve_balance,
+        public_reserve_before
+    );
+    assert_eq!(
+        foreign.public_bank().unwrap().foreign_deposit_liabilities,
+        0.0
+    );
     assert_eq!(
         foreign
             .bank_by_id(foreign_private_bank_id)
@@ -85,8 +91,8 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
     foreign.policy_rate = 0.03;
     foreign.sim_params.monetary.deposit_spread = 0.01;
     foreign.sim_params.banking.private_bank_deposit_rate_bonus = 0.02;
-    foreign.bank.reserve_balance = 9_000.0;
-    foreign.bank.foreign_deposit_liabilities = 400.0;
+    foreign.primary_bank_mut().reserve_balance = 9_000.0;
+    foreign.primary_bank_mut().foreign_deposit_liabilities = 400.0;
     {
         let private_bank = foreign
             .bank_by_id_mut(foreign_private_bank_id)
@@ -101,8 +107,8 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
                 - 1.0),
     );
 
-    let public_reserve_before = foreign.bank.reserve_balance;
-    let public_liabilities_before = foreign.bank.foreign_deposit_liabilities;
+    let public_reserve_before = foreign.primary_bank().reserve_balance;
+    let public_liabilities_before = foreign.primary_bank().foreign_deposit_liabilities;
     let private_reserve_before = foreign
         .bank_by_id(foreign_private_bank_id)
         .expect("private foreign bank should exist")
@@ -126,9 +132,12 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
             .balance,
         12_000.0
     );
-    assert_eq!(foreign.bank.reserve_balance, public_reserve_before);
     assert_eq!(
-        foreign.bank.foreign_deposit_liabilities,
+        foreign.public_bank().unwrap().reserve_balance,
+        public_reserve_before
+    );
+    assert_eq!(
+        foreign.public_bank().unwrap().foreign_deposit_liabilities,
         public_liabilities_before
     );
     assert_eq!(
@@ -167,8 +176,8 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
     foreign.policy_rate = 0.0;
     foreign.sim_params.monetary.deposit_spread = 0.0;
     foreign.sim_params.banking.private_bank_deposit_rate_bonus = 0.0;
-    foreign.bank.reserve_balance = 7_500.0;
-    foreign.bank.foreign_deposit_liabilities = 250.0;
+    foreign.primary_bank_mut().reserve_balance = 7_500.0;
+    foreign.primary_bank_mut().foreign_deposit_liabilities = 250.0;
     {
         let private_bank = foreign
             .bank_by_id_mut(foreign_private_bank_id)
@@ -177,8 +186,8 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
         private_bank.foreign_deposit_liabilities = 8_000.0;
     }
 
-    let public_reserve_before = foreign.bank.reserve_balance;
-    let public_liabilities_before = foreign.bank.foreign_deposit_liabilities;
+    let public_reserve_before = foreign.primary_bank().reserve_balance;
+    let public_liabilities_before = foreign.primary_bank().foreign_deposit_liabilities;
     let private_reserve_before = foreign
         .bank_by_id(foreign_private_bank_id)
         .expect("private foreign bank should exist")
@@ -195,9 +204,12 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
     let foreign = &world.countries[1];
     assert_eq!(home.people[0].cash_balance, 8_100.0);
     assert!(home.people[0].foreign_deposit.is_none());
-    assert_eq!(foreign.bank.reserve_balance, public_reserve_before);
     assert_eq!(
-        foreign.bank.foreign_deposit_liabilities,
+        foreign.public_bank().unwrap().reserve_balance,
+        public_reserve_before
+    );
+    assert_eq!(
+        foreign.public_bank().unwrap().foreign_deposit_liabilities,
         public_liabilities_before
     );
     assert_eq!(
@@ -256,10 +268,10 @@ fn traced_tick_path_processes_month_boundary_and_keeps_invariants() {
     assert!(trace.world_monthly_capture_snapshot_ms >= 0.0);
     assert!(trace.world_monthly_reset_trackers_ms >= 0.0);
 
-    assert_eq!(world.day, DAYS_PER_MONTH + 1);
+    assert_eq!(world.day(), DAYS_PER_MONTH + 1);
     assert_eq!(world.completed_month_boundaries(), 1);
-    assert_eq!(world.world_history.len(), 2);
-    assert_eq!(world.country_history[0].len(), 2);
-    assert_eq!(world.countries[0].month, 1);
+    assert_eq!(world.world_history().len(), 2);
+    assert_eq!(world.country_history()[0].len(), 2);
+    assert_eq!(world.countries()[0].month(), 1);
     assert!(world.validate_invariants().is_empty());
 }

@@ -41,8 +41,7 @@ impl Country {
         self.recompute_company_headcounts();
         self.recompute_bank_headcounts();
         self.close_company_months();
-        self.bank.close_month();
-        for bank in &mut self.banks {
+        for bank in self.all_banks_mut() {
             bank.close_month();
         }
         self.process_stock_dividends();
@@ -86,8 +85,7 @@ impl Country {
         time_op!(self.process_monthly_labor_churn());
         let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
         let close_company_months_ms = time_op!(self.close_company_months());
-        self.bank.close_month();
-        for bank in &mut self.banks {
+        for bank in self.all_banks_mut() {
             bank.close_month();
         }
         let dividends_ms = time_op!(self.process_stock_dividends());
@@ -160,8 +158,7 @@ impl Country {
         for company in &mut self.companies {
             company.open_month();
         }
-        self.bank.open_month();
-        for bank in &mut self.banks {
+        for bank in self.all_banks_mut() {
             bank.open_month();
         }
     }
@@ -195,15 +192,15 @@ impl Country {
             }
         }
 
-        let lender_id = self.preferred_lender_bank_id().unwrap_or(self.bank.id);
+        let lender_id = self
+            .preferred_lender_bank_id()
+            .unwrap_or(self.primary_bank().id);
         let loan_rate = self.bank_loan_rate_for(lender_id);
         let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
-        let use_public_bank = self.bank.id == lender_id;
-        let private_bank_idx = if use_public_bank {
-            None
-        } else {
-            self.banks.iter().position(|b| b.id == lender_id)
-        };
+        let lender_bank_idx = self.banks.iter().position(|bank| bank.id == lender_id);
+        let country_name = self.name.clone();
+        let day = self.day;
+        let mut pending_events = Vec::new();
 
         for (company_idx, company) in self.companies.iter_mut().enumerate() {
             let required_payroll = payroll_requirements_cents
@@ -219,10 +216,10 @@ impl Country {
 
             let shortfall = round_cents(required_payroll - company.cash_balance);
             let monthly_income = company.average_monthly_revenue();
-            let bank = match private_bank_idx {
-                Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
-                _ => &mut self.bank,
+            let Some(bank_idx) = lender_bank_idx else {
+                continue;
             };
+            let bank = &mut self.banks[bank_idx];
             let issued = bank.originate_loan(
                 shortfall,
                 monthly_income,
@@ -233,15 +230,16 @@ impl Country {
             if issued > 0.0 {
                 company.cash_balance = round_cents(company.cash_balance + issued);
                 company.last_month_new_loan = round_cents(company.last_month_new_loan + issued);
-                self.pending_events.push(SimEvent::LoanEmitted {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::LoanEmitted {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Company,
                     entity_id: u32::from(company.id),
                     principal: issued,
-                    day: self.day,
+                    day,
                 });
             }
         }
+        self.pending_events.extend(pending_events);
     }
 
     pub(super) fn compute_monthly_gdp_and_austerity(&mut self) {
@@ -302,11 +300,14 @@ impl Country {
 
     pub(super) fn process_payroll_and_taxes(&mut self) {
         let tax_params = self.sim_params.tax;
+        let companies = &mut self.companies;
+        let banks = &mut self.banks;
+        let mut total_tax = 0.0;
         for person in &mut self.people {
             let gross_pay = if let Some(company_id) = person.employer_company_id() {
                 let company_idx = company_id as usize;
                 let salary = person.monthly_salary();
-                if let Some(company) = self.companies.get_mut(company_idx) {
+                if let Some(company) = companies.get_mut(company_idx) {
                     let payout = round_cents(salary.min(company.cash_balance.max(0.0)));
                     company.cash_balance = round_cents(company.cash_balance - payout);
                     company.last_month_payroll_paid =
@@ -317,11 +318,7 @@ impl Country {
                 }
             } else if let Some(bank_id) = person.employer_bank_id() {
                 let salary = person.monthly_salary();
-                let bank_opt = if self.bank.id == bank_id {
-                    Some(&mut self.bank)
-                } else {
-                    self.banks.iter_mut().find(|b| b.id == bank_id)
-                };
+                let bank_opt = banks.iter_mut().find(|bank| bank.id == bank_id);
                 if let Some(bank) = bank_opt {
                     // Pay from reserves; cap payout if bank is short
                     let payout = round_cents(salary.min(bank.reserve_balance.max(0.0)));
@@ -344,80 +341,99 @@ impl Country {
             person.last_month_tax_paid = tax;
             person.last_month_net_pay = net_pay;
 
-            self.treasury_balance = round_cents(self.treasury_balance + tax);
-            self.monthly_tax_collected = round_cents(self.monthly_tax_collected + tax);
+            total_tax = round_cents(total_tax + tax);
         }
+
+        self.treasury_balance = round_cents(self.treasury_balance + total_tax);
+        self.monthly_tax_collected = round_cents(self.monthly_tax_collected + total_tax);
     }
 
     pub(super) fn collect_monthly_loan_repayments(&mut self) {
-        for person in &mut self.people {
-            let lender_idx = person.loan.as_ref().and_then(|l| {
-                if l.lender_bank_id == self.bank.id {
-                    None
-                } else {
-                    self.banks.iter().position(|b| b.id == l.lender_bank_id)
-                }
-            });
-            let payment = if let Some(idx) = lender_idx {
-                self.banks[idx].collect_monthly_payment(&mut person.cash_balance, &mut person.loan)
-            } else {
-                self.bank
-                    .collect_monthly_payment(&mut person.cash_balance, &mut person.loan)
+        let country_name = self.name.clone();
+        let day = self.day;
+        let banks = &mut self.banks;
+        let mut pending_events = Vec::new();
+
+        for person_idx in 0..self.people.len() {
+            let lender_bank_id = self.people[person_idx]
+                .loan
+                .as_ref()
+                .map(|loan| loan.lender_bank_id);
+            let Some(lender_bank_id) = lender_bank_id else {
+                continue;
             };
+
+            let mut cash_balance = self.people[person_idx].cash_balance;
+            let mut loan = self.people[person_idx].loan.take();
+            let Some(bank) = banks.iter_mut().find(|bank| bank.id == lender_bank_id) else {
+                self.people[person_idx].loan = loan;
+                continue;
+            };
+            let payment = bank.collect_monthly_payment(&mut cash_balance, &mut loan);
+
+            let person = &mut self.people[person_idx];
+            person.cash_balance = cash_balance;
+            person.loan = loan;
             person.last_month_loan_payment = payment.amount_paid;
             if payment.unpaid_amount > 0.0 {
-                self.pending_events.push(SimEvent::DebtDistress {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::DebtDistress {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Person,
                     entity_id: person.id,
                     unpaid_amount: payment.unpaid_amount,
-                    day: self.day,
+                    day,
                 });
             }
             if payment.loan_ended {
-                self.pending_events.push(SimEvent::LoanEnded {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::LoanEnded {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Person,
                     entity_id: person.id,
-                    day: self.day,
+                    day,
                 });
             }
         }
 
-        for company in &mut self.companies {
-            let lender_idx = company.loan.as_ref().and_then(|l| {
-                if l.lender_bank_id == self.bank.id {
-                    None
-                } else {
-                    self.banks.iter().position(|b| b.id == l.lender_bank_id)
-                }
-            });
-            let payment = if let Some(idx) = lender_idx {
-                self.banks[idx]
-                    .collect_monthly_payment(&mut company.cash_balance, &mut company.loan)
-            } else {
-                self.bank
-                    .collect_monthly_payment(&mut company.cash_balance, &mut company.loan)
+        for company_idx in 0..self.companies.len() {
+            let lender_bank_id = self.companies[company_idx]
+                .loan
+                .as_ref()
+                .map(|loan| loan.lender_bank_id);
+            let Some(lender_bank_id) = lender_bank_id else {
+                continue;
             };
+
+            let mut cash_balance = self.companies[company_idx].cash_balance;
+            let mut loan = self.companies[company_idx].loan.take();
+            let Some(bank) = banks.iter_mut().find(|bank| bank.id == lender_bank_id) else {
+                self.companies[company_idx].loan = loan;
+                continue;
+            };
+            let payment = bank.collect_monthly_payment(&mut cash_balance, &mut loan);
+
+            let company = &mut self.companies[company_idx];
+            company.cash_balance = cash_balance;
+            company.loan = loan;
             company.last_month_loan_payment = payment.amount_paid;
             company.missed_loan_payment_this_month = payment.unpaid_amount > 0.0;
             if payment.unpaid_amount > 0.0 {
-                self.pending_events.push(SimEvent::DebtDistress {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::DebtDistress {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Company,
                     entity_id: u32::from(company.id),
                     unpaid_amount: payment.unpaid_amount,
-                    day: self.day,
+                    day,
                 });
             }
             if payment.loan_ended {
-                self.pending_events.push(SimEvent::LoanEnded {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::LoanEnded {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Company,
                     entity_id: u32::from(company.id),
-                    day: self.day,
+                    day,
                 });
             }
         }
+        self.pending_events.extend(pending_events);
     }
 }

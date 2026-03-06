@@ -31,11 +31,9 @@ impl Simulation {
         let [top, bottom] =
             Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(body);
         let [a1, a2] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(top);
-        let [a3, a4] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(bottom);
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(top);
+        let [a3, a4] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(bottom);
         let chart_areas = [a1, a2, a3, a4];
         let charts = match pie_page_idx {
             0 => [

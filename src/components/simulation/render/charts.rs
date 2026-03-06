@@ -8,7 +8,10 @@ use ratatui::{
 
 use super::super::{Simulation, theme};
 use super::disaster_markers;
-use crate::components::simulation::{hotkeys, snapshot::{ChartsTabSnapshot, RunningSnapshot}};
+use crate::components::simulation::{
+    hotkeys,
+    snapshot::{ChartsTabSnapshot, RunningSnapshot},
+};
 use crate::sim::world::MetricPoint;
 #[derive(Debug, Copy, Clone)]
 enum AxisValueFormat {
@@ -93,7 +96,11 @@ impl Simulation {
 
     fn chart_page_label(page_idx: usize, total_pages: usize) -> String {
         match page_idx {
-            4 => format!("Chart Page {}/{} (Pie 1/2: World)", page_idx + 1, total_pages),
+            4 => format!(
+                "Chart Page {}/{} (Pie 1/2: World)",
+                page_idx + 1,
+                total_pages
+            ),
             5 => format!(
                 "Chart Page {}/{} (Pie 2/2: Selected Country)",
                 page_idx + 1,
@@ -111,18 +118,14 @@ impl Simulation {
             Constraint::Ratio(1, 4),
         ])
         .areas(area);
-        let [a1, a2] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(row1);
-        let [a3, a4] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(row2);
-        let [a5, a6] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(row3);
-        let [a7, a8] =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas(row4);
+        let [a1, a2] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(row1);
+        let [a3, a4] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(row2);
+        let [a5, a6] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(row3);
+        let [a7, a8] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(row4);
         [a1, a2, a3, a4, a5, a6, a7, a8]
     }
 

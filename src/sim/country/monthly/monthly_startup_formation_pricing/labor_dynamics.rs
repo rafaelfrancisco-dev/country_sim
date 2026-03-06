@@ -94,8 +94,8 @@ impl Country {
                 };
 
                 // Return opening to old bank
-                let bank_opt = if self.bank.id == current_bank_id {
-                    Some(&mut self.bank)
+                let bank_opt = if self.primary_bank().id == current_bank_id {
+                    Some(self.primary_bank_mut())
                 } else {
                     self.banks.iter_mut().find(|b| b.id == current_bank_id)
                 };
@@ -183,15 +183,16 @@ impl Country {
     }
 
     pub(in crate::sim::country) fn process_end_of_month_loan_requests(&mut self) {
-        let lender_id = self.preferred_lender_bank_id().unwrap_or(self.bank.id);
+        let lender_id = self
+            .preferred_lender_bank_id()
+            .unwrap_or(self.primary_bank().id);
         let loan_rate = self.bank_loan_rate_for(lender_id);
         let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
-        let use_public_bank = self.bank.id == lender_id;
-        let private_bank_idx = if use_public_bank {
-            None
-        } else {
-            self.banks.iter().position(|b| b.id == lender_id)
-        };
+        let lender_bank_idx = self.banks.iter().position(|bank| bank.id == lender_id);
+        let country_name = self.name.clone();
+        let day = self.day;
+        let banks = &mut self.banks;
+        let mut pending_events = Vec::new();
         for person in &mut self.people {
             if person.cash_balance >= 0.0 {
                 continue;
@@ -199,10 +200,10 @@ impl Country {
 
             let shortfall = round_cents(-person.cash_balance);
             let monthly_income = person.monthly_salary();
-            let bank = match private_bank_idx {
-                Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
-                _ => &mut self.bank,
+            let Some(bank_idx) = lender_bank_idx else {
+                continue;
             };
+            let bank = &mut banks[bank_idx];
             let issued = bank.originate_loan(
                 shortfall,
                 monthly_income,
@@ -214,12 +215,12 @@ impl Country {
             if issued > 0.0 {
                 person.cash_balance = round_cents(person.cash_balance + issued);
                 person.last_month_new_loan = round_cents(person.last_month_new_loan + issued);
-                self.pending_events.push(SimEvent::LoanEmitted {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::LoanEmitted {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Person,
                     entity_id: person.id,
                     principal: issued,
-                    day: self.day,
+                    day,
                 });
             }
         }
@@ -231,10 +232,10 @@ impl Country {
 
             let shortfall = round_cents(-company.cash_balance);
             let monthly_income = company.average_monthly_revenue();
-            let bank = match private_bank_idx {
-                Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
-                _ => &mut self.bank,
+            let Some(bank_idx) = lender_bank_idx else {
+                continue;
             };
+            let bank = &mut banks[bank_idx];
             let issued = bank.originate_loan(
                 shortfall,
                 monthly_income,
@@ -246,14 +247,15 @@ impl Country {
             if issued > 0.0 {
                 company.cash_balance = round_cents(company.cash_balance + issued);
                 company.last_month_new_loan = round_cents(company.last_month_new_loan + issued);
-                self.pending_events.push(SimEvent::LoanEmitted {
-                    country_name: self.name.clone(),
+                pending_events.push(SimEvent::LoanEmitted {
+                    country_name: country_name.clone(),
                     entity_kind: EntityKind::Company,
                     entity_id: u32::from(company.id),
                     principal: issued,
-                    day: self.day,
+                    day,
                 });
             }
         }
+        self.pending_events.extend(pending_events);
     }
 }

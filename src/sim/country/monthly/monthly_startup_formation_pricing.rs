@@ -189,9 +189,11 @@ impl Country {
             let max_loan = round_cents(required_capital * startup_loan_fraction);
             let desired_loan = shortfall.min(max_loan);
             if desired_loan > 0.0 {
-                let lender_id = self.preferred_lender_bank_id().unwrap_or(self.bank.id);
+                let lender_id = self
+                    .preferred_lender_bank_id()
+                    .unwrap_or(self.primary_bank().id);
                 let loan_rate = self.bank_loan_rate_for(lender_id);
-                let use_public_bank = self.bank.id == lender_id;
+                let use_public_bank = self.primary_bank().id == lender_id;
                 let private_bank_idx = if use_public_bank {
                     None
                 } else {
@@ -199,7 +201,7 @@ impl Country {
                 };
                 let bank = match private_bank_idx {
                     Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
-                    _ => &mut self.bank,
+                    _ => self.primary_bank_mut(),
                 };
                 startup_loan = bank.originate_loan(
                     desired_loan,

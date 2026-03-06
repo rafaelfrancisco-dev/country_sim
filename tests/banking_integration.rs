@@ -28,13 +28,17 @@ fn exactly_one_public_bank_per_country_after_three_years() {
         world.tick_day();
     }
 
-    for country in &world.countries {
-        let all_banks = std::iter::once(&country.bank).chain(country.banks.iter());
-        let public_count = all_banks.filter(|b| b.kind == BankKind::Public).count();
+    for country in world.countries() {
+        let public_count = country
+            .all_banks()
+            .filter(|bank| bank.kind == BankKind::Public)
+            .count();
         assert_eq!(
-            public_count, 1,
+            public_count,
+            1,
             "country '{}' has {} public banks (expected 1)",
-            country.name, public_count
+            country.name(),
+            public_count
         );
     }
 }
@@ -48,12 +52,12 @@ fn private_banks_can_form_over_three_years() {
     }
 
     let total_private: usize = world
-        .countries
+        .countries()
         .iter()
-        .map(|c| {
-            std::iter::once(&c.bank)
-                .chain(c.banks.iter())
-                .filter(|b| b.kind == BankKind::Private)
+        .map(|country| {
+            country
+                .all_banks()
+                .filter(|bank| bank.kind == BankKind::Private)
                 .count()
         })
         .sum();
@@ -76,13 +80,11 @@ fn foreign_deposit_events_appear_with_multiple_countries() {
     for _ in 0..1095 {
         world.tick_day();
         // Drain pending events from all countries after each tick.
-        for country in &mut world.countries {
-            for ev in country.pending_events.drain(..) {
-                match ev {
-                    SimEvent::ForeignDepositOpened { .. } => foreign_opened += 1,
-                    SimEvent::ForeignDepositClosed { .. } => foreign_closed += 1,
-                    _ => {}
-                }
+        for event in world.event_log() {
+            match event {
+                SimEvent::ForeignDepositOpened { .. } => foreign_opened += 1,
+                SimEvent::ForeignDepositClosed { .. } => foreign_closed += 1,
+                _ => {}
             }
         }
     }
@@ -102,22 +104,22 @@ fn private_bank_count_respects_population_capacity() {
         world.tick_day();
     }
 
-    for country in &world.countries {
-        let params = country.sim_params.banking;
-        let private_count = std::iter::once(&country.bank)
-            .chain(country.banks.iter())
-            .filter(|b| b.kind == BankKind::Private)
+    for country in world.countries() {
+        let params = country.sim_params().banking;
+        let private_count = country
+            .all_banks()
+            .filter(|bank| bank.kind == BankKind::Private)
             .count();
         let per_bank = params.target_people_per_private_bank.max(1);
         let capacity = country
-            .people
+            .people()
             .len()
             .saturating_add(per_bank.saturating_sub(1))
             / per_bank;
         assert!(
             private_count <= capacity,
             "country '{}' has {} private banks, exceeds market-capacity {}",
-            country.name,
+            country.name(),
             private_count,
             capacity
         );
@@ -128,10 +130,24 @@ fn private_bank_count_respects_population_capacity() {
 #[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn banks_accumulate_cross_country_stock_positions() {
     let mut world = build_world();
-    for country in &mut world.countries {
-        country.bank.reserve_balance = country.bank.reserve_balance.max(2_000_000.0);
-        for bank in &mut country.banks {
-            bank.reserve_balance = bank.reserve_balance.max(500_000.0);
+    for country_idx in 0..world.country_count() {
+        let Some(country) = world.country_mut(country_idx) else {
+            continue;
+        };
+        if let Some(public_bank_id) = country.public_bank_id_or_first()
+            && let Some(bank) = country.bank_by_id_mut(public_bank_id)
+        {
+            bank.reserve_balance = bank.reserve_balance.max(2_000_000.0);
+        }
+        let bank_ids: Vec<_> = country
+            .all_banks()
+            .filter(|bank| bank.kind == BankKind::Private)
+            .map(|bank| bank.id)
+            .collect();
+        for bank_id in bank_ids {
+            if let Some(bank) = country.bank_by_id_mut(bank_id) {
+                bank.reserve_balance = bank.reserve_balance.max(500_000.0);
+            }
         }
     }
     for _ in 0..180 {
@@ -139,12 +155,12 @@ fn banks_accumulate_cross_country_stock_positions() {
     }
 
     let mut found_cross_country_position = false;
-    for country in &world.countries {
-        for bank in std::iter::once(&country.bank).chain(country.banks.iter()) {
+    for country in world.countries() {
+        for bank in country.all_banks() {
             if bank
                 .stock_positions
                 .values()
-                .any(|position| position.security_id.country_id != country.id)
+                .any(|position| position.security_id.country_id != country.id())
             {
                 found_cross_country_position = true;
                 break;

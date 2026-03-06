@@ -12,7 +12,7 @@ pub(in crate::components::simulation) fn selected_bank_histories(
     };
 
     let key = (ui.selected_country, bank.id);
-    let Some(history) = world.bank_history.get(&key) else {
+    let Some(history) = world.bank_history().get(&key) else {
         return (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     };
 
@@ -34,18 +34,17 @@ pub(in crate::components::simulation) fn country_banks_summary_lines(
     };
     let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
-    let all_banks = std::iter::once(&country.bank).chain(country.banks.iter());
-    let total_banks = country.banks.len().saturating_add(1);
-    let public_banks = all_banks
-        .clone()
+    let total_banks = country.banks().len();
+    let public_banks = country
+        .all_banks()
         .filter(|bank| bank.kind == crate::sim::bank::BankKind::Public)
         .count();
     let private_banks = total_banks.saturating_sub(public_banks);
-    let in_resolution = all_banks
-        .clone()
+    let in_resolution = country
+        .all_banks()
         .filter(|bank| bank.is_in_resolution)
         .count();
-    let strongest_bank = all_banks.max_by(|a, b| {
+    let strongest_bank = country.all_banks().max_by(|a, b| {
         country
             .bank_health_score(a.id)
             .partial_cmp(&country.bank_health_score(b.id))
@@ -53,7 +52,7 @@ pub(in crate::components::simulation) fn country_banks_summary_lines(
     });
 
     vec![
-        format!("Country: {} (Month {})", country.name, country.month),
+        format!("Country: {} (Month {})", country.name(), country.month()),
         format!(
             "Banks (Public / Private / In Resolution): {} ({} / {} / {})",
             compact_count(total_banks as f64),
@@ -100,11 +99,11 @@ pub(in crate::components::simulation) fn selected_bank_depositor_rows(
 
     let mut rows = Vec::new();
 
-    for person in &country.people {
+    for person in country.people() {
         if person.deposit_bank_id != Some(bank.id) || person.cash_balance <= 0.0 {
             continue;
         }
-        let name_seed = (u64::from(country.id) << 32) | u64::from(person.name_seed);
+        let name_seed = (u64::from(country.id()) << 32) | u64::from(person.name_seed);
         let name = person_name_from_seed(name_seed);
         rows.push((
             "Person".to_string(),
@@ -113,7 +112,7 @@ pub(in crate::components::simulation) fn selected_bank_depositor_rows(
         ));
     }
 
-    for company in &country.companies {
+    for company in country.companies() {
         if company.deposit_bank_id != Some(bank.id) || company.cash_balance <= 0.0 {
             continue;
         }
@@ -124,11 +123,11 @@ pub(in crate::components::simulation) fn selected_bank_depositor_rows(
         ));
     }
 
-    if country.treasury_bank_id == Some(bank.id) && country.treasury_balance > 0.0 {
+    if country.treasury_bank_id() == Some(bank.id) && country.treasury_balance() > 0.0 {
         rows.push((
             "Treasury".to_string(),
-            format!("{} Treasury", country.name),
-            country.treasury_balance,
+            format!("{} Treasury", country.name()),
+            country.treasury_balance(),
         ));
     }
 

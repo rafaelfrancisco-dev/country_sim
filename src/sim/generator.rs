@@ -353,25 +353,25 @@ fn randomize_company_prices(
 fn fund_initial_bank_reserve(country: &mut Country) {
     let target = round_cents(
         country
-            .sim_params
+            .sim_params()
             .stock_market
             .maker_bootstrap_reserve
             .max(0.0),
     );
-    if target <= 0.0 || country.companies.is_empty() {
+    if target <= 0.0 || country.companies().is_empty() {
         return;
     }
 
-    let total_company_cash: f64 = country.companies.iter().map(|c| c.cash_balance).sum();
+    let total_company_cash: f64 = country.companies().iter().map(|c| c.cash_balance).sum();
     let transfer_total = round_cents(target.min(total_company_cash.max(0.0)));
     if transfer_total <= 0.0 {
         return;
     }
 
     let mut remaining = transfer_total;
-    let company_count = country.companies.len() as f64;
-    let companies_len = country.companies.len();
-    for (idx, company) in country.companies.iter_mut().enumerate() {
+    let company_count = country.companies().len() as f64;
+    let companies_len = country.companies().len();
+    for (idx, company) in country.companies_mut().iter_mut().enumerate() {
         if remaining <= 0.0 {
             break;
         }
@@ -385,17 +385,19 @@ fn fund_initial_bank_reserve(country: &mut Country) {
         remaining = round_cents((remaining - pulled).max(0.0));
     }
     let actual_transfer = round_cents(transfer_total - remaining);
-    country.bank.reserve_balance = round_cents(country.bank.reserve_balance + actual_transfer);
+    let primary_bank = country.primary_bank_mut();
+    primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance + actual_transfer);
     country.recompute_aggregates();
 }
 
 fn seed_initial_bank_openings(country: &mut Country) {
-    let params = country.sim_params.banking;
+    let params = country.sim_params().banking;
     let job_types = params.bank_employee_job_types;
     let multiplier = params.bank_wage_multiplier.max(1.0);
 
-    let target = country.bank.target_employee_count(
-        country.bank.deposit_liabilities,
+    let primary_bank = country.primary_bank_mut();
+    let target = primary_bank.target_employee_count(
+        primary_bank.deposit_liabilities,
         params.bank_min_employees,
         params.bank_max_employees,
         params.bank_employees_per_deposit_unit,
@@ -405,7 +407,7 @@ fn seed_initial_bank_openings(country: &mut Country) {
         use super::money::round_cents;
         let job_id = job_types[i as usize % job_types.len()];
         let salary = round_cents(salary_for_job(job_id) * multiplier);
-        country.bank.add_opening_with_salary(job_id, 1, salary);
+        primary_bank.add_opening_with_salary(job_id, 1, salary);
     }
 }
 

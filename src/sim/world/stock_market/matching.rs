@@ -125,13 +125,13 @@ fn build_symbol_contexts(
     max_float_frac: f64,
     max_move: f64,
 ) -> Vec<SymbolContext> {
-    let mut listed_ids: Vec<u16> = country.stock_market.listed.keys().copied().collect();
+    let mut listed_ids: Vec<u16> = country.stock_market().listed.keys().copied().collect();
     listed_ids.sort_unstable();
 
     listed_ids
         .into_iter()
         .filter_map(|cid| {
-            let equity = country.stock_market.listed.get(&cid)?;
+            let equity = country.stock_market().listed.get(&cid)?;
             let last_price = equity.last_price;
             let float_shares = equity.free_float_shares;
             let market_open = last_price > 0.0 && float_shares > 0;
@@ -150,7 +150,7 @@ fn build_symbol_contexts(
                 0.0
             };
 
-            let maybe_value_gap = country.companies.get(cid as usize).map(|company| {
+            let maybe_value_gap = country.companies().get(cid as usize).map(|company| {
                 let debt = company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
                 let anchor = StockMarket::ipo_valuation_anchor(
                     company.average_monthly_revenue(),
@@ -169,7 +169,7 @@ fn build_symbol_contexts(
             let retail_enabled = market_open && maybe_value_gap.is_some();
             let value_gap = maybe_value_gap.unwrap_or(0.0);
             let day_sentiment = (unit_interval(hash64(
-                day ^ (u64::from(country.id) << 20) ^ (u64::from(cid) << 4) ^ 0x1bad_b002,
+                day ^ (u64::from(country.id()) << 20) ^ (u64::from(cid) << 4) ^ 0x1bad_b002,
             )) - 0.5)
                 * 0.12;
 
@@ -209,12 +209,13 @@ fn append_retail_orders_for_person(
     let reserve_ratio = params.investor_cash_reserve_ratio;
     let noise_prob = params.retail_noise_trade_prob;
 
-    let slot_seed =
-        hash64(day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id) << 32) ^ slot as u64);
-    let person = &country.people[person_idx];
+    let slot_seed = hash64(
+        day.wrapping_mul(0xb5ad4eceda1ce2a9) ^ (u64::from(country.id()) << 32) ^ slot as u64,
+    );
+    let person = &country.people()[person_idx];
     let person_id = person.id;
     let person_cash = person.cash_balance;
-    let portfolio = country.stock_market.person_portfolios.get(&person_id);
+    let portfolio = country.stock_market().person_portfolios.get(&person_id);
 
     for (symbol_idx, context) in symbol_contexts.iter().enumerate() {
         if !context.retail_enabled {
@@ -341,7 +342,7 @@ fn append_retail_orders_for_person(
 
 fn build_person_index_lookup(country: &crate::sim::country::Country) -> PersonIndexLookup {
     country
-        .people
+        .people()
         .iter()
         .enumerate()
         .map(|(idx, person)| (person.id, idx))

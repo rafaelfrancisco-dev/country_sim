@@ -83,7 +83,8 @@ impl Country {
                     }
                     None => {
                         // Bank dividend goes to reserves
-                        self.bank.reserve_balance = round_cents(self.bank.reserve_balance + gross);
+                        self.primary_bank_mut().reserve_balance =
+                            round_cents(self.primary_bank_mut().reserve_balance + gross);
                         self.stock_market.bank_portfolio.dividends_mtd =
                             round_cents(self.stock_market.bank_portfolio.dividends_mtd + gross);
                         total_paid = round_cents(total_paid + gross);

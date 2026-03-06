@@ -162,25 +162,25 @@ fn scaled_count(total: usize, intensity_pct: u8) -> usize {
 }
 
 fn apply_company_bankruptcy_wave(country: &mut Country, intensity_pct: u8) -> usize {
-    let count = scaled_count(country.companies.len(), intensity_pct);
+    let count = scaled_count(country.companies().len(), intensity_pct);
     if count == 0 {
         return 0;
     }
 
-    let start_idx = country.companies.len().saturating_sub(count);
-    let indices: Vec<usize> = (start_idx..country.companies.len()).collect();
+    let start_idx = country.companies().len().saturating_sub(count);
+    let indices: Vec<usize> = (start_idx..country.companies().len()).collect();
     country.resolve_company_bankruptcies(indices);
     count
 }
 
 fn apply_population_loss(country: &mut Country, intensity_pct: u8) -> usize {
-    let count = scaled_count(country.people.len(), intensity_pct);
+    let count = scaled_count(country.people().len(), intensity_pct);
     if count == 0 {
         return 0;
     }
 
-    let split_idx = country.people.len().saturating_sub(count);
-    let removed_people = country.people.split_off(split_idx);
+    let split_idx = country.people().len().saturating_sub(count);
+    let removed_people = country.people_mut().split_off(split_idx);
 
     for mut person in removed_people {
         if let Some(loan) = person.loan.take() {
@@ -189,18 +189,21 @@ fn apply_population_loss(country: &mut Country, intensity_pct: u8) -> usize {
             let principal_written_off = if let Some(bank) = country.bank_by_id_mut(lender_bank_id) {
                 bank.write_off_loan(&mut loan_slot)
             } else {
-                country.bank.write_off_loan(&mut loan_slot)
+                country.primary_bank_mut().write_off_loan(&mut loan_slot)
             };
             if principal_written_off > 0.0 {
-                country.pending_events.push(SimEvent::LoanWrittenOff {
-                    country_name: country.name.clone(),
+                country.push_pending_event(SimEvent::LoanWrittenOff {
+                    country_name: country.name().to_string(),
                     entity_id: person.id,
                     principal_lost: principal_written_off,
-                    day: country.day,
+                    day: country.day(),
                 });
             }
         }
-        country.stock_market.person_portfolios.remove(&person.id);
+        country
+            .stock_market_mut()
+            .person_portfolios
+            .remove(&person.id);
     }
 
     count
@@ -215,7 +218,7 @@ fn apply_stock_market_crash(country: &mut Country, intensity_pct: u8) -> usize {
         market_cap,
         shares_outstanding,
         ..
-    } in country.stock_market.listed.values_mut()
+    } in country.stock_market_mut().listed.values_mut()
     {
         let next_price = round_cents(((*last_price * crash_factor).max(floor)).max(0.0));
         if (next_price - *last_price).abs() > f64::EPSILON {
@@ -238,11 +241,7 @@ fn apply_bank_reserve_drain(country: &mut Country, intensity_pct: u8) -> f64 {
         drained_total = round_cents(drained_total + drained);
     };
 
-    apply_drain(
-        &mut country.bank.reserve_balance,
-        &mut country.bank.equity_capital,
-    );
-    for bank in &mut country.banks {
+    for bank in country.all_banks_mut() {
         apply_drain(&mut bank.reserve_balance, &mut bank.equity_capital);
     }
 
@@ -278,10 +277,10 @@ fn apply_loan_default_wave(country: &mut Country, intensity_pct: u8) -> f64 {
         principal_writeoff
     };
 
-    for person in &mut country.people {
+    for person in country.people_mut() {
         apply_wave_to_loan(&mut person.loan);
     }
-    for company in &mut country.companies {
+    for company in country.companies_mut() {
         apply_wave_to_loan(&mut company.loan);
     }
 
@@ -290,8 +289,9 @@ fn apply_loan_default_wave(country: &mut Country, intensity_pct: u8) -> f64 {
             bank.created_money_outstanding =
                 round_cents((bank.created_money_outstanding - amount).max(0.0));
         } else {
-            country.bank.created_money_outstanding =
-                round_cents((country.bank.created_money_outstanding - amount).max(0.0));
+            let primary_bank = country.primary_bank_mut();
+            primary_bank.created_money_outstanding =
+                round_cents((primary_bank.created_money_outstanding - amount).max(0.0));
         }
     }
 
@@ -300,15 +300,15 @@ fn apply_loan_default_wave(country: &mut Country, intensity_pct: u8) -> f64 {
 
 fn apply_treasury_shock(country: &mut Country, intensity_pct: u8) -> f64 {
     let ratio = f64::from(intensity_pct) / 100.0;
-    let removed = round_cents(country.treasury_balance.max(0.0) * ratio);
-    country.treasury_balance = round_cents((country.treasury_balance - removed).max(0.0));
+    let removed = round_cents(country.treasury_balance().max(0.0) * ratio);
+    *country.treasury_balance_mut() = round_cents((country.treasury_balance() - removed).max(0.0));
     removed
 }
 
 fn apply_demand_shock(country: &mut Country, intensity_pct: u8) -> f64 {
     let ratio = f64::from(intensity_pct) / 100.0;
     let mut removed_total = 0.0;
-    for person in &mut country.people {
+    for person in country.people_mut() {
         let removed = round_cents(person.cash_balance.max(0.0) * ratio);
         person.cash_balance = round_cents((person.cash_balance - removed).max(0.0));
         removed_total = round_cents(removed_total + removed);

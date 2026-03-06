@@ -84,8 +84,8 @@ impl Country {
                     bank_id,
                     job_type_id: jt,
                 } => {
-                    let bank_opt = if self.bank.id == bank_id {
-                        Some(&mut self.bank)
+                    let bank_opt = if self.primary_bank().id == bank_id {
+                        Some(self.primary_bank_mut())
                     } else {
                         self.banks.iter_mut().find(|b| b.id == bank_id)
                     };

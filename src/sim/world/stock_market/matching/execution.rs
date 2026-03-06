@@ -6,7 +6,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
     country: &mut crate::sim::country::Country,
     day: u64,
 ) {
-    let params = country.sim_params.stock_market;
+    let params = country.sim_params().stock_market;
     let cap = params.daily_participant_cap;
     let spread_frac = params.maker_spread_bps as f64 / 10_000.0;
     let max_float_frac = params.max_order_fraction_of_float;
@@ -17,7 +17,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
         return;
     }
 
-    let people_count = country.people.len();
+    let people_count = country.people().len();
     if people_count == 0 {
         return;
     }
@@ -31,7 +31,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
     let sample_count = sample_target.min(people_count);
 
     let sampled_people =
-        deterministic_sample_people_indices(people_count, sample_count, day, country.id);
+        deterministic_sample_people_indices(people_count, sample_count, day, country.id());
     let should_parallel_retail =
         sampled_people.len() >= RETAIL_PAR_PARTICIPANT_THRESHOLD && symbol_contexts.len() > 1;
     let mut scratch = if should_parallel_retail {
@@ -76,12 +76,12 @@ pub(in crate::sim::world) fn run_country_stock_market(
         local
     };
 
-    let bank_equity_exposure = country.stock_market.bank_equity_exposure();
+    let bank_equity_exposure = country.stock_market().bank_equity_exposure();
     let market_bank_reserve = country
         .stock_market_bank_id()
         .and_then(|bank_id| country.bank_by_id(bank_id))
         .map(|bank| bank.reserve_balance)
-        .unwrap_or(country.bank.reserve_balance);
+        .unwrap_or(country.primary_bank().reserve_balance);
     let bank_equity_budget = params.bank_max_equity_reserve_fraction * market_bank_reserve;
     let bank_equity_headroom = (bank_equity_budget - bank_equity_exposure).max(0.0);
 
@@ -115,7 +115,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
         }
 
         let bank_inventory = country
-            .stock_market
+            .stock_market()
             .bank_portfolio
             .position(context.company_id)
             .map_or(0, |position| position.shares);
@@ -148,9 +148,9 @@ pub(in crate::sim::world) fn run_country_stock_market(
         }
     }
 
-    country.stock_market.day_active_traders_count = scratch.active_traders.len();
-    country.stock_market.day_buy_orders_count = scratch.buy_orders_count;
-    country.stock_market.day_sell_orders_count = scratch.sell_orders_count;
+    country.stock_market_mut().day_active_traders_count = scratch.active_traders.len();
+    country.stock_market_mut().day_buy_orders_count = scratch.buy_orders_count;
+    country.stock_market_mut().day_sell_orders_count = scratch.sell_orders_count;
 
     let should_parallel_match = symbol_contexts.len() >= MATCH_PAR_SYMBOL_THRESHOLD
         && scratch
@@ -198,7 +198,7 @@ pub(in crate::sim::world) fn run_country_stock_market(
 
         settle_fills(country, &person_index_lookup, &result.fills);
         let company_id = symbol_contexts[result.symbol_idx].company_id;
-        if let Some(equity) = country.stock_market.listed.get(&company_id) {
+        if let Some(equity) = country.stock_market().listed.get(&company_id) {
             total_market_cap += equity.market_cap;
             total_turnover += equity.day_turnover;
             listed_count += 1;
@@ -206,8 +206,8 @@ pub(in crate::sim::world) fn run_country_stock_market(
     }
 
     if listed_count > 0 && total_turnover > 0.0 {
-        country.pending_events.push(SimEvent::StockMarketClose {
-            country_name: country.name.clone(),
+        country.push_pending_event(SimEvent::StockMarketClose {
+            country_name: country.name().to_string(),
             day,
             total_market_cap: round_cents(total_market_cap),
             total_turnover: round_cents(total_turnover),
@@ -292,7 +292,9 @@ fn settle_fills(
     person_index_lookup: &PersonIndexLookup,
     fills: &[TradeFill],
 ) {
-    let stock_bank_id = country.stock_market_bank_id().unwrap_or(country.bank.id);
+    let stock_bank_id = country
+        .stock_market_bank_id()
+        .unwrap_or(country.primary_bank().id);
     for fill in fills {
         let cid = fill.company_id;
         let cost = round_cents(fill.shares as f64 * fill.price);
@@ -301,7 +303,7 @@ fn settle_fills(
         let buyer_ok = match fill.buyer {
             TraderId::Person(pid) => person_index_lookup
                 .get(&pid)
-                .and_then(|idx| country.people.get(*idx))
+                .and_then(|idx| country.people().get(*idx))
                 .is_some_and(|person| person.cash_balance >= cost),
             TraderId::Bank => country
                 .bank_by_id(stock_bank_id)
@@ -310,13 +312,13 @@ fn settle_fills(
 
         let seller_ok = match fill.seller {
             TraderId::Person(pid) => country
-                .stock_market
+                .stock_market()
                 .person_portfolios
                 .get(&pid)
                 .and_then(|portfolio| portfolio.position(cid))
                 .is_some_and(|position| position.shares >= fill.shares),
             TraderId::Bank => country
-                .stock_market
+                .stock_market()
                 .bank_portfolio
                 .position(cid)
                 .is_some_and(|position| position.shares >= fill.shares),
@@ -329,22 +331,21 @@ fn settle_fills(
         match fill.buyer {
             TraderId::Person(pid) => {
                 if let Some(&person_idx) = person_index_lookup.get(&pid)
-                    && let Some(person) = country.people.get_mut(person_idx)
+                    && let Some(person) = country.people_mut().get_mut(person_idx)
                 {
                     person.cash_balance = round_cents(person.cash_balance - cost);
                 }
-                country.stock_market.person_portfolio_mut(pid).add_shares(
-                    cid,
-                    fill.shares,
-                    fill.price,
-                );
+                country
+                    .stock_market_mut()
+                    .person_portfolio_mut(pid)
+                    .add_shares(cid, fill.shares, fill.price);
             }
             TraderId::Bank => {
                 if let Some(bank) = country.bank_by_id_mut(stock_bank_id) {
                     bank.reserve_balance = round_cents(bank.reserve_balance - cost).max(0.0);
                 }
                 country
-                    .stock_market
+                    .stock_market_mut()
                     .bank_portfolio
                     .add_shares(cid, fill.shares, fill.price);
             }
@@ -352,27 +353,29 @@ fn settle_fills(
 
         match fill.seller {
             TraderId::Person(pid) => {
-                if let Some(portfolio) = country.stock_market.person_portfolios.get_mut(&pid) {
+                if let Some(portfolio) = country.stock_market_mut().person_portfolios.get_mut(&pid)
+                {
                     portfolio.remove_shares(cid, fill.shares, fill.price);
                 }
                 if let Some(&person_idx) = person_index_lookup.get(&pid)
-                    && let Some(person) = country.people.get_mut(person_idx)
+                    && let Some(person) = country.people_mut().get_mut(person_idx)
                 {
                     person.cash_balance = round_cents(person.cash_balance + proceeds);
                 }
             }
             TraderId::Bank => {
-                country
-                    .stock_market
-                    .bank_portfolio
-                    .remove_shares(cid, fill.shares, fill.price);
+                country.stock_market_mut().bank_portfolio.remove_shares(
+                    cid,
+                    fill.shares,
+                    fill.price,
+                );
                 if let Some(bank) = country.bank_by_id_mut(stock_bank_id) {
                     bank.reserve_balance = round_cents(bank.reserve_balance + proceeds);
                 }
             }
         }
 
-        if let Some(equity) = country.stock_market.listed.get_mut(&cid) {
+        if let Some(equity) = country.stock_market_mut().listed.get_mut(&cid) {
             equity.record_trade(fill.shares, fill.price);
         }
     }

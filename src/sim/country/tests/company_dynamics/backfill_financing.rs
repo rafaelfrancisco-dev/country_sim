@@ -156,7 +156,7 @@ fn government_backfill_financing_uses_treasury_then_deficit() {
     assert_eq!(country.companies.len(), 1);
     assert!(country.companies[0].is_public_utility);
     assert!(country.gov_debt > 0.0);
-    assert!(country.bank.created_money_outstanding > 0.0);
+    assert!(country.primary_bank_mut().created_money_outstanding > 0.0);
     assert!(country.treasury_balance.abs() < 0.01);
     assert!(country.validate_money_invariants().is_empty());
 }

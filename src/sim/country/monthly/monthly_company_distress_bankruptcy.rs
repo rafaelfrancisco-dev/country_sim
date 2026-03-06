@@ -242,10 +242,18 @@ impl Country {
             let laid_off = self.layoff_all_people(company_id);
 
             let mut principal_written_off = 0.0;
+            let primary_bank_id = self.primary_bank().id;
+            let mut loan_slot = None;
             if let Some(company) = self.companies.get_mut(company_idx) {
                 company.open_positions.clear();
-                principal_written_off = self.bank.write_off_loan(&mut company.loan);
+                loan_slot = company.loan.take();
                 company.cash_balance = 0.0;
+            }
+            if let Some(bank) = self.bank_by_id_mut(primary_bank_id) {
+                principal_written_off = bank.write_off_loan(&mut loan_slot);
+            }
+            if let Some(company) = self.companies.get_mut(company_idx) {
+                company.loan = loan_slot;
             }
 
             // Delist stock before emitting bankruptcy event

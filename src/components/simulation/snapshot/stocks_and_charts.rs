@@ -56,25 +56,31 @@ pub(in crate::components::simulation) fn build_charts_tab_snapshot(
 fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
     let population_by_country = build_pie_chart(
         "Population by Country",
-        world.countries.iter().map(|country| {
-            (country.name.clone(), country.population() as f64)
-        }),
+        world
+            .countries
+            .iter()
+            .map(|country| (country.name.clone(), country.population() as f64)),
     );
     let money_supply_by_country = build_pie_chart(
         "Total Money Supply by Country",
-        world.countries
+        world
+            .countries
             .iter()
             .map(|country| (country.name.clone(), country.total_money_supply)),
     );
     let stock_cap_by_country = build_pie_chart(
         "Stock Market Cap by Country",
         world.countries.iter().map(|country| {
-            (country.name.clone(), country.stock_market.total_market_cap())
+            (
+                country.name.clone(),
+                country.stock_market.total_market_cap(),
+            )
         }),
     );
     let treasury_by_country = build_pie_chart(
         "Treasury Balance by Country",
-        world.countries
+        world
+            .countries
             .iter()
             .map(|country| (country.name.clone(), country.treasury_balance.max(0.0))),
     );
@@ -160,10 +166,16 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
         wealth_breakdown: build_pie_chart(
             "Wealth Breakdown",
             [
-                ("Household Cash".to_string(), country.household_cash_total),
-                ("Company Cash".to_string(), country.company_cash_total),
-                ("Treasury".to_string(), country.treasury_balance.max(0.0)),
-                ("Bank Reserve".to_string(), country.bank.reserve_balance.max(0.0)),
+                ("Household Cash".to_string(), country.household_cash_total()),
+                ("Company Cash".to_string(), country.company_cash_total()),
+                ("Treasury".to_string(), country.treasury_balance().max(0.0)),
+                (
+                    "Bank Reserve".to_string(),
+                    country
+                        .public_bank()
+                        .map(|bank| bank.reserve_balance.max(0.0))
+                        .unwrap_or(0.0),
+                ),
             ],
         ),
     }

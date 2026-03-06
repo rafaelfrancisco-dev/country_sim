@@ -7,9 +7,7 @@ impl Country {
         self.recompute_bank_deposit_liabilities();
 
         let params = self.sim_params.banking;
-        let bank_ids = std::iter::once(self.bank.id)
-            .chain(self.banks.iter().map(|bank| bank.id))
-            .collect::<Vec<_>>();
+        let bank_ids = self.banks.iter().map(|bank| bank.id).collect::<Vec<_>>();
         let run_threshold = params.run_health_threshold.clamp(0.0, 1.0);
         let run_decay = (1.0 - params.run_intensity_decay_monthly.clamp(0.0, 1.0)).clamp(0.0, 1.0);
         let terminal_resolution_months = params.terminal_resolution_months.max(1);
@@ -392,7 +390,7 @@ impl Country {
                     let shortfall =
                         round_cents((treasury_support_total - self.treasury_balance).max(0.0));
                     self.treasury_balance = 0.0;
-                    let monetized = self.bank.fund_government_deficit(shortfall);
+                    let monetized = self.primary_bank_mut().fund_government_deficit(shortfall);
                     self.gov_debt = round_cents(self.gov_debt + monetized);
                     self.treasury_balance = round_cents(self.treasury_balance + monetized);
                 }
@@ -426,8 +424,7 @@ impl Country {
         self.recompute_bank_deposit_liabilities();
     }
     fn healthiest_alternative_bank_id(&self, exclude_bank_id: u16) -> Option<u16> {
-        std::iter::once(&self.bank)
-            .chain(self.banks.iter())
+        self.all_banks()
             .filter(|bank| bank.id != exclude_bank_id && !bank.is_in_resolution)
             .max_by(|a, b| {
                 self.bank_health_score(a.id)

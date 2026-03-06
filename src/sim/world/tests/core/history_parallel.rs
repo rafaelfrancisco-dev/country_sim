@@ -57,10 +57,10 @@ fn world_history_retains_only_latest_limit() {
 #[test]
 fn bank_history_records_monthly_bank_metrics() {
     let mut country = Country::new(1, "A".to_string(), build_people(2));
-    country.bank.reserve_balance = 25_000.0;
-    country.bank.deposit_liabilities = 40_000.0;
-    country.bank.created_money_outstanding = 18_000.0;
-    country.bank.run_intensity = 0.35;
+    country.primary_bank_mut().reserve_balance = 25_000.0;
+    country.primary_bank_mut().deposit_liabilities = 40_000.0;
+    country.primary_bank_mut().created_money_outstanding = 18_000.0;
+    country.primary_bank_mut().run_intensity = 0.35;
     let world = World::new(vec![country]);
 
     let history = world

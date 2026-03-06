@@ -133,7 +133,10 @@ pub(super) fn world_state_hash(world: &World) -> u64 {
         mix_hash(&mut hash, country.monthly_goods_export_revenue.to_bits());
         mix_hash(&mut hash, country.monthly_essential_debt_spending.to_bits());
         mix_hash(&mut hash, country.total_money_supply.to_bits());
-        mix_hash(&mut hash, country.bank.created_money_outstanding.to_bits());
+        mix_hash(
+            &mut hash,
+            country.primary_bank().created_money_outstanding.to_bits(),
+        );
 
         for tariff in country.export_tariffs_by_good {
             mix_hash(&mut hash, tariff.to_bits());

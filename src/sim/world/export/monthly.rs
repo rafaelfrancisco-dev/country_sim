@@ -3,19 +3,19 @@ use super::*;
 
 impl World {
     pub(in crate::sim::world) fn push_export_snapshot(&mut self) {
-        let month = self.day / DAYS_PER_MONTH;
-        let month_start_day = self.day.saturating_sub(DAYS_PER_MONTH - 1);
-        let generation_seed = self.generation_seed;
+        let month = self.day() / DAYS_PER_MONTH;
+        let month_start_day = self.day().saturating_sub(DAYS_PER_MONTH - 1);
+        let generation_seed = self.generation_seed();
 
         let countries_data: Vec<CountryExportData> = {
-            let event_log = &self.event_log;
+            let event_log = self.event_log();
             self.countries
                 .iter()
                 .map(|country| collect_country_data(country, event_log, month_start_day, month))
                 .collect()
         };
 
-        self.export_queue.push(MonthlyExportData {
+        self.push_export_row(MonthlyExportData {
             month,
             generation_seed,
             countries: countries_data,
@@ -44,7 +44,7 @@ fn collect_country_data(
     let mut total_loan_balance = 0.0_f64;
     let mut count_with_unmet_needs = 0usize;
 
-    for person in &country.people {
+    for person in country.people() {
         if person.is_employed() {
             total_employed_population += 1;
         }
@@ -73,7 +73,7 @@ fn collect_country_data(
         }
     }
 
-    let population = country.people.len();
+    let population = country.people().len();
     let avg_age_years = if population > 0 {
         total_age_days as f64 / population as f64 / 365.0
     } else {
@@ -111,7 +111,7 @@ fn collect_country_data(
     let mut count_backfill = 0usize;
     let mut count_companies_with_loans = 0usize;
 
-    for company in &country.companies {
+    for company in country.companies() {
         total_employees += company.employee_count;
         total_open_positions += company
             .open_positions
@@ -157,7 +157,7 @@ fn collect_country_data(
     let mut total_deposit_liabilities = 0.0_f64;
     let mut private_bank_deposit_liabilities = 0.0_f64;
 
-    for bank in std::iter::once(&country.bank).chain(country.banks.iter()) {
+    for bank in country.all_banks() {
         let health = country.bank_health_score(bank.id).clamp(0.0, 1.0);
         bank_count_total += 1;
         bank_health_sum += health;
@@ -216,7 +216,7 @@ fn collect_country_data(
     };
 
     let private_people_depositors = country
-        .people
+        .people()
         .iter()
         .filter(|person| {
             person
@@ -226,7 +226,7 @@ fn collect_country_data(
         })
         .count();
     let private_company_depositors = country
-        .companies
+        .companies()
         .iter()
         .filter(|company| {
             company
@@ -235,15 +235,15 @@ fn collect_country_data(
                 .is_some_and(|bank| bank.kind == crate::sim::bank::BankKind::Private)
         })
         .count();
-    let private_people_depositor_share_pct = if country.people.is_empty() {
+    let private_people_depositor_share_pct = if country.people().is_empty() {
         0.0
     } else {
-        private_people_depositors as f64 / country.people.len() as f64 * 100.0
+        private_people_depositors as f64 / country.people().len() as f64 * 100.0
     };
-    let private_company_depositor_share_pct = if country.companies.is_empty() {
+    let private_company_depositor_share_pct = if country.companies().is_empty() {
         0.0
     } else {
-        private_company_depositors as f64 / country.companies.len() as f64 * 100.0
+        private_company_depositors as f64 / country.companies().len() as f64 * 100.0
     };
 
     // Event counting
@@ -252,41 +252,41 @@ fn collect_country_data(
     // Events from event_log (days 1 to month_end-1, already drained from previous days)
     for event in event_log {
         let (ev_country, ev_day) = event_country_and_day(event);
-        if ev_day >= month_start_day && ev_country == country.name {
+        if ev_day >= month_start_day && ev_country == country.name() {
             events.accumulate(event);
         }
     }
 
     // Events from pending_events (month-end day, not yet drained)
-    for event in &country.pending_events {
+    for event in country.pending_events() {
         events.accumulate(event);
     }
 
     CountryExportData {
         month,
-        id: country.id,
-        name: country.name.clone(),
+        id: country.id(),
+        name: country.name().to_string(),
         population,
-        treasury_balance: country.treasury_balance,
-        monthly_tax_collected: country.monthly_tax_collected,
-        monthly_tariff_collected: country.monthly_tariff_collected,
-        monthly_gov_spending: country.monthly_gov_spending,
-        monthly_budget_balance: country.monthly_budget_balance,
-        gov_debt: country.gov_debt,
-        monthly_household_spending: country.monthly_household_spending,
-        monthly_goods_import_spending: country.monthly_goods_import_spending,
-        monthly_goods_export_revenue: country.monthly_goods_export_revenue,
-        monthly_unmet_need_events: country.monthly_unmet_need_events,
-        monthly_essential_debt_spending: country.monthly_essential_debt_spending,
-        total_money_supply: country.total_money_supply,
-        household_cash_total: country.household_cash_total,
-        company_cash_total: country.company_cash_total,
+        treasury_balance: country.treasury_balance(),
+        monthly_tax_collected: country.monthly_tax_collected(),
+        monthly_tariff_collected: country.monthly_tariff_collected(),
+        monthly_gov_spending: country.monthly_gov_spending(),
+        monthly_budget_balance: country.monthly_budget_balance(),
+        gov_debt: country.gov_debt(),
+        monthly_household_spending: country.monthly_household_spending(),
+        monthly_goods_import_spending: country.monthly_goods_import_spending(),
+        monthly_goods_export_revenue: country.monthly_goods_export_revenue(),
+        monthly_unmet_need_events: country.monthly_unmet_need_events(),
+        monthly_essential_debt_spending: country.monthly_essential_debt_spending(),
+        total_money_supply: country.total_money_supply(),
+        household_cash_total: country.household_cash_total(),
+        company_cash_total: country.company_cash_total(),
         bank_reserve_balance: country.total_bank_reserves(),
         bank_created_money_outstanding: country.total_bank_created_money(),
-        expected_money_supply: country.expected_money_supply,
-        money_supply_gap: country.money_supply_gap,
-        monthly_money_minted: country.monthly_money_minted,
-        cumulative_money_minted: country.cumulative_money_minted,
+        expected_money_supply: country.expected_money_supply(),
+        money_supply_gap: country.money_supply_gap(),
+        monthly_money_minted: country.monthly_money_minted(),
+        cumulative_money_minted: country.cumulative_money_minted(),
         bank_count_total,
         bank_count_public,
         bank_count_private,
@@ -303,10 +303,10 @@ fn collect_country_data(
         private_bank_deposit_share_pct,
         private_people_depositor_share_pct,
         private_company_depositor_share_pct,
-        monthly_private_banks_founded: country.monthly_private_banks_founded,
-        cumulative_private_banks_founded: country.cumulative_private_banks_founded,
-        monthly_private_banks_closed: country.monthly_private_banks_closed,
-        cumulative_private_banks_closed: country.cumulative_private_banks_closed,
+        monthly_private_banks_founded: country.monthly_private_banks_founded(),
+        cumulative_private_banks_founded: country.cumulative_private_banks_founded(),
+        monthly_private_banks_closed: country.monthly_private_banks_closed(),
+        cumulative_private_banks_closed: country.cumulative_private_banks_closed(),
         employed_count,
         unemployed_count,
         labor_force_count,
@@ -320,7 +320,7 @@ fn collect_country_data(
         count_with_active_loans,
         avg_loan_balance,
         count_with_unmet_needs,
-        total_companies: country.companies.len(),
+        total_companies: country.companies().len(),
         total_employees,
         total_open_positions,
         total_company_cash,
@@ -355,17 +355,17 @@ fn collect_country_data(
         loans_defaulted: events.loans_defaulted,
         debt_distress_events: events.debt_distress_events,
         gov_transfers: events.gov_transfers,
-        hires_total: country.monthly_hires_total,
+        hires_total: country.monthly_hires_total(),
         stock_ipos: events.stock_ipos,
         stock_delistings: events.stock_delistings,
         stock_margin_calls: events.stock_margin_calls,
-        bonds_outstanding: country.bonds_outstanding,
-        bond_coupon_rate: country.bond_coupon_rate,
-        monthly_coupon_paid: country.monthly_coupon_paid,
-        monthly_bonds_issued: country.monthly_bonds_issued,
-        monthly_bonds_matured: country.monthly_bonds_matured,
-        cpi_index: country.cpi_index,
-        inflation_rate: country.monthly_inflation_rate,
-        policy_rate: country.policy_rate,
+        bonds_outstanding: country.bonds_outstanding(),
+        bond_coupon_rate: country.bond_coupon_rate(),
+        monthly_coupon_paid: country.monthly_coupon_paid(),
+        monthly_bonds_issued: country.monthly_bonds_issued(),
+        monthly_bonds_matured: country.monthly_bonds_matured(),
+        cpi_index: country.cpi_index(),
+        inflation_rate: country.monthly_inflation_rate(),
+        policy_rate: country.policy_rate(),
     }
 }

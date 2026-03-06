@@ -43,29 +43,29 @@ impl World {
     /// Push daily stock snapshot after all countries finish trading.
     /// Called from `run_daily_stock_market` when export is active.
     pub(in crate::sim::world) fn push_daily_stock_snapshot(&mut self) {
-        let day = self.day;
+        let day = self.day();
         for country in &self.countries {
-            if !country.sim_params.stock_market.enabled {
+            if !country.sim_params().stock_market.enabled {
                 continue;
             }
-            if country.stock_market.listed.is_empty() {
+            if country.stock_market().listed.is_empty() {
                 continue;
             }
 
             let trades_count: u64 = country
-                .stock_market
+                .stock_market()
                 .listed
                 .values()
                 .map(|e| e.day_trades_count)
                 .sum();
             let total_volume: u64 = country
-                .stock_market
+                .stock_market()
                 .listed
                 .values()
                 .map(|e| e.day_volume)
                 .sum();
             let total_turnover: f64 = country
-                .stock_market
+                .stock_market()
                 .listed
                 .values()
                 .map(|e| e.day_turnover)
@@ -74,32 +74,32 @@ impl World {
             self.stock_country_export_queue
                 .push(StockDailyCountryExportData {
                     day,
-                    country_id: country.id,
-                    country_name: country.name.clone(),
-                    listed_count: country.stock_market.listed_count(),
+                    country_id: country.id(),
+                    country_name: country.name().to_string(),
+                    listed_count: country.stock_market().listed_count(),
                     trades_count,
                     total_volume,
                     total_turnover,
-                    index_value: country.stock_market.index_value(),
-                    bank_equity_exposure: country.stock_market.bank_equity_exposure()
+                    index_value: country.stock_market().index_value(),
+                    bank_equity_exposure: country.stock_market().bank_equity_exposure()
                         + country.bank_cross_country_equity_exposure_cost(),
                     bank_reserve_balance: country.total_bank_reserves(),
-                    active_traders_count: country.stock_market.day_active_traders_count,
-                    buy_orders_count: country.stock_market.day_buy_orders_count,
-                    sell_orders_count: country.stock_market.day_sell_orders_count,
+                    active_traders_count: country.stock_market().day_active_traders_count,
+                    buy_orders_count: country.stock_market().day_buy_orders_count,
+                    sell_orders_count: country.stock_market().day_sell_orders_count,
                 });
 
-            for (cid, equity) in &country.stock_market.listed {
+            for (cid, equity) in &country.stock_market().listed {
                 let bank_shares = country
-                    .stock_market
+                    .stock_market()
                     .bank_portfolio
                     .position(*cid)
                     .map_or(0, |p| p.shares);
                 self.stock_equity_export_queue
                     .push(StockDailyEquityExportData {
                         day,
-                        country_id: country.id,
-                        country_name: country.name.clone(),
+                        country_id: country.id(),
+                        country_name: country.name().to_string(),
                         company_id: *cid,
                         ticker: equity.ticker.clone(),
                         close_price: equity.last_price,

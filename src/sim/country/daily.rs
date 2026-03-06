@@ -121,7 +121,7 @@ impl Country {
                     None => {}
                 }
 
-                let written_off = self.bank.write_off_loan(&mut person.loan);
+                let written_off = self.primary_bank_mut().write_off_loan(&mut person.loan);
                 if written_off > 0.0 {
                     self.pending_events.push(SimEvent::LoanWrittenOff {
                         country_name: self.name.clone(),
@@ -195,7 +195,7 @@ impl Country {
             .collect::<Vec<_>>();
         // Snapshot of all bank openings: (bank_id, openings)
         let bank_openings_snapshot: Vec<(BankId, Vec<BankJobOpening>)> =
-            std::iter::once(&self.bank)
+            std::iter::once(self.primary_bank())
                 .chain(self.banks.iter())
                 .map(|bank| (bank.id, bank.open_positions.clone()))
                 .collect();
@@ -380,7 +380,7 @@ impl Country {
             return true;
         }
 
-        let bank_openings_flat: Vec<Vec<BankJobOpening>> = std::iter::once(&self.bank)
+        let bank_openings_flat: Vec<Vec<BankJobOpening>> = std::iter::once(self.primary_bank())
             .chain(self.banks.iter())
             .map(|bank| bank.open_positions.clone())
             .collect();
@@ -388,7 +388,7 @@ impl Country {
             select_matching_bank_opening(&bank_openings_flat, qualification, seed ^ 0xBA1A_0002_u64)
         {
             let current_bank_id = if bank_idx == 0 {
-                self.bank.id
+                self.primary_bank().id
             } else if let Some(bank) = self.banks.get(bank_idx.saturating_sub(1)) {
                 bank.id
             } else {
@@ -411,8 +411,8 @@ impl Country {
         bank_id: BankId,
         job_type_id: JobTypeId,
     ) -> Option<(JobTypeId, f64)> {
-        if self.bank.id == bank_id {
-            return consume_bank_opening_by_job_type(&mut self.bank, job_type_id);
+        if self.primary_bank().id == bank_id {
+            return consume_bank_opening_by_job_type(self.primary_bank_mut(), job_type_id);
         }
         self.banks
             .iter_mut()

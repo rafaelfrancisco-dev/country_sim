@@ -39,8 +39,9 @@ impl World {
                 continue;
             }
 
-            let bank_ids = std::iter::once(home_country.bank.id)
-                .chain(home_country.banks.iter().map(|bank| bank.id))
+            let bank_ids = home_country
+                .all_banks()
+                .map(|bank| bank.id)
                 .collect::<Vec<_>>();
 
             for bank_id in bank_ids {
@@ -135,7 +136,7 @@ impl World {
 
                     let settlement_bank_id = target_country_mut
                         .stock_market_bank_id()
-                        .unwrap_or(target_country_mut.bank.id);
+                        .unwrap_or(target_country_mut.primary_bank().id);
                     if let Some(settlement_bank) =
                         target_country_mut.bank_by_id_mut(settlement_bank_id)
                     {

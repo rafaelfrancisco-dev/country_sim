@@ -8,44 +8,44 @@ pub(in crate::components::simulation) fn country_details_lines(
     };
     let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
-    let company_count = country.companies.len();
+    let company_count = country.companies().len();
     let public_utility_count = country
-        .companies
+        .companies()
         .iter()
         .filter(|company| company.is_public_utility)
         .count();
     let essential_backfill_count = country
-        .companies
+        .companies()
         .iter()
         .filter(|company| company.is_essential_backfill)
         .count();
     let total_open_slots: u64 = country
-        .companies
+        .companies()
         .iter()
         .flat_map(|company| company.open_positions.iter())
         .map(|opening| u64::from(opening.slots))
         .sum();
-    let listed_count = country.stock_market.listed_count();
-    let total_banks = 1 + country.banks.len();
-    let public_banks = std::iter::once(&country.bank)
-        .chain(country.banks.iter())
+    let listed_count = country.stock_market().listed_count();
+    let total_banks = country.banks().len();
+    let public_banks = country
+        .all_banks()
         .filter(|bank| bank.kind == crate::sim::bank::BankKind::Public)
         .count();
-    let banks_in_resolution = std::iter::once(&country.bank)
-        .chain(country.banks.iter())
+    let banks_in_resolution = country
+        .all_banks()
         .filter(|bank| bank.is_in_resolution)
         .count();
 
     let trade_balance =
-        country.monthly_goods_export_revenue - country.monthly_goods_import_spending;
-    let avg_export_tariff = if country.export_tariffs_by_good.is_empty() {
+        country.monthly_goods_export_revenue() - country.monthly_goods_import_spending();
+    let avg_export_tariff = if country.export_tariffs_by_good().is_empty() {
         0.0
     } else {
-        country.export_tariffs_by_good.iter().sum::<f64>()
-            / country.export_tariffs_by_good.len() as f64
+        country.export_tariffs_by_good().iter().sum::<f64>()
+            / country.export_tariffs_by_good().len() as f64
     };
     let (max_tariff_good_id, max_export_tariff) = country
-        .export_tariffs_by_good
+        .export_tariffs_by_good()
         .iter()
         .enumerate()
         .max_by(|(_, lhs), (_, rhs)| lhs.partial_cmp(rhs).unwrap_or(std::cmp::Ordering::Equal))
@@ -53,16 +53,16 @@ pub(in crate::components::simulation) fn country_details_lines(
         .unwrap_or((0, 0.0));
     let max_tariff_good_label = good_by_id(max_tariff_good_id).map_or("Unknown", |good| good.name);
 
-    let market_cap = country.stock_market.total_market_cap();
-    let index_value = country.stock_market.index_value();
-    let bank_equity_exposure = country.stock_market.bank_equity_exposure();
-    let daily_turnover = country.stock_market.total_daily_turnover();
+    let market_cap = country.stock_market().total_market_cap();
+    let index_value = country.stock_market().index_value();
+    let bank_equity_exposure = country.stock_market().bank_equity_exposure();
+    let daily_turnover = country.stock_market().total_daily_turnover();
 
     vec![
-        format!("Name: {}", country.name),
-        format!("Country ID: {}", country.id),
-        format!("Day: {}", world.day),
-        format!("Month: {}", country.month),
+        format!("Name: {}", country.name()),
+        format!("Country ID: {}", country.id()),
+        format!("Day: {}", world.day()),
+        format!("Month: {}", country.month()),
         String::new(),
         "Structure:".to_string(),
         format!("Population: {}", compact_count(country.population() as f64)),
@@ -87,15 +87,15 @@ pub(in crate::components::simulation) fn country_details_lines(
         "Money & Fiscal:".to_string(),
         format!(
             "Household Cash: {}",
-            money(country.household_cash_total, currency_symbol)
+            money(country.household_cash_total(), currency_symbol)
         ),
         format!(
             "Company Cash: {}",
-            money(country.company_cash_total, currency_symbol)
+            money(country.company_cash_total(), currency_symbol)
         ),
         format!(
             "Treasury: {}",
-            money(country.treasury_balance, currency_symbol)
+            money(country.treasury_balance(), currency_symbol)
         ),
         format!(
             "Bank Reserve: {}",
@@ -107,102 +107,107 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!(
             "Money Supply: {}",
-            money(country.total_money_supply, currency_symbol)
+            money(country.total_money_supply(), currency_symbol)
         ),
         format!(
             "Expected Supply: {}",
-            money(country.expected_money_supply, currency_symbol)
+            money(country.expected_money_supply(), currency_symbol)
         ),
         format!(
             "Supply Gap: {}",
-            money(country.money_supply_gap, currency_symbol)
+            money(country.money_supply_gap(), currency_symbol)
         ),
         format!(
             "MTD Tax Collected: {}",
-            money(country.monthly_tax_collected, currency_symbol)
+            money(country.monthly_tax_collected(), currency_symbol)
         ),
         format!(
             "MTD Gov Spending: {}",
-            money(country.monthly_gov_spending, currency_symbol)
+            money(country.monthly_gov_spending(), currency_symbol)
         ),
         format!(
             "MTD Budget Balance: {}",
-            money(country.monthly_budget_balance, currency_symbol)
+            money(country.monthly_budget_balance(), currency_symbol)
         ),
         format!(
             "Monetized Debt: {}",
-            money(country.gov_debt, currency_symbol)
+            money(country.gov_debt(), currency_symbol)
         ),
         format!(
             "Bonds Outstanding: {}",
-            money(country.bonds_outstanding, currency_symbol)
+            money(country.bonds_outstanding(), currency_symbol)
         ),
-        format!("Bond Coupon Rate: {:.2}%", country.bond_coupon_rate * 100.0),
+        format!(
+            "Bond Coupon Rate: {:.2}%",
+            country.bond_coupon_rate() * 100.0
+        ),
         format!(
             "Bond Months to Maturity: {}",
-            country.bond_months_to_maturity
+            country.bond_months_to_maturity()
         ),
         format!(
             "MTD Coupon Paid: {}",
-            money(country.monthly_coupon_paid, currency_symbol)
+            money(country.monthly_coupon_paid(), currency_symbol)
         ),
         format!(
             "MTD Bonds Issued: {}",
-            money(country.monthly_bonds_issued, currency_symbol)
+            money(country.monthly_bonds_issued(), currency_symbol)
         ),
         format!(
             "MTD Bonds Matured: {}",
-            money(country.monthly_bonds_matured, currency_symbol)
+            money(country.monthly_bonds_matured(), currency_symbol)
         ),
         "Monetary Operations:".to_string(),
-        if country.last_mint_inflation_shortfall == 0.0 && country.last_mint_unemployment_gap == 0.0
+        if country.last_mint_inflation_shortfall() == 0.0
+            && country.last_mint_unemployment_gap() == 0.0
         {
             "  Mint Active: No".to_string()
         } else {
             format!(
                 "  Inflation Gap: {:.2}pp / Unemp Gap: {:.2}pp",
-                country.last_mint_inflation_shortfall * 100.0,
-                country.last_mint_unemployment_gap * 100.0
+                country.last_mint_inflation_shortfall() * 100.0,
+                country.last_mint_unemployment_gap() * 100.0
             )
         },
-        if country.last_mint_inflation_shortfall != 0.0 || country.last_mint_unemployment_gap != 0.0
+        if country.last_mint_inflation_shortfall() != 0.0
+            || country.last_mint_unemployment_gap() != 0.0
         {
             format!(
                 "  MTD Minted:     {} (+{:.3}% of supply)",
-                money(country.monthly_money_minted, currency_symbol),
-                country.last_mint_fraction * 100.0
+                money(country.monthly_money_minted(), currency_symbol),
+                country.last_mint_fraction() * 100.0
             )
         } else {
             String::new()
         },
         format!(
             "  Cumul Minted:   {}",
-            money(country.cumulative_money_minted, currency_symbol)
+            money(country.cumulative_money_minted(), currency_symbol)
         ),
         String::new(),
         "Prices & Rates:".to_string(),
-        format!("CPI Index: {:.4}", country.cpi_index),
+        format!("CPI Index: {:.4}", country.cpi_index()),
         format!(
             "Inflation Rate (ann.): {:.2}%",
-            country.monthly_inflation_rate * 100.0
+            country.monthly_inflation_rate() * 100.0
         ),
-        format!("Policy Rate: {:.2}%", country.policy_rate * 100.0),
+        format!("Policy Rate: {:.2}%", country.policy_rate() * 100.0),
         format!("Bank Loan Rate: {:.2}%", country.bank_loan_rate() * 100.0),
         format!("Deposit Rate:  {:.2}%", country.deposit_rate() * 100.0),
         format!(
             "MTD Svgs Int:  {}",
-            money(country.monthly_savings_interest_paid, currency_symbol)
+            money(country.monthly_savings_interest_paid(), currency_symbol)
         ),
         String::new(),
         "Trade & Tariffs:".to_string(),
         format!(
             "MTD Household Spending: {}",
-            money(country.monthly_household_spending, currency_symbol)
+            money(country.monthly_household_spending(), currency_symbol)
         ),
         format!(
             "MTD Imports / Exports: {} / {}",
-            money(country.monthly_goods_import_spending, currency_symbol),
-            money(country.monthly_goods_export_revenue, currency_symbol)
+            money(country.monthly_goods_import_spending(), currency_symbol),
+            money(country.monthly_goods_export_revenue(), currency_symbol)
         ),
         format!(
             "MTD Trade Balance: {}",
@@ -210,7 +215,7 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!(
             "MTD Tariffs Collected: {}",
-            money(country.monthly_tariff_collected, currency_symbol)
+            money(country.monthly_tariff_collected(), currency_symbol)
         ),
         format!("Average Export Tariff: {:.2}%", avg_export_tariff * 100.0),
         format!(

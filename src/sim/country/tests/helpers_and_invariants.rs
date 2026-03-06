@@ -157,10 +157,10 @@ pub(super) fn expected_money_supply_tracks_created_and_minted_money() {
     country.process_end_of_month_loan_requests();
     country.recompute_aggregates();
 
-    assert!(country.bank.total_originated >= 0.0);
+    assert!(country.primary_bank_mut().total_originated >= 0.0);
     let expected = round_cents(
         country.initial_money_supply
-            + country.bank.created_money_outstanding
+            + country.primary_bank_mut().created_money_outstanding
             + country.cumulative_money_minted,
     );
     assert!((country.expected_money_supply - expected).abs() < f64::EPSILON);
@@ -202,7 +202,7 @@ pub(super) fn daily_job_market_hires_bank_workers_even_without_companies() {
     );
     person.cash_balance = -5_000.0;
     let mut country = Country::with_economy(1, "A".to_string(), vec![person], Vec::new(), 0.0);
-    country.bank.add_opening(2, 1);
+    country.primary_bank_mut().add_opening(2, 1);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;
@@ -220,7 +220,7 @@ pub(super) fn daily_job_market_hires_bank_workers_even_without_companies() {
 
     assert_eq!(
         country.people[0].employer_bank_id(),
-        Some(country.bank.id),
+        Some(country.primary_bank().id),
         "unemployed person should be hired by bank when only bank openings exist"
     );
 }
@@ -242,7 +242,7 @@ pub(super) fn daily_job_market_balances_company_and_bank_hiring() {
         ));
     }
     let mut country = Country::with_economy(1, "A".to_string(), people, companies, 0.0);
-    country.bank.add_opening(2, 20);
+    country.primary_bank_mut().add_opening(2, 20);
 
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;
@@ -288,13 +288,15 @@ pub(super) fn daily_deaths_remove_people_and_write_off_loans() {
     );
     person.cash_balance = 50.0;
     let mut country = Country::with_economy(1, "A".to_string(), vec![person], companies, 0.0);
-    country.bank.originate_loan(
+    let mut loan_slot = country.people[0].loan.take();
+    country.primary_bank_mut().originate_loan(
         1_000.0,
         3_000.0,
         DEFAULT_MAX_DEBT_TO_INCOME,
         DEFAULT_LOAN_APR,
-        &mut country.people[0].loan,
+        &mut loan_slot,
     );
+    country.people[0].loan = loan_slot;
 
     let mut params = country.sim_params.clone();
     params.demographic = DemographicParams {
@@ -310,7 +312,7 @@ pub(super) fn daily_deaths_remove_people_and_write_off_loans() {
     }
 
     assert!(country.people.is_empty());
-    assert!(country.bank.created_money_outstanding <= 1_000.0);
+    assert!(country.primary_bank_mut().created_money_outstanding <= 1_000.0);
 }
 
 #[test]

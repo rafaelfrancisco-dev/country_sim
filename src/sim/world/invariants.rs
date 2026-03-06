@@ -44,7 +44,7 @@ impl super::World {
             for violation in country.validate_money_invariants() {
                 violations.push(InvariantViolation {
                     code: violation.code,
-                    message: format!("country {}: {}", country.id, violation.message),
+                    message: format!("country {}: {}", country.id(), violation.message),
                 });
             }
         }

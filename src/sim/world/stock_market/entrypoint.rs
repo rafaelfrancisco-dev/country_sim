@@ -8,7 +8,9 @@ impl World {
     pub(in crate::sim::world) fn run_daily_stock_market(&mut self) {
         let mut active_country_indices = Vec::with_capacity(self.countries.len());
         for (idx, country) in self.countries.iter().enumerate() {
-            if country.sim_params.stock_market.enabled && !country.stock_market.listed.is_empty() {
+            if country.sim_params().stock_market.enabled
+                && !country.stock_market().listed.is_empty()
+            {
                 active_country_indices.push(idx);
             }
         }
@@ -40,9 +42,9 @@ impl World {
         // Close every active market day after exports are captured.
         for idx in active_country_indices {
             let country = &mut self.countries[idx];
-            country.stock_market.record_day_close(self.day);
+            country.stock_market_mut().record_day_close(self.day);
             if self.day.is_multiple_of(30) {
-                country.stock_market.gc_portfolios();
+                country.stock_market_mut().gc_portfolios();
             }
         }
     }

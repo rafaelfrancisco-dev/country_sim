@@ -5,7 +5,7 @@ impl Country {
         self.ensure_entity_deposit_assignments();
 
         let min_balance = self.sim_params.monetary.savings_min_balance;
-        let bank_ids = std::iter::once(self.bank.id)
+        let bank_ids = std::iter::once(self.primary_bank().id)
             .chain(self.banks.iter().map(|bank| bank.id))
             .collect::<Vec<_>>();
         let mut total_paid = 0.0_f64;
@@ -131,7 +131,7 @@ impl Country {
             let source_rate = self.deposit_rate_for(source_bank_id);
             let health_edge = (target_health - source_health).clamp(-1.0, 1.0);
             let rate_edge = (target_rate - source_rate).clamp(-0.05, 0.05);
-            let source_bias = if source_bank_id == self.bank.id {
+            let source_bias = if source_bank_id == self.primary_bank().id {
                 0.07
             } else {
                 0.03
@@ -163,7 +163,7 @@ impl Country {
             let source_rate = self.deposit_rate_for(source_bank_id);
             let health_edge = (target_health - source_health).clamp(-1.0, 1.0);
             let rate_edge = (target_rate - source_rate).clamp(-0.05, 0.05);
-            let source_bias = if source_bank_id == self.bank.id {
+            let source_bias = if source_bank_id == self.primary_bank().id {
                 0.04
             } else {
                 0.02

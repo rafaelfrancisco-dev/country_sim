@@ -9,14 +9,14 @@ impl World {
             return;
         }
 
-        let params = self.countries[0].sim_params.monetary;
+        let params = self.countries[0].sim_params().monetary;
         let count = self.countries.len() as f64;
 
         // Average annualised month-over-month inflation across countries
         let avg_inflation = self
             .countries
             .iter()
-            .map(|c| c.monthly_inflation_rate)
+            .map(|c| c.monthly_inflation_rate())
             .sum::<f64>()
             / count;
 
@@ -26,12 +26,12 @@ impl World {
             .iter()
             .map(|c| {
                 let labor_force = c
-                    .people
+                    .people()
                     .iter()
                     .filter(|p| p.is_labor_force_participant())
                     .count();
                 let unemployed = c
-                    .people
+                    .people()
                     .iter()
                     .filter(|p| {
                         p.is_labor_force_participant()
@@ -67,8 +67,8 @@ impl World {
         if (new_rate - old_rate).abs() >= params.rate_change_event_threshold {
             let day = self.day;
             for country in &mut self.countries {
-                country.pending_events.push(SimEvent::RatePolicyChange {
-                    country_name: country.name.clone(),
+                country.push_pending_event(SimEvent::RatePolicyChange {
+                    country_name: country.name().to_string(),
                     new_rate,
                     old_rate,
                     inflation_rate: avg_inflation,

@@ -28,72 +28,71 @@ const COMPANY_CHUNK_SIZE: usize = 16;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Country {
-    pub id: u16,
-    pub name: String,
-    pub people: Vec<Person>,
-    pub companies: Vec<Company>,
-    pub day: u64,
-    pub month: u64,
-    pub next_startup_serial: u32,
-    pub next_person_id: u32,
-    pub birth_carry: f64,
-    pub last_day_births: u32,
-    pub last_day_deaths: u32,
-    pub sim_params: SimulationParams,
-    pub treasury_balance: f64,
-    pub treasury_bank_id: Option<BankId>,
-    pub monthly_tax_collected: f64,
-    pub monthly_corporate_tax_collected: f64,
-    pub monthly_household_spending: f64,
-    pub monthly_tariff_collected: f64,
-    pub monthly_goods_import_spending: f64,
-    pub monthly_goods_export_revenue: f64,
-    pub monthly_unmet_need_events: u64,
-    pub monthly_essential_debt_spending: f64,
-    pub monthly_hires_total: u64,
-    pub monthly_private_banks_founded: u64,
-    pub cumulative_private_banks_founded: u64,
-    pub monthly_private_banks_closed: u64,
-    pub cumulative_private_banks_closed: u64,
-    pub monthly_gov_spending: f64,
-    pub monthly_budget_balance: f64,
-    pub monthly_gdp: f64,
-    pub austerity_active: bool,
-    pub gov_debt: f64,
+    pub(crate) id: u16,
+    pub(crate) name: String,
+    pub(crate) people: Vec<Person>,
+    pub(crate) companies: Vec<Company>,
+    pub(crate) day: u64,
+    pub(crate) month: u64,
+    pub(crate) next_startup_serial: u32,
+    pub(crate) next_person_id: u32,
+    pub(crate) birth_carry: f64,
+    pub(crate) last_day_births: u32,
+    pub(crate) last_day_deaths: u32,
+    pub(crate) sim_params: SimulationParams,
+    pub(crate) treasury_balance: f64,
+    pub(crate) treasury_bank_id: Option<BankId>,
+    pub(crate) monthly_tax_collected: f64,
+    pub(crate) monthly_corporate_tax_collected: f64,
+    pub(crate) monthly_household_spending: f64,
+    pub(crate) monthly_tariff_collected: f64,
+    pub(crate) monthly_goods_import_spending: f64,
+    pub(crate) monthly_goods_export_revenue: f64,
+    pub(crate) monthly_unmet_need_events: u64,
+    pub(crate) monthly_essential_debt_spending: f64,
+    pub(crate) monthly_hires_total: u64,
+    pub(crate) monthly_private_banks_founded: u64,
+    pub(crate) cumulative_private_banks_founded: u64,
+    pub(crate) monthly_private_banks_closed: u64,
+    pub(crate) cumulative_private_banks_closed: u64,
+    pub(crate) monthly_gov_spending: f64,
+    pub(crate) monthly_budget_balance: f64,
+    pub(crate) monthly_gdp: f64,
+    pub(crate) austerity_active: bool,
+    pub(crate) gov_debt: f64,
     // Sovereign bond state
-    pub bonds_outstanding: f64,
-    pub bond_coupon_rate: f64,
-    pub bond_months_to_maturity: u8,
+    pub(crate) bonds_outstanding: f64,
+    pub(crate) bond_coupon_rate: f64,
+    pub(crate) bond_months_to_maturity: u8,
     // Monthly bond trackers (reset each month)
-    pub monthly_coupon_paid: f64,
-    pub monthly_bonds_issued: f64,
-    pub monthly_bonds_matured: f64,
-    pub monthly_savings_interest_paid: f64,
-    pub monthly_money_minted: f64,
-    pub cumulative_money_minted: f64,
-    pub last_mint_inflation_shortfall: f64,
-    pub last_mint_unemployment_gap: f64,
-    pub last_mint_fraction: f64,
+    pub(crate) monthly_coupon_paid: f64,
+    pub(crate) monthly_bonds_issued: f64,
+    pub(crate) monthly_bonds_matured: f64,
+    pub(crate) monthly_savings_interest_paid: f64,
+    pub(crate) monthly_money_minted: f64,
+    pub(crate) cumulative_money_minted: f64,
+    pub(crate) last_mint_inflation_shortfall: f64,
+    pub(crate) last_mint_unemployment_gap: f64,
+    pub(crate) last_mint_fraction: f64,
     // Monetary policy (propagated from World each month)
-    pub policy_rate: f64,
+    pub(crate) policy_rate: f64,
     // CPI / inflation tracking (persistent; not reset monthly)
-    pub cpi_index: f64,
-    pub last_month_cpi_index: f64,
-    pub monthly_inflation_rate: f64,
-    pub stock_market: StockMarket,
-    pub export_tariffs_by_good: [f64; GOODS_COUNT],
-    pub pending_events: Vec<SimEvent>,
-    pub initial_money_supply: f64,
-    pub household_cash_total: f64,
-    pub company_cash_total: f64,
-    pub total_money_supply: f64,
-    pub expected_money_supply: f64,
-    pub money_supply_gap: f64,
-    pub bank: Bank,
-    pub banks: Vec<Bank>,
-    pub next_bank_id: BankId,
-    pub next_bank_serial: u32,
-    pub public_bank_id: Option<BankId>,
+    pub(crate) cpi_index: f64,
+    pub(crate) last_month_cpi_index: f64,
+    pub(crate) monthly_inflation_rate: f64,
+    pub(crate) stock_market: StockMarket,
+    pub(crate) export_tariffs_by_good: [f64; GOODS_COUNT],
+    pub(crate) pending_events: Vec<SimEvent>,
+    pub(crate) initial_money_supply: f64,
+    pub(crate) household_cash_total: f64,
+    pub(crate) company_cash_total: f64,
+    pub(crate) total_money_supply: f64,
+    pub(crate) expected_money_supply: f64,
+    pub(crate) money_supply_gap: f64,
+    pub(crate) banks: Vec<Bank>,
+    pub(crate) next_bank_id: BankId,
+    pub(crate) next_bank_serial: u32,
+    pub(crate) public_bank_id: Option<BankId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -204,8 +203,7 @@ impl Country {
             total_money_supply: 0.0,
             expected_money_supply: 0.0,
             money_supply_gap: 0.0,
-            bank: Bank::with_identity(0, public_bank_name, BankKind::Public),
-            banks: Vec::new(),
+            banks: vec![Bank::with_identity(0, public_bank_name, BankKind::Public)],
             next_bank_id: 1,
             next_bank_serial: 1,
             public_bank_id: Some(0),
@@ -224,41 +222,289 @@ impl Country {
         self.people.len()
     }
 
+    pub fn id(&self) -> u16 {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn people(&self) -> &[Person] {
+        &self.people
+    }
+
+    pub(crate) fn people_mut(&mut self) -> &mut Vec<Person> {
+        &mut self.people
+    }
+
+    pub fn companies(&self) -> &[Company] {
+        &self.companies
+    }
+
+    pub(crate) fn companies_mut(&mut self) -> &mut Vec<Company> {
+        &mut self.companies
+    }
+
+    pub fn day(&self) -> u64 {
+        self.day
+    }
+
+    pub fn month(&self) -> u64 {
+        self.month
+    }
+
+    pub fn sim_params(&self) -> &SimulationParams {
+        &self.sim_params
+    }
+
+    pub fn policy_rate(&self) -> f64 {
+        self.policy_rate
+    }
+
+    pub(crate) fn set_policy_rate(&mut self, rate: f64) {
+        self.policy_rate = rate;
+    }
+
+    pub fn stock_market(&self) -> &StockMarket {
+        &self.stock_market
+    }
+
+    pub(crate) fn stock_market_mut(&mut self) -> &mut StockMarket {
+        &mut self.stock_market
+    }
+
+    pub fn treasury_balance(&self) -> f64 {
+        self.treasury_balance
+    }
+
+    pub fn treasury_bank_id(&self) -> Option<BankId> {
+        self.treasury_bank_id
+    }
+
+    pub(crate) fn treasury_balance_mut(&mut self) -> &mut f64 {
+        &mut self.treasury_balance
+    }
+
+    pub fn total_money_supply(&self) -> f64 {
+        self.total_money_supply
+    }
+
+    pub fn household_cash_total(&self) -> f64 {
+        self.household_cash_total
+    }
+
+    pub fn company_cash_total(&self) -> f64 {
+        self.company_cash_total
+    }
+
+    pub fn expected_money_supply(&self) -> f64 {
+        self.expected_money_supply
+    }
+
+    pub fn money_supply_gap(&self) -> f64 {
+        self.money_supply_gap
+    }
+
+    pub fn monthly_budget_balance(&self) -> f64 {
+        self.monthly_budget_balance
+    }
+
+    pub fn monthly_household_spending(&self) -> f64 {
+        self.monthly_household_spending
+    }
+
+    pub fn monthly_tariff_collected(&self) -> f64 {
+        self.monthly_tariff_collected
+    }
+
+    pub fn monthly_tax_collected(&self) -> f64 {
+        self.monthly_tax_collected
+    }
+
+    pub fn monthly_gov_spending(&self) -> f64 {
+        self.monthly_gov_spending
+    }
+
+    pub fn gov_debt(&self) -> f64 {
+        self.gov_debt
+    }
+
+    pub fn monthly_money_minted(&self) -> f64 {
+        self.monthly_money_minted
+    }
+
+    pub fn cumulative_money_minted(&self) -> f64 {
+        self.cumulative_money_minted
+    }
+
+    pub fn last_mint_fraction(&self) -> f64 {
+        self.last_mint_fraction
+    }
+
+    pub fn last_mint_inflation_shortfall(&self) -> f64 {
+        self.last_mint_inflation_shortfall
+    }
+
+    pub fn last_mint_unemployment_gap(&self) -> f64 {
+        self.last_mint_unemployment_gap
+    }
+
+    pub fn monthly_goods_import_spending(&self) -> f64 {
+        self.monthly_goods_import_spending
+    }
+
+    pub fn monthly_goods_export_revenue(&self) -> f64 {
+        self.monthly_goods_export_revenue
+    }
+
+    pub fn monthly_unmet_need_events(&self) -> u64 {
+        self.monthly_unmet_need_events
+    }
+
+    pub fn monthly_essential_debt_spending(&self) -> f64 {
+        self.monthly_essential_debt_spending
+    }
+
+    pub fn cpi_index(&self) -> f64 {
+        self.cpi_index
+    }
+
+    pub fn monthly_inflation_rate(&self) -> f64 {
+        self.monthly_inflation_rate
+    }
+
+    pub fn monthly_savings_interest_paid(&self) -> f64 {
+        self.monthly_savings_interest_paid
+    }
+
+    pub fn bonds_outstanding(&self) -> f64 {
+        self.bonds_outstanding
+    }
+
+    pub fn bond_coupon_rate(&self) -> f64 {
+        self.bond_coupon_rate
+    }
+
+    pub fn bond_months_to_maturity(&self) -> u8 {
+        self.bond_months_to_maturity
+    }
+
+    pub fn monthly_coupon_paid(&self) -> f64 {
+        self.monthly_coupon_paid
+    }
+
+    pub fn monthly_bonds_issued(&self) -> f64 {
+        self.monthly_bonds_issued
+    }
+
+    pub fn monthly_bonds_matured(&self) -> f64 {
+        self.monthly_bonds_matured
+    }
+
+    pub fn monthly_private_banks_founded(&self) -> u64 {
+        self.monthly_private_banks_founded
+    }
+
+    pub fn cumulative_private_banks_founded(&self) -> u64 {
+        self.cumulative_private_banks_founded
+    }
+
+    pub fn monthly_private_banks_closed(&self) -> u64 {
+        self.monthly_private_banks_closed
+    }
+
+    pub fn cumulative_private_banks_closed(&self) -> u64 {
+        self.cumulative_private_banks_closed
+    }
+
+    pub fn monthly_hires_total(&self) -> u64 {
+        self.monthly_hires_total
+    }
+
+    pub fn export_tariffs_by_good(&self) -> &[f64; GOODS_COUNT] {
+        &self.export_tariffs_by_good
+    }
+
+    pub fn pending_events(&self) -> &[SimEvent] {
+        &self.pending_events
+    }
+
+    pub(crate) fn push_pending_event(&mut self, event: SimEvent) {
+        self.pending_events.push(event);
+    }
+
+    pub(crate) fn drain_pending_events(&mut self) -> impl Iterator<Item = SimEvent> + '_ {
+        self.pending_events.drain(..)
+    }
+
+    pub fn banks(&self) -> &[Bank] {
+        &self.banks
+    }
+
+    pub fn public_bank(&self) -> Option<&Bank> {
+        self.public_bank_id
+            .and_then(|bank_id| self.bank_by_id(bank_id))
+    }
+
+    pub(crate) fn primary_bank(&self) -> &Bank {
+        self.public_bank()
+            .or_else(|| self.banks.first())
+            .expect("country should always have at least one bank")
+    }
+
+    pub(crate) fn primary_bank_mut(&mut self) -> &mut Bank {
+        let bank_id = self.public_bank_id.or_else(|| self.first_bank_id());
+        let Some(bank_id) = bank_id else {
+            panic!("country should always have at least one bank");
+        };
+        self.bank_by_id_mut(bank_id)
+            .expect("country should always have a resolvable primary bank")
+    }
+
+    pub fn private_banks(&self) -> impl Iterator<Item = &Bank> {
+        self.banks
+            .iter()
+            .filter(|bank| Some(bank.id) != self.public_bank_id)
+    }
+
+    pub fn all_banks(&self) -> impl Iterator<Item = &Bank> {
+        self.banks.iter()
+    }
+
+    pub(crate) fn all_banks_mut(&mut self) -> impl Iterator<Item = &mut Bank> {
+        self.banks.iter_mut()
+    }
+
     pub fn total_bank_reserves(&self) -> f64 {
         round_cents(
-            self.bank.reserve_balance
-                + self
-                    .banks
-                    .iter()
-                    .map(|bank| bank.reserve_balance)
-                    .sum::<f64>(),
+            self.banks
+                .iter()
+                .map(|bank| bank.reserve_balance)
+                .sum::<f64>(),
         )
     }
 
     pub fn total_bank_created_money(&self) -> f64 {
         round_cents(
-            self.bank.created_money_outstanding
-                + self
-                    .banks
-                    .iter()
-                    .map(|bank| bank.created_money_outstanding)
-                    .sum::<f64>(),
+            self.banks
+                .iter()
+                .map(|bank| bank.created_money_outstanding)
+                .sum::<f64>(),
         )
     }
 
     pub fn total_bank_deposit_liabilities(&self) -> f64 {
         round_cents(
-            self.bank.deposit_liabilities
-                + self
-                    .banks
-                    .iter()
-                    .map(|bank| bank.deposit_liabilities)
-                    .sum::<f64>(),
+            self.banks
+                .iter()
+                .map(|bank| bank.deposit_liabilities)
+                .sum::<f64>(),
         )
     }
 
     pub fn first_bank_id(&self) -> Option<BankId> {
-        Some(self.bank.id)
+        self.banks.first().map(|bank| bank.id)
     }
 
     pub fn public_bank_id_or_first(&self) -> Option<BankId> {
@@ -266,16 +512,10 @@ impl Country {
     }
 
     pub fn bank_by_id(&self, bank_id: BankId) -> Option<&Bank> {
-        if self.bank.id == bank_id {
-            return Some(&self.bank);
-        }
         self.banks.iter().find(|bank| bank.id == bank_id)
     }
 
     pub fn bank_by_id_mut(&mut self, bank_id: BankId) -> Option<&mut Bank> {
-        if self.bank.id == bank_id {
-            return Some(&mut self.bank);
-        }
         self.banks.iter_mut().find(|bank| bank.id == bank_id)
     }
 
@@ -308,8 +548,8 @@ impl Country {
     }
 
     pub(crate) fn best_deposit_bank_id(&self) -> Option<BankId> {
-        std::iter::once(&self.bank)
-            .chain(self.banks.iter())
+        self.banks
+            .iter()
             .filter(|bank| !bank.is_in_resolution)
             .max_by(|a, b| {
                 self.deposit_rate_for(a.id)
@@ -320,19 +560,13 @@ impl Country {
     }
 
     pub fn bank_cross_country_equity_exposure_cost(&self) -> f64 {
-        let public_exposure = self
-            .bank
-            .stock_positions
-            .values()
-            .map(|position| position.shares as f64 * position.avg_cost)
-            .sum::<f64>();
-        let private_exposure = self
+        let total_exposure = self
             .banks
             .iter()
             .flat_map(|bank| bank.stock_positions.values())
             .map(|position| position.shares as f64 * position.avg_cost)
             .sum::<f64>();
-        round_cents(public_exposure + private_exposure)
+        round_cents(total_exposure)
     }
 
     pub fn bank_health_score(&self, bank_id: BankId) -> f64 {
@@ -354,8 +588,8 @@ impl Country {
     }
 
     pub fn healthiest_bank_id(&self) -> Option<BankId> {
-        std::iter::once(&self.bank)
-            .chain(self.banks.iter())
+        self.banks
+            .iter()
             .max_by(|a, b| {
                 self.bank_health_score(a.id)
                     .partial_cmp(&self.bank_health_score(b.id))
@@ -365,8 +599,8 @@ impl Country {
     }
 
     pub fn preferred_private_bank_id(&self) -> Option<BankId> {
-        std::iter::once(&self.bank)
-            .chain(self.banks.iter())
+        self.banks
+            .iter()
             .filter(|bank| bank.kind == BankKind::Private && !bank.is_in_resolution)
             .max_by(|a, b| {
                 self.bank_health_score(a.id)

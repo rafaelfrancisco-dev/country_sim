@@ -13,7 +13,7 @@ fn make_world_with_listed(people: Vec<Person>, initial_price: f64) -> World {
     let equity = ListedEquity::new(0, "TST".to_string(), initial_price, 1_000_000, 200_000);
     country.stock_market.listed.insert(0, equity);
     // Give bank some reserves for maker orders
-    country.bank.reserve_balance = 500_000.0;
+    country.primary_bank_mut().reserve_balance = 500_000.0;
     World::new(vec![country])
 }
 
@@ -48,7 +48,7 @@ fn retail_buy_sell_crosses_and_conserves_cash_and_shares() {
         .iter()
         .map(|p| p.cash_balance)
         .sum::<f64>()
-        + world.countries[0].bank.reserve_balance;
+        + world.countries[0].primary_bank().reserve_balance;
 
     world.run_daily_stock_market();
 
@@ -57,7 +57,7 @@ fn retail_buy_sell_crosses_and_conserves_cash_and_shares() {
         .iter()
         .map(|p| p.cash_balance)
         .sum::<f64>()
-        + world.countries[0].bank.reserve_balance;
+        + world.countries[0].primary_bank().reserve_balance;
 
     // Cash is conserved across people + bank (trades are zero-sum transfers)
     assert!(

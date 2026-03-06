@@ -485,7 +485,7 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
     );
 
     // Give bank initial reserve
-    country.bank.reserve_balance = 20_000.0;
+    country.primary_bank_mut().reserve_balance = 20_000.0;
 
     // List a company and give the person shares
     let equity = ListedEquity::new(0, "MCT".to_string(), 10.0, 1_000_000, 500);
@@ -497,7 +497,7 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
 
     // Give the person a loan they cannot pay (monthly_payment >> cash)
     let mut loan_slot = None;
-    country.bank.originate_loan(
+    country.primary_bank_mut().originate_loan(
         5_000.0,
         0.0,
         DEFAULT_LOAN_APR / DEFAULT_LOAN_TERM_MONTHS as f64 * 100.0,

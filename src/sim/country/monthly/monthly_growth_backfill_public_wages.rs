@@ -104,7 +104,7 @@ impl Country {
         let market_capacity = self.private_bank_capacity_target();
         let mut formed = 0_usize;
         while formed < formation_budget {
-            let private_count = std::iter::once(&self.bank)
+            let private_count = std::iter::once(self.primary_bank())
                 .chain(self.banks.iter())
                 .filter(|bank| bank.kind == BankKind::Private)
                 .count();
@@ -152,8 +152,8 @@ impl Country {
         // Guard: require deposit_liabilities > 10% of recapitalize_amount so we
         // don't false-trigger on a bank that simply has no loans/reserves yet.
         let min_deposits_to_recapitalize = params.public_bank_recapitalize_amount * 0.1;
-        if self.bank.deposit_liabilities >= min_deposits_to_recapitalize
-            && self.bank_health_score(self.bank.id)
+        if self.primary_bank().deposit_liabilities >= min_deposits_to_recapitalize
+            && self.bank_health_score(self.primary_bank().id)
                 < (params.public_health_floor + 0.05).clamp(0.0, 1.0)
         {
             self.recapitalize_public_bank(params.public_bank_recapitalize_amount);
@@ -184,7 +184,8 @@ impl Country {
         self.treasury_balance = round_cents(self.treasury_balance - treasury_funding);
         let deficit_need = round_cents((amount - treasury_funding).max(0.0));
         let deficit_funding = if deficit_need > 0.0 {
-            self.bank.fund_government_deficit(deficit_need)
+            self.primary_bank_mut()
+                .fund_government_deficit(deficit_need)
         } else {
             0.0
         };
@@ -193,8 +194,9 @@ impl Country {
         }
         let total = round_cents(treasury_funding + deficit_funding);
         if total > 0.0 {
-            self.bank.reserve_balance = round_cents(self.bank.reserve_balance + total);
-            self.bank.equity_capital = round_cents(self.bank.equity_capital + total);
+            let primary_bank = self.primary_bank_mut();
+            primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance + total);
+            primary_bank.equity_capital = round_cents(primary_bank.equity_capital + total);
         }
     }
 
@@ -267,7 +269,7 @@ impl Country {
             self.move_person_deposit_bank(idx, bank_id);
         }
         // Migrate some companies to give the new bank loan customers.
-        let public_id = self.public_bank_id.unwrap_or(self.bank.id);
+        let public_id = self.public_bank_id.unwrap_or(self.primary_bank().id);
         let company_movers: Vec<usize> = self
             .companies
             .iter()
@@ -392,7 +394,8 @@ impl Country {
 
         let deficit_need = round_cents((required_capital - treasury_funding).max(0.0));
         let deficit_funding = if deficit_need > 0.0 {
-            self.bank.fund_government_deficit(deficit_need)
+            self.primary_bank_mut()
+                .fund_government_deficit(deficit_need)
         } else {
             0.0
         };

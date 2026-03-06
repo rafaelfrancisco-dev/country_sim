@@ -62,19 +62,19 @@ pub struct MetricPoint {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct World {
-    pub day: u64,
-    pub generation_seed: u64,
-    pub countries: Vec<Country>,
-    pub paused: bool,
-    pub policy_rate: f64,
-    pub world_history: Vec<MetricPoint>,
-    pub country_history: Vec<Vec<MetricPoint>>,
-    pub bank_history: std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>>,
-    pub event_log: Vec<SimEvent>,
-    pub export_queue: Vec<MonthlyExportData>,
-    pub export_queue_active: bool,
-    pub stock_country_export_queue: Vec<StockDailyCountryExportData>,
-    pub stock_equity_export_queue: Vec<StockDailyEquityExportData>,
+    pub(crate) day: u64,
+    pub(crate) generation_seed: u64,
+    pub(crate) countries: Vec<Country>,
+    pub(crate) paused: bool,
+    pub(crate) policy_rate: f64,
+    pub(crate) world_history: Vec<MetricPoint>,
+    pub(crate) country_history: Vec<Vec<MetricPoint>>,
+    pub(crate) bank_history: std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>>,
+    pub(crate) event_log: Vec<SimEvent>,
+    pub(crate) export_queue: Vec<MonthlyExportData>,
+    pub(crate) export_queue_active: bool,
+    pub(crate) stock_country_export_queue: Vec<StockDailyCountryExportData>,
+    pub(crate) stock_equity_export_queue: Vec<StockDailyEquityExportData>,
 }
 
 impl World {
@@ -113,6 +113,65 @@ impl World {
         self.countries.iter().map(Country::population).sum()
     }
 
+    pub fn day(&self) -> u64 {
+        self.day
+    }
+
+    pub fn generation_seed(&self) -> u64 {
+        self.generation_seed
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn policy_rate(&self) -> f64 {
+        self.policy_rate
+    }
+
+    pub fn countries(&self) -> &[Country] {
+        &self.countries
+    }
+
+    pub fn country(&self, index: usize) -> Option<&Country> {
+        self.countries.get(index)
+    }
+
+    pub fn country_mut(&mut self, index: usize) -> Option<&mut Country> {
+        self.countries.get_mut(index)
+    }
+
+    pub fn country_count(&self) -> usize {
+        self.countries.len()
+    }
+
+    pub fn world_history(&self) -> &[MetricPoint] {
+        &self.world_history
+    }
+
+    pub fn country_history(&self) -> &[Vec<MetricPoint>] {
+        &self.country_history
+    }
+
+    pub fn bank_history(&self) -> &std::collections::HashMap<(usize, u16), Vec<BankMetricPoint>> {
+        &self.bank_history
+    }
+
+    pub fn event_log(&self) -> &[SimEvent] {
+        &self.event_log
+    }
+
+    pub(crate) fn push_export_row(&mut self, row: MonthlyExportData) {
+        self.export_queue.push(row);
+    }
+
+    fn trim_event_log(&mut self) {
+        if self.event_log.len() > EVENT_LOG_LIMIT {
+            let evict = EVENT_LOG_LIMIT / 4;
+            self.event_log.drain(0..evict);
+        }
+    }
+
     #[cfg(test)]
     pub fn completed_month_boundaries(&self) -> u64 {
         self.day / DAYS_PER_MONTH
@@ -122,20 +181,17 @@ impl World {
         let pending: Vec<SimEvent> = self
             .countries
             .iter_mut()
-            .flat_map(|c| c.pending_events.drain(..))
+            .flat_map(Country::drain_pending_events)
             .collect();
         self.event_log.extend(pending);
-        if self.event_log.len() > EVENT_LOG_LIMIT {
-            let evict = EVENT_LOG_LIMIT / 4;
-            self.event_log.drain(0..evict);
-        }
+        self.trim_event_log();
     }
 
     fn update_policy_rate_and_propagate(&mut self) {
         self.update_policy_rate();
         let rate = self.policy_rate;
         for country in &mut self.countries {
-            country.policy_rate = rate;
+            country.set_policy_rate(rate);
         }
     }
 

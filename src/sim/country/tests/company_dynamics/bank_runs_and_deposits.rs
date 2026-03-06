@@ -17,8 +17,8 @@ fn private_bank_can_be_formed_from_founder_capital() {
 
     country.process_bank_formation();
 
-    let private_count = std::iter::once(&country.bank)
-        .chain(country.banks.iter())
+    let private_count = country
+        .all_banks()
         .filter(|bank| bank.kind == BankKind::Private)
         .count();
     assert!(private_count >= 1);
@@ -106,12 +106,7 @@ fn ten_year_monthly_banking_simulation_keeps_invariants() {
 
     assert!(country.total_bank_reserves().is_finite());
     assert!(country.total_bank_created_money().is_finite());
-    assert!(
-        std::iter::once(&country.bank)
-            .chain(country.banks.iter())
-            .count()
-            >= 1
-    );
+    assert!(country.all_banks().count() >= 1);
 }
 
 #[test]
@@ -120,10 +115,10 @@ fn moving_deposit_bank_transfers_reserve_assets() {
     let private_bank_id = country
         .create_bank(BankKind::Private, 1_000.0)
         .expect("private bank should be created");
-    country.bank.reserve_balance = 50_000.0;
+    country.primary_bank_mut().reserve_balance = 50_000.0;
     country.people[0].cash_balance = 10_000.0;
-    country.people[0].deposit_bank_id = Some(country.bank.id);
-    let public_before = country.bank.reserve_balance;
+    country.people[0].deposit_bank_id = Some(country.primary_bank().id);
+    let public_before = country.primary_bank().reserve_balance;
     let private_before = country
         .bank_by_id(private_bank_id)
         .map(|bank| bank.reserve_balance)
@@ -131,7 +126,7 @@ fn moving_deposit_bank_transfers_reserve_assets() {
 
     country.move_person_deposit_bank(0, private_bank_id);
 
-    let public_after = country.bank.reserve_balance;
+    let public_after = country.primary_bank().reserve_balance;
     let private_after = country
         .bank_by_id(private_bank_id)
         .map(|bank| bank.reserve_balance)
@@ -146,9 +141,9 @@ fn moving_deposit_bank_from_public_uses_settlement_backstop() {
     let private_bank_id = country
         .create_bank(BankKind::Private, 1_000.0)
         .expect("private bank should be created");
-    country.bank.reserve_balance = 500.0;
+    country.primary_bank_mut().reserve_balance = 500.0;
     country.people[0].cash_balance = 10_000.0;
-    country.people[0].deposit_bank_id = Some(country.bank.id);
+    country.people[0].deposit_bank_id = Some(country.primary_bank().id);
 
     let moved = country.move_person_deposit_bank(0, private_bank_id);
 
@@ -228,7 +223,7 @@ fn bank_resolution_requires_consecutive_distress_months() {
 #[test]
 fn public_bank_health_is_not_pinned_near_zero() {
     let country = build_deterministic_country();
-    assert!(country.bank_health_score(country.bank.id) > 0.20);
+    assert!(country.bank_health_score(country.primary_bank().id) > 0.20);
 }
 
 #[test]

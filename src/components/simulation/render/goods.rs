@@ -34,8 +34,17 @@ fn compact_count_f64(n: f64) -> String {
     }
 }
 
-struct CompanyHistoryChart<'a> { history: &'a [f64], title: &'a str, color: Color, as_money: bool }
-struct CompanyHistoryContext<'a> { currency_symbol: &'a str, selected_country_month: u64, disaster_days: &'a [u64] }
+struct CompanyHistoryChart<'a> {
+    history: &'a [f64],
+    title: &'a str,
+    color: Color,
+    as_money: bool,
+}
+struct CompanyHistoryContext<'a> {
+    currency_symbol: &'a str,
+    selected_country_month: u64,
+    disaster_days: &'a [u64],
+}
 
 impl Simulation {
     pub(super) fn draw_goods_tab(

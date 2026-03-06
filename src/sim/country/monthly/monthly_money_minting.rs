@@ -33,7 +33,8 @@ impl Country {
             return;
         }
 
-        self.bank.reserve_balance = round_cents(self.bank.reserve_balance + mint_amount);
+        let primary_bank = self.primary_bank_mut();
+        primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance + mint_amount);
         self.monthly_money_minted = round_cents(self.monthly_money_minted + mint_amount);
         self.cumulative_money_minted = round_cents(self.cumulative_money_minted + mint_amount);
 

@@ -233,7 +233,7 @@ impl Country {
         }
 
         // Bank fills residual up to its equity headroom.
-        let bank_reserve = self.bank.reserve_balance;
+        let bank_reserve = self.primary_bank().reserve_balance;
         let bank_equity_exposure = self.stock_market.bank_equity_exposure();
         let bank_headroom = round_cents(
             (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure)
@@ -262,7 +262,8 @@ impl Country {
             }
         }
         if bank_alloc > 0 {
-            self.bank.reserve_balance = round_cents(self.bank.reserve_balance - bank_cost);
+            let primary_bank = self.primary_bank_mut();
+            primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance - bank_cost);
             self.stock_market
                 .bank_portfolio
                 .add_shares(company_id, bank_alloc, price_per_share);

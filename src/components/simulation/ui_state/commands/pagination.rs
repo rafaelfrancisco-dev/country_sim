@@ -120,7 +120,7 @@ impl UiState {
         let Some(country) = self.selected_country(world) else {
             return 1;
         };
-        let total = country.banks.len().saturating_add(1);
+        let total = country.banks().len();
         if total == 0 {
             1
         } else {
@@ -132,7 +132,7 @@ impl UiState {
         let Some(country) = self.selected_country(world) else {
             return 0;
         };
-        let total = country.banks.len().saturating_add(1);
+        let total = country.banks().len();
         if total == 0 {
             return 0;
         }
@@ -160,9 +160,6 @@ impl UiState {
         absolute_index: usize,
     ) -> Option<&'a Bank> {
         let country = self.selected_country(world)?;
-        if absolute_index == 0 {
-            return Some(&country.bank);
-        }
-        country.banks.get(absolute_index.saturating_sub(1))
+        country.banks().get(absolute_index)
     }
 }
