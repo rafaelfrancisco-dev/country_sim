@@ -18,6 +18,12 @@ impl Country {
         self.process_payroll_and_taxes();
         self.process_corporate_taxes();
         self.process_government_spending();
+        // Housing market (runs after payroll so people have income to pay rent/mortgages)
+        self.process_housing_construction();
+        self.update_housing_price_index();
+        self.collect_rent();
+        self.collect_mortgage_payments();
+        self.process_renter_to_owner_transitions();
         self.process_bond_coupon_and_maturity(); // [D]
         self.process_stock_collateral_seizure();
         self.collect_monthly_loan_repayments();
@@ -145,6 +151,11 @@ impl Country {
         self.monthly_bonds_matured = 0.0;
         self.monthly_savings_interest_paid = 0.0;
         self.monthly_money_minted = 0.0;
+        self.monthly_rent_collected = 0.0;
+        self.monthly_mortgage_payments = 0.0;
+        self.monthly_home_purchases = 0;
+        self.monthly_foreclosures = 0;
+        self.monthly_housing_units_built = 0;
         self.stock_market.reset_mtd_trackers();
 
         self.people

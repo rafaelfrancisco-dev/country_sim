@@ -51,8 +51,8 @@ impl Simulation {
         let currency_symbol = world.currency_symbol.as_str();
         let disaster_days = tab.disaster_days.as_ref();
 
-        if page_idx >= 4 {
-            self.draw_pie_charts_page(frame, body, &tab.pie_page, page_idx - 4);
+        if page_idx >= 5 {
+            self.draw_pie_charts_page(frame, body, &tab.pie_page, page_idx - 5);
         } else if history.is_empty() {
             let placeholder = Paragraph::new(
                 "No history data yet. Advance the simulation by month to collect snapshots.",
@@ -96,12 +96,13 @@ impl Simulation {
 
     fn chart_page_label(page_idx: usize, total_pages: usize) -> String {
         match page_idx {
-            4 => format!(
+            4 => format!("Chart Page {}/{} (Housing Market)", page_idx + 1, total_pages),
+            5 => format!(
                 "Chart Page {}/{} (Pie 1/2: World)",
                 page_idx + 1,
                 total_pages
             ),
-            5 => format!(
+            6 => format!(
                 "Chart Page {}/{} (Pie 2/2: Selected Country)",
                 page_idx + 1,
                 total_pages
@@ -279,6 +280,56 @@ impl Simulation {
                     color: Color::LightCyan,
                     value_fn: Self::metric_stock_bank_equity_exposure,
                     axis_format: AxisValueFormat::Money,
+                },
+            ],
+            4 => [
+                ChartSpec {
+                    title: "Housing Price Index",
+                    color: Color::LightGreen,
+                    value_fn: Self::metric_housing_price_index,
+                    axis_format: AxisValueFormat::Money,
+                },
+                ChartSpec {
+                    title: "Homeownership Rate %",
+                    color: Color::LightYellow,
+                    value_fn: Self::metric_homeownership_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Monthly Rent",
+                    color: Color::LightMagenta,
+                    value_fn: Self::metric_monthly_rent,
+                    axis_format: AxisValueFormat::Money,
+                },
+                ChartSpec {
+                    title: "Vacancy Rate %",
+                    color: Color::LightRed,
+                    value_fn: Self::metric_housing_vacancy_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Monthly Home Purchases",
+                    color: Color::Cyan,
+                    value_fn: Self::metric_monthly_home_purchases,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Monthly Foreclosures",
+                    color: Color::Red,
+                    value_fn: Self::metric_monthly_foreclosures,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Mortgage Rate %",
+                    color: Color::Yellow,
+                    value_fn: Self::metric_loan_rate_pct,
+                    axis_format: AxisValueFormat::Percent,
+                },
+                ChartSpec {
+                    title: "Rent/Price Ratio %",
+                    color: Color::LightBlue,
+                    value_fn: Self::metric_rent_to_price_pct,
+                    axis_format: AxisValueFormat::Percent,
                 },
             ],
             _ => [
@@ -523,6 +574,24 @@ impl Simulation {
             0.0
         } else {
             (p.bank_reserve / p.created_money_outstanding) * 100.0
+        }
+    }
+
+    metric_field_fn!(metric_housing_price_index, housing_price_index);
+    metric_field_fn!(metric_monthly_rent, monthly_rent);
+    fn metric_homeownership_rate_pct(p: &MetricPoint) -> f64 {
+        p.homeownership_rate * 100.0
+    }
+    fn metric_housing_vacancy_rate_pct(p: &MetricPoint) -> f64 {
+        p.housing_vacancy_rate * 100.0
+    }
+    metric_field_fn!(metric_monthly_foreclosures, monthly_foreclosures);
+    metric_field_fn!(metric_monthly_home_purchases, monthly_home_purchases);
+    fn metric_rent_to_price_pct(p: &MetricPoint) -> f64 {
+        if p.housing_price_index <= 0.0 {
+            0.0
+        } else {
+            (p.monthly_rent / p.housing_price_index) * 100.0
         }
     }
 

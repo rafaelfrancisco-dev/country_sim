@@ -70,6 +70,9 @@ pub struct Company {
     pub ipo_cooldown_months: u8,
     pub failed_ipo_attempts: u8,
     pub loan: Option<LoanAccount>,
+    /// Number of housing units this company owns and rents out (housing companies only).
+    pub rental_units_owned: u32,
+    pub last_month_rent_revenue: f64,
 }
 
 impl Company {
@@ -128,6 +131,8 @@ impl Company {
             ipo_cooldown_months: 0,
             failed_ipo_attempts: 0,
             loan: None,
+            rental_units_owned: 0,
+            last_month_rent_revenue: 0.0,
         }
     }
 
@@ -215,6 +220,7 @@ impl Company {
         self.last_month_export_units_sold = 0;
         self.last_month_domestic_units_sold = 0;
         self.last_month_sell_through = 0.0;
+        self.last_month_rent_revenue = 0.0;
     }
 
     pub fn close_month(&mut self, market: &GoodsMarketParams) {

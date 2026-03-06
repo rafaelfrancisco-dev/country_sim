@@ -9,6 +9,8 @@ pub struct Good {
     pub effort_per_unit: f64,
     pub monthly_demand_factor: f64,
     pub base_unit_cost: f64,
+    /// Durable goods (e.g. Housing) are managed outside the round-robin goods market.
+    pub is_durable: bool,
 }
 
 const COMMON_GOODS: [Good; GOODS_COUNT] = [
@@ -19,6 +21,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 2.5,
         monthly_demand_factor: 2.2,
         base_unit_cost: 6.0,
+        is_durable: false,
     },
     Good {
         id: 1,
@@ -27,6 +30,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 3.0,
         monthly_demand_factor: 1.8,
         base_unit_cost: 14.0,
+        is_durable: false,
     },
     Good {
         id: 2,
@@ -35,6 +39,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 8.0,
         monthly_demand_factor: 0.45,
         base_unit_cost: 520.0,
+        is_durable: true,
     },
     Good {
         id: 3,
@@ -43,6 +48,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 6.5,
         monthly_demand_factor: 0.35,
         base_unit_cost: 95.0,
+        is_durable: false,
     },
     Good {
         id: 4,
@@ -51,6 +57,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 5.0,
         monthly_demand_factor: 0.15,
         base_unit_cost: 60.0,
+        is_durable: false,
     },
     Good {
         id: 5,
@@ -59,6 +66,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 4.0,
         monthly_demand_factor: 0.8,
         base_unit_cost: 38.0,
+        is_durable: false,
     },
     Good {
         id: 6,
@@ -67,6 +75,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 3.3,
         monthly_demand_factor: 1.0,
         base_unit_cost: 22.0,
+        is_durable: false,
     },
     Good {
         id: 7,
@@ -75,6 +84,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 5.5,
         monthly_demand_factor: 1.0,
         base_unit_cost: 70.0,
+        is_durable: false,
     },
     Good {
         id: 8,
@@ -83,6 +93,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 4.5,
         monthly_demand_factor: 1.0,
         base_unit_cost: 44.0,
+        is_durable: false,
     },
     Good {
         id: 9,
@@ -91,6 +102,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 8.0,
         monthly_demand_factor: 0.5,
         base_unit_cost: 130.0,
+        is_durable: false,
     },
     Good {
         id: 10,
@@ -99,6 +111,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 4.8,
         monthly_demand_factor: 0.7,
         base_unit_cost: 58.0,
+        is_durable: false,
     },
     Good {
         id: 11,
@@ -107,6 +120,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 9.5,
         monthly_demand_factor: 0.4,
         base_unit_cost: 180.0,
+        is_durable: false,
     },
     Good {
         id: 12,
@@ -115,6 +129,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 11.0,
         monthly_demand_factor: 0.3,
         base_unit_cost: 240.0,
+        is_durable: false,
     },
     Good {
         id: 13,
@@ -123,6 +138,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 24.0,
         monthly_demand_factor: 0.12,
         base_unit_cost: 2_000.0,
+        is_durable: false,
     },
     Good {
         id: 14,
@@ -131,6 +147,7 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         effort_per_unit: 4.2,
         monthly_demand_factor: 1.2,
         base_unit_cost: 32.0,
+        is_durable: false,
     },
 ];
 

@@ -59,6 +59,12 @@ pub struct MetricPoint {
     pub bonds_outstanding: f64,
     pub stock_market_cap: f64,
     pub stock_bank_equity_exposure: f64,
+    pub housing_price_index: f64,
+    pub monthly_rent: f64,
+    pub homeownership_rate: f64,
+    pub housing_vacancy_rate: f64,
+    pub monthly_foreclosures: f64,
+    pub monthly_home_purchases: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

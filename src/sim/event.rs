@@ -10,6 +10,7 @@ pub enum EventCategory {
     LoansDebt,
     CompaniesLabor,
     GovernmentPolicy,
+    Housing,
 }
 
 impl EventCategory {
@@ -21,6 +22,7 @@ impl EventCategory {
             Self::LoansDebt => "Loans & Debt",
             Self::CompaniesLabor => "Companies & Labor",
             Self::GovernmentPolicy => "Government & Policy",
+            Self::Housing => "Housing",
         }
     }
 }
@@ -308,6 +310,36 @@ pub enum SimEvent {
         summary: String,
         day: u64,
     },
+    HomePurchased {
+        country_name: String,
+        person_id: u32,
+        price: f64,
+        day: u64,
+    },
+    Foreclosure {
+        country_name: String,
+        person_id: u32,
+        principal_written_off: f64,
+        day: u64,
+    },
+    MortgagePaidOff {
+        country_name: String,
+        person_id: u32,
+        day: u64,
+    },
+    HousingPriceChanged {
+        country_name: String,
+        new_price_index: f64,
+        change_pct: f64,
+        day: u64,
+    },
+    RentUnpaid {
+        country_name: String,
+        person_id: u32,
+        amount_due: f64,
+        amount_paid: f64,
+        day: u64,
+    },
 }
 
 impl SimEvent {
@@ -348,6 +380,11 @@ impl SimEvent {
             Self::ForeignDepositOpened { .. } | Self::ForeignDepositClosed { .. } => {
                 EventCategory::LoansDebt
             }
+            Self::HomePurchased { .. }
+            | Self::Foreclosure { .. }
+            | Self::MortgagePaidOff { .. }
+            | Self::HousingPriceChanged { .. }
+            | Self::RentUnpaid { .. } => EventCategory::Housing,
         }
     }
 }

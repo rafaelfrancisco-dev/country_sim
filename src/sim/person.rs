@@ -1,7 +1,31 @@
 use super::{
-    bank::{BankId, LoanAccount},
+    bank::{BankId, LoanAccount, MortgageAccount},
     job::{JobTypeId, salary_for_job},
 };
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HousingStatus {
+    Unhoused,
+    Renter {
+        landlord_company_id: u16,
+        landlord_country_id: u16,
+    },
+    Owner,
+    Mortgaged {
+        mortgage: MortgageAccount,
+    },
+}
+
+impl HousingStatus {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Unhoused => "Unhoused",
+            Self::Renter { .. } => "Renter",
+            Self::Owner => "Owner",
+            Self::Mortgaged { .. } => "Mortgaged",
+        }
+    }
+}
 
 /// A deposit held at a bank in a foreign country.
 #[derive(Debug, Clone, PartialEq)]
@@ -114,6 +138,9 @@ pub struct Person {
     pub last_month_loan_payment: f64,
     pub last_month_new_loan: f64,
     pub last_month_savings_interest: f64,
+    pub last_month_rent_paid: f64,
+    pub last_month_mortgage_payment: f64,
+    pub housing: HousingStatus,
     /// Consecutive months this person has been unemployed (resets to 0 on employment).
     pub months_unemployed: u32,
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
@@ -171,6 +198,9 @@ impl Person {
             last_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
             last_month_savings_interest: 0.0,
+            last_month_rent_paid: 0.0,
+            last_month_mortgage_payment: 0.0,
+            housing: HousingStatus::Unhoused,
             months_unemployed: 0,
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
@@ -404,6 +434,8 @@ impl Person {
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
         self.last_month_savings_interest = 0.0;
+        self.last_month_rent_paid = 0.0;
+        self.last_month_mortgage_payment = 0.0;
     }
 }
 

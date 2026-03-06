@@ -438,6 +438,43 @@ impl Default for GovernmentBackfillParams {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct HousingMarketParams {
+    pub mortgage_term_months: u16,
+    pub mortgage_down_payment_rate: f64,
+    pub mortgage_max_dti: f64,
+    pub mortgage_spread_over_policy: f64,
+    pub foreclosure_missed_months: u8,
+    /// Monthly rent as a fraction of housing price index (~8.4% annual yield).
+    pub rent_as_fraction_of_price: f64,
+    pub target_vacancy_rate: f64,
+    pub max_monthly_price_change: f64,
+    /// Monthly probability that an eligible renter decides to purchase.
+    pub renter_purchase_probability: f64,
+    pub initial_owner_rate: f64,
+    pub initial_renter_rate: f64,
+    pub initial_price_index: f64,
+}
+
+impl Default for HousingMarketParams {
+    fn default() -> Self {
+        Self {
+            mortgage_term_months: 240,
+            mortgage_down_payment_rate: 0.20,
+            mortgage_max_dti: 0.28,
+            mortgage_spread_over_policy: 0.02,
+            foreclosure_missed_months: 3,
+            rent_as_fraction_of_price: 0.007,
+            target_vacancy_rate: 0.05,
+            max_monthly_price_change: 0.02,
+            renter_purchase_probability: 0.01,
+            initial_owner_rate: 0.60,
+            initial_renter_rate: 0.35,
+            initial_price_index: 80_000.0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
@@ -457,6 +494,7 @@ pub struct SimulationParams {
     pub stock_market: StockMarketParams,
     pub monetary: MonetaryPolicyParams,
     pub banking: BankingSystemParams,
+    pub housing: HousingMarketParams,
 }
 
 #[cfg(test)]

@@ -117,6 +117,12 @@ fn aggregate_history_matches_country_sums() {
             bonds_outstanding: 0.0,
             stock_market_cap: 0.0,
             stock_bank_equity_exposure: 0.0,
+            housing_price_index: 0.0,
+            monthly_rent: 0.0,
+            homeownership_rate: 0.0,
+            housing_vacancy_rate: 0.0,
+            monthly_foreclosures: 0.0,
+            monthly_home_purchases: 0.0,
         },
         |acc, point| MetricPoint {
             month: acc.month.max(point.month),
@@ -156,6 +162,12 @@ fn aggregate_history_matches_country_sums() {
             stock_market_cap: acc.stock_market_cap + point.stock_market_cap,
             stock_bank_equity_exposure: acc.stock_bank_equity_exposure
                 + point.stock_bank_equity_exposure,
+            housing_price_index: acc.housing_price_index + point.housing_price_index,
+            monthly_rent: acc.monthly_rent + point.monthly_rent,
+            homeownership_rate: acc.homeownership_rate + point.homeownership_rate,
+            housing_vacancy_rate: acc.housing_vacancy_rate + point.housing_vacancy_rate,
+            monthly_foreclosures: acc.monthly_foreclosures + point.monthly_foreclosures,
+            monthly_home_purchases: acc.monthly_home_purchases + point.monthly_home_purchases,
         },
     );
 

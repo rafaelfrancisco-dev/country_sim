@@ -223,6 +223,42 @@ pub(in crate::components::simulation) fn country_details_lines(
             max_export_tariff * 100.0
         ),
         String::new(),
+        "Housing Market:".to_string(),
+        format!(
+            "Price Index: {}",
+            money(country.housing_price_index(), currency_symbol)
+        ),
+        format!(
+            "Monthly Rent: {}",
+            money(country.monthly_rent(), currency_symbol)
+        ),
+        format!(
+            "Housing Stock: {} total / {} vacant",
+            compact_count(country.housing_stock_total() as f64),
+            compact_count(country.housing_stock_vacant() as f64)
+        ),
+        format!(
+            "Vacancy Rate: {:.1}%",
+            country.housing_vacancy_rate() * 100.0
+        ),
+        format!(
+            "Homeownership Rate: {:.1}%",
+            country.homeownership_rate() * 100.0
+        ),
+        format!(
+            "MTD Purchases / Foreclosures: {} / {}",
+            compact_count(country.monthly_home_purchases() as f64),
+            compact_count(country.monthly_foreclosures() as f64)
+        ),
+        format!(
+            "MTD Rent Collected: {}",
+            money(country.monthly_rent_collected(), currency_symbol)
+        ),
+        format!(
+            "MTD Mortgage Payments: {}",
+            money(country.monthly_mortgage_payments(), currency_symbol)
+        ),
+        String::new(),
         "Market Risk:".to_string(),
         format!("Stock Market Cap: {}", money(market_cap, currency_symbol)),
         format!("Stock Index: {:.2}", index_value),

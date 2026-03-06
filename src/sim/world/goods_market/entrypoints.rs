@@ -69,7 +69,7 @@ impl World {
 
         for good in common_goods()
             .iter()
-            .filter(|g| g.id < SUPERFICIAL_GOOD_START_ID)
+            .filter(|g| g.id < SUPERFICIAL_GOOD_START_ID && !g.is_durable)
         {
             let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
                 good.id,

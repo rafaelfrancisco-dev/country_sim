@@ -93,6 +93,19 @@ pub struct Country {
     pub(crate) next_bank_id: BankId,
     pub(crate) next_bank_serial: u32,
     pub(crate) public_bank_id: Option<BankId>,
+    // Housing market
+    pub(crate) housing_stock_total: u32,
+    pub(crate) housing_stock_occupied_owned: u32,
+    pub(crate) housing_stock_occupied_rented: u32,
+    pub(crate) housing_stock_vacant: u32,
+    pub(crate) housing_price_index: f64,
+    pub(crate) monthly_rent: f64,
+    // Monthly housing trackers (reset each month)
+    pub(crate) monthly_rent_collected: f64,
+    pub(crate) monthly_mortgage_payments: f64,
+    pub(crate) monthly_home_purchases: u32,
+    pub(crate) monthly_foreclosures: u32,
+    pub(crate) monthly_housing_units_built: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,6 +220,17 @@ impl Country {
             next_bank_id: 1,
             next_bank_serial: 1,
             public_bank_id: Some(0),
+            housing_stock_total: 0,
+            housing_stock_occupied_owned: 0,
+            housing_stock_occupied_rented: 0,
+            housing_stock_vacant: 0,
+            housing_price_index: 0.0,
+            monthly_rent: 0.0,
+            monthly_rent_collected: 0.0,
+            monthly_mortgage_payments: 0.0,
+            monthly_home_purchases: 0,
+            monthly_foreclosures: 0,
+            monthly_housing_units_built: 0,
         };
         country.ensure_entity_deposit_assignments();
         let initial_cpi = country.cpi_basket_index();
@@ -740,6 +764,56 @@ impl Country {
         self.companies
             .get(company_id as usize)
             .map(|company| company.name.as_str())
+    }
+
+    pub fn housing_price_index(&self) -> f64 {
+        self.housing_price_index
+    }
+
+    pub fn monthly_rent(&self) -> f64 {
+        self.monthly_rent
+    }
+
+    pub fn housing_stock_total(&self) -> u32 {
+        self.housing_stock_total
+    }
+
+    pub fn housing_stock_vacant(&self) -> u32 {
+        self.housing_stock_vacant
+    }
+
+    pub fn housing_vacancy_rate(&self) -> f64 {
+        if self.housing_stock_total == 0 {
+            return 0.0;
+        }
+        self.housing_stock_vacant as f64 / self.housing_stock_total as f64
+    }
+
+    pub fn homeownership_rate(&self) -> f64 {
+        if self.housing_stock_total == 0 {
+            return 0.0;
+        }
+        self.housing_stock_occupied_owned as f64 / self.housing_stock_total as f64
+    }
+
+    pub fn monthly_home_purchases(&self) -> u32 {
+        self.monthly_home_purchases
+    }
+
+    pub fn monthly_foreclosures(&self) -> u32 {
+        self.monthly_foreclosures
+    }
+
+    pub fn monthly_rent_collected(&self) -> f64 {
+        self.monthly_rent_collected
+    }
+
+    pub fn monthly_mortgage_payments(&self) -> f64 {
+        self.monthly_mortgage_payments
+    }
+
+    pub fn monthly_housing_units_built(&self) -> u32 {
+        self.monthly_housing_units_built
     }
     pub fn tick_day_without_month(&mut self) {
         self.day = self.day.saturating_add(1);

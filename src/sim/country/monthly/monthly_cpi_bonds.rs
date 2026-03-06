@@ -12,7 +12,16 @@ impl Country {
             if good.base_unit_cost <= 0.0 {
                 continue;
             }
-            let avg_price = self.average_price_for_good(good_id);
+            // For housing (durable good), use monthly_rent as the price proxy.
+            let avg_price = if good.is_durable {
+                if self.monthly_rent > 0.0 {
+                    self.monthly_rent
+                } else {
+                    good.base_unit_cost
+                }
+            } else {
+                self.average_price_for_good(good_id)
+            };
             let relative_price = avg_price / good.base_unit_cost;
             weighted_sum += relative_price * good.base_unit_cost;
             weight_total += good.base_unit_cost;

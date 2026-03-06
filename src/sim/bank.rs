@@ -26,6 +26,42 @@ pub enum BankKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MortgageAccount {
+    pub principal_balance: f64,
+    pub original_principal: f64,
+    pub monthly_payment: f64,
+    pub annual_rate: f64,
+    pub term_months: u16,
+    pub months_remaining: u16,
+    pub months_missed: u8,
+    pub lender_bank_id: BankId,
+    pub collateral_value: f64,
+}
+
+impl MortgageAccount {
+    pub fn new(
+        principal: f64,
+        annual_rate: f64,
+        term_months: u16,
+        lender_bank_id: BankId,
+        collateral_value: f64,
+    ) -> Self {
+        let principal = round_cents(principal.max(0.0));
+        Self {
+            principal_balance: principal,
+            original_principal: principal,
+            monthly_payment: payment_for(principal, annual_rate, term_months),
+            annual_rate,
+            term_months,
+            months_remaining: term_months,
+            months_missed: 0,
+            lender_bank_id,
+            collateral_value,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct LoanAccount {
     pub debt_balance: f64,
     pub created_principal_outstanding: f64,

@@ -95,7 +95,7 @@ fn inactive_tabs_skip_heavy_data() {
     };
     assert_eq!(charts_tab.chart_history.len(), expected_chart_points);
     assert_eq!(charts_tab.chart_page, 0);
-    assert_eq!(charts_tab.total_chart_pages, 6);
+    assert_eq!(charts_tab.total_chart_pages, 7);
     assert!(!charts_tab.pie_page.population_by_country.slices.is_empty());
 }
 

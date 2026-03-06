@@ -23,6 +23,7 @@ mod monthly_ipo_rescue_collateral_seizure;
 mod monthly_labor_churn_separations;
 mod monthly_money_minting;
 mod monthly_orchestration_payroll_loans;
+mod monthly_housing;
 mod monthly_savings;
 mod monthly_secondary_offerings;
 mod monthly_startup_formation_pricing;

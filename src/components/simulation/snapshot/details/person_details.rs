@@ -88,27 +88,75 @@ pub(in crate::components::simulation) fn person_details_lines(
             money(person.last_month_savings_interest, currency_symbol)
         ),
         String::new(),
-        format!(
-            "MTD Goods Spending: {}",
-            money(person.last_month_goods_spending, currency_symbol)
-        ),
-        format!(
-            "MTD Imported Goods Spending: {}",
-            money(person.last_month_imported_goods_spending, currency_symbol)
-        ),
-        format!(
-            "MTD Goods Units Bought: {}",
-            person.last_month_goods_units_bought
-        ),
-        format!(
-            "Needs Met: {}",
-            goods_mask_names(person.last_month_needs_met_mask)
-        ),
-        format!(
-            "Needs Unmet: {}",
-            goods_mask_names(person.last_month_unmet_needs_mask)
-        ),
+        "Housing:".to_string(),
+        format!("Status: {}", person.housing.label()),
     ];
+
+    // Housing-specific detail lines
+    use crate::sim::person::HousingStatus;
+    match &person.housing {
+        HousingStatus::Mortgaged { mortgage } => {
+            lines.push(format!(
+                "Mortgage Balance: {}",
+                money(mortgage.principal_balance, currency_symbol)
+            ));
+            lines.push(format!(
+                "Monthly Payment: {}",
+                money(mortgage.monthly_payment, currency_symbol)
+            ));
+            lines.push(format!(
+                "Rate: {:.2}% | {} months left",
+                mortgage.annual_rate * 100.0,
+                mortgage.months_remaining
+            ));
+            if mortgage.months_missed > 0 {
+                lines.push(format!("Months Missed: {}", mortgage.months_missed));
+            }
+        }
+        HousingStatus::Renter {
+            landlord_company_id, ..
+        } => {
+            if let Some(name) = country.company_name(*landlord_company_id) {
+                lines.push(format!("Landlord: {name}"));
+            }
+        }
+        _ => {}
+    }
+
+    if person.last_month_rent_paid > 0.0 {
+        lines.push(format!(
+            "MTD Rent Paid: {}",
+            money(person.last_month_rent_paid, currency_symbol)
+        ));
+    }
+    if person.last_month_mortgage_payment > 0.0 {
+        lines.push(format!(
+            "MTD Mortgage Payment: {}",
+            money(person.last_month_mortgage_payment, currency_symbol)
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push(format!(
+        "MTD Goods Spending: {}",
+        money(person.last_month_goods_spending, currency_symbol)
+    ));
+    lines.push(format!(
+        "MTD Imported Goods Spending: {}",
+        money(person.last_month_imported_goods_spending, currency_symbol)
+    ));
+    lines.push(format!(
+        "MTD Goods Units Bought: {}",
+        person.last_month_goods_units_bought
+    ));
+    lines.push(format!(
+        "Needs Met: {}",
+        goods_mask_names(person.last_month_needs_met_mask)
+    ));
+    lines.push(format!(
+        "Needs Unmet: {}",
+        goods_mask_names(person.last_month_unmet_needs_mask)
+    ));
 
     lines.push(String::new());
     lines.push("Current Goods On Hand:".to_string());

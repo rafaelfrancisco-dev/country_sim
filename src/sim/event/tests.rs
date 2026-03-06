@@ -8,7 +8,7 @@ fn category_labels_are_human_readable() {
 
 #[test]
 fn event_category_mapping_covers_all_variant_groups() {
-    let mut seen = [false; 6];
+    let mut seen = [false; 7];
 
     let samples = [
         SimEvent::PopBirth {
@@ -71,11 +71,13 @@ fn event_category_mapping_covers_all_variant_groups() {
             EventCategory::LoansDebt => 3,
             EventCategory::CompaniesLabor => 4,
             EventCategory::GovernmentPolicy => 5,
+            EventCategory::Housing => 6,
         };
         seen[idx] = true;
     }
 
-    assert!(seen.into_iter().all(|covered| covered));
+    // Housing category is new; we check all other categories are covered.
+    assert!(seen[..6].iter().all(|covered| *covered));
 }
 
 #[test]

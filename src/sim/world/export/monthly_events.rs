@@ -182,5 +182,20 @@ pub(super) fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::DisasterApplied {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::HomePurchased {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::Foreclosure {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::MortgagePaidOff {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::HousingPriceChanged {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::RentUnpaid {
+            country_name, day, ..
+        } => (country_name, *day),
     }
 }

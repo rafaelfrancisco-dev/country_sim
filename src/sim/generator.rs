@@ -6,7 +6,7 @@ use super::{
     money::{from_cents, round_cents, to_cents},
     names::country_name_from_seed,
     params::SimulationParams,
-    person::{EmploymentStatus, HabilitationLevel, Person},
+    person::{EmploymentStatus, HabilitationLevel, HousingStatus, Person},
 };
 use rayon::prelude::*;
 
@@ -238,6 +238,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     fund_initial_bank_reserve(&mut country);
     seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
+    seed_initial_housing(&mut country, &mut rng);
     country.seed_initial_ipos();
     country
 }
@@ -511,6 +512,80 @@ fn seed_balances_to_people(people: &mut [Person], total_supply: f64) {
     for (idx, person) in people.iter_mut().enumerate() {
         let extra = if (idx as i64) < remainder { 1 } else { 0 };
         person.cash_balance = from_cents(base + extra);
+    }
+}
+
+const HOUSING_GOOD_ID: u8 = 2;
+
+fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
+    let params = country.sim_params().housing;
+    let population = country.people.len();
+    if population == 0 {
+        return;
+    }
+
+    let initial_price = round_cents(params.initial_price_index.max(0.0));
+    let monthly_rent = round_cents(initial_price * params.rent_as_fraction_of_price);
+    country.housing_price_index = initial_price;
+    country.monthly_rent = monthly_rent;
+
+    // Total stock accounts for initial vacancy
+    let total_stock =
+        ((population as f64) / (1.0 - params.target_vacancy_rate)).ceil() as u32;
+    country.housing_stock_total = total_stock;
+
+    let housing_companies: Vec<usize> = country
+        .companies
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| c.produced_good_id == HOUSING_GOOD_ID)
+        .map(|(idx, _)| idx)
+        .collect();
+
+    // Assign housing statuses deterministically
+    let owner_threshold = (params.initial_owner_rate * 10_000.0) as u64;
+    let renter_threshold = ((params.initial_owner_rate + params.initial_renter_rate) * 10_000.0) as u64;
+
+    let mut occupied_owned: u32 = 0;
+    let mut occupied_rented: u32 = 0;
+
+    for person in &mut country.people {
+        let age = person.age_years();
+        // Children are always unhoused (living with parents, not counted as separate housing units)
+        if age < 18 {
+            continue;
+        }
+
+        let roll = mix_seed(u64::from(person.id).wrapping_add(0xc0ffee)) % 10_000;
+        if roll < owner_threshold {
+            person.housing = HousingStatus::Owner;
+            occupied_owned = occupied_owned.saturating_add(1);
+        } else if roll < renter_threshold {
+            if !housing_companies.is_empty() {
+                let company_idx = housing_companies[rng.next_u64() as usize % housing_companies.len()];
+                person.housing = HousingStatus::Renter {
+                    landlord_company_id: company_idx as u16,
+                    landlord_country_id: country.id,
+                };
+                occupied_rented = occupied_rented.saturating_add(1);
+            }
+        }
+        // else: Unhoused (default)
+    }
+
+    country.housing_stock_occupied_owned = occupied_owned;
+    country.housing_stock_occupied_rented = occupied_rented;
+    let occupied_total = occupied_owned.saturating_add(occupied_rented);
+    country.housing_stock_vacant = total_stock.saturating_sub(occupied_total);
+
+    // Distribute rental units to housing companies proportionally
+    if !housing_companies.is_empty() && occupied_rented > 0 {
+        let units_per_company = occupied_rented / housing_companies.len() as u32;
+        let remainder = occupied_rented % housing_companies.len() as u32;
+        for (i, &company_idx) in housing_companies.iter().enumerate() {
+            let extra = if (i as u32) < remainder { 1 } else { 0 };
+            country.companies[company_idx].rental_units_owned = units_per_company + extra;
+        }
     }
 }
 

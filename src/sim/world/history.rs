@@ -155,6 +155,42 @@ impl World {
             .map(|country| self.market_bank_portfolio_value(country.id()))
             .sum();
 
+        let count = self.countries.len().max(1) as f64;
+        let housing_price_index = self
+            .countries
+            .iter()
+            .map(Country::housing_price_index)
+            .sum::<f64>()
+            / count;
+        let monthly_rent = self
+            .countries
+            .iter()
+            .map(Country::monthly_rent)
+            .sum::<f64>()
+            / count;
+        let homeownership_rate = self
+            .countries
+            .iter()
+            .map(Country::homeownership_rate)
+            .sum::<f64>()
+            / count;
+        let housing_vacancy_rate = self
+            .countries
+            .iter()
+            .map(Country::housing_vacancy_rate)
+            .sum::<f64>()
+            / count;
+        let monthly_foreclosures = self
+            .countries
+            .iter()
+            .map(|c| c.monthly_foreclosures() as f64)
+            .sum::<f64>();
+        let monthly_home_purchases = self
+            .countries
+            .iter()
+            .map(|c| c.monthly_home_purchases() as f64)
+            .sum::<f64>();
+
         MetricPoint {
             month,
             population,
@@ -186,6 +222,12 @@ impl World {
             bonds_outstanding,
             stock_market_cap,
             stock_bank_equity_exposure,
+            housing_price_index,
+            monthly_rent,
+            homeownership_rate,
+            housing_vacancy_rate,
+            monthly_foreclosures,
+            monthly_home_purchases,
         }
     }
 
@@ -221,6 +263,12 @@ impl World {
             bonds_outstanding: country.bonds_outstanding(),
             stock_market_cap: country.stock_market().total_market_cap(),
             stock_bank_equity_exposure: self.market_bank_portfolio_value(country.id()),
+            housing_price_index: country.housing_price_index(),
+            monthly_rent: country.monthly_rent(),
+            homeownership_rate: country.homeownership_rate(),
+            housing_vacancy_rate: country.housing_vacancy_rate(),
+            monthly_foreclosures: country.monthly_foreclosures() as f64,
+            monthly_home_purchases: country.monthly_home_purchases() as f64,
         }
     }
 
