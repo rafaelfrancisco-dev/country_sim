@@ -2,7 +2,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table},
 };
 
 use super::super::{Simulation, theme};
@@ -32,7 +32,12 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = tab.country_rows.iter().map(|country| {
+        let total_rows = tab.country_rows.len();
+        let visible_height = area.height.saturating_sub(3) as usize;
+        let selected_idx = tab.country_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+
+        let rows = tab.country_rows.iter().skip(view_scroll).take(visible_height).map(|country| {
             let style = if country.is_selected && world.selection_focus == SelectionFocus::Country {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -66,12 +71,20 @@ impl Simulation {
             Constraint::Length(12),
         ];
 
+        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
+        let end = (view_scroll + visible_height).min(total_rows);
+        let title = if total_rows == 0 {
+            " Countries ".to_string()
+        } else {
+            format!(" Countries ({}-{} of {}) ", start, end, total_rows)
+        };
+
         let table = Table::new(rows, widths)
             .header(header)
             .column_spacing(1)
             .block(
                 Block::default()
-                    .title(" Countries ")
+                    .title(title)
                     .borders(Borders::ALL)
                     .border_style(if world.selection_focus == SelectionFocus::Country {
                         theme::active_border()
@@ -82,6 +95,15 @@ impl Simulation {
             );
 
         frame.render_widget(table, area);
+        if total_rows > visible_height {
+            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
+                .position(view_scroll);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                area,
+                &mut sb_state,
+            );
+        }
     }
 
     pub(super) fn draw_people_table(
@@ -123,7 +145,12 @@ impl Simulation {
             return;
         }
 
-        let rows = tab.people_rows.iter().map(|person| {
+        let total_rows = tab.people_rows.len();
+        let visible_height = area.height.saturating_sub(3) as usize;
+        let selected_idx = tab.people_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+
+        let rows = tab.people_rows.iter().skip(view_scroll).take(visible_height).map(|person| {
             let style = if person.is_selected && world.selection_focus == SelectionFocus::People {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -163,12 +190,16 @@ impl Simulation {
             Constraint::Length(10),
         ];
 
+        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
+        let end = (view_scroll + visible_height).min(total_rows);
+        let title = format!(" People ({}-{} of {}) ", start, end, total_rows);
+
         let table = Table::new(rows, widths)
             .header(header)
             .column_spacing(1)
             .block(
                 Block::default()
-                    .title(" People (sample rows) ")
+                    .title(title)
                     .borders(Borders::ALL)
                     .border_style(if world.selection_focus == SelectionFocus::People {
                         theme::active_border()
@@ -179,5 +210,14 @@ impl Simulation {
             );
 
         frame.render_widget(table, area);
+        if total_rows > visible_height {
+            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
+                .position(view_scroll);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                area,
+                &mut sb_state,
+            );
+        }
     }
 }

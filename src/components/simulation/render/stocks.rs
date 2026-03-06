@@ -4,7 +4,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::{Line, Span},
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -75,8 +75,21 @@ impl Simulation {
     }
 
     fn draw_stock_table(&self, frame: &mut Frame, area: Rect, tab: &StocksTabSnapshot) {
+        let total_rows = tab.stock_rows.len();
+        let visible_height = area.height.saturating_sub(3) as usize;
+        let selected_idx = tab.stock_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+
+        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
+        let end = (view_scroll + visible_height).min(total_rows);
+        let title = if total_rows == 0 {
+            " Listed Companies ".to_string()
+        } else {
+            format!(" Listed Companies ({}-{} of {}) ", start, end, total_rows)
+        };
+
         let block = Block::default()
-            .title(" Listed Companies ")
+            .title(title)
             .borders(Borders::ALL)
             .border_style(theme::neutral_border());
         let inner = block.inner(area);
@@ -104,6 +117,8 @@ impl Simulation {
         let rows: Vec<Row> = tab
             .stock_rows
             .iter()
+            .skip(view_scroll)
+            .take(visible_height)
             .map(|r| {
                 let day_style = if r.day_pct.starts_with('+') {
                     Style::default().fg(Color::Green)
@@ -151,6 +166,16 @@ impl Simulation {
             .header(header)
             .block(Block::default());
         frame.render_widget(table, inner);
+
+        if total_rows > visible_height {
+            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
+                .position(view_scroll);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                area,
+                &mut sb_state,
+            );
+        }
     }
 
     fn draw_stock_charts(

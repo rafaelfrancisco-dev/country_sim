@@ -4,7 +4,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -154,7 +154,12 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = tab.company_rows.iter().map(|company| {
+        let total_rows = tab.company_rows.len();
+        let visible_height = area.height.saturating_sub(3) as usize;
+        let selected_idx = tab.company_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+
+        let rows = tab.company_rows.iter().skip(view_scroll).take(visible_height).map(|company| {
             let style = if company.is_selected && world.selection_focus == SelectionFocus::Company {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -199,12 +204,20 @@ impl Simulation {
             Constraint::Length(12),
         ];
 
+        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
+        let end = (view_scroll + visible_height).min(total_rows);
+        let title = if total_rows == 0 {
+            " Companies By Goods ".to_string()
+        } else {
+            format!(" Companies By Goods ({}-{} of {}) ", start, end, total_rows)
+        };
+
         let table = Table::new(rows, widths)
             .header(header)
             .column_spacing(1)
             .block(
                 Block::default()
-                    .title(" Companies By Goods ")
+                    .title(title)
                     .borders(Borders::ALL)
                     .border_style(if world.selection_focus == SelectionFocus::Company {
                         theme::active_border()
@@ -215,6 +228,15 @@ impl Simulation {
             );
 
         frame.render_widget(table, area);
+        if total_rows > visible_height {
+            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
+                .position(view_scroll);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                area,
+                &mut sb_state,
+            );
+        }
     }
 
     pub(super) fn draw_company_details(

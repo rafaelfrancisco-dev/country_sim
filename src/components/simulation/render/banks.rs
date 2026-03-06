@@ -4,7 +4,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, Wrap},
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -117,7 +117,12 @@ impl Simulation {
                 .add_modifier(Modifier::BOLD),
         );
 
-        let rows = tab.bank_rows.iter().map(|bank| {
+        let total_rows = tab.bank_rows.len();
+        let visible_height = area.height.saturating_sub(3) as usize;
+        let selected_idx = tab.bank_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+
+        let rows = tab.bank_rows.iter().skip(view_scroll).take(visible_height).map(|bank| {
             let style = if bank.is_selected && world.selection_focus == SelectionFocus::Bank {
                 Style::default()
                     .fg(theme::TEXT_PRIMARY)
@@ -157,13 +162,21 @@ impl Simulation {
             Constraint::Length(14),
         ];
 
+        let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
+        let end = (view_scroll + visible_height).min(total_rows);
+        let title = if total_rows == 0 {
+            " Banks ".to_string()
+        } else {
+            format!(" Banks ({}-{} of {}) ", start, end, total_rows)
+        };
+
         frame.render_widget(
             Table::new(rows, widths)
                 .header(header)
                 .column_spacing(1)
                 .block(
                     Block::default()
-                        .title(" Banks ")
+                        .title(title)
                         .borders(Borders::ALL)
                         .border_style(if world.selection_focus == SelectionFocus::Bank {
                             theme::active_border()
@@ -174,6 +187,15 @@ impl Simulation {
                 ),
             area,
         );
+        if total_rows > visible_height {
+            let mut sb_state = ScrollbarState::new(total_rows.saturating_sub(visible_height))
+                .position(view_scroll);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                area,
+                &mut sb_state,
+            );
+        }
     }
 
     pub(super) fn draw_bank_details(

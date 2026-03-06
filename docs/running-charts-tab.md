@@ -21,7 +21,7 @@ Tab switching uses `Tab` and `Shift+Tab`. The active tab is shown in the top hea
 
 ## Navigation Standard
 The running UI uses one navigation convention across tabs:
-- `w` / `s`: move selection up/down (or scroll in Events)
+- `w` / `s`: move selection up/down; all list tables (People, Countries, Companies, Banks, Stocks) auto-scroll to keep the selected row visible, with a scrollbar thumb indicating position
 - `a` / `d`: move focus left/right between panes
 - `PageUp` / `PageDown`: previous/next page in paged tables
 - `Enter`: open selected details
