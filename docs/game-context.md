@@ -11,6 +11,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 >
 > Disaster controls are documented in [disasters-tab.md](disasters-tab.md).
 >
+> Housing market mechanics (stock, rent, mortgages, price index) are documented in [housing-market.md](housing-market.md).
+>
 > Tick architecture is documented in [ticking-mechanism.md](ticking-mechanism.md).
 
 ## Entity Model
@@ -24,6 +26,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Employment tenure: `employment_start_day` (used to compute company-tenure months in UI worker rosters).
 - Contract state: `agreed_monthly_salary` (salary set at hire/switch and later adjusted by wage policy passes such as distress cuts and annual raises).
 - Demographics: `age_days`, `education_track`, `habilitation`.
+- Housing state: `HousingStatus` (`Unhoused`, `Renter { landlord_company_id }`, `Owner`, `Mortgaged { mortgage }`). See [housing-market.md](housing-market.md).
 - Helpers:
   - `monthly_salary()` returns contract salary for employed people, `0` for unemployed.
   - `can_seek_job()` enforces education-track specific minimum working age.
@@ -52,7 +55,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   3. births using population-rate + carry model
   4. daily job-seeking and balanced hiring across company + bank vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing with resolution hysteresis**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing with resolution hysteresis**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), **housing construction drain, price index update, rent collection, mortgage payments, renter-to-owner transitions**, and close.
 - Maintains `next_startup_serial` so startup names remain unique across company removals.
 
 ### `World`
@@ -107,15 +110,16 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - `Stocks`: stock table + market summary + stock charts
   - person holdings can include foreign securities, shown with country-qualified labels in details
 - `Disasters`: selected-country shock controls with checkbox-driven intensity selection and one-shot apply
-- `Charts`: 4x2 monthly trend dashboard
+- `Charts`: 7-page monthly trend dashboard (4 metric pages + 1 housing page + 2 pie-chart pages)
 - `Events`: scrollable event log with search, sorting, and category filtering
   - category filter key: `f`
-  - category options: `All`, `Stock Market`, `Births/Deaths`, `Bankruptcies & Distress`, `Loans & Debt`, `Companies & Labor`, `Government & Policy`
+  - category options: `All`, `Stock Market`, `Births/Deaths`, `Bankruptcies & Distress`, `Loans & Debt`, `Companies & Labor`, `Government & Policy`, `Housing`
   - search + category are applied as an intersection
 - People table/details include demographic and labor state:
   - age
   - education/habilitation
   - employment status
+  - housing status (Unhoused/Renter/Owner/Mortgaged), mortgage details, MTD rent/mortgage payments
 
 ## Testing Focus
 - Person lifecycle and qualification progression.
