@@ -505,6 +505,7 @@ dependencies = [
  "tracing-error",
  "tracing-subscriber",
  "tui-checkbox",
+ "tui-piechart",
  "vergen-gix",
 ]
 
@@ -3663,6 +3664,15 @@ name = "tui-checkbox"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dae4cda3b483816dde955a94f54e7f5893ed44a8b41f0003101475e433102b65"
+dependencies = [
+ "ratatui",
+]
+
+[[package]]
+name = "tui-piechart"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db66256c0880b2b3054aac06bf55c15b4f6dd4c22aa4e451c74cadab33d410c1"
 dependencies = [
  "ratatui",
 ]

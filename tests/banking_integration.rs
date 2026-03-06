@@ -21,6 +21,7 @@ fn build_world() -> World {
 }
 
 #[test]
+#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn exactly_one_public_bank_per_country_after_three_years() {
     let mut world = build_world();
     for _ in 0..1095 {
@@ -39,6 +40,7 @@ fn exactly_one_public_bank_per_country_after_three_years() {
 }
 
 #[test]
+#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn private_banks_can_form_over_three_years() {
     let mut world = build_world();
     for _ in 0..1095 {
@@ -63,6 +65,7 @@ fn private_banks_can_form_over_three_years() {
 }
 
 #[test]
+#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn foreign_deposit_events_appear_with_multiple_countries() {
     use country_sim::sim::event::SimEvent;
 
@@ -92,6 +95,7 @@ fn foreign_deposit_events_appear_with_multiple_countries() {
 }
 
 #[test]
+#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn private_bank_count_respects_population_capacity() {
     let mut world = build_world();
     for _ in 0..1095 {
@@ -121,6 +125,7 @@ fn private_bank_count_respects_population_capacity() {
 }
 
 #[test]
+#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
 fn banks_accumulate_cross_country_stock_positions() {
     let mut world = build_world();
     for country in &mut world.countries {

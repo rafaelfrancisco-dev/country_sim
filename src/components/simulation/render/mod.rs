@@ -1,5 +1,6 @@
 mod banks;
 mod charts;
+mod charts_pie;
 #[cfg(test)]
 mod charts_tests;
 mod details;

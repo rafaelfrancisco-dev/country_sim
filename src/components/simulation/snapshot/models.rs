@@ -248,6 +248,31 @@ pub(in crate::components::simulation) struct ChartsTabSnapshot {
     pub total_chart_pages: usize,
     pub chart_history: Arc<[MetricPoint]>,
     pub disaster_days: Arc<[u64]>,
+    pub pie_page: PieChartsPageSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct PieSliceData {
+    pub label: String,
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct PieChartData {
+    pub title: String,
+    pub slices: Vec<PieSliceData>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct PieChartsPageSnapshot {
+    pub population_by_country: PieChartData,
+    pub money_supply_by_country: PieChartData,
+    pub stock_cap_by_country: PieChartData,
+    pub treasury_by_country: PieChartData,
+    pub education_tracks: PieChartData,
+    pub employment_status: PieChartData,
+    pub age_brackets: PieChartData,
+    pub wealth_breakdown: PieChartData,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
 
 type StockTabData = (
     Vec<StockRowSnapshot>,
@@ -28,6 +29,7 @@ pub(in crate::components::simulation) fn build_charts_tab_snapshot(
     selected_country_disaster_days: &[u64],
 ) -> RunningTabSnapshot {
     let chart_scope_label = chart_scope_label(world, ui);
+    let pie_page = build_pie_charts_page(world, ui);
     let chart_history = match ui.chart_scope {
         ChartScope::SelectedCountry => world
             .country_history
@@ -47,7 +49,153 @@ pub(in crate::components::simulation) fn build_charts_tab_snapshot(
         total_chart_pages: crate::components::simulation::ui_state::CHART_PAGE_COUNT,
         chart_history: chart_history.into(),
         disaster_days: disaster_days.into(),
+        pie_page,
     }))
+}
+
+fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
+    let population_by_country = build_pie_chart(
+        "Population by Country",
+        world.countries.iter().map(|country| {
+            (country.name.clone(), country.population() as f64)
+        }),
+    );
+    let money_supply_by_country = build_pie_chart(
+        "Total Money Supply by Country",
+        world.countries
+            .iter()
+            .map(|country| (country.name.clone(), country.total_money_supply)),
+    );
+    let stock_cap_by_country = build_pie_chart(
+        "Stock Market Cap by Country",
+        world.countries.iter().map(|country| {
+            (country.name.clone(), country.stock_market.total_market_cap())
+        }),
+    );
+    let treasury_by_country = build_pie_chart(
+        "Treasury Balance by Country",
+        world.countries
+            .iter()
+            .map(|country| (country.name.clone(), country.treasury_balance.max(0.0))),
+    );
+
+    let Some(country) = ui.selected_country(world) else {
+        return PieChartsPageSnapshot {
+            population_by_country,
+            money_supply_by_country,
+            stock_cap_by_country,
+            treasury_by_country,
+            education_tracks: empty_pie_chart("Education Track"),
+            employment_status: empty_pie_chart("Employment Status"),
+            age_brackets: empty_pie_chart("Age Brackets"),
+            wealth_breakdown: empty_pie_chart("Wealth Breakdown"),
+        };
+    };
+
+    let mut education_basic_only = 0.0;
+    let mut education_high_school = 0.0;
+    let mut education_bachelor = 0.0;
+    let mut education_medical_doctor = 0.0;
+    let mut unemployed = 0.0;
+    let mut employed_company = 0.0;
+    let mut employed_bank = 0.0;
+    let mut children = 0.0;
+    let mut working_age = 0.0;
+    let mut elderly = 0.0;
+
+    for person in &country.people {
+        match person.education_track {
+            EducationTrack::BasicOnly => education_basic_only += 1.0,
+            EducationTrack::HighSchool => education_high_school += 1.0,
+            EducationTrack::Bachelor => education_bachelor += 1.0,
+            EducationTrack::MedicalDoctor => education_medical_doctor += 1.0,
+        }
+
+        match person.employment {
+            EmploymentStatus::Unemployed => unemployed += 1.0,
+            EmploymentStatus::Employed { .. } => employed_company += 1.0,
+            EmploymentStatus::EmployedAtBank { .. } => employed_bank += 1.0,
+        }
+
+        let age_years = person.age_days / DAYS_PER_YEAR;
+        if age_years < 18 {
+            children += 1.0;
+        } else if age_years >= 65 {
+            elderly += 1.0;
+        } else {
+            working_age += 1.0;
+        }
+    }
+
+    PieChartsPageSnapshot {
+        population_by_country,
+        money_supply_by_country,
+        stock_cap_by_country,
+        treasury_by_country,
+        education_tracks: build_pie_chart(
+            "Education Track",
+            [
+                ("BasicOnly".to_string(), education_basic_only),
+                ("HighSchool".to_string(), education_high_school),
+                ("Bachelor".to_string(), education_bachelor),
+                ("MedicalDoctor".to_string(), education_medical_doctor),
+            ],
+        ),
+        employment_status: build_pie_chart(
+            "Employment Status",
+            [
+                ("Unemployed".to_string(), unemployed),
+                ("Employed@Company".to_string(), employed_company),
+                ("Employed@Bank".to_string(), employed_bank),
+            ],
+        ),
+        age_brackets: build_pie_chart(
+            "Age Brackets",
+            [
+                ("Children (<18)".to_string(), children),
+                ("Working Age (18-64)".to_string(), working_age),
+                ("Elderly (65+)".to_string(), elderly),
+            ],
+        ),
+        wealth_breakdown: build_pie_chart(
+            "Wealth Breakdown",
+            [
+                ("Household Cash".to_string(), country.household_cash_total),
+                ("Company Cash".to_string(), country.company_cash_total),
+                ("Treasury".to_string(), country.treasury_balance.max(0.0)),
+                ("Bank Reserve".to_string(), country.bank.reserve_balance.max(0.0)),
+            ],
+        ),
+    }
+}
+
+fn build_pie_chart(
+    title: impl Into<String>,
+    slices: impl IntoIterator<Item = (String, f64)>,
+) -> PieChartData {
+    let mut slices = slices
+        .into_iter()
+        .filter(|(_, value)| value.is_finite() && *value > 0.0)
+        .map(|(label, value)| PieSliceData { label, value })
+        .collect::<Vec<_>>();
+    slices.sort_by(|left, right| {
+        right
+            .value
+            .partial_cmp(&left.value)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    PieChartData {
+        title: title.into(),
+        slices,
+    }
+}
+
+fn empty_pie_chart(title: impl Into<String>) -> PieChartData {
+    PieChartData {
+        title: title.into(),
+        slices: Vec::new(),
+    }
 }
 
 pub(in crate::components::simulation) fn goods_mask_names(mask: u16) -> String {

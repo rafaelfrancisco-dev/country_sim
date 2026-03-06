@@ -148,6 +148,11 @@ cargo test --features runtime-invariants
 ```
 
 ## Banking Validation Commands
+- Default `cargo test` skips the slow banking integration suite in `tests/banking_integration.rs`.
+- Run that ignored suite on demand with:
+```bash
+cargo test --test banking_integration -- --ignored
+```
 - Targeted banking scenarios + 10-year month-level invariant check:
 ```bash
 cargo test sim::country::tests::company_dynamics::bank_runs_and_deposits:: -- --nocapture

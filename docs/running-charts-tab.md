@@ -7,7 +7,7 @@ The running simulation UI has seven tabs:
 - `Banks`: bank list and bank details view.
 - `Stocks`: listed equities and stock-market charts.
 - `Disasters`: selected-country shock controls.
-- `Charts`: trend charts for core economy metrics.
+- `Charts`: trend and distribution charts for core economy metrics.
 - `Events`: scrollable log of simulation events.
 
 Tab switching uses `Tab` and `Shift+Tab`. The active tab is shown in the top header.
@@ -67,7 +67,7 @@ The running UI uses one navigation convention across tabs:
   - `a/d`: choose intensity tier (`5%`, `10%`, `25%`, `50%`)
   - `x`: enable/disable current disaster
   - `Enter`: apply all enabled disasters together
-- `Charts`: `t` toggles scope between selected country and world aggregate; `PageUp` / `PageDown` switch chart pages.
+- `Charts`: `t` toggles scope between selected country and world aggregate on line-chart pages; `PageUp` / `PageDown` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `f` cycles event category, `Ctrl+u` clears search query while editing.
   - Category cycle order: `All` -> `Stock Market` -> `Births/Deaths` -> `Bankruptcies & Distress` -> `Loans & Debt` -> `Companies & Labor` -> `Government & Policy` -> `All`
   - When both a search query and category are set, results must match both filters.
@@ -111,4 +111,22 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 
 This page focuses on bank transmission and credit quality without repeating charts from page 3. Deposit and loan rates show policy passthrough; spread is the gross intermediation margin; real deposit and real loan rates adjust for inflation; monthly savings interest paid shows cash transfer to depositors; credit-to-money tracks leverage in the money stock; reserve coverage tracks liquid backing against the loan book.
 
-Each chart is a line chart with dynamic axis bounds and month-based x-axis labels.
+### Page 5 — World Cross-Sectional Pie Charts
+| Row | Left | Right |
+|---|---|---|
+| 1 | Population by Country | Total Money Supply by Country |
+| 2 | Stock Market Cap by Country | Treasury Balance by Country |
+
+### Page 6 — Selected-Country Pie Charts
+| Row | Left | Right |
+|---|---|---|
+| 1 | Education Track | Employment Status |
+| 2 | Age Brackets | Wealth Breakdown |
+
+Pages 5-6 are cross-sectional instead of time-series:
+- page 5 compares all countries at the current snapshot
+- page 6 always uses the selected country
+- `t` does not affect pages 5-6 because these charts are not scope-based history views
+- the pie charts are split across two pages so legends stay visible on shorter terminals
+
+Pages 1-4 are line charts with dynamic axis bounds and month-based x-axis labels. Pages 5-6 use pie charts with legends and percentages.

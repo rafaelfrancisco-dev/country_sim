@@ -8,12 +8,8 @@ use ratatui::{
 
 use super::super::{Simulation, theme};
 use super::disaster_markers;
-use crate::components::simulation::{
-    hotkeys,
-    snapshot::{ChartsTabSnapshot, RunningSnapshot},
-};
+use crate::components::simulation::{hotkeys, snapshot::{ChartsTabSnapshot, RunningSnapshot}};
 use crate::sim::world::MetricPoint;
-
 #[derive(Debug, Copy, Clone)]
 enum AxisValueFormat {
     Money,
@@ -21,7 +17,6 @@ enum AxisValueFormat {
     Index,
     Count,
 }
-
 #[derive(Debug, Copy, Clone)]
 struct ChartSpec {
     title: &'static str,
@@ -53,7 +48,9 @@ impl Simulation {
         let currency_symbol = world.currency_symbol.as_str();
         let disaster_days = tab.disaster_days.as_ref();
 
-        if history.is_empty() {
+        if page_idx >= 4 {
+            self.draw_pie_charts_page(frame, body, &tab.pie_page, page_idx - 4);
+        } else if history.is_empty() {
             let placeholder = Paragraph::new(
                 "No history data yet. Advance the simulation by month to collect snapshots.",
             )
@@ -69,26 +66,7 @@ impl Simulation {
             );
             frame.render_widget(placeholder, body);
         } else {
-            let [row1, row2, row3, row4] = Layout::vertical([
-                Constraint::Ratio(1, 4),
-                Constraint::Ratio(1, 4),
-                Constraint::Ratio(1, 4),
-                Constraint::Ratio(1, 4),
-            ])
-            .areas(body);
-            let [a1, a2] =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(row1);
-            let [a3, a4] =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(row2);
-            let [a5, a6] =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(row3);
-            let [a7, a8] =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .areas(row4);
-            let chart_areas = [a1, a2, a3, a4, a5, a6, a7, a8];
+            let chart_areas = Self::chart_grid_areas(body);
             let chart_specs = Self::chart_specs_for_page(page_idx);
 
             for (area, spec) in chart_areas.into_iter().zip(chart_specs.into_iter()) {
@@ -107,11 +85,45 @@ impl Simulation {
         }
 
         format!(
-            "Controls: {}  [t] toggle scope  [,/.] cycle country  [PgUp/PgDn] chart page | Chart Page {}/{}",
+            "Controls: {}  [t] toggle scope  [,/.] cycle country  [PgUp/PgDn] chart page | {}",
             hotkeys::GLOBAL_RUNNING_HINT,
-            page_idx + 1,
-            total_pages
+            Self::chart_page_label(page_idx, total_pages)
         )
+    }
+
+    fn chart_page_label(page_idx: usize, total_pages: usize) -> String {
+        match page_idx {
+            4 => format!("Chart Page {}/{} (Pie 1/2: World)", page_idx + 1, total_pages),
+            5 => format!(
+                "Chart Page {}/{} (Pie 2/2: Selected Country)",
+                page_idx + 1,
+                total_pages
+            ),
+            _ => format!("Chart Page {}/{}", page_idx + 1, total_pages),
+        }
+    }
+
+    pub(super) fn chart_grid_areas(area: Rect) -> [Rect; 8] {
+        let [row1, row2, row3, row4] = Layout::vertical([
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+        ])
+        .areas(area);
+        let [a1, a2] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(row1);
+        let [a3, a4] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(row2);
+        let [a5, a6] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(row3);
+        let [a7, a8] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(row4);
+        [a1, a2, a3, a4, a5, a6, a7, a8]
     }
 
     fn chart_specs_for_page(page_idx: usize) -> [ChartSpec; 8] {
@@ -515,7 +527,6 @@ impl Simulation {
         if !min.is_finite() || !max.is_finite() {
             return (0.0, 1.0);
         }
-
         if (max - min).abs() < f64::EPSILON {
             let padding = if max.abs() < 1.0 {
                 1.0
@@ -526,7 +537,6 @@ impl Simulation {
             let upper = (max + padding).max(max);
             return (lower, upper);
         }
-
         let span = max - min;
         let padding = span * 0.10;
         let lower = if min >= 0.0 {
