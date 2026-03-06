@@ -1,7 +1,5 @@
 use super::*;
 
-mod dividends;
-
 impl Country {
     /// Attempt an IPO for a distressed company that cannot cover funding via
     /// debt. Returns true if the IPO succeeded and saved the company.
@@ -93,6 +91,10 @@ impl Country {
         }
 
         let company_id = company.id;
+        let security_id = crate::sim::stock_market::StockSecurityId {
+            country_id: self.id,
+            company_id,
+        };
         let company_name = company.name.clone();
         let monthly_revenue = company.average_monthly_revenue();
         let last_month_profit = company.last_month_profit;
@@ -227,7 +229,7 @@ impl Country {
                 person.cash_balance = round_cents((person.cash_balance - cost).max(0.0));
                 self.stock_market
                     .person_portfolio_mut(*person_id)
-                    .add_shares(company_id, *alloc, price_per_share);
+                    .add_shares(security_id, *alloc, price_per_share);
             }
         }
         if bank_alloc > 0 {
@@ -236,7 +238,7 @@ impl Country {
                 round_cents((primary_bank.reserve_balance - bank_cost).max(0.0));
             self.stock_market
                 .bank_portfolio
-                .add_shares(company_id, bank_alloc, price_per_share);
+                .add_shares(security_id, bank_alloc, price_per_share);
         }
 
         let shares_sold = shares_allocated;
@@ -317,7 +319,7 @@ impl Country {
             for (person_id, retained) in stakes_snapshot {
                 self.stock_market
                     .person_portfolio_mut(person_id)
-                    .add_shares(company_id, retained, price_per_share);
+                    .add_shares(security_id, retained, price_per_share);
                 total_retained_founder_shares =
                     total_retained_founder_shares.saturating_add(retained);
             }
@@ -325,6 +327,7 @@ impl Country {
 
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
+            company_id,
             company_id,
             ticker.clone(),
             price_per_share,
@@ -420,8 +423,8 @@ impl Country {
             let company_ids: Vec<u16> = portfolio
                 .positions
                 .iter()
-                .filter(|pos| pos.pledged_shares > 0)
-                .map(|pos| pos.company_id)
+                .filter(|pos| pos.pledged_shares > 0 && pos.security_id.country_id == self.id)
+                .map(|pos| pos.security_id.company_id)
                 .collect();
 
             for cid in company_ids {
@@ -441,7 +444,13 @@ impl Country {
                     Some(p) => p,
                     None => break,
                 };
-                let pos = match portfolio.positions.iter().find(|p| p.company_id == cid) {
+                let pos = match portfolio.positions.iter().find(|p| {
+                    p.security_id
+                        == crate::sim::stock_market::StockSecurityId {
+                            country_id: self.id,
+                            company_id: cid,
+                        }
+                }) {
                     Some(p) => p,
                     None => continue,
                 };
@@ -453,7 +462,14 @@ impl Country {
                     continue;
                 }
                 let sale_proceeds = round_cents(shares_to_sell as f64 * sale_price);
-                portfolio.remove_shares(cid, shares_to_sell, sale_price);
+                portfolio.remove_shares(
+                    crate::sim::stock_market::StockSecurityId {
+                        country_id: self.id,
+                        company_id: cid,
+                    },
+                    shares_to_sell,
+                    sale_price,
+                );
                 proceeds = round_cents(proceeds + sale_proceeds);
                 total_liquidated_shares = total_liquidated_shares.saturating_add(shares_to_sell);
 
@@ -462,9 +478,14 @@ impl Country {
                     p.cash_balance = round_cents(p.cash_balance + sale_proceeds);
                 }
                 // Bank receives shares — bank pays for them (reserve decreases)
-                self.stock_market
-                    .bank_portfolio
-                    .add_shares(cid, shares_to_sell, sale_price);
+                self.stock_market.bank_portfolio.add_shares(
+                    crate::sim::stock_market::StockSecurityId {
+                        country_id: self.id,
+                        company_id: cid,
+                    },
+                    shares_to_sell,
+                    sale_price,
+                );
                 let primary_bank = self.primary_bank_mut();
                 primary_bank.reserve_balance =
                     round_cents(primary_bank.reserve_balance - sale_proceeds).max(0.0);

@@ -2,7 +2,7 @@ mod execution;
 
 use super::*;
 
-pub(in crate::sim::world) use execution::{match_books, run_country_stock_market};
+pub(in crate::sim::world) use execution::{match_books, run_world_stock_market};
 
 const RETAIL_PAR_PARTICIPANT_THRESHOLD: usize = 4_096;
 const MATCH_PAR_SYMBOL_THRESHOLD: usize = 8;
@@ -12,7 +12,8 @@ type PersonIndexLookup = HashMap<u32, usize>;
 
 #[derive(Debug, Clone, Copy)]
 struct SymbolContext {
-    company_id: u16,
+    security_id: crate::sim::stock_market::StockSecurityId,
+    listing_country_idx: usize,
     last_price: f64,
     min_price: f64,
     max_price: f64,
@@ -25,7 +26,7 @@ struct SymbolContext {
 }
 
 #[derive(Debug)]
-struct CountryStockScratch {
+struct WorldStockScratch {
     buy_orders: Vec<Vec<LimitOrder>>,
     sell_orders: Vec<Vec<LimitOrder>>,
     active_traders: HashSet<u64>,
@@ -33,7 +34,7 @@ struct CountryStockScratch {
     sell_orders_count: u64,
 }
 
-impl CountryStockScratch {
+impl WorldStockScratch {
     fn with_symbol_count(symbol_count: usize) -> Self {
         Self {
             buy_orders: vec![Vec::new(); symbol_count],
@@ -67,10 +68,10 @@ impl CountryStockScratch {
             sell_orders_count,
         } = other;
 
-        for (target, mut source) in self.buy_orders.iter_mut().zip(buy_orders.into_iter()) {
+        for (target, mut source) in self.buy_orders.iter_mut().zip(buy_orders) {
             target.append(&mut source);
         }
-        for (target, mut source) in self.sell_orders.iter_mut().zip(sell_orders.into_iter()) {
+        for (target, mut source) in self.sell_orders.iter_mut().zip(sell_orders) {
             target.append(&mut source);
         }
         self.active_traders.extend(active_traders);
@@ -119,19 +120,25 @@ fn deterministic_sample_people_indices(
     selected
 }
 
-fn build_symbol_contexts(
-    country: &crate::sim::country::Country,
-    day: u64,
-    max_float_frac: f64,
-    max_move: f64,
-) -> Vec<SymbolContext> {
-    let mut listed_ids: Vec<u16> = country.stock_market().listed.keys().copied().collect();
-    listed_ids.sort_unstable();
+fn build_symbol_contexts(world: &World, day: u64) -> Vec<SymbolContext> {
+    let mut contexts = Vec::new();
 
-    listed_ids
-        .into_iter()
-        .filter_map(|cid| {
-            let equity = country.stock_market().listed.get(&cid)?;
+    for (listing_country_idx, country) in world.countries().iter().enumerate() {
+        if !country.sim_params().stock_market.enabled {
+            continue;
+        }
+        let max_float_frac = country
+            .sim_params()
+            .stock_market
+            .max_order_fraction_of_float;
+        let max_move = country.sim_params().stock_market.max_daily_price_move_pct;
+        let mut listed_ids: Vec<u16> = country.stock_market().listed.keys().copied().collect();
+        listed_ids.sort_unstable();
+
+        for listed_id in listed_ids {
+            let Some(equity) = country.stock_market().listed.get(&listed_id) else {
+                continue;
+            };
             let last_price = equity.last_price;
             let float_shares = equity.free_float_shares;
             let market_open = last_price > 0.0 && float_shares > 0;
@@ -150,30 +157,37 @@ fn build_symbol_contexts(
                 0.0
             };
 
-            let maybe_value_gap = country.companies().get(cid as usize).map(|company| {
-                let debt = company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
-                let anchor = StockMarket::ipo_valuation_anchor(
-                    company.average_monthly_revenue(),
-                    company.last_month_profit,
-                    company.cash_balance,
-                    debt,
-                    equity.shares_outstanding,
-                );
-                // Add dividend capitalization: trailing annual DPS / required return.
-                // A stock paying dividends is worth more than its P/S anchor alone.
-                let div_value = equity.trailing_annual_dps() / 0.08;
-                let fundamental = anchor + div_value;
-                if last_price > 0.0 {
-                    (fundamental - last_price) / last_price
-                } else {
-                    0.0
-                }
-            });
+            let maybe_value_gap = country
+                .companies()
+                .get(equity.current_company_id as usize)
+                .map(|company| {
+                    let debt = company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
+                    let anchor = StockMarket::ipo_valuation_anchor(
+                        company.average_monthly_revenue(),
+                        company.last_month_profit,
+                        company.cash_balance,
+                        debt,
+                        equity.shares_outstanding,
+                    );
+                    let div_value = equity.trailing_annual_dps() / 0.08;
+                    let fundamental = anchor + div_value;
+                    if last_price > 0.0 {
+                        (fundamental - last_price) / last_price
+                    } else {
+                        0.0
+                    }
+                });
 
             let retail_enabled = market_open && maybe_value_gap.is_some();
             let value_gap = maybe_value_gap.unwrap_or(0.0);
+            let security_id = crate::sim::stock_market::StockSecurityId {
+                country_id: country.id(),
+                company_id: equity.company_id,
+            };
             let day_sentiment = (unit_interval(hash64(
-                day ^ (u64::from(country.id()) << 20) ^ (u64::from(cid) << 4) ^ 0x1bad_b002,
+                day ^ (u64::from(country.id()) << 20)
+                    ^ (u64::from(equity.company_id) << 4)
+                    ^ 0x1bad_b002,
             )) - 0.5)
                 * 0.12;
 
@@ -185,8 +199,9 @@ fn build_symbol_contexts(
             let max_price = round_cents(base * (1.0 + max_move));
             let min_price = round_cents((base * (1.0 - max_move)).max(0.01));
 
-            Some(SymbolContext {
-                company_id: cid,
+            contexts.push(SymbolContext {
+                security_id,
+                listing_country_idx,
                 last_price,
                 min_price,
                 max_price,
@@ -196,9 +211,11 @@ fn build_symbol_contexts(
                 max_order_by_float,
                 market_open,
                 retail_enabled,
-            })
-        })
-        .collect()
+            });
+        }
+    }
+
+    contexts
 }
 
 fn append_retail_orders_for_person(
@@ -208,7 +225,7 @@ fn append_retail_orders_for_person(
     person_idx: usize,
     symbol_contexts: &[SymbolContext],
     params: &crate::sim::params::StockMarketParams,
-    scratch: &mut CountryStockScratch,
+    scratch: &mut WorldStockScratch,
 ) {
     let reserve_ratio = params.investor_cash_reserve_ratio;
     let noise_prob = params.retail_noise_trade_prob;
@@ -226,7 +243,7 @@ fn append_retail_orders_for_person(
             continue;
         }
 
-        let position = portfolio.and_then(|entry| entry.position(context.company_id));
+        let position = portfolio.and_then(|entry| entry.position(context.security_id));
         let has_position = position.is_some_and(|pos| pos.shares > 0);
         let free_shares = position.map_or(0, |pos| pos.shares.saturating_sub(pos.pledged_shares));
 
@@ -234,7 +251,12 @@ fn append_retail_orders_for_person(
             && free_shares > 0
             && person_cash < params.retail_distress_sell_cash_threshold;
 
-        let order_seed = hash64(slot_seed ^ u64::from(context.company_id) ^ 0xf00d);
+        let order_seed = hash64(
+            slot_seed
+                ^ (u64::from(context.security_id.country_id) << 32)
+                ^ u64::from(context.security_id.company_id)
+                ^ 0xf00d,
+        );
         let noise = (unit_interval(hash64(order_seed ^ 0x1111)) - 0.5) * 2.0 * noise_prob;
         let trader_style_roll = unit_interval(hash64(order_seed ^ 0x7777));
 
@@ -300,8 +322,11 @@ fn append_retail_orders_for_person(
                 scratch.push_sell(
                     symbol_idx,
                     LimitOrder {
-                        trader: TraderId::Person(person_id),
-                        company_id: context.company_id,
+                        trader: TraderId::Person {
+                            country_id: country.id(),
+                            person_id,
+                        },
+                        security_id: context.security_id,
                         side: OrderSide::Sell,
                         limit_price,
                         remaining_shares: shares,
@@ -333,8 +358,11 @@ fn append_retail_orders_for_person(
         scratch.push_buy(
             symbol_idx,
             LimitOrder {
-                trader: TraderId::Person(person_id),
-                company_id: context.company_id,
+                trader: TraderId::Person {
+                    country_id: country.id(),
+                    person_id,
+                },
+                security_id: context.security_id,
                 side: OrderSide::Buy,
                 limit_price,
                 remaining_shares: shares,
@@ -381,10 +409,6 @@ fn run_matching_for_symbol(
         &mut sells,
         context.min_price,
         context.max_price,
-        context.company_id,
+        context.security_id,
     )
 }
-
-// ---------------------------------------------------------------------------
-// Main daily market function
-// ---------------------------------------------------------------------------

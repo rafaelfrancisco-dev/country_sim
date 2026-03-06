@@ -127,8 +127,8 @@ fn private_bank_count_respects_population_capacity() {
 }
 
 #[test]
-#[ignore = "slow banking integration scenario; run on demand or in scheduled CI"]
-fn banks_accumulate_cross_country_stock_positions() {
+#[ignore = "slow cross-market stock scenario; run on demand or in scheduled CI"]
+fn cross_market_stock_trading_produces_foreign_holdings() {
     let mut world = build_world();
     for country_idx in 0..world.country_count() {
         let Some(country) = world.country_mut(country_idx) else {
@@ -154,25 +154,70 @@ fn banks_accumulate_cross_country_stock_positions() {
         world.tick_day();
     }
 
-    let mut found_cross_country_position = false;
+    let mut found_foreign_position = false;
     for country in world.countries() {
-        for bank in country.all_banks() {
-            if bank
-                .stock_positions
-                .values()
-                .any(|position| position.security_id.country_id != country.id())
-            {
-                found_cross_country_position = true;
-                break;
-            }
+        if country
+            .stock_market()
+            .bank_portfolio
+            .positions
+            .iter()
+            .any(|position| position.security_id.country_id != country.id())
+        {
+            found_foreign_position = true;
+            break;
         }
-        if found_cross_country_position {
+        if country
+            .stock_market()
+            .person_portfolios
+            .values()
+            .any(|portfolio| {
+                portfolio
+                    .positions
+                    .iter()
+                    .any(|position| position.security_id.country_id != country.id())
+            })
+        {
+            found_foreign_position = true;
             break;
         }
     }
 
     assert!(
-        found_cross_country_position,
-        "expected at least one bank to hold stocks from a foreign country after 6 months"
+        found_foreign_position,
+        "expected at least one person or market bank to hold stocks from a foreign country after 6 months"
+    );
+}
+
+#[test]
+#[ignore = "slow cross-market stability scenario (730 days, 3 x 20k)"]
+fn cross_market_stock_trading_3x20k_730_days_preserves_world_invariants() {
+    let mut world = build_world();
+    for _ in 0..730 {
+        world.tick_day();
+    }
+
+    let violations = world.validate_invariants();
+    assert!(
+        violations.is_empty(),
+        "expected no world invariant violations after 730 days, got {:?}",
+        violations
+    );
+
+    let foreign_positions = world
+        .countries()
+        .iter()
+        .flat_map(|country| {
+            country
+                .stock_market()
+                .person_portfolios
+                .values()
+                .flat_map(|portfolio| portfolio.positions.iter())
+                .chain(country.stock_market().bank_portfolio.positions.iter())
+                .filter(move |position| position.security_id.country_id != country.id())
+        })
+        .count();
+    assert!(
+        foreign_positions > 0,
+        "expected foreign stock holdings to remain after 730 days"
     );
 }

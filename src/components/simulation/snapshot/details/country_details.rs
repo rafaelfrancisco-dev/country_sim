@@ -55,7 +55,7 @@ pub(in crate::components::simulation) fn country_details_lines(
 
     let market_cap = country.stock_market().total_market_cap();
     let index_value = country.stock_market().index_value();
-    let bank_equity_exposure = country.stock_market().bank_equity_exposure();
+    let bank_equity_exposure = world.market_bank_portfolio_value(country.id());
     let daily_turnover = country.stock_market().total_daily_turnover();
 
     vec![

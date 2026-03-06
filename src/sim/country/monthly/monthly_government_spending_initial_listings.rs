@@ -210,6 +210,10 @@ impl Country {
         let mut shares_allocated = 0_u64;
         let mut raised = 0.0_f64;
         let mut subscriptions: Vec<(u32, u64, f64)> = Vec::new();
+        let security_id = crate::sim::stock_market::StockSecurityId {
+            country_id: self.id,
+            company_id,
+        };
 
         for person in &self.people {
             if shares_allocated >= float_shares {
@@ -258,7 +262,7 @@ impl Country {
                 person.cash_balance = round_cents(person.cash_balance - cost);
                 self.stock_market
                     .person_portfolio_mut(*person_id)
-                    .add_shares(company_id, *alloc, price_per_share);
+                    .add_shares(security_id, *alloc, price_per_share);
             }
         }
         if bank_alloc > 0 {
@@ -266,13 +270,14 @@ impl Country {
             primary_bank.reserve_balance = round_cents(primary_bank.reserve_balance - bank_cost);
             self.stock_market
                 .bank_portfolio
-                .add_shares(company_id, bank_alloc, price_per_share);
+                .add_shares(security_id, bank_alloc, price_per_share);
         }
 
         // Register listing: founder shares + float sold.
         let total_shares = initial_shares + shares_allocated;
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
+            company_id,
             company_id,
             ticker.clone(),
             price_per_share,

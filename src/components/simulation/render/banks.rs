@@ -4,7 +4,10 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
+    widgets::{
+        Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Table, Wrap,
+    },
 };
 
 use super::super::{Simulation, theme};
@@ -119,36 +122,45 @@ impl Simulation {
 
         let total_rows = tab.bank_rows.len();
         let visible_height = area.height.saturating_sub(3) as usize;
-        let selected_idx = tab.bank_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let selected_idx = tab
+            .bank_rows
+            .iter()
+            .position(|r| r.is_selected)
+            .unwrap_or(0);
         let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
 
-        let rows = tab.bank_rows.iter().skip(view_scroll).take(visible_height).map(|bank| {
-            let style = if bank.is_selected && world.selection_focus == SelectionFocus::Bank {
-                Style::default()
-                    .fg(theme::TEXT_PRIMARY)
-                    .bg(theme::HIGHLIGHT_BG)
-                    .add_modifier(Modifier::BOLD)
-            } else if bank.is_even {
-                Style::default().fg(theme::TEXT_PRIMARY)
-            } else {
-                Style::default()
-                    .fg(theme::TEXT_PRIMARY)
-                    .bg(Color::Rgb(23, 31, 48))
-            };
+        let rows = tab
+            .bank_rows
+            .iter()
+            .skip(view_scroll)
+            .take(visible_height)
+            .map(|bank| {
+                let style = if bank.is_selected && world.selection_focus == SelectionFocus::Bank {
+                    Style::default()
+                        .fg(theme::TEXT_PRIMARY)
+                        .bg(theme::HIGHLIGHT_BG)
+                        .add_modifier(Modifier::BOLD)
+                } else if bank.is_even {
+                    Style::default().fg(theme::TEXT_PRIMARY)
+                } else {
+                    Style::default()
+                        .fg(theme::TEXT_PRIMARY)
+                        .bg(Color::Rgb(23, 31, 48))
+                };
 
-            Row::new([
-                Cell::from(bank.bank_id.clone()),
-                Cell::from(bank.name.clone()),
-                Cell::from(bank.kind.clone()),
-                Cell::from(bank.reserve.clone()),
-                Cell::from(bank.deposits.clone()),
-                Cell::from(bank.created_money.clone()),
-                Cell::from(bank.health.clone()),
-                Cell::from(bank.run_intensity.clone()),
-                Cell::from(bank.resolution.clone()),
-            ])
-            .style(style)
-        });
+                Row::new([
+                    Cell::from(bank.bank_id.clone()),
+                    Cell::from(bank.name.clone()),
+                    Cell::from(bank.kind.clone()),
+                    Cell::from(bank.reserve.clone()),
+                    Cell::from(bank.deposits.clone()),
+                    Cell::from(bank.created_money.clone()),
+                    Cell::from(bank.health.clone()),
+                    Cell::from(bank.run_intensity.clone()),
+                    Cell::from(bank.resolution.clone()),
+                ])
+                .style(style)
+            });
 
         let widths = [
             Constraint::Length(4),

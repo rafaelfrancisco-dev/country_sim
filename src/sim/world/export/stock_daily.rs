@@ -81,8 +81,7 @@ impl World {
                     total_volume,
                     total_turnover,
                     index_value: country.stock_market().index_value(),
-                    bank_equity_exposure: country.stock_market().bank_equity_exposure()
-                        + country.bank_cross_country_equity_exposure_cost(),
+                    bank_equity_exposure: self.market_bank_portfolio_value(country.id()),
                     bank_reserve_balance: country.total_bank_reserves(),
                     active_traders_count: country.stock_market().day_active_traders_count,
                     buy_orders_count: country.stock_market().day_buy_orders_count,
@@ -93,14 +92,17 @@ impl World {
                 let bank_shares = country
                     .stock_market()
                     .bank_portfolio
-                    .position(*cid)
+                    .position(crate::sim::stock_market::StockSecurityId {
+                        country_id: country.id(),
+                        company_id: *cid,
+                    })
                     .map_or(0, |p| p.shares);
                 self.stock_equity_export_queue
                     .push(StockDailyEquityExportData {
                         day,
                         country_id: country.id(),
                         country_name: country.name().to_string(),
-                        company_id: *cid,
+                        company_id: equity.current_company_id,
                         ticker: equity.ticker.clone(),
                         close_price: equity.last_price,
                         day_return_pct: equity.day_pct_change() * 100.0,

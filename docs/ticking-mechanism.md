@@ -93,16 +93,18 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 At each 30-day boundary, the shared world tick pipeline runs the following steps in order:
 
 1. `Country::process_month_end` (parallel) — payroll, taxes, gov spending, loan repayments, company decisions; pushes events to `country.pending_events`
-2. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
+2. `process_cross_market_stock_dividends` + stale-position cleanup — pays dividends to local and foreign holders using the listing country's cash/tax rules and removes holdings in delisted securities
+3. `process_cross_country_deposits`
+4. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
    - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
    - otherwise tariff mean-reverts toward the baseline tariff rate
-3. `update_policy_rate` + propagate to all countries — updates world policy rate and assigns it to each country before history capture
-4. `capture_snapshot` — records `MetricPoint` into the rolling history window
-5. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
-6. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
-7. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
+5. `update_policy_rate` + propagate to all countries — updates world policy rate and assigns it to each country before history capture
+6. `capture_snapshot` — records `MetricPoint` into the rolling history window
+7. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
+8. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
+9. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
 
-Step 5 must precede step 6 so that monthly accumulators are readable, and precede step 7 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
+Step 7 must precede step 8 so that monthly accumulators are readable, and precede step 9 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
 
 ## Trace/Non-Trace Drift Prevention
 - `World` now has a single internal tick pipeline (`tick_day_with_hooks`) and a hook trait (`WorldTickHooks`).

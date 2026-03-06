@@ -15,6 +15,10 @@ impl Country {
         let listed_ids: Vec<u16> = self.stock_market.listed.keys().copied().collect();
 
         for company_id in listed_ids {
+            let security_id = crate::sim::stock_market::StockSecurityId {
+                country_id: self.id,
+                company_id,
+            };
             let Some(company) = self.companies.get(company_id as usize) else {
                 continue;
             };
@@ -99,7 +103,7 @@ impl Country {
                     person.cash_balance = round_cents((person.cash_balance - cost).max(0.0));
                     self.stock_market
                         .person_portfolio_mut(*person_id)
-                        .add_shares(company_id, *alloc, offer_price);
+                        .add_shares(security_id, *alloc, offer_price);
                 }
             }
             if bank_alloc > 0 {
@@ -108,7 +112,7 @@ impl Country {
                     round_cents((primary_bank.reserve_balance - bank_cost).max(0.0));
                 self.stock_market
                     .bank_portfolio
-                    .add_shares(company_id, bank_alloc, offer_price);
+                    .add_shares(security_id, bank_alloc, offer_price);
             }
 
             if let Some(equity) = self.stock_market.listed.get_mut(&company_id) {

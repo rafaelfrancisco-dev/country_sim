@@ -77,30 +77,6 @@ impl Country {
         // Stock invariants
         if self.sim_params.stock_market.enabled {
             for (cid, equity) in &self.stock_market.listed {
-                // Share conservation: sum(person holdings) + bank holdings == free_float_shares
-                let mut total_person_shares = 0_u64;
-                for portfolio in self.stock_market.person_portfolios.values() {
-                    if let Some(pos) = portfolio.position(*cid) {
-                        total_person_shares = total_person_shares.saturating_add(pos.shares);
-                    }
-                }
-                let bank_shares = self
-                    .stock_market
-                    .bank_portfolio
-                    .position(*cid)
-                    .map_or(0, |p| p.shares);
-                let total_held = total_person_shares.saturating_add(bank_shares);
-                if total_held != equity.free_float_shares {
-                    violations.push(InvariantViolation {
-                        code: "stock_share_conservation",
-                        message: format!(
-                            "company {cid}: held shares {total_held} != free_float_shares {}",
-                            equity.free_float_shares
-                        ),
-                    });
-                }
-
-                // No NaN/inf in price
                 if !equity.last_price.is_finite() || equity.last_price <= 0.0 {
                     violations.push(InvariantViolation {
                         code: "stock_price_invalid",

@@ -4,144 +4,8 @@ use super::money::round_cents;
 
 pub const STOCK_PRICE_HISTORY_WINDOW: usize = 120;
 pub const STOCK_INDEX_HISTORY_WINDOW: usize = 120;
-
-// ---------------------------------------------------------------------------
-// Position / Portfolio
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Position {
-    pub company_id: u16,
-    pub shares: u64,
-    pub avg_cost: f64,
-    pub pledged_shares: u64,
-}
-
-impl Position {
-    pub fn market_value(&self, last_price: f64) -> f64 {
-        self.shares as f64 * last_price
-    }
-
-    pub fn unrealized_pnl(&self, last_price: f64) -> f64 {
-        self.market_value(last_price) - (self.shares as f64 * self.avg_cost)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Portfolio {
-    pub positions: Vec<Position>,
-    pub realized_pnl_mtd: f64,
-    pub dividends_mtd: f64,
-    pub last_completed_month_dividends: f64,
-}
-
-impl Portfolio {
-    pub fn position(&self, company_id: u16) -> Option<&Position> {
-        self.positions.iter().find(|p| p.company_id == company_id)
-    }
-
-    /// Add `shares` bought at `cost_per_share` to the position; updates avg cost.
-    pub fn add_shares(&mut self, company_id: u16, shares: u64, cost_per_share: f64) {
-        if shares == 0 {
-            return;
-        }
-        if let Some(pos) = self
-            .positions
-            .iter_mut()
-            .find(|p| p.company_id == company_id)
-        {
-            let total_cost = pos.shares as f64 * pos.avg_cost + shares as f64 * cost_per_share;
-            pos.shares += shares;
-            pos.avg_cost = if pos.shares == 0 {
-                0.0
-            } else {
-                total_cost / pos.shares as f64
-            };
-        } else {
-            self.positions.push(Position {
-                company_id,
-                shares,
-                avg_cost: cost_per_share,
-                pledged_shares: 0,
-            });
-        }
-    }
-
-    /// Remove up to `shares` from position at `sale_price`; returns realized PnL.
-    pub fn remove_shares(&mut self, company_id: u16, shares: u64, sale_price: f64) -> f64 {
-        let Some(pos) = self
-            .positions
-            .iter_mut()
-            .find(|p| p.company_id == company_id)
-        else {
-            return 0.0;
-        };
-        let removed = shares.min(pos.shares);
-        let pnl = round_cents((sale_price - pos.avg_cost) * removed as f64);
-        self.realized_pnl_mtd = round_cents(self.realized_pnl_mtd + pnl);
-        pos.shares -= removed;
-        pos.pledged_shares = pos.pledged_shares.min(pos.shares);
-        if pos.shares == 0 {
-            let cid = company_id;
-            self.positions.retain(|p| p.company_id != cid);
-        }
-        pnl
-    }
-
-    /// Write all shares to zero (bankruptcy); books realized loss at avg cost.
-    /// Returns the number of shares wiped.
-    pub fn wipe_company(&mut self, company_id: u16) -> u64 {
-        let Some(idx) = self
-            .positions
-            .iter()
-            .position(|p| p.company_id == company_id)
-        else {
-            return 0;
-        };
-        let pos = &self.positions[idx];
-        let shares = pos.shares;
-        let loss = round_cents(-(pos.shares as f64 * pos.avg_cost));
-        self.realized_pnl_mtd = round_cents(self.realized_pnl_mtd + loss);
-        self.positions.swap_remove(idx);
-        shares
-    }
-
-    /// Sum of market values across all positions.
-    pub fn total_equity_value(&self, market: &StockMarket) -> f64 {
-        self.positions
-            .iter()
-            .map(|pos| {
-                let price = market
-                    .listed
-                    .get(&pos.company_id)
-                    .map_or(0.0, |e| e.last_price);
-                pos.shares as f64 * price
-            })
-            .sum()
-    }
-
-    /// Mark all shares as pledged (for borrowers).
-    pub fn pledge_all(&mut self) {
-        for pos in &mut self.positions {
-            pos.pledged_shares = pos.shares;
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.positions.is_empty()
-    }
-
-    /// Remap position company IDs after compaction.
-    pub fn remap_company_ids(&mut self, old_to_new: &HashMap<u16, u16>) {
-        for pos in &mut self.positions {
-            if let Some(&new_id) = old_to_new.get(&pos.company_id) {
-                pos.company_id = new_id;
-            }
-        }
-        // positions whose company was removed (not in map) are already wiped
-        // before this call
-    }
-}
+mod portfolio;
+pub use portfolio::{Portfolio, Position, StockSecurityId};
 
 // ---------------------------------------------------------------------------
 // Listed equity
@@ -150,6 +14,7 @@ impl Portfolio {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ListedEquity {
     pub company_id: u16,
+    pub current_company_id: u16,
     pub ticker: String,
     pub shares_outstanding: u64,
     pub free_float_shares: u64,
@@ -171,6 +36,7 @@ pub struct ListedEquity {
 impl ListedEquity {
     pub fn new(
         company_id: u16,
+        current_company_id: u16,
         ticker: String,
         initial_price: f64,
         shares_outstanding: u64,
@@ -179,6 +45,7 @@ impl ListedEquity {
         let market_cap = initial_price * shares_outstanding as f64;
         Self {
             company_id,
+            current_company_id,
             ticker,
             shares_outstanding,
             free_float_shares,
@@ -198,7 +65,9 @@ impl ListedEquity {
     }
 
     /// Sum of trailing 12-month per-share dividends.
-    pub fn trailing_annual_dps(&self) -> f64 { self.monthly_dps.iter().sum() }
+    pub fn trailing_annual_dps(&self) -> f64 {
+        self.monthly_dps.iter().sum()
+    }
 
     pub fn record_monthly_dps(&mut self, per_share: f64) {
         self.monthly_dps[self.dps_cursor as usize] += per_share;
@@ -280,7 +149,7 @@ pub struct StockMarket {
     pub person_portfolios: HashMap<u32, Portfolio>,
     /// Bank portfolio (institutional investor).
     pub bank_portfolio: Portfolio,
-    /// Listed companies keyed by company_id.
+    /// Listed companies keyed by stable listing id.
     pub listed: HashMap<u16, ListedEquity>,
     /// Country-level daily index history.
     pub daily_index_history: Vec<DailyIndexPoint>,
@@ -336,8 +205,30 @@ impl StockMarket {
         self.bank_portfolio.total_equity_value(self)
     }
 
+    pub fn security_id(&self, country_id: u16, company_id: u16) -> Option<StockSecurityId> {
+        self.listed
+            .values()
+            .find(|equity| equity.current_company_id == company_id)
+            .map(|equity| StockSecurityId {
+                country_id,
+                company_id: equity.company_id,
+            })
+    }
+
+    pub fn equity_by_company_id(&self, company_id: u16) -> Option<&ListedEquity> {
+        self.listed
+            .values()
+            .find(|equity| equity.current_company_id == company_id)
+    }
+
+    pub fn equity_by_company_id_mut(&mut self, company_id: u16) -> Option<&mut ListedEquity> {
+        self.listed
+            .values_mut()
+            .find(|equity| equity.current_company_id == company_id)
+    }
+
     pub fn is_listed(&self, company_id: u16) -> bool {
-        self.listed.contains_key(&company_id)
+        self.equity_by_company_id(company_id).is_some()
     }
 
     /// Compute the composite index value (base 1000 at first listing).
@@ -350,8 +241,7 @@ impl StockMarket {
     }
 
     /// Record today's index snapshot and close all listed equities.
-    pub fn record_day_close(&mut self, day: u64) {
-        let bank_exposure = self.bank_equity_exposure();
+    pub fn record_day_close(&mut self, day: u64, bank_exposure: f64) {
         let total_turnover = self.total_daily_turnover();
         let index_value = self.index_value();
 
@@ -453,11 +343,16 @@ impl StockMarket {
 
     /// Called on bankruptcy: wipe all portfolio positions for `company_id`,
     /// remove from listings. Returns total shares wiped across all holders.
-    pub fn delist_company(&mut self, company_id: u16) -> u64 {
+    pub fn delist_company(&mut self, country_id: u16, company_id: u16) -> u64 {
+        let Some(security_id) = self.listed.values().find_map(|equity| {
+            (equity.current_company_id == company_id).then_some(equity.company_id)
+        }) else {
+            return 0;
+        };
         let before_cap = self.total_market_cap();
         let removed_cap = self
             .listed
-            .remove(&company_id)
+            .remove(&security_id)
             .map_or(0.0, |equity| equity.market_cap.max(0.0));
         let after_cap = self.total_market_cap();
         if self.index_base > 0.0 && before_cap > 0.0 && removed_cap > 0.0 {
@@ -469,29 +364,27 @@ impl StockMarket {
         }
         let mut total_wiped = 0_u64;
         for portfolio in self.person_portfolios.values_mut() {
-            total_wiped = total_wiped.saturating_add(portfolio.wipe_company(company_id));
+            total_wiped = total_wiped.saturating_add(portfolio.wipe_security(StockSecurityId {
+                country_id,
+                company_id: security_id,
+            }));
         }
-        total_wiped = total_wiped.saturating_add(self.bank_portfolio.wipe_company(company_id));
+        total_wiped =
+            total_wiped.saturating_add(self.bank_portfolio.wipe_security(StockSecurityId {
+                country_id,
+                company_id: security_id,
+            }));
         total_wiped
     }
 
     /// After compaction, remap all company_id references.
     /// `old_to_new` maps old company_id → new company_id for surviving companies.
     pub fn remap_company_ids(&mut self, old_to_new: &HashMap<u16, u16>) {
-        // Remap listed equities
-        let old_listed: HashMap<u16, ListedEquity> = std::mem::take(&mut self.listed);
-        for (old_id, mut equity) in old_listed {
-            if let Some(&new_id) = old_to_new.get(&old_id) {
-                equity.company_id = new_id;
-                self.listed.insert(new_id, equity);
+        for equity in self.listed.values_mut() {
+            if let Some(&new_id) = old_to_new.get(&equity.current_company_id) {
+                equity.current_company_id = new_id;
             }
-            // else: already delisted by delist_company
         }
-        // Remap portfolios
-        for portfolio in self.person_portfolios.values_mut() {
-            portfolio.remap_company_ids(old_to_new);
-        }
-        self.bank_portfolio.remap_company_ids(old_to_new);
     }
 
     /// Get or create a person portfolio.

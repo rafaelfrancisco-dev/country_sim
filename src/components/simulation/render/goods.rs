@@ -4,7 +4,10 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Line,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
+    widgets::{
+        Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Table, Wrap,
+    },
 };
 
 use super::super::{Simulation, theme};
@@ -156,39 +159,49 @@ impl Simulation {
 
         let total_rows = tab.company_rows.len();
         let visible_height = area.height.saturating_sub(3) as usize;
-        let selected_idx = tab.company_rows.iter().position(|r| r.is_selected).unwrap_or(0);
+        let selected_idx = tab
+            .company_rows
+            .iter()
+            .position(|r| r.is_selected)
+            .unwrap_or(0);
         let view_scroll = selected_idx.saturating_sub(visible_height.saturating_sub(1));
 
-        let rows = tab.company_rows.iter().skip(view_scroll).take(visible_height).map(|company| {
-            let style = if company.is_selected && world.selection_focus == SelectionFocus::Company {
-                Style::default()
-                    .fg(theme::TEXT_PRIMARY)
-                    .bg(theme::HIGHLIGHT_BG)
-                    .add_modifier(Modifier::BOLD)
-            } else if company.is_even {
-                Style::default().fg(theme::TEXT_PRIMARY)
-            } else {
-                Style::default()
-                    .fg(theme::TEXT_PRIMARY)
-                    .bg(Color::Rgb(23, 31, 48))
-            };
+        let rows = tab
+            .company_rows
+            .iter()
+            .skip(view_scroll)
+            .take(visible_height)
+            .map(|company| {
+                let style =
+                    if company.is_selected && world.selection_focus == SelectionFocus::Company {
+                        Style::default()
+                            .fg(theme::TEXT_PRIMARY)
+                            .bg(theme::HIGHLIGHT_BG)
+                            .add_modifier(Modifier::BOLD)
+                    } else if company.is_even {
+                        Style::default().fg(theme::TEXT_PRIMARY)
+                    } else {
+                        Style::default()
+                            .fg(theme::TEXT_PRIMARY)
+                            .bg(Color::Rgb(23, 31, 48))
+                    };
 
-            Row::new([
-                Cell::from(company.company_id.clone()),
-                Cell::from(company.name.clone()),
-                Cell::from(company.good.clone()),
-                Cell::from(company.price.clone()),
-                Cell::from(company.avg_price.clone()),
-                Cell::from(company.inventory.clone()),
-                Cell::from(company.produced.clone()),
-                Cell::from(company.sold.clone()),
-                Cell::from(company.total_sold.clone()),
-                Cell::from(company.export_sold.clone()),
-                Cell::from(company.domestic_export_split.clone()),
-                Cell::from(company.sales.clone()),
-            ])
-            .style(style)
-        });
+                Row::new([
+                    Cell::from(company.company_id.clone()),
+                    Cell::from(company.name.clone()),
+                    Cell::from(company.good.clone()),
+                    Cell::from(company.price.clone()),
+                    Cell::from(company.avg_price.clone()),
+                    Cell::from(company.inventory.clone()),
+                    Cell::from(company.produced.clone()),
+                    Cell::from(company.sold.clone()),
+                    Cell::from(company.total_sold.clone()),
+                    Cell::from(company.export_sold.clone()),
+                    Cell::from(company.domestic_export_split.clone()),
+                    Cell::from(company.sales.clone()),
+                ])
+                .style(style)
+            });
 
         let widths = [
             Constraint::Length(4),

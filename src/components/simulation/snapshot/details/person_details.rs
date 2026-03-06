@@ -129,6 +129,7 @@ pub(in crate::components::simulation) fn person_details_lines(
     ));
     lines.push(String::new());
     lines.extend(person_stock_holdings_lines(
+        world,
         country,
         person.id,
         currency_symbol,

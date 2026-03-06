@@ -9,5 +9,5 @@ mod order_book;
 #[cfg(test)]
 mod tests;
 
-pub(in crate::sim::world) use matching::run_country_stock_market;
+pub(in crate::sim::world) use matching::run_world_stock_market;
 pub(in crate::sim::world) use order_book::*;

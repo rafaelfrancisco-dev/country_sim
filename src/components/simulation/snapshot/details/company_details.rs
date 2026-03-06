@@ -71,7 +71,7 @@ pub(in crate::components::simulation) fn company_details_lines(
     } else {
         "N/A".to_string()
     };
-    let listed_equity = country.stock_market.listed.get(&company.id);
+    let listed_equity = country.stock_market.equity_by_company_id(company.id);
     let listed_label = listed_equity.map_or("No", |_| "Yes");
     let ticker_label = listed_equity.map_or("N/A".to_string(), |equity| equity.ticker.clone());
     let listing_price = listed_equity.map_or(0.0, |equity| equity.last_price);
@@ -82,7 +82,10 @@ pub(in crate::components::simulation) fn company_details_lines(
         let bank_shares = country
             .stock_market
             .bank_portfolio
-            .position(company.id)
+            .position(crate::sim::stock_market::StockSecurityId {
+                country_id: country.id,
+                company_id: equity.company_id,
+            })
             .map_or(0_u64, |position| position.shares);
         if equity.shares_outstanding > 0 {
             bank_shares as f64 / equity.shares_outstanding as f64 * 100.0

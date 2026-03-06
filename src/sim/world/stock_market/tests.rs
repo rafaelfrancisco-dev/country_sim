@@ -10,7 +10,7 @@ fn make_person(id: u32, cash: f64) -> Person {
 
 fn make_world_with_listed(people: Vec<Person>, initial_price: f64) -> World {
     let mut country = Country::new(0, "Test".to_string(), people);
-    let equity = ListedEquity::new(0, "TST".to_string(), initial_price, 1_000_000, 200_000);
+    let equity = ListedEquity::new(0, 0, "TST".to_string(), initial_price, 1_000_000, 200_000);
     country.stock_market.listed.insert(0, equity);
     // Give bank some reserves for maker orders
     country.primary_bank_mut().reserve_balance = 500_000.0;
@@ -33,7 +33,14 @@ fn retail_buy_sell_crosses_and_conserves_cash_and_shares() {
     world.countries[0]
         .stock_market
         .person_portfolio_mut(0)
-        .add_shares(0, 1000, 10.0);
+        .add_shares(
+            crate::sim::stock_market::StockSecurityId {
+                country_id: 0,
+                company_id: 0,
+            },
+            1000,
+            10.0,
+        );
     // Track free_float used: set seller's shares as part of free float
     // (already set to 200_000 in equity constructor)
 
@@ -81,23 +88,44 @@ fn retail_buy_sell_crosses_and_conserves_cash_and_shares() {
 fn noncrossing_books_produce_zero_fills() {
     // Buyer willing to pay 9.0, seller asking 11.0 - books don't cross
     let mut buys = vec![LimitOrder {
-        trader: TraderId::Person(1),
-        company_id: 0,
+        trader: TraderId::Person {
+            country_id: 0,
+            person_id: 1,
+        },
+        security_id: crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
         side: OrderSide::Buy,
         limit_price: 9.0,
         remaining_shares: 100,
         remaining_cash_budget: 900.0,
     }];
     let mut sells = vec![LimitOrder {
-        trader: TraderId::Person(0),
-        company_id: 0,
+        trader: TraderId::Person {
+            country_id: 0,
+            person_id: 0,
+        },
+        security_id: crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
         side: OrderSide::Sell,
         limit_price: 11.0,
         remaining_shares: 100,
         remaining_cash_budget: 0.0,
     }];
 
-    let fills = match_books(&mut buys, &mut sells, 5.0, 15.0, 0);
+    let fills = match_books(
+        &mut buys,
+        &mut sells,
+        5.0,
+        15.0,
+        crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
+    );
     assert!(fills.is_empty(), "expected no fills for non-crossing book");
 }
 
@@ -105,16 +133,28 @@ fn noncrossing_books_produce_zero_fills() {
 fn daily_price_move_is_bounded() {
     // Even if buyer bids 200 and seller asks 100 (midpoint 150), prev_close=100 -> max cap 108
     let mut buys = vec![LimitOrder {
-        trader: TraderId::Person(1),
-        company_id: 0,
+        trader: TraderId::Person {
+            country_id: 0,
+            person_id: 1,
+        },
+        security_id: crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
         side: OrderSide::Buy,
         limit_price: 200.0,
         remaining_shares: 50,
         remaining_cash_budget: 10_000.0,
     }];
     let mut sells = vec![LimitOrder {
-        trader: TraderId::Person(0),
-        company_id: 0,
+        trader: TraderId::Person {
+            country_id: 0,
+            person_id: 0,
+        },
+        security_id: crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
         side: OrderSide::Sell,
         limit_price: 100.0,
         remaining_shares: 50,
@@ -122,7 +162,16 @@ fn daily_price_move_is_bounded() {
     }];
 
     // prev_close=100, max_move=0.08 -> max_price=108, min_price=92
-    let fills = match_books(&mut buys, &mut sells, 92.0, 108.0, 0);
+    let fills = match_books(
+        &mut buys,
+        &mut sells,
+        92.0,
+        108.0,
+        crate::sim::stock_market::StockSecurityId {
+            country_id: 0,
+            company_id: 0,
+        },
+    );
     assert!(!fills.is_empty(), "expected fills");
     for fill in &fills {
         assert!(

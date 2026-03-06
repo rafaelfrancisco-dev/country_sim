@@ -62,6 +62,7 @@ The running UI uses one navigation convention across tabs:
   - Bank page 4 uses `w/s` to scroll depositors.
 - `Main`/`Goods`/`Banks` details view: `PageUp` / `PageDown` navigate detail pages.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
+  - Person stock-holdings details can include foreign securities; foreign holdings are prefixed with the listing-country name.
 - `Disasters`: selected-country disaster controls.
   - `w/s`: select disaster row
   - `a/d`: choose intensity tier (`5%`, `10%`, `25%`, `50%`)

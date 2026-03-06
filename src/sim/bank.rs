@@ -1,6 +1,7 @@
 use super::{
     job::{JobTypeId, salary_for_job},
     money::round_cents,
+    stock_market::StockSecurityId,
 };
 use std::collections::HashMap;
 
@@ -16,11 +17,7 @@ pub const DEFAULT_BANK_NAME: &str = "National Bank";
 
 pub type BankId = u16;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct BankSecurityId {
-    pub country_id: u16,
-    pub company_id: u16,
-}
+pub type BankSecurityId = StockSecurityId;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BankKind {

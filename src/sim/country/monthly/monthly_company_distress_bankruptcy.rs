@@ -258,7 +258,7 @@ impl Country {
 
             // Delist stock before emitting bankruptcy event
             let shares_wiped = if self.sim_params.stock_market.enabled {
-                self.stock_market.delist_company(company_id)
+                self.stock_market.delist_company(self.id, company_id)
             } else {
                 0
             };

@@ -2,7 +2,7 @@ use super::{ListedEquity, StockMarket};
 
 #[test]
 fn record_day_close_persists_completed_day_pct_change() {
-    let mut equity = ListedEquity::new(1, "TST".to_string(), 100.0, 10_000, 3_000);
+    let mut equity = ListedEquity::new(1, 1, "TST".to_string(), 100.0, 10_000, 3_000);
     equity.record_trade(100, 110.0);
 
     assert!((equity.day_pct_change() - 0.10).abs() < f64::EPSILON);
@@ -19,11 +19,11 @@ fn insert_listing_preserve_index_assigns_distinct_ticker_symbols() {
 
     let first_ticker = market.insert_listing_preserve_index(
         1,
-        ListedEquity::new(1, "CMP".to_string(), 10.0, 1_000, 500),
+        ListedEquity::new(1, 1, "CMP".to_string(), 10.0, 1_000, 500),
     );
     let second_ticker = market.insert_listing_preserve_index(
         2,
-        ListedEquity::new(2, "cmp".to_string(), 20.0, 2_000, 1_000),
+        ListedEquity::new(2, 2, "cmp".to_string(), 20.0, 2_000, 1_000),
     );
 
     assert_eq!(first_ticker, "CMP");

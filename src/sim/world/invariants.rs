@@ -49,6 +49,52 @@ impl super::World {
             }
         }
 
+        let mut held_by_security = std::collections::HashMap::new();
+        for country in &self.countries {
+            for portfolio in country.stock_market.person_portfolios.values() {
+                for position in &portfolio.positions {
+                    *held_by_security
+                        .entry(position.security_id)
+                        .or_insert(0_u64) = held_by_security
+                        .get(&position.security_id)
+                        .copied()
+                        .unwrap_or(0)
+                        .saturating_add(position.shares);
+                }
+            }
+            for position in &country.stock_market.bank_portfolio.positions {
+                *held_by_security
+                    .entry(position.security_id)
+                    .or_insert(0_u64) = held_by_security
+                    .get(&position.security_id)
+                    .copied()
+                    .unwrap_or(0)
+                    .saturating_add(position.shares);
+            }
+        }
+
+        for country in &self.countries {
+            for (&company_id, equity) in &country.stock_market.listed {
+                let security_id = crate::sim::stock_market::StockSecurityId {
+                    country_id: country.id(),
+                    company_id,
+                };
+                let total_held = held_by_security.get(&security_id).copied().unwrap_or(0);
+                if total_held != equity.free_float_shares {
+                    violations.push(InvariantViolation {
+                        code: "stock_share_conservation",
+                        message: format!(
+                            "security ({}, {}): held shares {} != free_float_shares {}",
+                            security_id.country_id,
+                            security_id.company_id,
+                            total_held,
+                            equity.free_float_shares
+                        ),
+                    });
+                }
+            }
+        }
+
         violations
     }
 }

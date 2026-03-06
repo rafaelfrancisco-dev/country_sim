@@ -488,12 +488,16 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
     country.primary_bank_mut().reserve_balance = 20_000.0;
 
     // List a company and give the person shares
-    let equity = ListedEquity::new(0, "MCT".to_string(), 10.0, 1_000_000, 500);
+    let equity = ListedEquity::new(0, 0, "MCT".to_string(), 10.0, 1_000_000, 500);
     country.stock_market.listed.insert(0, equity);
-    country
-        .stock_market
-        .person_portfolio_mut(1)
-        .add_shares(0, 500, 10.0);
+    country.stock_market.person_portfolio_mut(1).add_shares(
+        crate::sim::stock_market::StockSecurityId {
+            country_id: country.id,
+            company_id: 0,
+        },
+        500,
+        10.0,
+    );
 
     // Give the person a loan they cannot pay (monthly_payment >> cash)
     let mut loan_slot = None;
@@ -525,13 +529,21 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
     let bank_shares = country
         .stock_market
         .bank_portfolio
-        .position(0)
+        .position(crate::sim::stock_market::StockSecurityId {
+            country_id: country.id,
+            company_id: 0,
+        })
         .map_or(0, |p| p.shares);
     let person_shares = country
         .stock_market
         .person_portfolios
         .get(&1)
-        .and_then(|p| p.position(0))
+        .and_then(|p| {
+            p.position(crate::sim::stock_market::StockSecurityId {
+                country_id: country.id,
+                company_id: 0,
+            })
+        })
         .map_or(0, |p| p.shares);
 
     assert!(

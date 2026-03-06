@@ -44,7 +44,6 @@ impl Country {
         for bank in self.all_banks_mut() {
             bank.close_month();
         }
-        self.process_stock_dividends();
         self.recompute_cpi(); // [F]
         self.recompute_bank_deposit_liabilities();
         self.process_auto_money_minting();
@@ -88,7 +87,7 @@ impl Country {
         for bank in self.all_banks_mut() {
             bank.close_month();
         }
-        let dividends_ms = time_op!(self.process_stock_dividends());
+        let dividends_ms = 0.0;
         let cpi_ms = time_op!(self.recompute_cpi());
         time_op!(self.recompute_bank_deposit_liabilities());
         self.process_auto_money_minting();

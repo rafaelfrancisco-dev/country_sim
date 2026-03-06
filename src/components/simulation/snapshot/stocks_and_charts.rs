@@ -252,7 +252,10 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
         format!("Listed Companies: {}", market.listed_count()),
         format!(
             "Bank Equity Exposure: {}",
-            money(market.bank_equity_exposure(), currency_symbol)
+            money(
+                world.market_bank_portfolio_value(country.id),
+                currency_symbol
+            )
         ),
         format!(
             "MTD IPO Raised: {}",
@@ -287,13 +290,16 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
         .map(|(row_idx, equity)| {
             let company_name = country
                 .companies
-                .get(equity.company_id as usize)
+                .get(equity.current_company_id as usize)
                 .map(|c| c.name.clone())
                 .unwrap_or_default();
 
             let bank_shares = market
                 .bank_portfolio
-                .position(equity.company_id)
+                .position(crate::sim::stock_market::StockSecurityId {
+                    country_id: country.id,
+                    company_id: equity.company_id,
+                })
                 .map_or(0, |p| p.shares);
             let bank_pct = if equity.shares_outstanding > 0 {
                 bank_shares as f64 / equity.shares_outstanding as f64 * 100.0
@@ -362,13 +368,14 @@ pub(in crate::components::simulation) fn stock_person_details_lines(
         return Vec::new();
     };
 
-    person_stock_holdings_lines(country, person.id, currency_symbol)
+    person_stock_holdings_lines(world, country, person.id, currency_symbol)
         .into_iter()
         .map(|line| format!("  {line}"))
         .collect()
 }
 
 pub(in crate::components::simulation) fn person_stock_holdings_lines(
+    world: &World,
     country: &crate::sim::country::Country,
     person_id: u32,
     currency_symbol: &str,
@@ -381,7 +388,23 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
         return vec!["Stock Holdings: None".to_string()];
     }
 
-    let total_value = portfolio.total_equity_value(market);
+    let total_value = portfolio
+        .positions
+        .iter()
+        .map(|pos| {
+            world
+                .countries
+                .iter()
+                .find(|listing_country| listing_country.id == pos.security_id.country_id)
+                .and_then(|listing_country| {
+                    listing_country
+                        .stock_market
+                        .listed
+                        .get(&pos.security_id.company_id)
+                })
+                .map_or(0.0, |equity| pos.market_value(equity.last_price))
+        })
+        .sum::<f64>();
     let mut lines = vec![
         "Stock Holdings:".to_string(),
         format!(
@@ -399,18 +422,38 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
     ];
 
     for pos in &portfolio.positions {
-        let equity = market.listed.get(&pos.company_id);
+        let equity = world
+            .countries
+            .iter()
+            .find(|listing_country| listing_country.id == pos.security_id.country_id)
+            .and_then(|listing_country| {
+                listing_country
+                    .stock_market
+                    .listed
+                    .get(&pos.security_id.company_id)
+            });
         let ticker = equity.map(|e| e.ticker.as_str()).unwrap_or("???");
         let last_price = equity.map_or(0.0, |e| e.last_price);
         let value = pos.market_value(last_price);
         let unrealized = pos.unrealized_pnl(last_price);
+        let country_prefix = if pos.security_id.country_id == country.id {
+            String::new()
+        } else {
+            let listing_country = world
+                .countries
+                .iter()
+                .find(|listing_country| listing_country.id == pos.security_id.country_id)
+                .map(|listing_country| listing_country.name.as_str())
+                .unwrap_or("Foreign");
+            format!("[{listing_country}] ")
+        };
         let pledged_note = if pos.pledged_shares > 0 {
             format!(" | pledged {}", pos.pledged_shares)
         } else {
             String::new()
         };
         lines.push(format!(
-            "{ticker}: {} shares{pledged_note} @ avg {} | last {} | val {} | PnL {}",
+            "{country_prefix}{ticker}: {} shares{pledged_note} @ avg {} | last {} | val {} | PnL {}",
             pos.shares,
             money(pos.avg_cost, currency_symbol),
             money(last_price, currency_symbol),

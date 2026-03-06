@@ -5,7 +5,7 @@ use crate::sim::country::Country;
 impl World {
     pub(super) fn capture_snapshot(&mut self) {
         for (idx, country) in self.countries.iter().enumerate() {
-            let point = Self::country_metric_point(country);
+            let point = self.country_metric_point(country);
             if let Some(history) = self.country_history.get_mut(idx) {
                 Self::push_metric_point(history, point);
             }
@@ -152,10 +152,7 @@ impl World {
         let stock_bank_equity_exposure = self
             .countries
             .iter()
-            .map(|country| {
-                country.stock_market().bank_equity_exposure()
-                    + country.bank_cross_country_equity_exposure_cost()
-            })
+            .map(|country| self.market_bank_portfolio_value(country.id()))
             .sum();
 
         MetricPoint {
@@ -192,7 +189,7 @@ impl World {
         }
     }
 
-    fn country_metric_point(country: &Country) -> MetricPoint {
+    fn country_metric_point(&self, country: &Country) -> MetricPoint {
         MetricPoint {
             month: country.month(),
             population: country.population() as f64,
@@ -223,8 +220,7 @@ impl World {
             monthly_savings_interest_paid: country.monthly_savings_interest_paid(),
             bonds_outstanding: country.bonds_outstanding(),
             stock_market_cap: country.stock_market().total_market_cap(),
-            stock_bank_equity_exposure: country.stock_market().bank_equity_exposure()
-                + country.bank_cross_country_equity_exposure_cost(),
+            stock_bank_equity_exposure: self.market_bank_portfolio_value(country.id()),
         }
     }
 
