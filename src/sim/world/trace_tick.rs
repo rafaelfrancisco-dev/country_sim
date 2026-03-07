@@ -34,8 +34,7 @@ impl TraceWorldTickHooks {
 impl WorldTickHooks for TraceWorldTickHooks {
     fn run_country_daily(&mut self, world: &mut World) {
         let started = Instant::now();
-        let threads = rayon::current_num_threads();
-        self.daily_traces = if world.countries.len() >= threads {
+        self.daily_traces = if world.countries.len() >= 2 {
             world.countries.par_iter_mut().map(|c| {
                 c.use_inner_parallelism = false;
                 Country::tick_day_without_month_traced(c)
@@ -63,8 +62,7 @@ impl WorldTickHooks for TraceWorldTickHooks {
 
     fn run_monthly_country_processing(&mut self, world: &mut World) {
         let started = Instant::now();
-        let threads = rayon::current_num_threads();
-        self.monthly_traces = if world.countries.len() >= threads {
+        self.monthly_traces = if world.countries.len() >= 2 {
             world.countries.par_iter_mut().map(|c| {
                 c.use_inner_parallelism = false;
                 Country::process_month_end_traced(c)
@@ -94,8 +92,7 @@ impl WorldTickHooks for TraceWorldTickHooks {
 
     fn run_monthly_reset_trackers(&mut self, world: &mut World) {
         self.world_monthly_reset_trackers_ms = Self::timed(|| {
-            let threads = rayon::current_num_threads();
-            if world.countries.len() >= threads {
+            if world.countries.len() >= 2 {
                 world.countries.par_iter_mut().for_each(|c| {
                     c.use_inner_parallelism = false;
                     Country::reset_month_trackers(c);

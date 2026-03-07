@@ -74,8 +74,7 @@ struct StandardWorldTickHooks;
 
 impl StandardWorldTickHooks {
     fn dispatch_countries(world: &mut World, f: impl Fn(&mut Country) + Sync + Send) {
-        let threads = rayon::current_num_threads();
-        if world.countries.len() >= threads {
+        if world.countries.len() >= 2 {
             world.countries.par_iter_mut().for_each(|c| {
                 c.use_inner_parallelism = false;
                 f(c);

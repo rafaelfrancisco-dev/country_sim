@@ -1,8 +1,5 @@
 use super::*;
-use crate::sim::essentials::{
-    is_essential_good, is_stockable_essential_good, monthly_requirement_for_good,
-    stockable_essential_slot, target_buffer_units,
-};
+use crate::sim::essentials::{is_essential_good, is_stockable_essential_good, stockable_essential_slot};
 
 impl World {
     pub(in crate::sim::world) fn process_good_round_robin(
@@ -14,67 +11,40 @@ impl World {
         day_cache: &mut GoodsMarketDayCache,
     ) {
         let country_count = self.countries.len();
-        let monthly_demand_factor = common_goods()[good_id as usize].monthly_demand_factor;
 
-        let day = self.day;
+        // Copy pre-computed demands for this good's slot into pending_demands.
+        // precompute_all_essential_demands() has already run once this tick.
+        let Some(good_slot) = ESSENTIAL_ND_SLOT[good_id as usize] else {
+            return;
+        };
+        {
+            let (precomputed, scratch) = (
+                &day_cache.precomputed_essential_demands,
+                &mut day_cache.round_robin,
+            );
+            for (country_idx, country_pending) in
+                scratch.pending_demands.iter_mut().enumerate()
+            {
+                if let Some(src) = precomputed.get(country_idx) {
+                    for (p_idx, pending) in country_pending.iter_mut().enumerate() {
+                        *pending = src
+                            .get(p_idx * ESSENTIAL_ND_GOOD_COUNT + good_slot)
+                            .copied()
+                            .unwrap_or(0);
+                    }
+                }
+            }
+        }
+        // Count (country, person) pairs with non-zero pending demand.
+        // This lets us skip the buyer-slot scan entirely when all demand is zero.
         {
             let scratch = &mut day_cache.round_robin;
-            scratch
+            scratch.pending_non_zero = scratch
                 .pending_demands
-                .iter_mut()
-                .zip(self.countries.iter())
-                .for_each(|(country_pending, country)| {
-                    let country_id = country.id;
-                    if country.people.len() <= PEOPLE_CHUNK_SIZE {
-                        for (person_idx, (pending, person)) in country_pending
-                            .iter_mut()
-                            .zip(country.people.iter())
-                            .enumerate()
-                        {
-                            *pending = if is_stockable_essential_good(good_id) {
-                                self.stockable_essential_purchase_gap(country, person_idx, good_id)
-                            } else {
-                                demand_units_for_person_good(
-                                    day,
-                                    country_id,
-                                    person.id,
-                                    person.name_seed,
-                                    good_id,
-                                    monthly_demand_factor,
-                                )
-                            };
-                        }
-                    } else {
-                        country_pending
-                            .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-                            .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
-                            .enumerate()
-                            .for_each(|(chunk_idx, (pending_chunk, people_chunk))| {
-                                let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
-                                for (offset, (pending, person)) in pending_chunk
-                                    .iter_mut()
-                                    .zip(people_chunk.iter())
-                                    .enumerate()
-                                {
-                                    let person_idx = base_idx + offset;
-                                    *pending = if is_stockable_essential_good(good_id) {
-                                        self.stockable_essential_purchase_gap(
-                                            country, person_idx, good_id,
-                                        )
-                                    } else {
-                                        demand_units_for_person_good(
-                                            day,
-                                            country_id,
-                                            person.id,
-                                            person.name_seed,
-                                            good_id,
-                                            monthly_demand_factor,
-                                        )
-                                    };
-                                }
-                            });
-                    }
-                });
+                .iter()
+                .flat_map(|v| v.iter())
+                .filter(|&&v| v > 0)
+                .count();
         }
 
         let essential = is_essential_good(good_id) || necessity_rank <= 4;
@@ -92,6 +62,10 @@ impl World {
         loop {
             {
                 let scratch = &mut day_cache.round_robin;
+                // Fast exit: skip the O(max_people × country_count) slot scan when no demand remains.
+                if scratch.pending_non_zero == 0 {
+                    break;
+                }
                 scratch.planning.buyer_slots.clear();
                 for person_idx in 0..scratch.max_people {
                     for country_rr_order in 0..country_count {
@@ -172,6 +146,7 @@ impl World {
                             self.bump_unmet_need_events(buyer_country_idx, pending_units);
                         }
                         scratch.pending_demands[buyer_country_idx][person_idx] = 0;
+                        scratch.pending_non_zero -= 1;
                     }
                     IntentDecision::Candidate(intent) => {
                         match self.apply_planned_intent(intent, discretionary_budgets) {
@@ -179,6 +154,9 @@ impl World {
                                 let pending = &mut scratch.pending_demands
                                     [intent.buyer_country_idx][intent.person_idx];
                                 *pending = pending.saturating_sub(1);
+                                if *pending == 0 {
+                                    scratch.pending_non_zero -= 1;
+                                }
                                 if deferred_unmet {
                                     self.record_stockable_essential_purchase(
                                         intent.buyer_country_idx,
@@ -205,6 +183,7 @@ impl World {
                                 }
                                 scratch.pending_demands[intent.buyer_country_idx]
                                     [intent.person_idx] = 0;
+                                scratch.pending_non_zero -= 1;
                             }
                         }
                     }
@@ -248,26 +227,6 @@ impl World {
                 }
             }
         }
-    }
-
-    fn stockable_essential_purchase_gap(
-        &self,
-        country: &crate::sim::country::Country,
-        person_idx: usize,
-        good_id: GoodId,
-    ) -> u32 {
-        let Some(slot_idx) = stockable_essential_slot(good_id) else {
-            return 0;
-        };
-        let Some(person) = country.people.get(person_idx) else {
-            return 0;
-        };
-        let household_size = country.household_size_for_person(person_idx);
-        let essentials = &country.sim_params.essentials;
-        let target_units = monthly_requirement_for_good(essentials, good_id, household_size)
-            + target_buffer_units(essentials, good_id, household_size);
-        let current_units = person.essential_stock_units[slot_idx].max(0.0);
-        (target_units - current_units).ceil().max(0.0) as u32
     }
 
     pub(in crate::sim::world) fn plan_intent_for_slot(

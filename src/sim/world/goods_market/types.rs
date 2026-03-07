@@ -108,6 +108,9 @@ pub(in crate::sim::world) struct RoundRobinScratch {
     pub(in crate::sim::world) needs_met: Vec<Vec<u8>>,
     pub(in crate::sim::world) needs_unmet: Vec<Vec<u8>>,
     pub(in crate::sim::world) max_people: usize,
+    /// Count of (country, person) pairs with non-zero pending demand for the current good.
+    /// Used to skip the buyer-slot scan when all demands are already satisfied.
+    pub(in crate::sim::world) pending_non_zero: usize,
     pub(in crate::sim::world) planning: PlanningScratch,
 }
 
@@ -150,6 +153,7 @@ impl RoundRobinScratch {
             needs_unmet.resize(person_count, 0);
             needs_unmet.fill(0);
         }
+        self.pending_non_zero = 0;
         self.planning
             .prepare_capacity(self.max_people, country_count);
     }

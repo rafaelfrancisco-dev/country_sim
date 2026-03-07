@@ -11,7 +11,7 @@ impl World {
     }
 
     pub(in crate::sim::world) fn produce_goods_daily(&mut self) {
-        for country in &mut self.countries {
+        self.countries.par_iter_mut().for_each(|country| {
             let market = country.sim_params.goods_market;
             let daily_effort_per_worker = market.worker_effort_per_month / 30.0;
 
@@ -46,7 +46,7 @@ impl World {
                 company.last_month_units_produced =
                     company.last_month_units_produced.saturating_add(produced);
             }
-        }
+        });
     }
 
     pub(in crate::sim::world) fn process_global_goods_market(
@@ -65,6 +65,10 @@ impl World {
         let start_country_idx = (cycle_seed as usize) % country_count;
 
         let mut discretionary_budgets = self.initial_discretionary_budgets();
+
+        // Precompute demands for all 9 round-robin goods in one pass over the people array,
+        // so each per-good call below can copy from cache instead of re-streaming cold memory.
+        day_cache.precompute_all_essential_demands(self);
 
         for good in common_goods()
             .iter()
@@ -88,33 +92,28 @@ impl World {
             (common_goods()[good_id as usize].monthly_demand_factor / 30.0).max(0.0) as f32
         });
 
-        for country in &mut self.countries {
-            country
-                .people
-                .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-                .for_each(|chunk| {
-                    for person in chunk {
-                        for (slot_idx, &daily_usage) in daily_usages.iter().enumerate() {
-                            if daily_usage <= 0.0 {
-                                continue;
-                            }
-
-                            person.superficial_stock_consumption_carry[slot_idx] += daily_usage;
-                            let consume_units =
-                                person.superficial_stock_consumption_carry[slot_idx].floor() as u16;
-                            if consume_units == 0 {
-                                continue;
-                            }
-
-                            person.superficial_stock_consumption_carry[slot_idx] -=
-                                f32::from(consume_units);
-                            person.superficial_stock_units[slot_idx] = person
-                                .superficial_stock_units[slot_idx]
-                                .saturating_sub(consume_units);
-                        }
+        self.countries.par_iter_mut().for_each(|country| {
+            for person in &mut country.people {
+                for (slot_idx, &daily_usage) in daily_usages.iter().enumerate() {
+                    if daily_usage <= 0.0 {
+                        continue;
                     }
-                });
-        }
+
+                    person.superficial_stock_consumption_carry[slot_idx] += daily_usage;
+                    let consume_units =
+                        person.superficial_stock_consumption_carry[slot_idx].floor() as u16;
+                    if consume_units == 0 {
+                        continue;
+                    }
+
+                    person.superficial_stock_consumption_carry[slot_idx] -=
+                        f32::from(consume_units);
+                    person.superficial_stock_units[slot_idx] = person
+                        .superficial_stock_units[slot_idx]
+                        .saturating_sub(consume_units);
+                }
+            }
+        });
     }
 
     pub(in crate::sim::world) fn process_discretionary_superficial_purchases(
@@ -199,7 +198,7 @@ impl World {
     }
 
     pub(in crate::sim::world) fn adjust_dynamic_country_tariffs(&mut self) {
-        for country in &mut self.countries {
+        self.countries.par_iter_mut().for_each(|country| {
             let mut exported_units_by_good = [0_u32; GOODS_COUNT];
             let mut inventory_by_good = [0_u32; GOODS_COUNT];
             let mut unmet_need_by_good = [false; GOODS_COUNT];
@@ -251,7 +250,7 @@ impl World {
                     }
                 }
             }
-        }
+        });
         self.invalidate_tariff_rate_lookup_cache();
     }
 

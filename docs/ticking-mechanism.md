@@ -64,8 +64,11 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
   - Parallel intent/decision phases over chunked entities.
   - Sequential commit phases in stable index order when side effects touch shared state.
 - `World` goods market (`run_daily_goods_economy`) runs several parallel regions after country ticks complete:
-  - `consume_superficial_stock_daily`: each country's people processed via `par_chunks_mut`. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
-  - Demand init in `process_good_round_robin`: `pending_demands` per country filled via `par_chunks_mut` zipped with `par_chunks` over people. `demand_units_for_person_good` is a pure hash-based function.
+  - `produce_goods_daily`: outer `par_iter_mut` over countries; sequential inner company loop. Countries are fully independent.
+  - `consume_superficial_stock_daily`: outer `par_iter_mut` over countries; sequential inner person loop. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
+  - `GoodsMarketDayCache::precompute_all_essential_demands`: one parallel pass (`par_iter_mut` zipped with `par_iter` over countries) that reads each person once and writes demand for all 9 round-robin goods simultaneously into a flat `[person_idx * 9 + slot]` buffer. Eliminates 8 redundant cold-memory scans that the old per-good approach required.
+  - `process_good_round_robin` (×9 goods): copies per-good demand from the precomputed buffer (stride-9 gather, all in L3), then runs the round-robin loop. An O(N) `pending_non_zero` counter is computed once before the loop and decremented on each demand transition to zero — this allows the loop to break immediately after round 1 if all demand is satisfied, eliminating a full O(max_people × country_count) scan per good per tick.
+  - `adjust_dynamic_country_tariffs`: outer `par_iter_mut` over countries; sequential work within each country.
   - `recompute_aggregates`: runs `par_iter_mut` over all countries after the goods market completes.
   - `process_discretionary_superficial_purchases` uses a two-phase pattern per country:
     - Phase A (parallel planning): `par_chunks` over people, each chunk uses `thread_rng()`, produces a `Vec<person_idx>` of intending buyers. Read-only on all country/company state.
