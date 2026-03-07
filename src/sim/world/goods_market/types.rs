@@ -73,6 +73,7 @@ pub(in crate::sim::world) enum ApplyPlannedIntentOutcome {
 pub(in crate::sim::world) struct PlanningScratch {
     pub(in crate::sim::world) buyer_slots: Vec<BuyerSlot>,
     pub(in crate::sim::world) decisions: Vec<IntentDecision>,
+    pub(in crate::sim::world) cheapest_quotes: Vec<Option<SellerQuote>>,
 }
 
 impl PlanningScratch {
@@ -85,6 +86,10 @@ impl PlanningScratch {
         if self.decisions.capacity() < max_slots {
             self.decisions
                 .reserve(max_slots.saturating_sub(self.decisions.capacity()));
+        }
+        if self.cheapest_quotes.capacity() < country_count {
+            self.cheapest_quotes
+                .reserve(country_count.saturating_sub(self.cheapest_quotes.capacity()));
         }
     }
 }

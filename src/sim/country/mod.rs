@@ -1,6 +1,6 @@
 use super::{
     bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
-    company::{Company, FounderStake, JobOpening},
+    company::{Company, FounderStake},
     essentials::Household,
     event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
@@ -16,8 +16,6 @@ use rayon::prelude::*;
 mod accessors;
 mod banking;
 mod daily;
-#[cfg(feature = "bench-trace")]
-mod daily_bench_trace;
 mod essential_economy;
 mod init;
 mod metrics;
@@ -105,6 +103,7 @@ pub struct Country {
     pub(crate) monthly_home_purchases: u32,
     pub(crate) monthly_foreclosures: u32,
     pub(crate) monthly_housing_units_built: u32,
+    pub(crate) use_inner_parallelism: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,9 +211,7 @@ impl Tickable for Country {
     }
 }
 
-mod job_market;
 mod random;
-use job_market::*;
 use random::*;
 pub use tax::{monthly_income_tax, monthly_income_tax_with_params};
 

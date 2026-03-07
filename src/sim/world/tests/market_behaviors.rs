@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::params::SimulationParams;
+use crate::sim::world::goods_market::SellerQuote;
 
 #[test]
 fn global_goods_market_chooses_cheapest_landed_supplier_and_collects_tariff() {
@@ -257,6 +258,53 @@ fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_u
     let after = world.countries[1].export_tariffs_by_good[0];
 
     assert!(after > before);
+}
+
+#[test]
+fn goods_purchase_keeps_incremental_aggregates_aligned_with_full_recompute() {
+    let mut buyer_country = Country::with_economy(
+        0,
+        "Buyer".to_string(),
+        vec![unemployed_person(1, 200.0)],
+        vec![Company::new(0, "BuyerCo".to_string(), vec![0, 5], 0)],
+        200.0,
+    );
+    let mut seller_company = Company::new(0, "SellerCo".to_string(), vec![0, 5], 0);
+    seller_company.inventory_units = 10;
+    seller_company.unit_price = 10.0;
+    seller_company.cash_balance = 1_000.0;
+    let seller_country = Country::with_economy(
+        1,
+        "Seller".to_string(),
+        vec![unemployed_person(2, 0.0)],
+        vec![seller_company],
+        1_000.0,
+    );
+
+    buyer_country.export_tariffs_by_good[0] = 0.0;
+    let mut world = World::new(vec![buyer_country, seller_country]);
+    let quote = SellerQuote {
+        seller_country_idx: 1,
+        seller_company_idx: 0,
+        base_price_cents: 1_000,
+        tariff_cents: 200,
+        landed_price_cents: 1_200,
+    };
+
+    world.execute_goods_purchase(0, 0, quote);
+
+    let buyer_household_before = world.countries[0].household_cash_total;
+    let buyer_total_before = world.countries[0].total_money_supply;
+    let seller_company_before = world.countries[1].company_cash_total;
+    let seller_total_before = world.countries[1].total_money_supply;
+
+    world.countries[0].recompute_aggregates();
+    world.countries[1].recompute_aggregates();
+
+    assert!((world.countries[0].household_cash_total - buyer_household_before).abs() < 0.01);
+    assert!((world.countries[0].total_money_supply - buyer_total_before).abs() < 0.01);
+    assert!((world.countries[1].company_cash_total - seller_company_before).abs() < 0.01);
+    assert!((world.countries[1].total_money_supply - seller_total_before).abs() < 0.01);
 }
 
 #[test]

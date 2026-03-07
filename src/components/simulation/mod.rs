@@ -300,6 +300,7 @@ impl Component for Simulation {
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent};
+    use ratatui::{Terminal, backend::TestBackend};
     use std::{
         thread,
         time::{Duration, Instant},
@@ -376,6 +377,44 @@ mod tests {
                 panic!("timed out waiting for setup validation error");
             }
             thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn draw_running_frame_after_setup_does_not_panic() {
+        let mut simulation = Simulation::new();
+        setup_running_world(&simulation);
+        let _ = simulation.update(Action::Render);
+
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("test terminal should build");
+        terminal
+            .draw(|frame| {
+                simulation
+                    .draw(frame, frame.area())
+                    .expect("draw should succeed")
+            })
+            .expect("terminal draw should succeed");
+    }
+
+    #[test]
+    fn draw_each_running_tab_after_setup_does_not_panic() {
+        let mut simulation = Simulation::new();
+        setup_running_world(&simulation);
+
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("test terminal should build");
+
+        for _ in 0..8 {
+            let _ = simulation.update(Action::Render);
+            terminal
+                .draw(|frame| {
+                    simulation
+                        .draw(frame, frame.area())
+                        .expect("draw should succeed")
+                })
+                .expect("terminal draw should succeed");
+            let _ = simulation.handle_key_event(KeyEvent::from(KeyCode::Tab));
         }
     }
 }

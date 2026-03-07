@@ -169,13 +169,19 @@ impl Country {
         self.monthly_housing_units_built = 0;
         self.stock_market.reset_mtd_trackers();
 
-        self.people
-            .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-            .for_each(|chunk| {
-                for person in chunk {
-                    person.reset_monthly_trackers();
-                }
-            });
+        if self.use_inner_parallelism {
+            self.people
+                .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for person in chunk {
+                        person.reset_monthly_trackers();
+                    }
+                });
+        } else {
+            for person in &mut self.people {
+                person.reset_monthly_trackers();
+            }
+        }
         for company in &mut self.companies {
             company.open_month();
         }
@@ -186,32 +192,46 @@ impl Country {
 
     pub(super) fn ensure_company_payroll_liquidity(&mut self) {
         let company_count = self.companies.len();
-        let payroll_by_chunk_cents = self
-            .people
-            .par_chunks(PEOPLE_CHUNK_SIZE)
-            .map(|chunk| {
-                let mut local = vec![0_i64; company_count];
-                for person in chunk {
-                    let Some(company_id) = person.employer_company_id() else {
-                        continue;
-                    };
-                    let company_idx = company_id as usize;
-                    if let Some(total) = local.get_mut(company_idx) {
-                        *total = total.saturating_add(to_cents(person.monthly_salary()));
+        let payroll_requirements_cents = if self.use_inner_parallelism {
+            let payroll_by_chunk_cents = self
+                .people
+                .par_chunks(PEOPLE_CHUNK_SIZE)
+                .map(|chunk| {
+                    let mut local = vec![0_i64; company_count];
+                    for person in chunk {
+                        let Some(company_id) = person.employer_company_id() else {
+                            continue;
+                        };
+                        let company_idx = company_id as usize;
+                        if let Some(total) = local.get_mut(company_idx) {
+                            *total = total.saturating_add(to_cents(person.monthly_salary()));
+                        }
+                    }
+                    local
+                })
+                .collect::<Vec<_>>();
+            let mut totals = vec![0_i64; company_count];
+            for chunk_totals in payroll_by_chunk_cents {
+                for (company_idx, cents) in chunk_totals.into_iter().enumerate() {
+                    if let Some(total) = totals.get_mut(company_idx) {
+                        *total = total.saturating_add(cents);
                     }
                 }
-                local
-            })
-            .collect::<Vec<_>>();
-
-        let mut payroll_requirements_cents = vec![0_i64; company_count];
-        for chunk_totals in payroll_by_chunk_cents {
-            for (company_idx, cents) in chunk_totals.into_iter().enumerate() {
-                if let Some(total) = payroll_requirements_cents.get_mut(company_idx) {
-                    *total = total.saturating_add(cents);
+            }
+            totals
+        } else {
+            let mut totals = vec![0_i64; company_count];
+            for person in &self.people {
+                let Some(company_id) = person.employer_company_id() else {
+                    continue;
+                };
+                let company_idx = company_id as usize;
+                if let Some(total) = totals.get_mut(company_idx) {
+                    *total = total.saturating_add(to_cents(person.monthly_salary()));
                 }
             }
-        }
+            totals
+        };
 
         let lender_id = self
             .preferred_lender_bank_id()

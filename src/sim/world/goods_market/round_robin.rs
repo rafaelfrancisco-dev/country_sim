@@ -11,127 +11,149 @@ impl World {
         necessity_rank: u8,
         start_country_idx: usize,
         discretionary_budgets: &mut [Vec<i64>],
-        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
-        scratch: &mut RoundRobinScratch,
+        day_cache: &mut GoodsMarketDayCache,
     ) {
         let country_count = self.countries.len();
         let monthly_demand_factor = common_goods()[good_id as usize].monthly_demand_factor;
 
         let day = self.day;
-        scratch
-            .pending_demands
-            .iter_mut()
-            .zip(self.countries.iter())
-            .for_each(|(country_pending, country)| {
-                let country_id = country.id;
-                if country.people.len() <= PEOPLE_CHUNK_SIZE {
-                    for (person_idx, (pending, person)) in country_pending
-                        .iter_mut()
-                        .zip(country.people.iter())
-                        .enumerate()
-                    {
-                        *pending = if is_stockable_essential_good(good_id) {
-                            self.stockable_essential_purchase_gap(country, person_idx, good_id)
-                        } else {
-                            demand_units_for_person_good(
-                                day,
-                                country_id,
-                                person.id,
-                                person.name_seed,
-                                good_id,
-                                monthly_demand_factor,
-                            )
-                        };
+        {
+            let scratch = &mut day_cache.round_robin;
+            scratch
+                .pending_demands
+                .iter_mut()
+                .zip(self.countries.iter())
+                .for_each(|(country_pending, country)| {
+                    let country_id = country.id;
+                    if country.people.len() <= PEOPLE_CHUNK_SIZE {
+                        for (person_idx, (pending, person)) in country_pending
+                            .iter_mut()
+                            .zip(country.people.iter())
+                            .enumerate()
+                        {
+                            *pending = if is_stockable_essential_good(good_id) {
+                                self.stockable_essential_purchase_gap(country, person_idx, good_id)
+                            } else {
+                                demand_units_for_person_good(
+                                    day,
+                                    country_id,
+                                    person.id,
+                                    person.name_seed,
+                                    good_id,
+                                    monthly_demand_factor,
+                                )
+                            };
+                        }
+                    } else {
+                        country_pending
+                            .par_chunks_mut(PEOPLE_CHUNK_SIZE)
+                            .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
+                            .enumerate()
+                            .for_each(|(chunk_idx, (pending_chunk, people_chunk))| {
+                                let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
+                                for (offset, (pending, person)) in pending_chunk
+                                    .iter_mut()
+                                    .zip(people_chunk.iter())
+                                    .enumerate()
+                                {
+                                    let person_idx = base_idx + offset;
+                                    *pending = if is_stockable_essential_good(good_id) {
+                                        self.stockable_essential_purchase_gap(
+                                            country, person_idx, good_id,
+                                        )
+                                    } else {
+                                        demand_units_for_person_good(
+                                            day,
+                                            country_id,
+                                            person.id,
+                                            person.name_seed,
+                                            good_id,
+                                            monthly_demand_factor,
+                                        )
+                                    };
+                                }
+                            });
                     }
-                } else {
-                    country_pending
-                        .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-                        .zip(country.people.par_chunks(PEOPLE_CHUNK_SIZE))
-                        .enumerate()
-                        .for_each(|(chunk_idx, (pending_chunk, people_chunk))| {
-                            let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
-                            for (offset, (pending, person)) in pending_chunk
-                                .iter_mut()
-                                .zip(people_chunk.iter())
-                                .enumerate()
-                            {
-                                let person_idx = base_idx + offset;
-                                *pending = if is_stockable_essential_good(good_id) {
-                                    self.stockable_essential_purchase_gap(
-                                        country, person_idx, good_id,
-                                    )
-                                } else {
-                                    demand_units_for_person_good(
-                                        day,
-                                        country_id,
-                                        person.id,
-                                        person.name_seed,
-                                        good_id,
-                                        monthly_demand_factor,
-                                    )
-                                };
-                            }
-                        });
-                }
-            });
+                });
+        }
 
         let essential = is_essential_good(good_id) || necessity_rank <= 4;
         let deferred_unmet = is_stockable_essential_good(good_id);
         let mut round = 0_u64;
         let needs_mask_bit = 1_u16 << good_id;
-        scratch
-            .planning
-            .buyer_slots
-            .reserve(scratch.max_people.saturating_mul(country_count));
+        {
+            let scratch = &mut day_cache.round_robin;
+            scratch
+                .planning
+                .buyer_slots
+                .reserve(scratch.max_people.saturating_mul(country_count));
+        }
 
         loop {
-            scratch.planning.buyer_slots.clear();
-            for person_idx in 0..scratch.max_people {
-                for country_rr_order in 0..country_count {
-                    let buyer_country_idx = (start_country_idx + country_rr_order) % country_count;
-                    let country_pending = &scratch.pending_demands[buyer_country_idx];
-                    if person_idx >= country_pending.len() || country_pending[person_idx] == 0 {
-                        continue;
+            {
+                let scratch = &mut day_cache.round_robin;
+                scratch.planning.buyer_slots.clear();
+                for person_idx in 0..scratch.max_people {
+                    for country_rr_order in 0..country_count {
+                        let buyer_country_idx =
+                            (start_country_idx + country_rr_order) % country_count;
+                        let country_pending = &scratch.pending_demands[buyer_country_idx];
+                        if person_idx >= country_pending.len() || country_pending[person_idx] == 0 {
+                            continue;
+                        }
+                        scratch.planning.buyer_slots.push(BuyerSlot {
+                            round,
+                            person_idx,
+                            buyer_country_idx,
+                            country_rr_order,
+                        });
                     }
-                    scratch.planning.buyer_slots.push(BuyerSlot {
-                        // Deterministic total order key:
-                        // (round, person_idx, country_rr_order)
-                        round,
-                        person_idx,
-                        buyer_country_idx,
-                        country_rr_order,
-                    });
                 }
             }
-            if scratch.planning.buyer_slots.is_empty() {
+            if day_cache.round_robin.planning.buyer_slots.is_empty() {
                 break;
             }
 
-            scratch
-                .planning
-                .decisions
-                .resize(scratch.planning.buyer_slots.len(), IntentDecision::None);
+            let mut cheapest_quotes = Vec::with_capacity(country_count);
+            for buyer_country_idx in 0..country_count {
+                cheapest_quotes.push(day_cache.current_cheapest_quote(
+                    self,
+                    good_id,
+                    buyer_country_idx,
+                ));
+            }
 
-            let world_ref: &World = self;
-            let pending_demands = &scratch.pending_demands;
-            let buyer_slots = &scratch.planning.buyer_slots;
-            scratch
-                .planning
-                .decisions
-                .par_iter_mut()
-                .zip(buyer_slots.par_iter())
-                .for_each(|(decision, slot)| {
-                    *decision = world_ref.plan_intent_for_slot(
-                        slot,
-                        pending_demands,
-                        discretionary_budgets,
-                        quote_templates_by_buyer,
-                        essential,
-                    );
-                });
+            {
+                let scratch = &mut day_cache.round_robin;
+                scratch
+                    .planning
+                    .decisions
+                    .resize(scratch.planning.buyer_slots.len(), IntentDecision::None);
+                scratch.planning.cheapest_quotes.clear();
+                scratch.planning.cheapest_quotes.extend(cheapest_quotes);
+
+                let pending_demands = &scratch.pending_demands;
+                let buyer_slots = &scratch.planning.buyer_slots;
+                let cheapest_quotes = &scratch.planning.cheapest_quotes;
+                scratch
+                    .planning
+                    .decisions
+                    .par_iter_mut()
+                    .zip(buyer_slots.par_iter())
+                    .for_each(|(decision, slot)| {
+                        *decision = self.plan_intent_for_slot(
+                            slot,
+                            pending_demands,
+                            discretionary_budgets,
+                            cheapest_quotes,
+                            essential,
+                        );
+                    });
+            }
 
             let mut progress = false;
             let mut prev_key: Option<(u64, usize, usize)> = None;
+            let scratch = &mut day_cache.round_robin;
             for decision_idx in 0..scratch.planning.decisions.len() {
                 let slot = scratch.planning.buyer_slots[decision_idx];
                 let key = (slot.round, slot.person_idx, slot.country_rr_order);
@@ -204,6 +226,7 @@ impl World {
             round = round.saturating_add(1);
         }
 
+        let scratch = &day_cache.round_robin;
         for country_idx in 0..country_count {
             let Some(country) = self.countries.get_mut(country_idx) else {
                 continue;
@@ -252,7 +275,7 @@ impl World {
         slot: &BuyerSlot,
         pending_demands: &[Vec<u32>],
         discretionary_budgets: &[Vec<i64>],
-        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
+        cheapest_quotes: &[Option<SellerQuote>],
         essential: bool,
     ) -> IntentDecision {
         let pending_units = pending_demands
@@ -264,8 +287,10 @@ impl World {
             return IntentDecision::None;
         }
 
-        let Some(quote) =
-            self.find_cheapest_supplier(quote_templates_by_buyer, slot.buyer_country_idx)
+        let Some(quote) = cheapest_quotes
+            .get(slot.buyer_country_idx)
+            .copied()
+            .flatten()
         else {
             return IntentDecision::Unmet {
                 buyer_country_idx: slot.buyer_country_idx,
@@ -400,34 +425,6 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn find_cheapest_supplier(
-        &self,
-        quote_templates_by_buyer: &[Vec<QuoteTemplate>],
-        buyer_country_idx: usize,
-    ) -> Option<SellerQuote> {
-        let buyer_templates = quote_templates_by_buyer.get(buyer_country_idx)?;
-        for template in buyer_templates {
-            let Some(country) = self.countries.get(template.seller_country_idx) else {
-                continue;
-            };
-            let Some(company) = country.companies.get(template.seller_company_idx) else {
-                continue;
-            };
-            if company.inventory_units == 0 {
-                continue;
-            }
-
-            return Some(SellerQuote {
-                seller_country_idx: template.seller_country_idx,
-                seller_company_idx: template.seller_company_idx,
-                base_price_cents: template.base_price_cents,
-                tariff_cents: template.tariff_cents,
-                landed_price_cents: template.landed_price_cents,
-            });
-        }
-        None
-    }
-
     pub(in crate::sim::world) fn seller_has_inventory(
         &self,
         seller_country_idx: usize,
@@ -439,13 +436,14 @@ impl World {
             .is_some_and(|company| company.inventory_units > 0)
     }
 
-    pub(in crate::sim::world) fn build_suppliers_by_good(&self) -> Vec<Vec<SupplierRef>> {
-        let mut suppliers_by_good = vec![Vec::new(); GOODS_COUNT];
-
+    pub(in crate::sim::world) fn fill_suppliers_by_good(
+        &self,
+        suppliers_by_good: &mut [Vec<SupplierRef>],
+    ) {
         for (seller_country_idx, country) in self.countries.iter().enumerate() {
             for (seller_company_idx, company) in country.companies.iter().enumerate() {
                 let good_idx = company.produced_good_id as usize;
-                if good_idx >= GOODS_COUNT {
+                if good_idx >= GOODS_COUNT || good_idx >= suppliers_by_good.len() {
                     continue;
                 }
 
@@ -461,7 +459,5 @@ impl World {
                 });
             }
         }
-
-        suppliers_by_good
     }
 }

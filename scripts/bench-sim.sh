@@ -18,6 +18,7 @@ OUT_JSON=""
 OUT_CSV=""
 FLAMEGRAPH_OUT=""
 TRACE_ENABLED="0"
+THREAD_SWEEP="0"
 TRACE_OUT_CSV=""
 TRACE_SUMMARY_JSON=""
 
@@ -80,6 +81,7 @@ Usage:
     --out-json target/bench/latest.json \
     --out-csv target/bench/latest.csv \
     [--trace-enabled] \
+    [--thread-sweep] \
     [--trace-out-csv target/bench/trace-days.csv] \
     [--trace-summary-json target/bench/trace-summary.json] \
     [--flamegraph target/bench/flamegraph.svg]
@@ -130,6 +132,7 @@ run_benchmark_once() {
 
   if [ "$TRACE_ENABLED" = "1" ]; then
     BENCH_TRACE_ENABLED="1" \
+    BENCH_THREAD_SWEEP="$THREAD_SWEEP" \
     BENCH_TRACE_OUTPUT_CSV="$run_trace_csv" \
     BENCH_TRACE_SUMMARY_JSON="$run_trace_summary" \
     BENCH_SEED="$SEED" \
@@ -143,6 +146,7 @@ run_benchmark_once() {
     RAYON_NUM_THREADS="$THREADS" \
     cargo bench --bench manual_world_benchmark --features manual-harness,bench-trace
   else
+    BENCH_THREAD_SWEEP="$THREAD_SWEEP" \
     BENCH_SEED="$SEED" \
     BENCH_COUNTRIES="$COUNTRIES" \
     BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
@@ -196,6 +200,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --trace-enabled)
       TRACE_ENABLED="1"
+      shift 1
+      ;;
+    --thread-sweep)
+      THREAD_SWEEP="1"
       shift 1
       ;;
     --trace-out-csv)
@@ -307,6 +315,7 @@ if [ -n "$FLAMEGRAPH_OUT" ]; then
     BENCH_OUTPUT_JSON="$OUT_JSON" \
     BENCH_OUTPUT_CSV="$OUT_CSV" \
     BENCH_TRACE_ENABLED="$TRACE_ENABLED" \
+    BENCH_THREAD_SWEEP="$THREAD_SWEEP" \
     BENCH_TRACE_OUTPUT_CSV="$TRACE_OUT_CSV" \
     BENCH_TRACE_SUMMARY_JSON="$TRACE_SUMMARY_JSON" \
     RAYON_NUM_THREADS="$THREADS" \
@@ -321,6 +330,7 @@ if [ -n "$FLAMEGRAPH_OUT" ]; then
     BENCH_POP_PER_COUNTRY="$POP_PER_COUNTRY" \
     BENCH_DAYS="$DAYS" \
     BENCH_THREADS="$THREADS" \
+    BENCH_THREAD_SWEEP="$THREAD_SWEEP" \
     BENCH_SIM_MODE="$SIM_MODE_NORMALIZED" \
     BENCH_OUTPUT_JSON="$OUT_JSON" \
     BENCH_OUTPUT_CSV="$OUT_CSV" \

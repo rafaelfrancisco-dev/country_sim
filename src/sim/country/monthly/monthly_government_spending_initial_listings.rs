@@ -27,40 +27,45 @@ impl Country {
         let unmet_events_per_capita = self.monthly_unmet_need_events as f64 / population;
         let affordability_pressure =
             ((debt_per_capita / 80.0 + unmet_events_per_capita / 14.0) * 0.5).clamp(0.0, 1.0);
-        self.companies
-            .par_chunks_mut(COMPANY_CHUNK_SIZE)
-            .for_each(|chunk| {
-                for company in chunk {
-                    company.close_month(&market);
-                    if !company.is_public_utility {
-                        continue;
-                    }
+        let close_one = |company: &mut crate::sim::company::Company| {
+            company.close_month(&market);
+            if !company.is_public_utility {
+                return;
+            }
+            let Some(good) = good_by_id(company.produced_good_id) else {
+                return;
+            };
+            let min_price = round_cents(good.base_unit_cost * (1.0 + market.min_margin_rate));
+            let dynamic_base_cost = round_cents(good.base_unit_cost * dynamic_base_index);
+            let max_price = round_cents((dynamic_base_cost * cap_multiplier).max(min_price));
+            let anchor_price = round_cents((min_price + max_price) * 0.5);
+            if company.unit_price > anchor_price {
+                // Price relief intensifies under affordability stress, reducing runaway
+                // debt while preserving endogenous month-to-month movement.
+                let correction_strength = 0.10 + affordability_pressure * 0.25;
+                let gap = company.unit_price - anchor_price;
+                company.unit_price = round_cents(company.unit_price - gap * correction_strength);
+            } else {
+                // Mild upward drift when well below anchor to avoid hard pegging.
+                let gap = anchor_price - company.unit_price;
+                company.unit_price = round_cents(company.unit_price + gap * 0.05);
+            }
+            company.unit_price = round_cents(company.unit_price.clamp(min_price, max_price));
+        };
 
-                    let Some(good) = good_by_id(company.produced_good_id) else {
-                        continue;
-                    };
-                    let min_price =
-                        round_cents(good.base_unit_cost * (1.0 + market.min_margin_rate));
-                    let dynamic_base_cost = round_cents(good.base_unit_cost * dynamic_base_index);
-                    let max_price =
-                        round_cents((dynamic_base_cost * cap_multiplier).max(min_price));
-                    let anchor_price = round_cents((min_price + max_price) * 0.5);
-                    if company.unit_price > anchor_price {
-                        // Price relief intensifies under affordability stress, reducing runaway
-                        // debt while preserving endogenous month-to-month movement.
-                        let correction_strength = 0.10 + affordability_pressure * 0.25;
-                        let gap = company.unit_price - anchor_price;
-                        company.unit_price =
-                            round_cents(company.unit_price - gap * correction_strength);
-                    } else {
-                        // Mild upward drift when well below anchor to avoid hard pegging.
-                        let gap = anchor_price - company.unit_price;
-                        company.unit_price = round_cents(company.unit_price + gap * 0.05);
+        if self.use_inner_parallelism {
+            self.companies
+                .par_chunks_mut(COMPANY_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for company in chunk {
+                        close_one(company);
                     }
-                    company.unit_price =
-                        round_cents(company.unit_price.clamp(min_price, max_price));
-                }
-            });
+                });
+        } else {
+            for company in &mut self.companies {
+                close_one(company);
+            }
+        }
     }
 
     pub(super) fn process_government_spending(&mut self) {

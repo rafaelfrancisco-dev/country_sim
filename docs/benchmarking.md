@@ -22,6 +22,7 @@ Provide one canonical benchmark path for before/after performance comparisons.
   --sim-mode max-speed \
   --out-json target/bench/latest.json \
   --out-csv target/bench/latest.csv \
+  --thread-sweep \
   --flamegraph target/bench/flamegraph.svg
 ```
 
@@ -55,6 +56,8 @@ Provide one canonical benchmark path for before/after performance comparisons.
   - `thread_count`
   - `world_state_hash`
   - `timestamp`
+- `--thread-sweep` appends deterministic runs for `1,2,4,8,max` threads into the same JSON/CSV output so hash mismatches and weak scaling show up in one artifact.
+- With `--trace-enabled`, the JSON also includes a compact per-phase report for country daily, goods market, stock market, month-boundary work, and event draining.
 - Flamegraph (`--flamegraph`) is generated from the same ignored benchmark harness.
 
 ## Baseline Workflow

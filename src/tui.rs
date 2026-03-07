@@ -43,7 +43,7 @@ pub enum Event {
 
 pub struct Tui {
     pub terminal: ratatui::Terminal<Backend<Stdout>>,
-    pub task: JoinHandle<()>,
+    pub task: Option<JoinHandle<()>>,
     pub cancellation_token: CancellationToken,
     pub event_rx: UnboundedReceiver<Event>,
     pub event_tx: UnboundedSender<Event>,
@@ -58,7 +58,7 @@ impl Tui {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         Ok(Self {
             terminal: ratatui::Terminal::new(Backend::new(stdout()))?,
-            task: tokio::spawn(async {}),
+            task: None,
             cancellation_token: CancellationToken::new(),
             event_rx,
             event_tx,
@@ -98,9 +98,9 @@ impl Tui {
             self.tick_rate,
             self.frame_rate,
         );
-        self.task = tokio::spawn(async {
+        self.task = Some(tokio::spawn(async {
             event_loop.await;
-        });
+        }));
     }
 
     async fn event_loop(
@@ -146,18 +146,20 @@ impl Tui {
         cancellation_token.cancel();
     }
 
-    pub fn stop(&self) -> color_eyre::Result<()> {
+    pub fn stop(&mut self) -> color_eyre::Result<()> {
         self.cancel();
-        let mut counter = 0;
-        while !self.task.is_finished() {
-            std::thread::sleep(Duration::from_millis(1));
-            counter += 1;
-            if counter > 50 {
-                self.task.abort();
-            }
-            if counter > 100 {
-                error!("Failed to abort task in 100 milliseconds for unknown reason");
-                break;
+        if let Some(task) = self.task.take() {
+            let mut counter = 0;
+            while !task.is_finished() {
+                std::thread::sleep(Duration::from_millis(1));
+                counter += 1;
+                if counter > 50 {
+                    task.abort();
+                }
+                if counter > 100 {
+                    error!("Failed to abort task in 100 milliseconds for unknown reason");
+                    break;
+                }
             }
         }
         Ok(())
@@ -229,6 +231,8 @@ impl DerefMut for Tui {
 
 impl Drop for Tui {
     fn drop(&mut self) {
-        self.exit().unwrap();
+        if let Err(err) = self.exit() {
+            error!("Failed to clean up terminal during drop: {:?}", err);
+        }
     }
 }

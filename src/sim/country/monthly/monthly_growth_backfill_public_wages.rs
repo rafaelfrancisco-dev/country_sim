@@ -27,14 +27,21 @@ impl Country {
                 .clamp(1.0, u16::MAX as f64)) as u16;
 
         let labor_demand = self.sim_params.labor_demand;
-        self.companies
-            .par_chunks_mut(COMPANY_CHUNK_SIZE)
-            .for_each(|chunk| {
-                for company in chunk {
-                    company.open_positions_from_growth(&sim_params, month_seed);
-                    company.ensure_baseline_openings(labor_demand, month_seed);
-                }
-            });
+        if self.use_inner_parallelism {
+            self.companies
+                .par_chunks_mut(COMPANY_CHUNK_SIZE)
+                .for_each(|chunk| {
+                    for company in chunk {
+                        company.open_positions_from_growth(&sim_params, month_seed);
+                        company.ensure_baseline_openings(labor_demand, month_seed);
+                    }
+                });
+        } else {
+            for company in &mut self.companies {
+                company.open_positions_from_growth(&sim_params, month_seed);
+                company.ensure_baseline_openings(labor_demand, month_seed);
+            }
+        }
     }
 
     pub(super) fn process_startup_formation(&mut self) {

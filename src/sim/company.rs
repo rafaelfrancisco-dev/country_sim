@@ -264,7 +264,8 @@ impl Company {
         if self.sales_history.len() >= 3 {
             self.sales_history.pop_front();
         }
-        self.sales_history.push_back(round_cents(self.last_month_sales));
+        self.sales_history
+            .push_back(round_cents(self.last_month_sales));
         Self::push_history_f64(
             &mut self.profit_history,
             round_cents(self.last_month_profit),

@@ -130,6 +130,7 @@ impl World {
                 person.last_month_goods_units_bought.saturating_add(1);
         }
 
+        country.adjust_household_cash_total_cents(-landed_price_cents);
         country.monthly_household_spending =
             round_cents(country.monthly_household_spending + amount);
         if imported {
@@ -160,6 +161,7 @@ impl World {
             }
         }
 
+        country.adjust_company_cash_total_cents(base_price_cents);
         if !domestic {
             country.monthly_goods_export_revenue =
                 round_cents(country.monthly_goods_export_revenue + amount);
@@ -176,7 +178,7 @@ impl World {
 
         let amount = from_cents(tariff_cents);
         country.monthly_tariff_collected = round_cents(country.monthly_tariff_collected + amount);
-        country.treasury_balance = round_cents(country.treasury_balance + amount);
+        country.adjust_treasury_balance_cents(tariff_cents);
     }
 
     pub(in crate::sim::world) fn person_cash_cents(

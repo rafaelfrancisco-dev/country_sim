@@ -1,5 +1,9 @@
-use std::env;
+use std::{env, io::stdout};
 
+use crossterm::{
+    cursor, execute,
+    terminal::{self, LeaveAlternateScreen},
+};
 use tracing::error;
 
 pub fn init() -> color_eyre::Result<()> {
@@ -14,10 +18,15 @@ pub fn init() -> color_eyre::Result<()> {
         .into_hooks();
     eyre_hook.install()?;
     std::panic::set_hook(Box::new(move |panic_info| {
-        if let Ok(mut t) = crate::tui::Tui::new()
-            && let Err(r) = t.exit()
-        {
-            error!("Unable to exit Terminal: {:?}", r);
+        if let Ok(raw_mode_enabled) = terminal::is_raw_mode_enabled() {
+            if raw_mode_enabled {
+                if let Err(err) = execute!(stdout(), LeaveAlternateScreen, cursor::Show) {
+                    error!("Unable to restore terminal screen after panic: {:?}", err);
+                }
+                if let Err(err) = terminal::disable_raw_mode() {
+                    error!("Unable to disable raw mode after panic: {:?}", err);
+                }
+            }
         }
 
         #[cfg(not(debug_assertions))]

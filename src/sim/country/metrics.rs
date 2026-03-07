@@ -1,33 +1,37 @@
 use super::*;
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct CountryHotTotals {
+    pub(crate) household_cash_cents: i64,
+    pub(crate) company_cash_cents: i64,
+    pub(crate) total_money_supply_cents: i64,
+    pub(crate) expected_money_supply_cents: i64,
+}
+
 impl Country {
     pub fn recompute_aggregates(&mut self) {
-        let household_chunks = self
-            .people
-            .par_chunks(PEOPLE_CHUNK_SIZE)
-            .map(|chunk| {
-                chunk
-                    .iter()
-                    .map(|person| to_cents(person.cash_balance))
-                    .sum::<i64>()
-            })
-            .collect::<Vec<_>>();
-        let household_cents = household_chunks
-            .into_iter()
-            .fold(0_i64, |acc, cents| acc.saturating_add(cents));
+        let household_cents = if self.use_inner_parallelism {
+            self.people
+                .par_chunks(PEOPLE_CHUNK_SIZE)
+                .map(|chunk| chunk.iter().map(|p| to_cents(p.cash_balance)).sum::<i64>())
+                .reduce(|| 0_i64, |a, b| a.saturating_add(b))
+        } else {
+            self.people
+                .iter()
+                .fold(0_i64, |acc, p| acc.saturating_add(to_cents(p.cash_balance)))
+        };
 
-        let company_chunks = self
-            .companies
-            .par_chunks(COMPANY_CHUNK_SIZE)
-            .map(|chunk| {
-                chunk
-                    .iter()
-                    .map(|company| to_cents(company.cash_balance))
-                    .sum::<i64>()
-            })
-            .collect::<Vec<_>>();
-        let company_cents = company_chunks
-            .into_iter()
-            .fold(0_i64, |acc, cents| acc.saturating_add(cents));
+        let company_cents = if self.use_inner_parallelism {
+            self.companies
+                .par_chunks(COMPANY_CHUNK_SIZE)
+                .map(|chunk| chunk.iter().map(|c| to_cents(c.cash_balance)).sum::<i64>())
+                .reduce(|| 0_i64, |a, b| a.saturating_add(b))
+        } else {
+            self.companies
+                .iter()
+                .fold(0_i64, |acc, c| acc.saturating_add(to_cents(c.cash_balance)))
+        };
 
         self.household_cash_total = from_cents(household_cents);
         self.company_cash_total = from_cents(company_cents);
@@ -44,6 +48,50 @@ impl Country {
         self.expected_money_supply = from_cents(expected_money_supply_cents);
         self.money_supply_gap =
             from_cents(total_money_supply_cents.saturating_sub(expected_money_supply_cents));
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn hot_totals(&self) -> CountryHotTotals {
+        CountryHotTotals {
+            household_cash_cents: to_cents(self.household_cash_total),
+            company_cash_cents: to_cents(self.company_cash_total),
+            total_money_supply_cents: to_cents(self.total_money_supply),
+            expected_money_supply_cents: to_cents(self.expected_money_supply),
+        }
+    }
+
+    pub(crate) fn adjust_household_cash_total_cents(&mut self, delta_cents: i64) {
+        let next = to_cents(self.household_cash_total).saturating_add(delta_cents);
+        self.household_cash_total = from_cents(next);
+        self.adjust_total_money_supply_cents(delta_cents);
+    }
+
+    pub(crate) fn adjust_company_cash_total_cents(&mut self, delta_cents: i64) {
+        let next = to_cents(self.company_cash_total).saturating_add(delta_cents);
+        self.company_cash_total = from_cents(next);
+        self.adjust_total_money_supply_cents(delta_cents);
+    }
+
+    pub(crate) fn adjust_treasury_balance_cents(&mut self, delta_cents: i64) {
+        let next = to_cents(self.treasury_balance).saturating_add(delta_cents);
+        self.treasury_balance = from_cents(next);
+        self.adjust_total_money_supply_cents(delta_cents);
+    }
+
+    pub(crate) fn adjust_expected_money_supply_cents(&mut self, delta_cents: i64) {
+        let next = to_cents(self.expected_money_supply).saturating_add(delta_cents);
+        self.expected_money_supply = from_cents(next);
+        self.money_supply_gap = from_cents(
+            to_cents(self.total_money_supply).saturating_sub(to_cents(self.expected_money_supply)),
+        );
+    }
+
+    fn adjust_total_money_supply_cents(&mut self, delta_cents: i64) {
+        let next = to_cents(self.total_money_supply).saturating_add(delta_cents);
+        self.total_money_supply = from_cents(next);
+        self.money_supply_gap = from_cents(
+            to_cents(self.total_money_supply).saturating_sub(to_cents(self.expected_money_supply)),
+        );
     }
 
     pub fn validate_money_invariants(&self) -> Vec<InvariantViolation> {

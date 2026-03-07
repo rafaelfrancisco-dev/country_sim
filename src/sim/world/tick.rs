@@ -11,7 +11,7 @@ impl World {
         }
     }
 
-    fn drain_country_events(&mut self) {
+    pub(super) fn drain_country_events(&mut self) {
         let pending: Vec<SimEvent> = self
             .countries
             .iter_mut()
@@ -21,7 +21,7 @@ impl World {
         self.trim_event_log();
     }
 
-    fn update_policy_rate_and_propagate(&mut self) {
+    pub(super) fn update_policy_rate_and_propagate(&mut self) {
         self.update_policy_rate();
         let rate = self.policy_rate;
         for country in &mut self.countries {
@@ -29,7 +29,7 @@ impl World {
         }
     }
 
-    fn tick_day_with_hooks<H: WorldTickHooks>(&mut self, hooks: &mut H) {
+    pub(super) fn tick_day_with_hooks<H: WorldTickHooks>(&mut self, hooks: &mut H) {
         self.day = self.day.saturating_add(1);
 
         hooks.run_country_daily(self);
@@ -72,12 +72,26 @@ pub(super) trait WorldTickHooks {
 
 struct StandardWorldTickHooks;
 
+impl StandardWorldTickHooks {
+    fn dispatch_countries(world: &mut World, f: impl Fn(&mut Country) + Sync + Send) {
+        let threads = rayon::current_num_threads();
+        if world.countries.len() >= threads {
+            world.countries.par_iter_mut().for_each(|c| {
+                c.use_inner_parallelism = false;
+                f(c);
+            });
+        } else {
+            for c in &mut world.countries {
+                c.use_inner_parallelism = true;
+                f(c);
+            }
+        }
+    }
+}
+
 impl WorldTickHooks for StandardWorldTickHooks {
     fn run_country_daily(&mut self, world: &mut World) {
-        world
-            .countries
-            .par_iter_mut()
-            .for_each(Country::tick_day_without_month);
+        Self::dispatch_countries(world, Country::tick_day_without_month);
     }
 
     fn run_daily_goods(&mut self, world: &mut World) {
@@ -89,10 +103,7 @@ impl WorldTickHooks for StandardWorldTickHooks {
     }
 
     fn run_monthly_country_processing(&mut self, world: &mut World) {
-        world
-            .countries
-            .par_iter_mut()
-            .for_each(Country::process_month_end);
+        Self::dispatch_countries(world, Country::process_month_end);
     }
 
     fn run_monthly_tariff_adjust(&mut self, world: &mut World) {
@@ -108,10 +119,7 @@ impl WorldTickHooks for StandardWorldTickHooks {
     }
 
     fn run_monthly_reset_trackers(&mut self, world: &mut World) {
-        world
-            .countries
-            .par_iter_mut()
-            .for_each(Country::reset_month_trackers);
+        Self::dispatch_countries(world, Country::reset_month_trackers);
     }
 
     fn run_drain_country_events(&mut self, world: &mut World) {

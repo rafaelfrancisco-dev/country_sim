@@ -15,4 +15,5 @@ use std::collections::HashSet;
 mod helpers_and_invariants;
 use helpers_and_invariants::*;
 mod company_dynamics;
+mod daily_incremental;
 mod government_and_labor;

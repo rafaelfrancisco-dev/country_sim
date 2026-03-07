@@ -1,4 +1,5 @@
-use super::{Country, DAYS_PER_MONTH, World};
+use super::{Country, World};
+use crate::sim::country::DAYS_PER_MONTH;
 use crate::sim::trace::{CountryDailyTrace, CountryMonthlyTrace, DayTraceRow, duration_ms};
 use rayon::prelude::*;
 use std::time::Instant;
@@ -33,11 +34,18 @@ impl TraceWorldTickHooks {
 impl WorldTickHooks for TraceWorldTickHooks {
     fn run_country_daily(&mut self, world: &mut World) {
         let started = Instant::now();
-        self.daily_traces = world
-            .countries
-            .par_iter_mut()
-            .map(Country::tick_day_without_month_traced)
-            .collect::<Vec<_>>();
+        let threads = rayon::current_num_threads();
+        self.daily_traces = if world.countries.len() >= threads {
+            world.countries.par_iter_mut().map(|c| {
+                c.use_inner_parallelism = false;
+                Country::tick_day_without_month_traced(c)
+            }).collect()
+        } else {
+            world.countries.iter_mut().map(|c| {
+                c.use_inner_parallelism = true;
+                Country::tick_day_without_month_traced(c)
+            }).collect()
+        };
         self.world_country_tick_ms = duration_ms(started.elapsed());
     }
 
@@ -55,11 +63,18 @@ impl WorldTickHooks for TraceWorldTickHooks {
 
     fn run_monthly_country_processing(&mut self, world: &mut World) {
         let started = Instant::now();
-        self.monthly_traces = world
-            .countries
-            .par_iter_mut()
-            .map(Country::process_month_end_traced)
-            .collect::<Vec<_>>();
+        let threads = rayon::current_num_threads();
+        self.monthly_traces = if world.countries.len() >= threads {
+            world.countries.par_iter_mut().map(|c| {
+                c.use_inner_parallelism = false;
+                Country::process_month_end_traced(c)
+            }).collect()
+        } else {
+            world.countries.iter_mut().map(|c| {
+                c.use_inner_parallelism = true;
+                Country::process_month_end_traced(c)
+            }).collect()
+        };
         self.world_monthly_process_countries_ms = duration_ms(started.elapsed());
     }
 
@@ -79,10 +94,18 @@ impl WorldTickHooks for TraceWorldTickHooks {
 
     fn run_monthly_reset_trackers(&mut self, world: &mut World) {
         self.world_monthly_reset_trackers_ms = Self::timed(|| {
-            world
-                .countries
-                .par_iter_mut()
-                .for_each(Country::reset_month_trackers);
+            let threads = rayon::current_num_threads();
+            if world.countries.len() >= threads {
+                world.countries.par_iter_mut().for_each(|c| {
+                    c.use_inner_parallelism = false;
+                    Country::reset_month_trackers(c);
+                });
+            } else {
+                for c in &mut world.countries {
+                    c.use_inner_parallelism = true;
+                    Country::reset_month_trackers(c);
+                }
+            }
         });
     }
 

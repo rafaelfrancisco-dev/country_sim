@@ -4,11 +4,10 @@ impl World {
     pub(in crate::sim::world) fn run_daily_goods_economy(&mut self) {
         self.produce_goods_daily();
         self.consume_superficial_stock_daily();
-        self.process_global_goods_market();
-        self.process_discretionary_superficial_purchases();
-        self.countries
-            .par_iter_mut()
-            .for_each(|country| country.recompute_aggregates());
+        let mut day_cache = GoodsMarketDayCache::default();
+        day_cache.prepare(self);
+        self.process_global_goods_market(&mut day_cache);
+        self.process_discretionary_superficial_purchases(&mut day_cache);
     }
 
     pub(in crate::sim::world) fn produce_goods_daily(&mut self) {
@@ -50,7 +49,10 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn process_global_goods_market(&mut self) {
+    pub(in crate::sim::world) fn process_global_goods_market(
+        &mut self,
+        day_cache: &mut GoodsMarketDayCache,
+    ) {
         if self.countries.is_empty() {
             return;
         }
@@ -63,27 +65,18 @@ impl World {
         let start_country_idx = (cycle_seed as usize) % country_count;
 
         let mut discretionary_budgets = self.initial_discretionary_budgets();
-        let suppliers_by_good = self.build_suppliers_by_good();
-        let tariff_rates_by_good = self.tariff_rates_by_good_for_month();
-        let mut scratch = RoundRobinScratch::default();
 
         for good in common_goods()
             .iter()
             .filter(|g| g.id < SUPERFICIAL_GOOD_START_ID && !g.is_durable)
         {
-            let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
-                good.id,
-                &suppliers_by_good[good.id as usize],
-                &tariff_rates_by_good,
-            );
-            scratch.prepare_for_world(&self.countries);
+            day_cache.round_robin.prepare_for_world(&self.countries);
             self.process_good_round_robin(
                 good.id,
                 good.necessity_rank,
                 start_country_idx,
                 &mut discretionary_budgets,
-                &quote_templates_by_buyer,
-                &mut scratch,
+                day_cache,
             );
         }
     }
@@ -124,26 +117,20 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn process_discretionary_superficial_purchases(&mut self) {
+    pub(in crate::sim::world) fn process_discretionary_superficial_purchases(
+        &mut self,
+        day_cache: &mut GoodsMarketDayCache,
+    ) {
         if self.countries.is_empty() {
             return;
         }
 
-        let suppliers_by_good = self.build_suppliers_by_good();
-        let tariff_rates_by_good = self.tariff_rates_by_good_for_month();
-
         for good_id in SUPERFICIAL_GOOD_IDS {
-            let quote_templates_by_buyer = self.build_quote_templates_by_buyer(
-                good_id,
-                &suppliers_by_good[good_id as usize],
-                &tariff_rates_by_good,
-            );
             let stock_slot = usize::from(good_id - SUPERFICIAL_GOOD_START_ID);
 
             for buyer_country_idx in 0..self.countries.len() {
-                // Pre-fetch cheapest quote for snapshot affordability check.
                 let Some(snapshot_quote) =
-                    self.find_cheapest_supplier(&quote_templates_by_buyer, buyer_country_idx)
+                    day_cache.current_cheapest_quote(self, good_id, buyer_country_idx)
                 else {
                     continue;
                 };
@@ -188,7 +175,7 @@ impl World {
                 // so inventory depletion is respected, then execute.
                 for person_idx in buyers {
                     let Some(current_quote) =
-                        self.find_cheapest_supplier(&quote_templates_by_buyer, buyer_country_idx)
+                        day_cache.current_cheapest_quote(self, good_id, buyer_country_idx)
                     else {
                         break;
                     };

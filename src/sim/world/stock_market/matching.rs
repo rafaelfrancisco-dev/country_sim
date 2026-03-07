@@ -150,7 +150,13 @@ fn build_symbol_contexts(world: &World, day: u64) -> Vec<SymbolContext> {
                 last_price
             } else {
                 // Sum the most recent ma_window entries (order doesn't matter for mean).
-                equity.price_history.iter().rev().take(ma_window).sum::<f64>() / ma_window as f64
+                equity
+                    .price_history
+                    .iter()
+                    .rev()
+                    .take(ma_window)
+                    .sum::<f64>()
+                    / ma_window as f64
             };
             let trend = if avg_price > 0.0 {
                 (last_price - avg_price) / avg_price
