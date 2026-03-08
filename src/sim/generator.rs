@@ -111,6 +111,12 @@ fn country_seed(base_seed: u64, country_idx: u16) -> u64 {
     mix_seed(base_seed ^ country_salt)
 }
 
+fn person_rng(c_seed: u64, person_id: u32) -> DeterministicRng {
+    DeterministicRng::new(mix_seed(
+        c_seed ^ (person_id as u64).wrapping_add(0x1234_5678_9abc_def0),
+    ))
+}
+
 fn habilitation_bucket(level: HabilitationLevel) -> usize {
     match level {
         HabilitationLevel::NoSchoolYet => 0,
@@ -187,7 +193,8 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
 }
 
 fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
-    let mut rng = DeterministicRng::new(country_seed(config.seed, country_idx));
+    let c_seed = country_seed(config.seed, country_idx);
+    let mut rng = DeterministicRng::new(c_seed);
     let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
     let company_count = if config.companies_per_country == DEFAULT_COMPANIES_PER_COUNTRY {
         companies::derive_initial_company_count(config.population_per_country, &config.sim_params)
@@ -203,39 +210,42 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     companies::randomize_company_prices(&mut companies, &config.sim_params, &mut rng);
     let job_cache = build_job_selection_cache(&companies, &mut rng);
 
-    let mut people = Vec::with_capacity(config.population_per_country as usize);
-    for person_id in 0..config.population_per_country {
-        let age_days = population::pick_initial_age_days(&mut rng);
-        let education_track = config.sim_params.education.pick_track(rng.next_f64());
-        let name_seed = rng.next_u32();
+    let mut people: Vec<Person> = (0..config.population_per_country)
+        .into_par_iter()
+        .map(|person_id| {
+            let mut prng = person_rng(c_seed, person_id);
+            let age_days = population::pick_initial_age_days(&mut prng);
+            let education_track = config.sim_params.education.pick_track(prng.next_f64());
+            let name_seed = prng.next_u32();
 
-        let mut person = Person::new_with_profile(
-            person_id,
-            EmploymentStatus::Unemployed,
-            name_seed,
-            age_days,
-            education_track,
-        );
-
-        if person.can_seek_job()
-            && rng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
-            && let Some(job_type_id) = population::pick_weighted_job_id_for_habilitation(
-                &mut rng,
-                person.habilitation,
-                &job_cache,
-            )
-        {
-            let employer_company_id = population::pick_employer_for_job(
-                job_type_id,
-                companies.len(),
-                &job_cache.employer_pickers,
-                &mut rng,
+            let mut person = Person::new_with_profile(
+                person_id,
+                EmploymentStatus::Unemployed,
+                name_seed,
+                age_days,
+                education_track,
             );
-            person.set_employment(employer_company_id, job_type_id, 0);
-        }
 
-        people.push(person);
-    }
+            if person.can_seek_job()
+                && prng.next_f64() >= config.sim_params.labor.baseline_unemployment_rate
+                && let Some(job_type_id) = population::pick_weighted_job_id_for_habilitation(
+                    &mut prng,
+                    person.habilitation,
+                    &job_cache,
+                )
+            {
+                let employer_company_id = population::pick_employer_for_job(
+                    job_type_id,
+                    companies.len(),
+                    &job_cache.employer_pickers,
+                    &mut prng,
+                );
+                person.set_employment(employer_company_id, job_type_id, 0);
+            }
+
+            person
+        })
+        .collect();
 
     companies::rebalance_essential_sector_workforce(&mut people, &companies, &config.sim_params);
 
@@ -258,7 +268,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     companies::fund_initial_bank_reserve(&mut country);
     companies::seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
-    population::seed_initial_housing(&mut country, &mut rng);
+    population::seed_initial_housing(&mut country);
     country.rebuild_households();
     country.seed_initial_ipos();
     country

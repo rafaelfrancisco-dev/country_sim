@@ -103,7 +103,7 @@ pub(super) fn seed_balances_to_people(people: &mut [Person], total_supply: f64) 
 
 const HOUSING_GOOD_ID: u8 = 2;
 
-pub(super) fn seed_initial_housing(country: &mut Country, rng: &mut DeterministicRng) {
+pub(super) fn seed_initial_housing(country: &mut Country) {
     let params = country.sim_params().housing;
     let population = country.people.len();
     if population == 0 {
@@ -144,7 +144,9 @@ pub(super) fn seed_initial_housing(country: &mut Country, rng: &mut Deterministi
             person.housing = HousingStatus::Owner;
             occupied_owned = occupied_owned.saturating_add(1);
         } else if roll < renter_threshold && !housing_companies.is_empty() {
-            let company_idx = housing_companies[rng.next_u64() as usize % housing_companies.len()];
+            let company_idx = housing_companies[
+                mix_seed(u64::from(person.id).wrapping_add(0xbeef)) as usize % housing_companies.len()
+            ];
             person.housing = HousingStatus::Renter {
                 landlord_company_id: company_idx as u16,
                 landlord_country_id: country.id,
