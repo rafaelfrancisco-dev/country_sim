@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::{collections::{HashMap, VecDeque}, sync::Arc};
 
 use super::money::round_cents;
 
@@ -15,7 +15,7 @@ pub use portfolio::{Portfolio, Position, StockSecurityId};
 pub struct ListedEquity {
     pub company_id: u16,
     pub current_company_id: u16,
-    pub ticker: String,
+    pub ticker: Arc<str>,
     pub shares_outstanding: u64,
     pub free_float_shares: u64,
     pub last_price: f64,
@@ -37,7 +37,7 @@ impl ListedEquity {
     pub fn new(
         company_id: u16,
         current_company_id: u16,
-        ticker: String,
+        ticker: Arc<str>,
         initial_price: f64,
         shares_outstanding: u64,
         free_float_shares: u64,
@@ -292,23 +292,23 @@ impl StockMarket {
             })
     }
 
-    fn distinct_ticker_for_listing(&self, company_id: u16, preferred: &str) -> String {
+    fn distinct_ticker_for_listing(&self, company_id: u16, preferred: &str) -> Arc<str> {
         let preferred = preferred.trim().to_ascii_uppercase();
-        let base = if preferred.is_empty() {
+        let base: String = if preferred.is_empty() {
             format!("S{:03}", company_id % 1000)
         } else {
             preferred
         };
 
         if !self.ticker_in_use_by_other(&base, company_id) {
-            return base;
+            return Arc::from(base.as_str());
         }
 
         let mut suffix = 2_u32;
         loop {
             let candidate = format!("{base}{suffix}");
             if !self.ticker_in_use_by_other(&candidate, company_id) {
-                return candidate;
+                return Arc::from(candidate.as_str());
             }
             suffix = suffix.saturating_add(1);
         }
@@ -320,7 +320,7 @@ impl StockMarket {
         &mut self,
         company_id: u16,
         mut equity: ListedEquity,
-    ) -> String {
+    ) -> Arc<str> {
         let before_cap = self.total_market_cap();
         equity.ticker = self.distinct_ticker_for_listing(company_id, &equity.ticker);
         let assigned_ticker = equity.ticker.clone();
@@ -399,18 +399,19 @@ impl StockMarket {
     }
 
     /// Generate a ticker symbol from company name.
-    pub fn generate_ticker(company_id: u16, name: &str) -> String {
+    pub fn generate_ticker(company_id: u16, name: &str) -> Arc<str> {
         let ticker: String = name
             .split_whitespace()
             .filter_map(|word| word.chars().next())
             .take(4)
             .map(|c| c.to_ascii_uppercase())
             .collect();
-        if ticker.is_empty() {
+        let s: String = if ticker.is_empty() {
             format!("S{:03}", company_id % 1000)
         } else {
             ticker
-        }
+        };
+        Arc::from(s.as_str())
     }
 
     /// Compute a deterministic valuation anchor for IPO pricing.

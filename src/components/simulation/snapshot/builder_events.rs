@@ -64,7 +64,7 @@ pub(super) fn selected_person_related_events_snapshot(
         return build_events_tab_snapshot(world, ui, |_| false);
     };
 
-    let country_name = country.name.as_str();
+    let country_name: &str = &country.name;
     let person_id = person.id;
     build_events_tab_snapshot(world, ui, |event| {
         event_matches_person(event, country_name, person_id)
@@ -82,7 +82,7 @@ pub(super) fn selected_company_related_events_snapshot(
         return build_events_tab_snapshot(world, ui, |_| false);
     };
 
-    let country_name = country.name.as_str();
+    let country_name: &str = &country.name;
     let mut company_ids = Vec::with_capacity(company.historical_ids.len() + 1);
     company_ids.push(company.id);
     company_ids.extend(company.historical_ids.iter().copied());
@@ -250,4 +250,5 @@ fn event_country_name(event: &SimEvent) -> &str {
             ..
         } => country_name,
     }
+    .as_ref()
 }

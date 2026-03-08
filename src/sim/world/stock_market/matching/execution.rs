@@ -156,7 +156,7 @@ pub(in crate::sim::world) fn run_world_stock_market(world: &mut World, day: u64)
             && equity.day_turnover > 0.0
         {
             country.push_pending_event(SimEvent::StockMarketClose {
-                country_name: country.name().to_string(),
+                country_name: country.name().into(),
                 day,
                 total_market_cap: round_cents(country.stock_market.total_market_cap()),
                 total_turnover: round_cents(country.stock_market.total_daily_turnover()),

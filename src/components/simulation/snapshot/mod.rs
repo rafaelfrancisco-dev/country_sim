@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     components::simulation::ui_state::{
         ChartScope, CountryPolicyField, EventsCategoryFilter, EventsSort, RunningTab, UiState,

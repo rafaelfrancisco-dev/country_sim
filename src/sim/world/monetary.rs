@@ -68,7 +68,7 @@ impl World {
             let day = self.day;
             for country in &mut self.countries {
                 country.push_pending_event(SimEvent::RatePolicyChange {
-                    country_name: country.name().to_string(),
+                    country_name: country.name().into(),
                     new_rate,
                     old_rate,
                     inflation_rate: avg_inflation,

@@ -447,7 +447,7 @@ impl Country {
     pub fn company_name(&self, company_id: u16) -> Option<&str> {
         self.companies
             .get(company_id as usize)
-            .map(|company| company.name.as_str())
+            .map(|company| company.name.as_ref())
     }
 
     pub fn housing_price_index(&self) -> f64 {

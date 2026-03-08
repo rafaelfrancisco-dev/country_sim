@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 use crate::sim::world::stock_market::matching::match_books;
 use crate::sim::{country::Country, person::Person, stock_market::ListedEquity, world::World};
@@ -10,7 +12,7 @@ fn make_person(id: u32, cash: f64) -> Person {
 
 fn make_world_with_listed(people: Vec<Person>, initial_price: f64) -> World {
     let mut country = Country::new(0, "Test".to_string(), people);
-    let equity = ListedEquity::new(0, 0, "TST".to_string(), initial_price, 1_000_000, 200_000);
+    let equity = ListedEquity::new(0, 0, Arc::from("TST"), initial_price, 1_000_000, 200_000);
     country.stock_market.listed.insert(0, equity);
     // Give bank some reserves for maker orders
     country.primary_bank_mut().reserve_balance = 500_000.0;

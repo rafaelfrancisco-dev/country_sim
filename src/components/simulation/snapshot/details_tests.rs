@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 use crate::components::simulation::ui_state::DetailsView;
 use crate::sim::{
@@ -19,7 +21,7 @@ fn sample_world_with_stock() -> World {
     let mut country = Country::new(1, "A".to_string(), vec![person]);
     country.stock_market.listed.insert(
         0,
-        ListedEquity::new(0, 0, "ACO".to_string(), 12.5, 10_000, 8_000),
+        ListedEquity::new(0, 0, Arc::from("ACO"), 12.5, 10_000, 8_000),
     );
     country.stock_market.person_portfolio_mut(1).add_shares(
         crate::sim::stock_market::StockSecurityId {
@@ -70,7 +72,7 @@ fn person_details_show_last_completed_month_income_and_dividends() {
     let mut country = Country::new(1, "A".to_string(), vec![person]);
     country.stock_market.listed.insert(
         0,
-        ListedEquity::new(0, 0, "ACO".to_string(), 12.5, 10_000, 8_000),
+        ListedEquity::new(0, 0, Arc::from("ACO"), 12.5, 10_000, 8_000),
     );
     {
         let portfolio = country.stock_market.person_portfolio_mut(1);

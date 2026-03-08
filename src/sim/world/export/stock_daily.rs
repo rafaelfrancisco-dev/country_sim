@@ -104,7 +104,7 @@ impl World {
                         country_id: country.id(),
                         country_name: country.name().to_string(),
                         company_id: equity.current_company_id,
-                        ticker: equity.ticker.clone(),
+                        ticker: equity.ticker.to_string(),
                         close_price: equity.last_price,
                         day_return_pct: equity.day_pct_change() * 100.0,
                         volume: equity.day_volume,

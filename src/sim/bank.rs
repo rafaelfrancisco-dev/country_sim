@@ -1,9 +1,10 @@
+use std::{collections::HashMap, sync::Arc};
+
 use super::{
     job::{JobTypeId, salary_for_job},
     money::round_cents,
     stock_market::StockSecurityId,
 };
-use std::collections::HashMap;
 
 mod health;
 mod loan_math;
@@ -110,7 +111,7 @@ pub struct LoanPayment {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bank {
     pub id: BankId,
-    pub name: String,
+    pub name: Arc<str>,
     pub kind: BankKind,
     pub reserve_balance: f64,
     pub created_money_outstanding: f64,
@@ -161,10 +162,10 @@ impl Default for Bank {
 
 impl Bank {
     pub fn new() -> Self {
-        Self::with_identity(0, DEFAULT_BANK_NAME.to_string(), BankKind::Public)
+        Self::with_identity(0, Arc::from(DEFAULT_BANK_NAME), BankKind::Public)
     }
 
-    pub fn with_identity(id: BankId, name: String, kind: BankKind) -> Self {
+    pub fn with_identity(id: BankId, name: Arc<str>, kind: BankKind) -> Self {
         Self {
             id,
             name,

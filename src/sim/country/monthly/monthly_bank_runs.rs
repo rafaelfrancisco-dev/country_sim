@@ -31,7 +31,7 @@ impl Country {
             }
             let health = self.bank_health_score(bank_id);
             if health >= run_threshold {
-                let mut resolved_bank_name: Option<String> = None;
+                let mut resolved_bank_name: Option<std::sync::Arc<str>> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
@@ -74,7 +74,7 @@ impl Country {
             let withdraw_fraction =
                 (params.run_withdraw_fraction * stress * private_mult).clamp(0.0, 1.0);
             if withdraw_fraction <= 0.0 {
-                let mut resolved_bank_name: Option<String> = None;
+                let mut resolved_bank_name: Option<std::sync::Arc<str>> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
@@ -112,7 +112,7 @@ impl Country {
                 .unwrap_or(0.0);
             let requested_total = self.total_run_requested_for_bank(bank_id, withdraw_fraction);
             if requested_total <= 0.0 {
-                let mut resolved_bank_name: Option<String> = None;
+                let mut resolved_bank_name: Option<std::sync::Arc<str>> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));
@@ -141,7 +141,7 @@ impl Country {
                 / requested_total.max(0.01))
             .clamp(0.0, 1.0);
             if shortfall_ratio < params.run_min_uninsured_share_trigger.clamp(0.0, 1.0) {
-                let mut resolved_bank_name: Option<String> = None;
+                let mut resolved_bank_name: Option<std::sync::Arc<str>> = None;
                 if let Some(bank) = self.bank_by_id_mut(bank_id) {
                     let was_in_resolution = bank.is_in_resolution;
                     bank.update_run_intensity((bank.run_intensity * run_decay).max(0.0));

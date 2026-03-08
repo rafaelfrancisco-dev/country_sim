@@ -283,7 +283,7 @@ impl Country {
         self.pending_events.push(SimEvent::CompanyFounded {
             country_name: self.name.clone(),
             company_id,
-            company_name,
+            company_name: company_name.into(),
             founders: founders_count,
             job_type_id: founder_job_id,
             produced_good_id: high_margin_good_id,

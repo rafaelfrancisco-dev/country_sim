@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{
     bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, FounderStake},
@@ -29,7 +31,7 @@ const COMPANY_CHUNK_SIZE: usize = 16;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Country {
     pub(crate) id: u16,
-    pub(crate) name: String,
+    pub(crate) name: Arc<str>,
     pub(crate) people: Vec<Person>,
     pub(crate) companies: Vec<Company>,
     pub(crate) households: Vec<Household>,

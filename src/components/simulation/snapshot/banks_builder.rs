@@ -7,7 +7,7 @@ pub(in crate::components::simulation) fn build_banks_tab_snapshot(
 ) -> RunningTabSnapshot {
     let selected_country = ui.selected_country(world);
     let disaster_days = selected_country.map_or_else(Vec::new, |country| {
-        disaster_days_for_country(world, country.name.as_str())
+        disaster_days_for_country(world, &country.name)
     });
     let mut bank_rows = Vec::new();
     if selected_country.is_some() {
@@ -33,7 +33,7 @@ pub(in crate::components::simulation) fn build_banks_tab_snapshot(
 
             bank_rows.push(BankRowSnapshot {
                 bank_id: bank.id.to_string(),
-                name: bank.name.clone(),
+                name: bank.name.to_string(),
                 kind,
                 reserve: money(bank.reserve_balance, currency_symbol),
                 deposits: money(bank.deposit_liabilities, currency_symbol),
@@ -83,7 +83,7 @@ fn selected_bank_related_events_snapshot(world: &World, ui: &UiState) -> EventsT
     let Some(bank) = ui.selected_bank_on_page(world) else {
         return build_bank_events_tab_snapshot(world, ui, |_| false);
     };
-    let country_name = country.name.as_str();
+    let country_name: &str = &country.name;
     let bank_id = bank.id;
     build_bank_events_tab_snapshot(world, ui, |event| {
         event_matches_bank(event, country_name, bank_id)
@@ -233,4 +233,5 @@ fn event_country_name(event: &SimEvent) -> &str {
             ..
         } => country_name,
     }
+    .as_ref()
 }

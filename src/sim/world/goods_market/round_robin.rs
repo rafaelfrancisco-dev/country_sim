@@ -22,6 +22,7 @@ impl World {
                 &day_cache.precomputed_essential_demands,
                 &mut day_cache.round_robin,
             );
+            scratch.pending_non_zero = 0;
             for (country_idx, country_pending) in
                 scratch.pending_demands.iter_mut().enumerate()
             {
@@ -31,20 +32,12 @@ impl World {
                             .get(p_idx * ESSENTIAL_ND_GOOD_COUNT + good_slot)
                             .copied()
                             .unwrap_or(0);
+                        if *pending > 0 {
+                            scratch.pending_non_zero += 1;
+                        }
                     }
                 }
             }
-        }
-        // Count (country, person) pairs with non-zero pending demand.
-        // This lets us skip the buyer-slot scan entirely when all demand is zero.
-        {
-            let scratch = &mut day_cache.round_robin;
-            scratch.pending_non_zero = scratch
-                .pending_demands
-                .iter()
-                .flat_map(|v| v.iter())
-                .filter(|&&v| v > 0)
-                .count();
         }
 
         let essential = is_essential_good(good_id) || necessity_rank <= 4;
@@ -66,21 +59,41 @@ impl World {
                 if scratch.pending_non_zero == 0 {
                     break;
                 }
-                scratch.planning.buyer_slots.clear();
-                for person_idx in 0..scratch.max_people {
-                    for country_rr_order in 0..country_count {
-                        let buyer_country_idx =
-                            (start_country_idx + country_rr_order) % country_count;
-                        let country_pending = &scratch.pending_demands[buyer_country_idx];
-                        if person_idx >= country_pending.len() || country_pending[person_idx] == 0 {
-                            continue;
+                if round == 0 {
+                    // Round 0: full O(max_people × country_count) build of buyer_slots.
+                    scratch.planning.buyer_slots.clear();
+                    for person_idx in 0..scratch.max_people {
+                        for country_rr_order in 0..country_count {
+                            let buyer_country_idx =
+                                (start_country_idx + country_rr_order) % country_count;
+                            let country_pending = &scratch.pending_demands[buyer_country_idx];
+                            if person_idx >= country_pending.len()
+                                || country_pending[person_idx] == 0
+                            {
+                                continue;
+                            }
+                            scratch.planning.buyer_slots.push(BuyerSlot {
+                                round,
+                                person_idx,
+                                buyer_country_idx,
+                                country_rr_order,
+                            });
                         }
-                        scratch.planning.buyer_slots.push(BuyerSlot {
-                            round,
-                            person_idx,
-                            buyer_country_idx,
-                            country_rr_order,
-                        });
+                    }
+                } else {
+                    // Subsequent rounds: O(active_buyers) retain of still-pending slots.
+                    let pending = &scratch.pending_demands;
+                    scratch.planning.buyer_slots.retain(|slot| {
+                        pending
+                            .get(slot.buyer_country_idx)
+                            .and_then(|v| v.get(slot.person_idx))
+                            .copied()
+                            .unwrap_or(0)
+                            > 0
+                    });
+                    // Update round field on retained slots.
+                    for slot in &mut scratch.planning.buyer_slots {
+                        slot.round = round;
                     }
                 }
             }

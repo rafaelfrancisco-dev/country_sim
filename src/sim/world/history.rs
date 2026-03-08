@@ -37,180 +37,100 @@ impl World {
     }
 
     fn aggregate_metric_point(&self) -> MetricPoint {
-        let count = self.countries.len().max(1) as f64;
-        let month = self.countries.iter().map(Country::month).max().unwrap_or(0);
-        let population = self
-            .countries
-            .iter()
-            .map(|country| country.population() as f64)
-            .sum();
-        let total_money_supply = self.countries.iter().map(Country::total_money_supply).sum();
-        let household_cash_total = self
-            .countries
-            .iter()
-            .map(Country::household_cash_total)
-            .sum();
-        let company_cash_total = self.countries.iter().map(Country::company_cash_total).sum();
-        let expected_money_supply = self
-            .countries
-            .iter()
-            .map(Country::expected_money_supply)
-            .sum();
-        let money_supply_gap = self.countries.iter().map(Country::money_supply_gap).sum();
-        let created_money_outstanding = self
-            .countries
-            .iter()
-            .map(|country| country.total_bank_created_money())
-            .sum();
-        let bank_reserve = self
-            .countries
-            .iter()
-            .map(|country| country.total_bank_reserves())
-            .sum();
-        let treasury_balance = self.countries.iter().map(Country::treasury_balance).sum();
-        let budget_balance = self
-            .countries
-            .iter()
-            .map(Country::monthly_budget_balance)
-            .sum();
-        let monthly_tax_collected = self
-            .countries
-            .iter()
-            .map(Country::monthly_tax_collected)
-            .sum();
-        let monthly_gov_spending = self
-            .countries
-            .iter()
-            .map(Country::monthly_gov_spending)
-            .sum();
-        let gov_debt = self.countries.iter().map(Country::gov_debt).sum();
-        let monthly_money_minted = self
-            .countries
-            .iter()
-            .map(Country::monthly_money_minted)
-            .sum();
-        let cumulative_money_minted = self
-            .countries
-            .iter()
-            .map(Country::cumulative_money_minted)
-            .sum();
-        let monthly_mint_fraction = self
-            .countries
-            .iter()
-            .map(Country::last_mint_fraction)
-            .sum::<f64>()
-            / count;
-        let monthly_goods_import_spending = self
-            .countries
-            .iter()
-            .map(Country::monthly_goods_import_spending)
-            .sum();
-        let monthly_goods_export_revenue = self
-            .countries
-            .iter()
-            .map(Country::monthly_goods_export_revenue)
-            .sum();
-        let monthly_unmet_need_events = self
-            .countries
-            .iter()
-            .map(|country| country.monthly_unmet_need_events() as f64)
-            .sum();
-        let monthly_severe_unmet_need_events = self
-            .countries
-            .iter()
-            .map(|country| country.monthly_severe_unmet_need_events() as f64)
-            .sum();
-        let monthly_chronic_unmet_need_count = self
-            .countries
-            .iter()
-            .map(|country| country.monthly_chronic_unmet_need_count() as f64)
-            .sum();
-        let monthly_essential_debt_spending = self
-            .countries
-            .iter()
-            .map(Country::monthly_essential_debt_spending)
-            .sum();
-        let cpi_index = self.countries.iter().map(Country::cpi_index).sum::<f64>() / count;
-        let inflation_rate = self
-            .countries
-            .iter()
-            .map(Country::monthly_inflation_rate)
-            .sum::<f64>()
-            / count;
-        let total_population = self
-            .countries
-            .iter()
-            .map(|country| country.population() as f64)
-            .sum::<f64>();
-        let (deposit_rate, loan_rate) = if total_population > 0.0 {
-            let weighted_deposit = self
-                .countries
-                .iter()
-                .map(|country| country.deposit_rate() * country.population() as f64)
-                .sum::<f64>()
-                / total_population;
-            let weighted_loan = self
-                .countries
-                .iter()
-                .map(|country| country.bank_loan_rate() * country.population() as f64)
-                .sum::<f64>()
-                / total_population;
-            (weighted_deposit, weighted_loan)
+        let n = self.countries.len().max(1) as f64;
+
+        // Accumulators for plain sums.
+        let mut month = 0_u64;
+        let mut population = 0.0_f64;
+        let mut total_money_supply = 0.0_f64;
+        let mut household_cash_total = 0.0_f64;
+        let mut company_cash_total = 0.0_f64;
+        let mut expected_money_supply = 0.0_f64;
+        let mut money_supply_gap = 0.0_f64;
+        let mut created_money_outstanding = 0.0_f64;
+        let mut bank_reserve = 0.0_f64;
+        let mut treasury_balance = 0.0_f64;
+        let mut budget_balance = 0.0_f64;
+        let mut monthly_tax_collected = 0.0_f64;
+        let mut monthly_gov_spending = 0.0_f64;
+        let mut gov_debt = 0.0_f64;
+        let mut monthly_money_minted = 0.0_f64;
+        let mut cumulative_money_minted = 0.0_f64;
+        let mut monthly_mint_fraction_sum = 0.0_f64;
+        let mut monthly_goods_import_spending = 0.0_f64;
+        let mut monthly_goods_export_revenue = 0.0_f64;
+        let mut monthly_unmet_need_events = 0.0_f64;
+        let mut monthly_severe_unmet_need_events = 0.0_f64;
+        let mut monthly_chronic_unmet_need_count = 0.0_f64;
+        let mut monthly_essential_debt_spending = 0.0_f64;
+        let mut monthly_savings_interest_paid = 0.0_f64;
+        let mut bonds_outstanding = 0.0_f64;
+        let mut stock_market_cap = 0.0_f64;
+        let mut stock_bank_equity_exposure = 0.0_f64;
+        let mut monthly_foreclosures = 0.0_f64;
+        let mut monthly_home_purchases = 0.0_f64;
+        // Accumulators for averages.
+        let mut cpi_index_sum = 0.0_f64;
+        let mut inflation_rate_sum = 0.0_f64;
+        let mut housing_price_index_sum = 0.0_f64;
+        let mut monthly_rent_sum = 0.0_f64;
+        let mut homeownership_rate_sum = 0.0_f64;
+        let mut housing_vacancy_rate_sum = 0.0_f64;
+        // Accumulators for deposit/loan rates weighted by population.
+        let mut weighted_deposit_sum = 0.0_f64;
+        let mut weighted_loan_sum = 0.0_f64;
+        let mut total_population_f64 = 0.0_f64;
+
+        for country in &self.countries {
+            let pop = country.population() as f64;
+            month = month.max(country.month());
+            population += pop;
+            total_money_supply += country.total_money_supply();
+            household_cash_total += country.household_cash_total();
+            company_cash_total += country.company_cash_total();
+            expected_money_supply += country.expected_money_supply();
+            money_supply_gap += country.money_supply_gap();
+            created_money_outstanding += country.total_bank_created_money();
+            bank_reserve += country.total_bank_reserves();
+            treasury_balance += country.treasury_balance();
+            budget_balance += country.monthly_budget_balance();
+            monthly_tax_collected += country.monthly_tax_collected();
+            monthly_gov_spending += country.monthly_gov_spending();
+            gov_debt += country.gov_debt();
+            monthly_money_minted += country.monthly_money_minted();
+            cumulative_money_minted += country.cumulative_money_minted();
+            monthly_mint_fraction_sum += country.last_mint_fraction();
+            monthly_goods_import_spending += country.monthly_goods_import_spending();
+            monthly_goods_export_revenue += country.monthly_goods_export_revenue();
+            monthly_unmet_need_events += country.monthly_unmet_need_events() as f64;
+            monthly_severe_unmet_need_events += country.monthly_severe_unmet_need_events() as f64;
+            monthly_chronic_unmet_need_count += country.monthly_chronic_unmet_need_count() as f64;
+            monthly_essential_debt_spending += country.monthly_essential_debt_spending();
+            monthly_savings_interest_paid += country.monthly_savings_interest_paid();
+            bonds_outstanding += country.bonds_outstanding();
+            stock_market_cap += country.stock_market().total_market_cap();
+            stock_bank_equity_exposure += self.market_bank_portfolio_value(country.id());
+            monthly_foreclosures += country.monthly_foreclosures() as f64;
+            monthly_home_purchases += country.monthly_home_purchases() as f64;
+            cpi_index_sum += country.cpi_index();
+            inflation_rate_sum += country.monthly_inflation_rate();
+            housing_price_index_sum += country.housing_price_index();
+            monthly_rent_sum += country.monthly_rent();
+            homeownership_rate_sum += country.homeownership_rate();
+            housing_vacancy_rate_sum += country.housing_vacancy_rate();
+            total_population_f64 += pop;
+            weighted_deposit_sum += country.deposit_rate() * pop;
+            weighted_loan_sum += country.bank_loan_rate() * pop;
+        }
+
+        let (deposit_rate, loan_rate) = if total_population_f64 > 0.0 {
+            (
+                weighted_deposit_sum / total_population_f64,
+                weighted_loan_sum / total_population_f64,
+            )
         } else {
             (0.0, 0.0)
         };
-        let monthly_savings_interest_paid = self
-            .countries
-            .iter()
-            .map(Country::monthly_savings_interest_paid)
-            .sum();
-        let bonds_outstanding = self.countries.iter().map(Country::bonds_outstanding).sum();
-        let stock_market_cap = self
-            .countries
-            .iter()
-            .map(|country| country.stock_market().total_market_cap())
-            .sum();
-        let stock_bank_equity_exposure = self
-            .countries
-            .iter()
-            .map(|country| self.market_bank_portfolio_value(country.id()))
-            .sum();
-
-        let count = self.countries.len().max(1) as f64;
-        let housing_price_index = self
-            .countries
-            .iter()
-            .map(Country::housing_price_index)
-            .sum::<f64>()
-            / count;
-        let monthly_rent = self
-            .countries
-            .iter()
-            .map(Country::monthly_rent)
-            .sum::<f64>()
-            / count;
-        let homeownership_rate = self
-            .countries
-            .iter()
-            .map(Country::homeownership_rate)
-            .sum::<f64>()
-            / count;
-        let housing_vacancy_rate = self
-            .countries
-            .iter()
-            .map(Country::housing_vacancy_rate)
-            .sum::<f64>()
-            / count;
-        let monthly_foreclosures = self
-            .countries
-            .iter()
-            .map(|c| c.monthly_foreclosures() as f64)
-            .sum::<f64>();
-        let monthly_home_purchases = self
-            .countries
-            .iter()
-            .map(|c| c.monthly_home_purchases() as f64)
-            .sum::<f64>();
 
         MetricPoint {
             month,
@@ -229,15 +149,15 @@ impl World {
             gov_debt,
             monthly_money_minted,
             cumulative_money_minted,
-            monthly_mint_fraction,
+            monthly_mint_fraction: monthly_mint_fraction_sum / n,
             monthly_goods_import_spending,
             monthly_goods_export_revenue,
             monthly_unmet_need_events,
             monthly_severe_unmet_need_events,
             monthly_chronic_unmet_need_count,
             monthly_essential_debt_spending,
-            cpi_index,
-            inflation_rate,
+            cpi_index: cpi_index_sum / n,
+            inflation_rate: inflation_rate_sum / n,
             policy_rate: self.policy_rate,
             deposit_rate,
             loan_rate,
@@ -245,10 +165,10 @@ impl World {
             bonds_outstanding,
             stock_market_cap,
             stock_bank_equity_exposure,
-            housing_price_index,
-            monthly_rent,
-            homeownership_rate,
-            housing_vacancy_rate,
+            housing_price_index: housing_price_index_sum / n,
+            monthly_rent: monthly_rent_sum / n,
+            homeownership_rate: homeownership_rate_sum / n,
+            housing_vacancy_rate: housing_vacancy_rate_sum / n,
             monthly_foreclosures,
             monthly_home_purchases,
         }

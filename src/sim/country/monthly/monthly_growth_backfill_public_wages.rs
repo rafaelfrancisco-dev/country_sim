@@ -146,7 +146,7 @@ impl Country {
                     bank_name: self
                         .bank_by_id(bank_id)
                         .map(|bank| bank.name.clone())
-                        .unwrap_or_else(|| format!("{} Private Bank", self.name)),
+                        .unwrap_or_else(|| format!("{} Private Bank", self.name).into()),
                     kind: BankKind::Private,
                     seed_capital,
                     day: self.day,

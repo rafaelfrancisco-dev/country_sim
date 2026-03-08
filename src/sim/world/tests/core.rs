@@ -66,7 +66,7 @@ fn run_generated_world_with_acceptance_metrics_in_pool(
                         reason: IpoReason::Growth,
                         ..
                     } => {
-                        let entry = growth_ipos_by_country.entry(country_name).or_insert(0);
+                        let entry = growth_ipos_by_country.entry(country_name.to_string()).or_insert(0);
                         *entry = entry.saturating_add(1);
                     }
                     _ => {}

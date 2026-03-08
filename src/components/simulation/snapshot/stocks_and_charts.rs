@@ -20,10 +20,11 @@ type StockTabData = (
 pub(in crate::components::simulation) fn chart_scope_label(world: &World, ui: &UiState) -> String {
     match ui.chart_scope {
         ChartScope::SelectedCountry => {
-            let country_name = ui
+            let country_name_owned: String = ui
                 .selected_country(world)
-                .map(|country| country.name.as_str())
-                .unwrap_or("N/A");
+                .map(|country| country.name.to_string())
+                .unwrap_or_else(|| "N/A".to_string());
+            let country_name = country_name_owned.as_str();
             format!("Selected: {country_name}")
         }
         ChartScope::WorldAggregate => "World Aggregate".to_string(),
@@ -66,20 +67,20 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
         world
             .countries
             .iter()
-            .map(|country| (country.name.clone(), country.population() as f64)),
+            .map(|country| (country.name.to_string(), country.population() as f64)),
     );
     let money_supply_by_country = build_pie_chart(
         "Total Money Supply by Country",
         world
             .countries
             .iter()
-            .map(|country| (country.name.clone(), country.total_money_supply)),
+            .map(|country| (country.name.to_string(), country.total_money_supply)),
     );
     let stock_cap_by_country = build_pie_chart(
         "Stock Market Cap by Country",
         world.countries.iter().map(|country| {
             (
-                country.name.clone(),
+                country.name.to_string(),
                 country.stock_market.total_market_cap(),
             )
         }),
@@ -89,7 +90,7 @@ fn build_pie_charts_page(world: &World, ui: &UiState) -> PieChartsPageSnapshot {
         world
             .countries
             .iter()
-            .map(|country| (country.name.clone(), country.treasury_balance.max(0.0))),
+            .map(|country| (country.name.to_string(), country.treasury_balance.max(0.0))),
     );
 
     let Some(country) = ui.selected_country(world) else {
@@ -298,7 +299,7 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
             let company_name = country
                 .companies
                 .get(equity.current_company_id as usize)
-                .map(|c| c.name.clone())
+                .map(|c| c.name.to_string())
                 .unwrap_or_default();
 
             let bank_shares = market
@@ -316,7 +317,7 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
 
             let abs_row = page_start + row_idx;
             StockRowSnapshot {
-                ticker: equity.ticker.clone(),
+                ticker: equity.ticker.to_string(),
                 company_name,
                 last_price: money(equity.last_price, currency_symbol),
                 day_pct: format!("{:+.2}%", equity.closed_day_pct_change() * 100.0),
@@ -439,7 +440,8 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
                     .listed
                     .get(&pos.security_id.company_id)
             });
-        let ticker = equity.map(|e| e.ticker.as_str()).unwrap_or("???");
+        let ticker_owned: String = equity.map(|e| e.ticker.to_string()).unwrap_or_else(|| "???".to_string());
+        let ticker: &str = &ticker_owned;
         let last_price = equity.map_or(0.0, |e| e.last_price);
         let value = pos.market_value(last_price);
         let unrealized = pos.unrealized_pnl(last_price);
@@ -450,7 +452,7 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
                 .countries
                 .iter()
                 .find(|listing_country| listing_country.id == pos.security_id.country_id)
-                .map(|listing_country| listing_country.name.as_str())
+                .map(|listing_country| listing_country.name.as_ref())
                 .unwrap_or("Foreign");
             format!("[{listing_country}] ")
         };

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
 use super::*;
 
@@ -11,7 +11,7 @@ fn company_related_events_preserve_matches_for_historical_company_ids() {
     )]);
     world.countries[0].companies[0].remember_historical_id(1);
     world.event_log = VecDeque::from(vec![SimEvent::JobSwitched {
-        country_name: "A".to_string(),
+        country_name: Arc::from("A"),
         person_id: 1,
         from_company_id: 1,
         to_company_id: 2,

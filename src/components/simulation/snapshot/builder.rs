@@ -58,12 +58,12 @@ impl UiSnapshot {
         let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
 
         let selected_country = ui.selected_country(world);
-        let selected_country_name = selected_country
+        let selected_country_name: Arc<str> = selected_country
             .map(|country| country.name.clone())
-            .unwrap_or_else(|| "N/A".to_string());
+            .unwrap_or_else(|| Arc::from("N/A"));
         let selected_country_month = selected_country.map_or(0, |country| country.month);
         let selected_country_disaster_days =
-            disaster_days_for_country(world, selected_country_name.as_str());
+            disaster_days_for_country(world, &selected_country_name);
 
         #[cfg(feature = "ui-diagnostics")]
         let invariant_warnings = world
@@ -85,7 +85,7 @@ impl UiSnapshot {
                     .map(|(page_idx, country)| {
                         let idx = country_page_start + page_idx;
                         CountryRowSnapshot {
-                            name: country.name.clone(),
+                            name: country.name.to_string(),
                             population: compact_count(country.population() as f64),
                             household_cash: money(country.household_cash_total, currency_symbol),
                             company_cash: money(country.company_cash_total, currency_symbol),
@@ -177,7 +177,7 @@ impl UiSnapshot {
 
                         company_rows.push(CompanyRowSnapshot {
                             company_id: company.id.to_string(),
-                            name: company.name.clone(),
+                            name: company.name.to_string(),
                             good: good_name,
                             price: money(company.unit_price, currency_symbol),
                             avg_price,
@@ -279,7 +279,7 @@ impl UiSnapshot {
                 details_view: ui.details_view,
                 details_page: ui.details_page,
                 selection_focus: ui.selection_focus,
-                selected_country_name,
+                selected_country_name: selected_country_name.to_string(),
                 total_population: compact_count(world.total_population() as f64),
                 country_page: ui.country_page(),
                 total_country_pages: ui.total_country_pages(world),

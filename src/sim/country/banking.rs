@@ -269,10 +269,10 @@ impl Country {
         self.cumulative_private_banks_closed =
             self.cumulative_private_banks_closed.saturating_add(1);
 
-        let acquired_by_bank_name = self
+        let acquired_by_bank_name: std::sync::Arc<str> = self
             .bank_by_id(acquirer_bank_id)
             .map(|bank| bank.name.clone())
-            .unwrap_or_else(|| format!("Bank #{acquirer_bank_id}"));
+            .unwrap_or_else(|| format!("Bank #{acquirer_bank_id}").into());
         self.pending_events.push(SimEvent::BankClosed {
             country_name: self.name.clone(),
             bank_id: failed_bank_id,
@@ -341,7 +341,7 @@ impl Country {
         };
         let mut bank = Bank::with_identity(
             bank_id,
-            format!("{} {} Bank {}", self.name, kind_label, serial),
+            format!("{} {} Bank {}", self.name, kind_label, serial).into(),
             kind,
         );
         bank.reserve_balance = round_cents(seed_capital.max(0.0));

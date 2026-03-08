@@ -42,6 +42,8 @@ pub(in crate::sim::world) struct GoodsMarketDayCache {
     /// Flat demand buffer: [country_idx][person_idx * ESSENTIAL_ND_GOOD_COUNT + slot].
     /// Populated once per tick by `precompute_all_essential_demands` before the goods loop.
     pub(in crate::sim::world) precomputed_essential_demands: Vec<Vec<u32>>,
+    /// Reusable scratch buffer for discretionary buyer indices — avoids a per-iteration allocation.
+    pub(in crate::sim::world) discretionary_buyers_scratch: Vec<usize>,
 }
 
 impl GoodsMarketDayCache {

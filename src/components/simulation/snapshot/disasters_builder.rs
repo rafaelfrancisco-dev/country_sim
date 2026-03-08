@@ -6,9 +6,9 @@ pub(in crate::components::simulation) fn build_disasters_tab_snapshot(
     ui: &UiState,
 ) -> DisastersTabSnapshot {
     let selected_country = ui.selected_country(world);
-    let selected_country_name = selected_country
+    let selected_country_name: Arc<str> = selected_country
         .map(|country| country.name.clone())
-        .unwrap_or_else(|| "N/A".to_string());
+        .unwrap_or_else(|| Arc::from("N/A"));
     let population = selected_country
         .map(|country| compact_count(country.population() as f64))
         .unwrap_or_else(|| "0".to_string());
@@ -37,7 +37,7 @@ pub(in crate::components::simulation) fn build_disasters_tab_snapshot(
         .collect::<Vec<_>>();
 
     DisastersTabSnapshot {
-        selected_country_name,
+        selected_country_name: selected_country_name.to_string(),
         population,
         companies,
         rows,
@@ -57,7 +57,7 @@ pub(in crate::components::simulation) fn disaster_days_for_country(
         SimEvent::DisasterApplied {
             country_name: event_country_name,
             ..
-        } => event_country_name == country_name,
+        } => event_country_name.as_ref() == country_name,
         _ => false,
     }))
 }

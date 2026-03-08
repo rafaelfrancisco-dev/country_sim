@@ -73,7 +73,7 @@ pub(in crate::components::simulation) fn company_details_lines(
     };
     let listed_equity = country.stock_market.equity_by_company_id(company.id);
     let listed_label = listed_equity.map_or("No", |_| "Yes");
-    let ticker_label = listed_equity.map_or("N/A".to_string(), |equity| equity.ticker.clone());
+    let ticker_label = listed_equity.map_or("N/A".to_string(), |equity| equity.ticker.to_string());
     let listing_price = listed_equity.map_or(0.0, |equity| equity.last_price);
     let listing_day_pct = listed_equity.map_or(0.0, |equity| equity.closed_day_pct_change());
     let listing_market_cap = listed_equity.map_or(0.0, |equity| equity.market_cap);

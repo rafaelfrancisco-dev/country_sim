@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::Country;
 #[cfg(test)]
 use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
@@ -54,7 +56,8 @@ impl Country {
         let mut export_tariffs_by_good = [0.0; GOODS_COUNT];
         export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
         let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
-        let public_bank_name = format!("{name} Public Bank");
+        let name: Arc<str> = name.into();
+        let public_bank_name: Arc<str> = format!("{name} Public Bank").into();
 
         let mut country = Self {
             id,

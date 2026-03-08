@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
 use super::{
     bank::{BankId, LoanAccount},
@@ -30,7 +30,7 @@ pub struct FounderStake {
 pub struct Company {
     pub id: u16,
     pub historical_ids: Vec<u16>,
-    pub name: String,
+    pub name: Arc<str>,
     pub is_public_utility: bool,
     pub is_essential_backfill: bool,
     pub offered_job_types: Vec<JobTypeId>,
@@ -91,7 +91,7 @@ impl Company {
         Self {
             id,
             historical_ids: Vec::new(),
-            name,
+            name: name.into(),
             is_public_utility: false,
             is_essential_backfill: false,
             offered_job_types,

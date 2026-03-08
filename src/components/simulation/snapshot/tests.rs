@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
 use super::*;
 use crate::components::simulation::ui_state::{DetailsView, GoodsMainPage};
@@ -151,15 +151,15 @@ fn events_category_filter_limits_results() {
     let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
     world.event_log = VecDeque::from(vec![
         SimEvent::PopBirth {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             count: 1,
             day: 1,
         },
         SimEvent::StockIpo {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             company_id: 1,
-            company_name: "Comp".to_string(),
-            ticker: "CMP".to_string(),
+            company_name: Arc::from("Comp"),
+            ticker: Arc::from("CMP"),
             reason: IpoReason::Growth,
             shares_issued: 10,
             primary_shares_issued: 8,
@@ -172,7 +172,7 @@ fn events_category_filter_limits_results() {
             day: 1,
         },
         SimEvent::DebtDistress {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             entity_kind: EntityKind::Person,
             entity_id: 1,
             unpaid_amount: 5.0,
@@ -201,15 +201,15 @@ fn events_search_intersects_with_category_filter() {
     let mut world = World::new(vec![Country::new(1, "A".to_string(), people)]);
     world.event_log = VecDeque::from(vec![
         SimEvent::CompanyBankrupt {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             company_id: 1,
-            company_name: "Alpha".to_string(),
+            company_name: Arc::from("Alpha"),
             laid_off_count: 2,
             principal_written_off: 10.0,
             day: 2,
         },
         SimEvent::DebtDistress {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             entity_kind: EntityKind::Company,
             entity_id: 1,
             unpaid_amount: 3.0,
@@ -312,24 +312,24 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
     ]);
     world.event_log = VecDeque::from(vec![
         SimEvent::StockMarginCall {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             person_id: 1,
             shares_liquidated: 5,
             proceeds: 12.0,
             day: 3,
         },
         SimEvent::StockMarginCall {
-            country_name: "B".to_string(),
+            country_name: Arc::from("B"),
             person_id: 1,
             shares_liquidated: 3,
             proceeds: 9.0,
             day: 3,
         },
         SimEvent::StockIpo {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             company_id: 0,
-            company_name: "Comp".to_string(),
-            ticker: "CMP".to_string(),
+            company_name: Arc::from("Comp"),
+            ticker: Arc::from("CMP"),
             reason: IpoReason::Growth,
             shares_issued: 10,
             primary_shares_issued: 8,
@@ -371,7 +371,7 @@ fn company_related_events_match_company_references_and_selected_country_only() {
     ]);
     world.event_log = VecDeque::from(vec![
         SimEvent::JobSwitched {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             person_id: 1,
             from_company_id: 0,
             to_company_id: 3,
@@ -379,7 +379,7 @@ fn company_related_events_match_company_references_and_selected_country_only() {
             day: 4,
         },
         SimEvent::JobSwitched {
-            country_name: "B".to_string(),
+            country_name: Arc::from("B"),
             person_id: 1,
             from_company_id: 0,
             to_company_id: 2,
@@ -416,16 +416,16 @@ fn bank_related_events_match_selected_bank_only() {
     )]);
     world.event_log = VecDeque::from(vec![
         SimEvent::BankRunStarted {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             bank_id: 0,
-            bank_name: "A Public Bank".to_string(),
+            bank_name: Arc::from("A Public Bank"),
             health: 0.42,
             day: 5,
         },
         SimEvent::BankRunStarted {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             bank_id: 1,
-            bank_name: "A Private Bank 1".to_string(),
+            bank_name: Arc::from("A Private Bank 1"),
             health: 0.31,
             day: 5,
         },

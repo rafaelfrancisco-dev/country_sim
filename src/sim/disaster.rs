@@ -77,9 +77,9 @@ pub(crate) fn apply_disaster_requests(
 
         world.event_log.push_back(SimEvent::DisasterApplied {
             country_name: country.name.clone(),
-            disaster_label: request.kind.label().to_string(),
+            disaster_label: request.kind.label().into(),
             intensity_pct,
-            summary,
+            summary: summary.into(),
             day: world.day,
         });
     }
@@ -193,7 +193,7 @@ fn apply_population_loss(country: &mut Country, intensity_pct: u8) -> usize {
             };
             if principal_written_off > 0.0 {
                 country.push_pending_event(SimEvent::LoanWrittenOff {
-                    country_name: country.name().to_string(),
+                    country_name: country.name().into(),
                     entity_id: person.id,
                     principal_lost: principal_written_off,
                     day: country.day(),

@@ -139,40 +139,45 @@ impl World {
 
                 // Phase A — parallel planning: each person independently decides to buy.
                 // Uses per-chunk thread_rng(); discretionary purchases are non-deterministic.
-                let buyers: Vec<usize> = self.countries[buyer_country_idx]
-                    .people
-                    .par_chunks(PEOPLE_CHUNK_SIZE)
-                    .enumerate()
-                    .flat_map(|(chunk_idx, chunk)| {
-                        let mut rng = rand::thread_rng();
-                        let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
-                        chunk
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(offset, person)| {
-                                if person.superficial_stock_units[stock_slot] > 0 {
-                                    return None;
-                                }
-                                let cash_cents = to_cents(person.cash_balance);
-                                if cash_cents < snapshot_quote.landed_price_cents {
-                                    return None;
-                                }
-                                let affordability_ratio =
-                                    cash_cents as f64 / snapshot_quote.landed_price_cents as f64;
-                                let probability =
-                                    ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
-                                if probability <= 0.0 || !rng.gen_bool(probability) {
-                                    return None;
-                                }
-                                Some(base_idx + offset)
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect();
+                let mut buyers = std::mem::take(&mut day_cache.discretionary_buyers_scratch);
+                buyers.clear();
+                buyers.extend(
+                    self.countries[buyer_country_idx]
+                        .people
+                        .par_chunks(PEOPLE_CHUNK_SIZE)
+                        .enumerate()
+                        .flat_map(|(chunk_idx, chunk)| {
+                            let mut rng = rand::thread_rng();
+                            let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
+                            chunk
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(offset, person)| {
+                                    if person.superficial_stock_units[stock_slot] > 0 {
+                                        return None;
+                                    }
+                                    let cash_cents = to_cents(person.cash_balance);
+                                    if cash_cents < snapshot_quote.landed_price_cents {
+                                        return None;
+                                    }
+                                    let affordability_ratio = cash_cents as f64
+                                        / snapshot_quote.landed_price_cents as f64;
+                                    let probability =
+                                        ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
+                                    if probability <= 0.0 || !rng.gen_bool(probability) {
+                                        return None;
+                                    }
+                                    Some(base_idx + offset)
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>(),
+                );
 
                 // Phase B — sequential apply: re-fetch current cheapest supplier per purchase
                 // so inventory depletion is respected, then execute.
-                for person_idx in buyers {
+                for person_idx in &buyers {
+                    let person_idx = *person_idx;
                     let Some(current_quote) =
                         day_cache.current_cheapest_quote(self, good_id, buyer_country_idx)
                     else {
@@ -193,6 +198,7 @@ impl World {
                             person.superficial_stock_units[stock_slot].saturating_add(1);
                     }
                 }
+                day_cache.discretionary_buyers_scratch = buyers;
             }
         }
     }

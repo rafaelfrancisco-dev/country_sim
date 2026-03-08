@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use super::World;
 use crate::sim::{bank::BankId, event::SimEvent, money::round_cents, person::ForeignDeposit};
 
 /// Per-country snapshot used during cross-country deposit processing.
 struct CountryDepositInfo {
     id: u16,
-    name: String,
+    name: Arc<str>,
     best_bank_id: Option<BankId>,
     annual_deposit_rate: f64,
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 
 #[test]
@@ -12,38 +14,38 @@ fn event_category_mapping_covers_all_variant_groups() {
 
     let samples = [
         SimEvent::PopBirth {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             count: 1,
             day: 1,
         },
         SimEvent::LoanEmitted {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             entity_kind: EntityKind::Person,
             entity_id: 1,
             principal: 10.0,
             day: 1,
         },
         SimEvent::DebtDistress {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             entity_kind: EntityKind::Company,
             entity_id: 2,
             unpaid_amount: 3.0,
             day: 1,
         },
         SimEvent::CompanyFounded {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             company_id: 1,
-            company_name: "Comp".to_string(),
+            company_name: Arc::from("Comp"),
             founders: 1,
             job_type_id: 1,
             produced_good_id: 1,
             day: 1,
         },
         SimEvent::StockIpo {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             company_id: 1,
-            company_name: "Comp".to_string(),
-            ticker: "CMP".to_string(),
+            company_name: Arc::from("Comp"),
+            ticker: Arc::from("CMP"),
             reason: IpoReason::Growth,
             shares_issued: 10,
             primary_shares_issued: 8,
@@ -56,7 +58,7 @@ fn event_category_mapping_covers_all_variant_groups() {
             day: 1,
         },
         SimEvent::BondIssued {
-            country_name: "A".to_string(),
+            country_name: Arc::from("A"),
             face_value: 100.0,
             coupon_rate: 0.02,
             day: 1,
@@ -83,7 +85,7 @@ fn event_category_mapping_covers_all_variant_groups() {
 #[test]
 fn event_money_format_uses_currency_and_compact_suffix() {
     let event = SimEvent::LoanEmitted {
-        country_name: "A".to_string(),
+        country_name: Arc::from("A"),
         entity_kind: EntityKind::Person,
         entity_id: 7,
         principal: 11_500.0,
@@ -97,7 +99,7 @@ fn event_money_format_uses_currency_and_compact_suffix() {
 #[test]
 fn money_minted_event_is_government_policy_and_formats_with_currency() {
     let event = SimEvent::MoneyMinted {
-        country_name: "A".to_string(),
+        country_name: Arc::from("A"),
         amount: 12_500.0,
         inflation_shortfall: 0.02,
         unemployment_gap: 0.03,

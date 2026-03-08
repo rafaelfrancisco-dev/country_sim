@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 
 #[test]
@@ -20,7 +22,7 @@ fn margin_liquidation_decreases_bank_reserve_not_increases() {
     );
     country.primary_bank_mut().reserve_balance = 20_000.0;
 
-    let equity = ListedEquity::new(0, 0, "MCT".to_string(), 10.0, 1_000_000, 500);
+    let equity = ListedEquity::new(0, 0, Arc::from("MCT"), 10.0, 1_000_000, 500);
     country.stock_market.listed.insert(0, equity);
     country.stock_market.person_portfolio_mut(1).add_shares(
         crate::sim::stock_market::StockSecurityId {

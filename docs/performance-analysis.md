@@ -6,20 +6,7 @@ Analysis of performance pitfalls in the simulation codebase, organized by severi
 
 ## CRITICAL
 
-**1. String cloning in event creation** (`monthly_*.rs`, ~68 `.clone()` sites)
-Country/bank names cloned for every `SimEvent`. With thousands of events per month this generates massive heap churn. Fix: use interned string IDs or `Arc<str>` for names, defer display strings to the UI layer.
-
-**2. `collect()` in discretionary-purchase hot path** (`goods_market/entrypoints.rs:169`)
-`flat_map().collect::<Vec<_>>()` builds a Vec of buyer indices inside a per-good loop (15 goods × countries = 50+ iterations/day). Millions of allocations/day. Fix: pre-allocate a scratch Vec, reuse it per iteration.
-
-**3. `pending_non_zero` recomputed via iterator chain** (`goods_market/round_robin.rs:42`)
-Recomputed as `.flat_map().filter().count()` each round instead of being tracked incrementally as slots are cleared. Fix: decrement a counter in the slot-clear path.
-
-**4. Goods round-robin `buyer_slots.clear()` + refill each round**
-The `O(max_people × country_count × rounds)` inner loop re-scans the full matrix per round. Fix: track dirty slots in a separate index list so cleared entries aren't revisited.
-
-**5. History snapshot does ~25 separate passes over countries** (`world/history.rs:39–213`)
-`aggregate_metric_point()` iterates over the country slice once per field. A 5-country world takes 125 iterations over 5 countries. Fix: single accumulator pass.
+*(All five critical issues have been fixed — see commit history.)*
 
 ---
 
@@ -95,12 +82,13 @@ Cache it as a `last_health_score: f64` field updated once per month, invalidated
 
 ## Recommended Fix Order
 
-| Priority | Issue | Est. Gain |
-|---|---|---|
-| 1 | String cloning in events (Critical #1) | 15–25% |
-| 2 | History snapshot single-pass (Critical #5) | 5–10% |
-| 3 | `collect()` + apply in goods hot path (Critical #2, #4) | 10–20% |
-| 4 | `pending_non_zero` incremental tracking (Critical #3) | 5–10% |
-| 5 | Tariff matrix as World field (High #6) | 3–5% |
-| 6 | `SimulationParams` no-clone (High #8) | 2–3% |
-| 7 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% |
+| Priority | Issue | Est. Gain | Status |
+|---|---|---|---|
+| 1 | String cloning in events — `Arc<str>` for name fields (Critical #1) | 15–25% | Done |
+| 2 | History snapshot single-pass (Critical #5) | 5–10% | Done |
+| 3 | `collect()` in discretionary hot path (Critical #2) | 10–20% | Done |
+| 4 | `pending_non_zero` incremental init (Critical #3) | 5–10% | Done |
+| 5 | Retain-based round-robin active set (Critical #4) | 3–8% | Done |
+| 6 | Tariff matrix as World field (High #6) | 3–5% | Open |
+| 7 | `SimulationParams` no-clone (High #8) | 2–3% | Open |
+| 8 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |

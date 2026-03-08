@@ -107,7 +107,7 @@ fn generated_world_3x15k_730_days_meets_stability_floor() {
     );
     for country in &world.countries {
         let growth_ipos = growth_ipos_by_country
-            .get(&country.name)
+            .get(country.name.as_ref())
             .copied()
             .unwrap_or(0);
         assert!(
