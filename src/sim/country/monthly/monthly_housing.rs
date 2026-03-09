@@ -69,66 +69,51 @@ impl Country {
             return;
         }
 
-        // Collect-then-apply: gather (person_idx, company_id, amount_paid) without holding &mut
-        struct RentEntry {
-            person_idx: usize,
-            company_id: u16,
-            amount_due: f64,
-            amount_paid: f64,
-        }
+        let country_id = self.id;
+        let day = self.day;
+        let country_name = self.name.clone();
+        let people = &mut self.people;
+        let companies = &mut self.companies;
+        let pending_events = &mut self.pending_events;
+        let monthly_rent_collected = &mut self.monthly_rent_collected;
 
-        let mut entries: Vec<RentEntry> = Vec::new();
-        for (person_idx, person) in self.people.iter().enumerate() {
+        // Single-pass: split-borrow people and companies so both can be mutated in one loop.
+        let mut rent_events: Vec<SimEvent> = Vec::new();
+
+        for person in people.iter_mut() {
             let landlord_company_id = match &person.housing {
                 HousingStatus::Renter {
                     landlord_company_id,
                     landlord_country_id,
-                } if *landlord_country_id == self.id => *landlord_company_id,
+                } if *landlord_country_id == country_id => *landlord_company_id,
                 _ => continue,
             };
             let available = person.cash_balance.max(0.0);
             let amount_paid = round_cents(monthly_rent.min(available));
-            entries.push(RentEntry {
-                person_idx,
-                company_id: landlord_company_id,
-                amount_due: monthly_rent,
-                amount_paid,
-            });
-        }
 
-        let country_name = self.name.clone();
-        let day = self.day;
-        let mut pending_events = Vec::new();
-        let mut total_rent_collected = 0.0_f64;
+            person.cash_balance = round_cents(person.cash_balance - amount_paid);
+            person.last_month_rent_paid = round_cents(person.last_month_rent_paid + amount_paid);
 
-        for entry in entries {
-            let person = &mut self.people[entry.person_idx];
-            person.cash_balance = round_cents(person.cash_balance - entry.amount_paid);
-            person.last_month_rent_paid =
-                round_cents(person.last_month_rent_paid + entry.amount_paid);
-
-            if let Some(company) = self.companies.get_mut(entry.company_id as usize) {
-                company.cash_balance = round_cents(company.cash_balance + entry.amount_paid);
+            if let Some(company) = companies.get_mut(landlord_company_id as usize) {
+                company.cash_balance = round_cents(company.cash_balance + amount_paid);
                 company.last_month_rent_revenue =
-                    round_cents(company.last_month_rent_revenue + entry.amount_paid);
+                    round_cents(company.last_month_rent_revenue + amount_paid);
             }
 
-            total_rent_collected = round_cents(total_rent_collected + entry.amount_paid);
+            *monthly_rent_collected = round_cents(*monthly_rent_collected + amount_paid);
 
-            if entry.amount_paid < entry.amount_due {
-                pending_events.push(SimEvent::RentUnpaid {
+            if amount_paid < monthly_rent {
+                rent_events.push(SimEvent::RentUnpaid {
                     country_name: country_name.clone(),
-                    person_id: self.people[entry.person_idx].id,
-                    amount_due: entry.amount_due,
-                    amount_paid: entry.amount_paid,
+                    person_id: person.id,
+                    amount_due: monthly_rent,
+                    amount_paid,
                     day,
                 });
             }
         }
 
-        self.monthly_rent_collected =
-            round_cents(self.monthly_rent_collected + total_rent_collected);
-        self.pending_events.extend(pending_events);
+        pending_events.extend(rent_events);
     }
 
     /// Collect monthly mortgage payments from mortgaged homeowners.

@@ -21,23 +21,7 @@ Rayon threads plan in parallel, then all purchases are applied serially per good
 
 ## MEDIUM
 
-**11. `HousingStatus` clone on death** (`country/daily/mod.rs:146`)
-`people[read_idx].housing.clone()` can clone a `MortgageAccount` variant. Fix: take ownership with `mem::take()`.
-
-**12. Multi-pass rent collection** (`monthly_housing.rs:80–96`)
-Builds an intermediate `Vec<RentEntry>` over all renters before applying. Fix: stream directly — iterate once and apply.
-
-**13. `prepare_death_flags()` redundant `.fill(0)`** (`country/daily/mod.rs:102–126`)
-`resize_with(|| 0)` already zero-fills; the subsequent `.fill(0)` is a no-op re-zeroing. Fix: remove the extra fill.
-
-**14. `increment_age_one_day()` calls `refresh_habilitation_from_age()` unconditionally** (`person.rs:420–423`)
-~730M redundant calls in a 2M-person × 365-day run when habilitation only changes on age boundaries. Fix: cache `last_habilitation_age` and skip unless a threshold was crossed.
-
-**15. `loan_appetite_multiplier()` / `rate_response_normalized_gap()` recomputed multiple times per country per tick**
-These policy helpers are called from multiple monthly functions. Fix: compute once at the start of `process_month_end()` and pass as a small struct.
-
-**16. `monthly_rate = (1 + annual).powf(1/12) - 1` computed per person per foreign deposit** (`cross_country_banking.rs:68`)
-Fix: pre-compute monthly rate factor once per bank before the person loop.
+*(Issues #11–#16 have been fixed — see commit history.)*
 
 ---
 

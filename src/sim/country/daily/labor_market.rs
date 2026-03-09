@@ -60,7 +60,6 @@ impl CountryDailyScratch {
                 .reserve(people_len.saturating_sub(self.death_flags.capacity()));
         }
         self.death_flags.resize(people_len, 0);
-        self.death_flags.fill(0);
     }
 
     pub(super) fn prepare_labor_market(&mut self, country: &Country) {

@@ -3,12 +3,13 @@ use super::*;
 mod labor_dynamics;
 
 impl Country {
-    pub(super) fn try_form_startup_for_job(&mut self, founder_job_id: u8) -> bool {
+    pub(super) fn try_form_startup_for_job_with_cache(
+        &mut self,
+        founder_job_id: u8,
+        startup_loan_fraction: f64,
+        debt_to_income_cap: f64,
+    ) -> bool {
         let formation = self.sim_params.company_formation;
-        let startup_loan_fraction = (formation.startup_bank_loan_max_fraction
-            * self.loan_appetite_multiplier())
-        .clamp(0.0, 1.0);
-        let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
         if self.companies.len() >= u16::MAX as usize {
             return false;
         }

@@ -143,7 +143,6 @@ impl Country {
             let person_id = people[read_idx].id;
             let cleared = people[read_idx].clear_employment();
             let mut loan = people[read_idx].loan.take();
-            let housing = people[read_idx].housing.clone();
 
             self.adjust_household_cash_total_cents(-cash_cents);
             if cash_cents > 0 {
@@ -184,7 +183,7 @@ impl Country {
             }
 
             use crate::sim::person::HousingStatus;
-            match &housing {
+            match &people[read_idx].housing {
                 HousingStatus::Owner => {
                     self.housing_stock_occupied_owned =
                         self.housing_stock_occupied_owned.saturating_sub(1);

@@ -419,7 +419,9 @@ impl Person {
 
     pub fn increment_age_one_day(&mut self) {
         self.age_days = self.age_days.saturating_add(1);
-        self.refresh_habilitation_from_age();
+        if self.age_days % 365 == 0 {
+            self.refresh_habilitation_from_age();
+        }
     }
 
     pub fn monthly_salary(&self) -> f64 {

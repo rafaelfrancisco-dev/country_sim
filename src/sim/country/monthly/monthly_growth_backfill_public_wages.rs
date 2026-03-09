@@ -86,6 +86,12 @@ impl Country {
             return;
         }
 
+        let formation = self.sim_params.company_formation;
+        let startup_loan_fraction = (formation.startup_bank_loan_max_fraction
+            * self.loan_appetite_multiplier())
+        .clamp(0.0, 1.0);
+        let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
+
         let mut startups_created = 0_u16;
         let mut job_cursor = (self.month as usize) % jobs.len();
         let mut failed_attempts = 0_usize;
@@ -95,7 +101,7 @@ impl Country {
 
         while startups_created < startup_budget && failed_attempts < max_attempts {
             let job = jobs[job_cursor % jobs.len()];
-            if self.try_form_startup_for_job(job.id) {
+            if self.try_form_startup_for_job_with_cache(job.id, startup_loan_fraction, debt_to_income_cap) {
                 startups_created = startups_created.saturating_add(1);
                 failed_attempts = 0;
             } else {

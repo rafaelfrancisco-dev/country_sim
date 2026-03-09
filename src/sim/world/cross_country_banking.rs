@@ -9,6 +9,8 @@ struct CountryDepositInfo {
     name: Arc<str>,
     best_bank_id: Option<BankId>,
     annual_deposit_rate: f64,
+    /// Pre-computed monthly compound rates per bank to avoid `powf` in the per-person loop.
+    bank_monthly_rates: Vec<(BankId, f64)>,
 }
 
 impl World {
@@ -30,11 +32,21 @@ impl World {
                 let annual_deposit_rate = best_bank_id
                     .map(|bank_id| country.deposit_rate_for(bank_id))
                     .unwrap_or(0.0);
+                let bank_monthly_rates = country
+                    .banks
+                    .iter()
+                    .map(|bank| {
+                        let annual = country.deposit_rate_for(bank.id);
+                        let monthly = (1.0_f64 + annual).powf(1.0 / 12.0) - 1.0;
+                        (bank.id, monthly)
+                    })
+                    .collect();
                 CountryDepositInfo {
                     id: country.id,
                     name: country.name.clone(),
                     best_bank_id,
                     annual_deposit_rate,
+                    bank_monthly_rates,
                 }
             })
             .collect();
@@ -66,8 +78,12 @@ impl World {
                     continue;
                 }
 
-                let annual_rate = foreign_country.deposit_rate_for(fd.bank_id);
-                let monthly_rate = (1.0_f64 + annual_rate).powf(1.0 / 12.0) - 1.0;
+                let monthly_rate = infos[foreign_c_idx]
+                    .bank_monthly_rates
+                    .iter()
+                    .find(|(bid, _)| *bid == fd.bank_id)
+                    .map(|(_, r)| *r)
+                    .unwrap_or(0.0);
                 let interest = round_cents((fd.balance * monthly_rate).max(0.0));
                 let recall = person.cash_balance < params.cross_country_deposit_distress_threshold
                     && fd.balance > 0.0;
