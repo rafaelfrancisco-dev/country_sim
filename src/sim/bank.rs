@@ -243,7 +243,8 @@ impl Bank {
 
     pub fn open_month(&mut self) {
         self.monthly_payroll_budget = 0.0;
-        self.last_month_payroll_paid = 0.0;
+        // last_month_payroll_paid is reset at the start of process_payroll_and_taxes,
+        // NOT here — so the UI can read the previous month's value after reset_month_trackers runs.
         self.last_month_interest_income = 0.0;
         self.last_month_deposit_interest_expense = 0.0;
         self.last_month_credit_losses = 0.0;

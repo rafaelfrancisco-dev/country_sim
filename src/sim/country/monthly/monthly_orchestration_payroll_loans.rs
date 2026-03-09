@@ -343,6 +343,11 @@ impl Country {
         let tax_params = self.sim_params.tax;
         let companies = &mut self.companies;
         let banks = &mut self.banks;
+        // Reset bank payroll trackers here (not in open_month) so the UI can read last month's
+        // value from the live world after reset_month_trackers() has already been called.
+        for bank in banks.iter_mut() {
+            bank.last_month_payroll_paid = 0.0;
+        }
         let mut total_tax = 0.0;
         for person in &mut self.people {
             let gross_pay = if let Some(company_id) = person.employer_company_id() {
