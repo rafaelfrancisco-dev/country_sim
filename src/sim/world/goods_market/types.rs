@@ -48,6 +48,29 @@ pub(in crate::sim::world) struct PlannedIntent {
     pub(in crate::sim::world) pending_units: u32,
     pub(in crate::sim::world) quote: SellerQuote,
     pub(in crate::sim::world) essential: bool,
+    /// Buyer's cash at planning time; used in parallel apply to compute essential debt
+    /// without touching buyer country data.
+    pub(in crate::sim::world) buyer_cash_cents: i64,
+}
+
+/// Buyer-side info collected during parallel apply, applied in the serial merge.
+#[derive(Debug, Copy, Clone)]
+pub(in crate::sim::world) struct BuyerApplyInfo {
+    pub(in crate::sim::world) buyer_country_idx: usize,
+    pub(in crate::sim::world) person_idx: usize,
+    pub(in crate::sim::world) landed_price_cents: i64,
+    pub(in crate::sim::world) imported: bool,
+    /// 0 if not essential or cash was sufficient.
+    pub(in crate::sim::world) essential_debt_cents: i64,
+    /// true for non-essential buys: discretionary budget is deducted in the merge.
+    pub(in crate::sim::world) deduct_discretionary: bool,
+}
+
+/// Per-decision outcome from the parallel apply phase.
+#[derive(Debug, Copy, Clone)]
+pub(in crate::sim::world) enum ParallelApplyOutcome {
+    Bought(BuyerApplyInfo),
+    InventoryUnavailable,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -59,13 +82,6 @@ pub(in crate::sim::world) enum IntentDecision {
         pending_units: u32,
     },
     Candidate(PlannedIntent),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(in crate::sim::world) enum ApplyPlannedIntentOutcome {
-    Bought,
-    InventoryUnavailable,
-    Unmet,
 }
 
 #[derive(Debug, Default)]

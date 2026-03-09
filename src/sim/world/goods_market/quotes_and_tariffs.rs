@@ -181,6 +181,31 @@ impl World {
         country.adjust_treasury_balance_cents(tariff_cents);
     }
 
+    pub(in crate::sim::world) fn fill_suppliers_by_good(
+        &self,
+        suppliers_by_good: &mut [Vec<SupplierRef>],
+    ) {
+        for (seller_country_idx, country) in self.countries.iter().enumerate() {
+            for (seller_company_idx, company) in country.companies.iter().enumerate() {
+                let good_idx = company.produced_good_id as usize;
+                if good_idx >= GOODS_COUNT || good_idx >= suppliers_by_good.len() {
+                    continue;
+                }
+
+                let base_price_cents = to_cents(company.unit_price);
+                if base_price_cents <= 0 {
+                    continue;
+                }
+
+                suppliers_by_good[good_idx].push(SupplierRef {
+                    seller_country_idx,
+                    seller_company_idx,
+                    base_price_cents,
+                });
+            }
+        }
+    }
+
     pub(in crate::sim::world) fn person_cash_cents(
         &self,
         buyer_country_idx: usize,

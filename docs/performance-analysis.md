@@ -66,5 +66,5 @@ Cache it as a `last_health_score: f64` field updated once per month, invalidated
 | 6 | Tariff matrix as World field (High #6) | 3–5% | Done |
 | 7 | HashMap → Vec for bank positions (High #7) | 1–2% | Done |
 | 8 | `SimulationParams` no-clone (High #8) | 2–3% | Done |
-| 9 | Sequential goods apply phase (High #9) | 2–4% | Open |
+| 9 | Sequential goods apply phase (High #9) | 2–4% | Done |
 | 10 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |
