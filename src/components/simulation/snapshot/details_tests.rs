@@ -124,6 +124,24 @@ fn company_details_include_listing_and_financial_stress_metrics() {
 }
 
 #[test]
+fn company_details_show_last_completed_month_payroll_after_reset() {
+    let mut world = sample_world_with_stock();
+    world.countries[0].companies[0].last_month_payroll_paid = 1_200.0;
+    world.countries[0].companies[0].open_month();
+
+    let ui = UiState {
+        active_tab: RunningTab::Goods,
+        details_view: DetailsView::Company,
+        ..UiState::default()
+    };
+    let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
+    let text = company_details_lines(&world, &ui).join("\n");
+
+    assert!(text.contains("Last Month Payroll Paid:"));
+    assert!(text.contains(&money(1_200.0, currency_symbol)));
+}
+
+#[test]
 fn bank_details_include_balance_sheet_and_stability_sections() {
     let world = sample_world_with_stock();
     let ui = UiState {

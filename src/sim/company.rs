@@ -49,13 +49,18 @@ pub struct Company {
     pub deposit_bank_id: Option<BankId>,
     pub monthly_payroll_budget: f64,
     pub last_month_payroll_paid: f64,
+    pub last_completed_month_payroll_paid: f64,
     pub last_month_sales: f64,
     pub last_month_profit: f64,
+    pub last_completed_month_profit: f64,
     pub consecutive_profitable_months: u8,
     pub consecutive_loss_months: u8,
     pub last_month_loan_payment: f64,
+    pub last_completed_month_loan_payment: f64,
     pub last_month_new_loan: f64,
+    pub last_completed_month_new_loan: f64,
     pub last_month_savings_interest: f64,
+    pub last_completed_month_savings_interest: f64,
     pub last_month_units_produced: u32,
     pub last_month_units_sold: u32,
     pub last_month_export_units_sold: u32,
@@ -110,13 +115,18 @@ impl Company {
             deposit_bank_id: None,
             monthly_payroll_budget: 0.0,
             last_month_payroll_paid: 0.0,
+            last_completed_month_payroll_paid: 0.0,
             last_month_sales: 0.0,
             last_month_profit: 0.0,
+            last_completed_month_profit: 0.0,
             consecutive_profitable_months: 0,
             consecutive_loss_months: 0,
             last_month_loan_payment: 0.0,
+            last_completed_month_loan_payment: 0.0,
             last_month_new_loan: 0.0,
+            last_completed_month_new_loan: 0.0,
             last_month_savings_interest: 0.0,
+            last_completed_month_savings_interest: 0.0,
             last_month_units_produced: 0,
             last_month_units_sold: 0,
             last_month_export_units_sold: 0,
@@ -211,8 +221,13 @@ impl Company {
 
     pub fn open_month(&mut self) {
         self.monthly_payroll_budget = 0.0;
+        self.last_completed_month_payroll_paid = self.last_month_payroll_paid;
         self.last_month_payroll_paid = 0.0;
         self.last_month_sales = 0.0;
+        self.last_completed_month_profit = self.last_month_profit;
+        self.last_completed_month_loan_payment = self.last_month_loan_payment;
+        self.last_completed_month_new_loan = self.last_month_new_loan;
+        self.last_completed_month_savings_interest = self.last_month_savings_interest;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
         self.last_month_savings_interest = 0.0;
@@ -340,8 +355,7 @@ impl Company {
 
         let growth_step = params.profit_per_opening.max(1.0);
         let openings_to_add = ((self.last_month_profit / growth_step).floor() as i64 + 1)
-            .clamp(1, i64::from(params.max_monthly_openings))
-            as u16;
+            .clamp(1, i64::from(params.max_monthly_openings)) as u16;
 
         let weighted_jobs = self
             .offered_job_types

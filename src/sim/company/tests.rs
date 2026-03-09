@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::sim::params::CompanyGrowthParams;
 use super::*;
+use crate::sim::params::CompanyGrowthParams;
 
 #[test]
 fn average_monthly_revenue_uses_available_history() {
@@ -84,4 +84,26 @@ fn price_raise_has_no_upper_clamp() {
     company.close_month(&market);
 
     assert!((company.unit_price - 24.38).abs() < 0.01);
+}
+
+#[test]
+fn open_month_preserves_last_completed_finance_metrics() {
+    let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
+    company.last_month_payroll_paid = 12_000.0;
+    company.last_month_profit = 2_500.0;
+    company.last_month_loan_payment = 900.0;
+    company.last_month_new_loan = 1_800.0;
+    company.last_month_savings_interest = 75.0;
+
+    company.open_month();
+
+    assert!((company.last_completed_month_payroll_paid - 12_000.0).abs() < f64::EPSILON);
+    assert!((company.last_completed_month_profit - 2_500.0).abs() < f64::EPSILON);
+    assert!((company.last_completed_month_loan_payment - 900.0).abs() < f64::EPSILON);
+    assert!((company.last_completed_month_new_loan - 1_800.0).abs() < f64::EPSILON);
+    assert!((company.last_completed_month_savings_interest - 75.0).abs() < f64::EPSILON);
+    assert!((company.last_month_payroll_paid - 0.0).abs() < f64::EPSILON);
+    assert!((company.last_month_loan_payment - 0.0).abs() < f64::EPSILON);
+    assert!((company.last_month_new_loan - 0.0).abs() < f64::EPSILON);
+    assert!((company.last_month_savings_interest - 0.0).abs() < f64::EPSILON);
 }

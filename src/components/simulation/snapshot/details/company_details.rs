@@ -197,24 +197,27 @@ pub(in crate::components::simulation) fn company_details_lines(
             money(company.last_month_sales, currency_symbol)
         ),
         format!(
-            "MTD Payroll Paid: {}",
-            money(company.last_month_payroll_paid, currency_symbol)
+            "Last Month Payroll Paid: {}",
+            money(company.last_completed_month_payroll_paid, currency_symbol)
         ),
         format!(
-            "MTD Profit: {}",
-            money(company.last_month_profit, currency_symbol)
+            "Last Month Profit: {}",
+            money(company.last_completed_month_profit, currency_symbol)
         ),
         format!(
-            "MTD Loan Payment: {}",
-            money(company.last_month_loan_payment, currency_symbol)
+            "Last Month Loan Payment: {}",
+            money(company.last_completed_month_loan_payment, currency_symbol)
         ),
         format!(
-            "MTD New Loan: {}",
-            money(company.last_month_new_loan, currency_symbol)
+            "Last Month New Loan: {}",
+            money(company.last_completed_month_new_loan, currency_symbol)
         ),
         format!(
-            "MTD Svgs Int: {}",
-            money(company.last_month_savings_interest, currency_symbol)
+            "Last Month Svgs Int: {}",
+            money(
+                company.last_completed_month_savings_interest,
+                currency_symbol
+            )
         ),
         format!(
             "Current Money: {}",
