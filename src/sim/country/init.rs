@@ -136,6 +136,7 @@ impl Country {
             monthly_foreclosures: 0,
             monthly_housing_units_built: 0,
             use_inner_parallelism: true,
+            runtime: super::runtime::CountryRuntime::default(),
         };
         country.ensure_entity_deposit_assignments();
         let initial_cpi = country.cpi_basket_index();
@@ -145,6 +146,7 @@ impl Country {
         country.recompute_company_headcounts();
         country.rebuild_households();
         country.recompute_aggregates();
+        country.runtime.rebuild_from_people(&country.people);
         country
     }
 

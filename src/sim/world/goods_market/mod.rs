@@ -4,7 +4,6 @@ use crate::sim::{
     money::{from_cents, round_cents, to_cents},
     person::SUPERFICIAL_GOOD_SLOT_COUNT,
 };
-use rand::Rng;
 use rayon::prelude::*;
 
 mod day_cache;

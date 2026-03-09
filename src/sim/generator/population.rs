@@ -144,9 +144,9 @@ pub(super) fn seed_initial_housing(country: &mut Country) {
             person.housing = HousingStatus::Owner;
             occupied_owned = occupied_owned.saturating_add(1);
         } else if roll < renter_threshold && !housing_companies.is_empty() {
-            let company_idx = housing_companies[
-                mix_seed(u64::from(person.id).wrapping_add(0xbeef)) as usize % housing_companies.len()
-            ];
+            let company_idx = housing_companies[mix_seed(u64::from(person.id).wrapping_add(0xbeef))
+                as usize
+                % housing_companies.len()];
             person.housing = HousingStatus::Renter {
                 landlord_company_id: company_idx as u16,
                 landlord_country_id: country.id,

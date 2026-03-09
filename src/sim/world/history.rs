@@ -81,7 +81,7 @@ impl World {
         let mut weighted_loan_sum = 0.0_f64;
         let mut total_population_f64 = 0.0_f64;
 
-        for country in &self.countries {
+        for (country_idx, country) in self.countries.iter().enumerate() {
             let pop = country.population() as f64;
             month = month.max(country.month());
             population += pop;
@@ -109,7 +109,10 @@ impl World {
             monthly_savings_interest_paid += country.monthly_savings_interest_paid();
             bonds_outstanding += country.bonds_outstanding();
             stock_market_cap += country.stock_market().total_market_cap();
-            stock_bank_equity_exposure += self.market_bank_portfolio_value(country.id());
+            stock_bank_equity_exposure += self
+                .export_cache_for_country(country_idx)
+                .map(|cache| cache.bank_equity_exposure)
+                .unwrap_or_else(|| self.market_bank_portfolio_value(country.id()));
             monthly_foreclosures += country.monthly_foreclosures() as f64;
             monthly_home_purchases += country.monthly_home_purchases() as f64;
             cpi_index_sum += country.cpi_index();
@@ -175,6 +178,10 @@ impl World {
     }
 
     fn country_metric_point(&self, country: &Country) -> MetricPoint {
+        let country_idx = self
+            .countries
+            .iter()
+            .position(|candidate| candidate.id() == country.id());
         MetricPoint {
             month: country.month(),
             population: country.population() as f64,
@@ -207,7 +214,10 @@ impl World {
             monthly_savings_interest_paid: country.monthly_savings_interest_paid(),
             bonds_outstanding: country.bonds_outstanding(),
             stock_market_cap: country.stock_market().total_market_cap(),
-            stock_bank_equity_exposure: self.market_bank_portfolio_value(country.id()),
+            stock_bank_equity_exposure: country_idx
+                .and_then(|idx| self.export_cache_for_country(idx))
+                .map(|cache| cache.bank_equity_exposure)
+                .unwrap_or_else(|| self.market_bank_portfolio_value(country.id())),
             housing_price_index: country.housing_price_index(),
             monthly_rent: country.monthly_rent(),
             homeownership_rate: country.homeownership_rate(),

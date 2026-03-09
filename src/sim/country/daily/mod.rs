@@ -55,6 +55,7 @@ impl Country {
         self.apply_daily_deaths(scratch);
         self.create_daily_births();
         self.process_daily_job_market(scratch);
+        self.process_daily_job_switches();
     }
 
     #[cfg(feature = "bench-trace")]
@@ -79,6 +80,8 @@ impl Country {
         trace.job_market_snapshot_ms = prepare_ms;
         trace.job_market_plan_ms = plan_ms;
         trace.job_market_apply_ms = apply_ms;
+
+        self.process_daily_job_switches();
     }
 
     fn age_people_one_day(&mut self) {
@@ -93,6 +96,12 @@ impl Country {
         } else {
             for person in &mut self.people {
                 person.increment_age_one_day();
+            }
+        }
+
+        for person_idx in 0..self.people.len() {
+            if self.people[person_idx].age_days % 365 == 0 {
+                self.refresh_person_runtime_membership(person_idx);
             }
         }
     }
@@ -219,6 +228,7 @@ impl Country {
 
         people.truncate(write_idx);
         self.people = people;
+        self.rebuild_person_runtime();
         self.last_day_deaths = deaths;
         if deaths > 0 {
             self.pending_events.push(SimEvent::PopDeath {
@@ -258,6 +268,8 @@ impl Country {
             );
             self.next_person_id = self.next_person_id.saturating_add(1);
             self.people.push(newborn);
+            let person_idx = self.people.len().saturating_sub(1);
+            self.register_person_runtime(person_idx);
         }
 
         self.pending_events.push(SimEvent::PopBirth {
@@ -297,7 +309,13 @@ impl Country {
 
         #[cfg(feature = "bench-trace")]
         let plan_started = Instant::now();
-        scratch.plan_job_seekers(&self.people, self.id, self.day, self.sim_params.labor, self.use_inner_parallelism);
+        scratch.plan_job_seekers(
+            self,
+            &self.people,
+            self.day,
+            self.sim_params.labor,
+            self.use_inner_parallelism,
+        );
         #[cfg(feature = "bench-trace")]
         let plan_ms = crate::sim::trace::duration_ms(plan_started.elapsed());
         #[cfg(not(feature = "bench-trace"))]

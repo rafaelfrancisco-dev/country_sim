@@ -253,6 +253,7 @@ pub(super) fn apply_company_hire(
     if matches!(person.employment, EmploymentStatus::Unemployed) {
         person.set_employment_with_salary(company_idx as u16, job_type_id, offered_salary, day);
         country.adjust_company_headcount(company_idx, job_type_id, 1);
+        country.refresh_person_runtime_membership(person_idx);
         return true;
     }
     false
@@ -272,6 +273,7 @@ pub(super) fn apply_bank_hire(
     if matches!(person.employment, EmploymentStatus::Unemployed) {
         person.set_bank_employment(bank_id, job_type_id, offered_salary, day);
         country.adjust_bank_headcount(bank_id, 1);
+        country.refresh_person_runtime_membership(person_idx);
         return true;
     }
     false

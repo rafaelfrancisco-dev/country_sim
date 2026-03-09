@@ -1,7 +1,5 @@
 use super::monthly_events::{EventCounts, event_country_and_day};
-use super::stock_daily::EssentialGoodExportData;
 use super::*;
-use crate::sim::essentials::{ESSENTIAL_GOOD_IDS, ESSENTIAL_NEEDS_MASK};
 
 impl World {
     pub(in crate::sim::world) fn push_export_snapshot(&mut self) {
@@ -13,7 +11,17 @@ impl World {
             let event_log = self.event_log();
             self.countries
                 .iter()
-                .map(|country| collect_country_data(country, event_log, month_start_day, month))
+                .enumerate()
+                .map(|(country_idx, country)| {
+                    collect_country_data(
+                        self,
+                        country_idx,
+                        country,
+                        event_log,
+                        month_start_day,
+                        month,
+                    )
+                })
                 .collect()
         };
 
@@ -26,250 +34,17 @@ impl World {
 }
 
 fn collect_country_data(
+    world: &World,
+    country_idx: usize,
     country: &Country,
     event_log: &std::collections::VecDeque<SimEvent>,
     month_start_day: u64,
     month: u64,
 ) -> CountryExportData {
-    // People aggregates
-    let mut employed_count = 0usize;
-    let mut unemployed_count = 0usize;
-    let mut labor_force_count = 0usize;
-    let mut non_participating_count = 0usize;
-    let mut total_employed_population = 0usize;
-    let mut total_age_days = 0u64;
-    let mut total_cash_balance = 0.0_f64;
-    let mut total_gross_pay = 0.0_f64;
-    let mut total_tax_paid = 0.0_f64;
-    let mut total_goods_spending = 0.0_f64;
-    let mut count_with_active_loans = 0usize;
-    let mut total_loan_balance = 0.0_f64;
-    let mut count_with_unmet_needs = 0usize;
-    let mut count_with_severe_unmet_needs = 0usize;
-    let mut count_with_chronic_unmet_needs = 0usize;
-
-    for person in country.people() {
-        if person.is_employed() {
-            total_employed_population += 1;
-        }
-        if person.is_labor_force_participant() {
-            match person.employment {
-                EmploymentStatus::Employed { .. } | EmploymentStatus::EmployedAtBank { .. } => {
-                    employed_count += 1
-                }
-                EmploymentStatus::Unemployed => unemployed_count += 1,
-            }
-            labor_force_count += 1;
-        } else {
-            non_participating_count += 1;
-        }
-        total_age_days += u64::from(person.age_days);
-        total_cash_balance += person.cash_balance;
-        total_gross_pay += person.last_month_gross_pay;
-        total_tax_paid += person.last_month_tax_paid;
-        total_goods_spending += person.last_month_goods_spending;
-        if let Some(loan) = &person.loan {
-            count_with_active_loans += 1;
-            total_loan_balance += loan.debt_balance;
-        }
-        if (person.last_month_unmet_needs_mask & ESSENTIAL_NEEDS_MASK) != 0 {
-            count_with_unmet_needs += 1;
-        }
-        if person.last_month_severe_unmet_needs_mask != 0 {
-            count_with_severe_unmet_needs += 1;
-        }
-        if person.last_month_chronic_unmet {
-            count_with_chronic_unmet_needs += 1;
-        }
-    }
-
-    let population = country.people().len();
-    let avg_age_years = if population > 0 {
-        total_age_days as f64 / population as f64 / 365.0
-    } else {
-        0.0
-    };
-    let avg_cash_balance = if population > 0 {
-        total_cash_balance / population as f64
-    } else {
-        0.0
-    };
-    let avg_loan_balance = if count_with_active_loans > 0 {
-        total_loan_balance / count_with_active_loans as f64
-    } else {
-        0.0
-    };
-    let headline_non_employed_rate_pct = if population > 0 {
-        (population.saturating_sub(total_employed_population)) as f64 / population as f64 * 100.0
-    } else {
-        0.0
-    };
-    let essential_goods = std::array::from_fn(|idx| {
-        let good_id = ESSENTIAL_GOOD_IDS[idx];
-        let (unmet_count, severe_count) = country.essential_people_counts_for_good(good_id);
-        let (producer_count, public_utility_count) =
-            country.essential_company_counts_for_good(good_id);
-        let denominator = population.max(1) as f64;
-
-        EssentialGoodExportData {
-            unmet_share_pct: unmet_count as f64 / denominator * 100.0,
-            severe_unmet_share_pct: severe_count as f64 / denominator * 100.0,
-            producer_count,
-            public_utility_count,
-            inventory_cover_months: country.essential_inventory_cover_months_for_good(good_id),
-        }
-    });
-
-    // Company aggregates
-    let mut total_employees = 0u32;
-    let mut total_open_positions = 0usize;
-    let mut total_company_cash = 0.0_f64;
-    let mut total_revenue = 0.0_f64;
-    let mut total_payroll = 0.0_f64;
-    let mut total_profit = 0.0_f64;
-    let mut count_profitable = 0usize;
-    let mut count_unprofitable = 0usize;
-    let mut total_units_produced = 0u32;
-    let mut total_units_sold = 0u32;
-    let mut total_units_exported = 0u32;
-    let mut count_public_utility = 0usize;
-    let mut count_backfill = 0usize;
-    let mut count_companies_with_loans = 0usize;
-
-    for company in country.companies() {
-        total_employees += company.employee_count;
-        total_open_positions += company
-            .open_positions
-            .iter()
-            .map(|o| usize::from(o.slots))
-            .sum::<usize>();
-        total_company_cash += company.cash_balance;
-        total_revenue += company.last_month_sales;
-        total_payroll += company.last_month_payroll_paid;
-        total_profit += company.last_month_profit;
-        if company.last_month_profit > 0.0 {
-            count_profitable += 1;
-        } else {
-            count_unprofitable += 1;
-        }
-        total_units_produced += company.last_month_units_produced;
-        total_units_sold += company.last_month_units_sold;
-        total_units_exported += company.last_month_export_units_sold;
-        if company.is_public_utility {
-            count_public_utility += 1;
-        }
-        if company.is_essential_backfill {
-            count_backfill += 1;
-        }
-        if company.loan.is_some() {
-            count_companies_with_loans += 1;
-        }
-    }
-
-    // Bank aggregates
-    let mut bank_count_total = 0usize;
-    let mut bank_count_public = 0usize;
-    let mut bank_count_private = 0usize;
-    let mut bank_health_sum = 0.0_f64;
-    let mut bank_health_min = 1.0_f64;
-    let mut bank_health_max = 0.0_f64;
-    let mut bank_health_public = 0.0_f64;
-    let mut bank_health_private_sum = 0.0_f64;
-    let mut bank_health_private_min = 1.0_f64;
-    let mut bank_health_private_max = 0.0_f64;
-    let mut bank_health_below_50_count = 0usize;
-    let mut bank_health_private_below_50_count = 0usize;
-    let mut total_deposit_liabilities = 0.0_f64;
-    let mut private_bank_deposit_liabilities = 0.0_f64;
-
-    for bank in country.all_banks() {
-        let health = country.bank_health_score(bank.id).clamp(0.0, 1.0);
-        bank_count_total += 1;
-        bank_health_sum += health;
-        bank_health_min = bank_health_min.min(health);
-        bank_health_max = bank_health_max.max(health);
-        if health < 0.5 {
-            bank_health_below_50_count += 1;
-        }
-
-        let deposits = bank.deposit_liabilities.max(0.0);
-        total_deposit_liabilities += deposits;
-
-        if bank.kind == crate::sim::bank::BankKind::Private {
-            bank_count_private += 1;
-            bank_health_private_sum += health;
-            bank_health_private_min = bank_health_private_min.min(health);
-            bank_health_private_max = bank_health_private_max.max(health);
-            private_bank_deposit_liabilities += deposits;
-            if health < 0.5 {
-                bank_health_private_below_50_count += 1;
-            }
-        } else {
-            bank_count_public += 1;
-            bank_health_public = health;
-        }
-    }
-
-    if bank_count_total == 0 {
-        bank_health_min = 0.0;
-        bank_health_max = 0.0;
-    }
-    if bank_count_private == 0 {
-        bank_health_private_min = 0.0;
-        bank_health_private_max = 0.0;
-    }
-
-    let bank_health_avg_pct = if bank_count_total > 0 {
-        bank_health_sum / bank_count_total as f64 * 100.0
-    } else {
-        0.0
-    };
-    let bank_health_min_pct = bank_health_min * 100.0;
-    let bank_health_max_pct = bank_health_max * 100.0;
-    let bank_health_public_pct = bank_health_public * 100.0;
-    let bank_health_private_avg_pct = if bank_count_private > 0 {
-        bank_health_private_sum / bank_count_private as f64 * 100.0
-    } else {
-        0.0
-    };
-    let bank_health_private_min_pct = bank_health_private_min * 100.0;
-    let bank_health_private_max_pct = bank_health_private_max * 100.0;
-    let private_bank_deposit_share_pct = if total_deposit_liabilities > 0.0 {
-        private_bank_deposit_liabilities / total_deposit_liabilities * 100.0
-    } else {
-        0.0
-    };
-
-    let private_people_depositors = country
-        .people()
-        .iter()
-        .filter(|person| {
-            person
-                .deposit_bank_id
-                .and_then(|bank_id| country.bank_by_id(bank_id))
-                .is_some_and(|bank| bank.kind == crate::sim::bank::BankKind::Private)
-        })
-        .count();
-    let private_company_depositors = country
-        .companies()
-        .iter()
-        .filter(|company| {
-            company
-                .deposit_bank_id
-                .and_then(|bank_id| country.bank_by_id(bank_id))
-                .is_some_and(|bank| bank.kind == crate::sim::bank::BankKind::Private)
-        })
-        .count();
-    let private_people_depositor_share_pct = if country.people().is_empty() {
-        0.0
-    } else {
-        private_people_depositors as f64 / country.people().len() as f64 * 100.0
-    };
-    let private_company_depositor_share_pct = if country.companies().is_empty() {
-        0.0
-    } else {
-        private_company_depositors as f64 / country.companies().len() as f64 * 100.0
-    };
+    let cache = world
+        .export_cache_for_country(country_idx)
+        .cloned()
+        .unwrap_or_default();
 
     // Event counting
     let mut events = EventCounts::default();
@@ -291,7 +66,7 @@ fn collect_country_data(
         month,
         id: country.id(),
         name: country.name().to_string(),
-        population,
+        population: cache.population,
         treasury_balance: country.treasury_balance(),
         monthly_tax_collected: country.monthly_tax_collected(),
         monthly_tariff_collected: country.monthly_tariff_collected(),
@@ -314,57 +89,57 @@ fn collect_country_data(
         money_supply_gap: country.money_supply_gap(),
         monthly_money_minted: country.monthly_money_minted(),
         cumulative_money_minted: country.cumulative_money_minted(),
-        bank_count_total,
-        bank_count_public,
-        bank_count_private,
-        bank_health_avg_pct,
-        bank_health_min_pct,
-        bank_health_max_pct,
-        bank_health_public_pct,
-        bank_health_private_avg_pct,
-        bank_health_private_min_pct,
-        bank_health_private_max_pct,
-        bank_health_below_50_count,
-        bank_health_private_below_50_count,
-        private_bank_deposit_liabilities,
-        private_bank_deposit_share_pct,
-        private_people_depositor_share_pct,
-        private_company_depositor_share_pct,
+        bank_count_total: cache.bank_count_total,
+        bank_count_public: cache.bank_count_public,
+        bank_count_private: cache.bank_count_private,
+        bank_health_avg_pct: cache.bank_health_avg_pct,
+        bank_health_min_pct: cache.bank_health_min_pct,
+        bank_health_max_pct: cache.bank_health_max_pct,
+        bank_health_public_pct: cache.bank_health_public_pct,
+        bank_health_private_avg_pct: cache.bank_health_private_avg_pct,
+        bank_health_private_min_pct: cache.bank_health_private_min_pct,
+        bank_health_private_max_pct: cache.bank_health_private_max_pct,
+        bank_health_below_50_count: cache.bank_health_below_50_count,
+        bank_health_private_below_50_count: cache.bank_health_private_below_50_count,
+        private_bank_deposit_liabilities: cache.private_bank_deposit_liabilities,
+        private_bank_deposit_share_pct: cache.private_bank_deposit_share_pct,
+        private_people_depositor_share_pct: cache.private_people_depositor_share_pct,
+        private_company_depositor_share_pct: cache.private_company_depositor_share_pct,
         monthly_private_banks_founded: country.monthly_private_banks_founded(),
         cumulative_private_banks_founded: country.cumulative_private_banks_founded(),
         monthly_private_banks_closed: country.monthly_private_banks_closed(),
         cumulative_private_banks_closed: country.cumulative_private_banks_closed(),
-        employed_count,
-        unemployed_count,
-        labor_force_count,
-        non_participating_count,
-        headline_non_employed_rate_pct,
-        avg_age_years,
-        avg_cash_balance,
-        total_gross_pay,
-        total_tax_paid,
-        total_goods_spending,
-        count_with_active_loans,
-        avg_loan_balance,
-        count_with_unmet_needs,
-        count_with_severe_unmet_needs,
-        count_with_chronic_unmet_needs,
-        essential_goods,
+        employed_count: cache.employed_count,
+        unemployed_count: cache.unemployed_count,
+        labor_force_count: cache.labor_force_count,
+        non_participating_count: cache.non_participating_count,
+        headline_non_employed_rate_pct: cache.headline_non_employed_rate_pct,
+        avg_age_years: cache.avg_age_years,
+        avg_cash_balance: cache.avg_cash_balance,
+        total_gross_pay: cache.total_gross_pay,
+        total_tax_paid: cache.total_tax_paid,
+        total_goods_spending: cache.total_goods_spending,
+        count_with_active_loans: cache.count_with_active_loans,
+        avg_loan_balance: cache.avg_loan_balance,
+        count_with_unmet_needs: cache.count_with_unmet_needs,
+        count_with_severe_unmet_needs: cache.count_with_severe_unmet_needs,
+        count_with_chronic_unmet_needs: cache.count_with_chronic_unmet_needs,
+        essential_goods: cache.essential_goods,
         total_companies: country.companies().len(),
-        total_employees,
-        total_open_positions,
-        total_company_cash,
-        total_revenue,
-        total_payroll,
-        total_profit,
-        count_profitable,
-        count_unprofitable,
-        total_units_produced,
-        total_units_sold,
-        total_units_exported,
-        count_public_utility,
-        count_backfill,
-        count_companies_with_loans,
+        total_employees: cache.total_employees,
+        total_open_positions: cache.total_open_positions,
+        total_company_cash: cache.total_company_cash,
+        total_revenue: cache.total_revenue,
+        total_payroll: cache.total_payroll,
+        total_profit: cache.total_profit,
+        count_profitable: cache.count_profitable,
+        count_unprofitable: cache.count_unprofitable,
+        total_units_produced: cache.total_units_produced,
+        total_units_sold: cache.total_units_sold,
+        total_units_exported: cache.total_units_exported,
+        count_public_utility: cache.count_public_utility,
+        count_backfill: cache.count_backfill,
+        count_companies_with_loans: cache.count_companies_with_loans,
         births: events.births,
         deaths: events.deaths,
         job_switches: events.job_switches,
@@ -425,8 +200,10 @@ mod tests {
         companies[0].is_public_utility = true;
 
         let country = Country::with_economy(1, "A".to_string(), vec![person], companies, 0.0);
+        let mut world = World::new(vec![country]);
+        world.refresh_monthly_export_caches();
         let empty_log = std::collections::VecDeque::new();
-        let data = collect_country_data(&country, &empty_log, 1, 1);
+        let data = collect_country_data(&world, 0, &world.countries[0], &empty_log, 1, 1);
 
         assert_eq!(data.essential_goods[0].unmet_share_pct, 100.0);
         assert_eq!(data.essential_goods[0].severe_unmet_share_pct, 100.0);

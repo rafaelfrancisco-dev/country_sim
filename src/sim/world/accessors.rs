@@ -32,8 +32,11 @@ impl World {
             export_queue_active: false,
             stock_country_export_queue: Vec::new(),
             stock_equity_export_queue: Vec::new(),
+            monthly_export_caches: Vec::new(),
             tariff_rates_by_good,
+            goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
         };
+        world.refresh_monthly_export_caches();
         world.capture_snapshot();
         world
     }

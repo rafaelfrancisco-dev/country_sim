@@ -104,3 +104,50 @@ fn daily_deaths_keep_incremental_aggregates_aligned_with_full_recompute() {
     assert!((country.total_money_supply - incremental_total).abs() < 0.01);
     assert!(country.validate_money_invariants().is_empty());
 }
+
+#[test]
+fn eligible_unemployed_index_tracks_hire_and_birthday_eligibility() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].add_opening(5, 1);
+
+    let mut almost_adult = Person::new_with_profile(
+        2,
+        EmploymentStatus::Unemployed,
+        22,
+        18 * DAYS_PER_YEAR - 1,
+        EducationTrack::BasicOnly,
+    );
+    almost_adult.cash_balance = 0.0;
+
+    let mut country = Country::with_economy(
+        1,
+        "A".to_string(),
+        vec![unemployed_adult(1, 0.0), almost_adult],
+        companies,
+        0.0,
+    );
+    country.sim_params = SimulationParams {
+        demographic: DemographicParams {
+            births_per_1000_per_year: 0.0,
+        },
+        labor: LaborParams {
+            seek_base: 1.0,
+            seek_age_slope: 0.0,
+            seek_cash_pressure_scale: 0.0,
+            seek_cash_reference: 1.0,
+            seek_probability_cap: 1.0,
+            ..LaborParams::default()
+        },
+        ..SimulationParams::default()
+    };
+
+    assert!(country.eligible_unemployed_ids().contains(&1));
+    assert!(!country.eligible_unemployed_ids().contains(&2));
+
+    country.tick_day_without_month();
+
+    assert!(country.employed_ids().contains(&1));
+    assert!(!country.eligible_unemployed_ids().contains(&1));
+    assert!(country.eligible_unemployed_ids().contains(&2));
+}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pass `--export-csv <DIR>` at startup to write one row per country per completed simulation month to four CSV files. The flag is fully opt-in: omitting it incurs zero runtime cost (the snapshot aggregation pass is skipped entirely).
+Pass `--export-csv <DIR>` at startup to write one row per country per completed simulation month to four CSV files. The flag is still opt-in for CSV serialization and file IO, but the engine now maintains month-close aggregate caches for history/export so export-enabled runs avoid the old full rescans rather than paying for a separate recomputation pass.
 
 ```bash
 cargo run --release -- --export-csv /tmp/sim_out
@@ -207,11 +207,12 @@ Discrete simulation event counts per country per month. Each column is the count
 
 ## Implementation Notes
 
-- Snapshot timing: the export pass runs after `capture_snapshot()` and **before** `Country::reset_month_trackers()`, so all `monthly_*` fields are still populated at collection time. Month-end events (from `process_month_end`) are still in `country.pending_events` at that point and are counted directly; events from days 1–29 are filtered from `world.event_log` by day range.
+- Snapshot timing: month-close now refreshes cached export aggregates first, then runs `capture_snapshot()`, then `push_export_snapshot()`, and only then `Country::reset_month_trackers()`. This keeps all `monthly_*` fields readable while also letting export/history consume cached aggregates instead of rescanning all people, companies, banks, and essential-good state.
+- Event timing: month-end events (from `process_month_end`) are still in `country.pending_events` when export rows are built, so they are counted directly; events from days 1–29 are filtered from `world.event_log` by day range.
 - Essential unmet semantics: stockable essentials now buy toward a monthly target plus buffer and are scored at month-end. `count_with_unmet_needs` is now masked to essential goods only, so the headline people aggregate no longer mixes in non-essential deprivation.
 - The `CsvExporter` is opened lazily on the first month boundary, so the files are only created if the simulation actually runs past day 30.
 - Each run opens files with `File::create` (truncate), so re-running with the same seed and output directory will overwrite the previous files.
-- Relevant source: `src/csv_export.rs`, `src/sim/world/export.rs`, `src/sim/engine.rs` (`drain_export_queue`, `enable_export_queue`).
+- Relevant source: `src/csv_export.rs`, `src/sim/world/export/`, `src/sim/world/tick.rs`, `src/sim/engine.rs` (`drain_export_queue`, `enable_export_queue`).
 
 ---
 

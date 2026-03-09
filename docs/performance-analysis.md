@@ -43,14 +43,14 @@ Constant labels like disaster types allocated as `String` at event creation. Fix
 
 ## Design-Level
 
-**D1. Demand buffer index order** (`goods_market/day_cache.rs`)
-The flat buffer `[person_idx * 9 + slot]` causes strided access when iterating per-good. Reordering to `[good_slot][person_idx]` improves cache locality for the per-good consumption phase.
+**D1. Goods market runtime redesign** (`goods_market/day_cache.rs`, `goods_market/round_robin.rs`)
+The old flat demand buffer and per-good scratch rebuild path have been replaced by a persistent world-owned runtime cache, sparse active-buyer queues for essentials, and deterministic weekly cohorts for discretionary superficial goods.
 
 **D2. Event log unbounded growth**
 At high event rates with millions of agents, the log can spike. A fixed-size ring buffer is safer than trim-on-overflow.
 
-**D3. Bank health score recomputed from scratch in multiple callers**
-Cache it as a `last_health_score: f64` field updated once per month, invalidated on reserve changes.
+**D3. Export/history aggregate rescans**
+Month-close export and history now use cached country aggregates plus cached bank-derived metrics instead of rescanning people and recomputing bank exposure during serialization.
 
 ---
 
@@ -66,5 +66,5 @@ Cache it as a `last_health_score: f64` field updated once per month, invalidated
 | 6 | Tariff matrix as World field (High #6) | 3–5% | Done |
 | 7 | HashMap → Vec for bank positions (High #7) | 1–2% | Done |
 | 8 | `SimulationParams` no-clone (High #8) | 2–3% | Done |
-| 9 | Sequential goods apply phase (High #9) | 2–4% | Done |
+| 9 | Sequential goods apply phase (High #9) | 2–4% | Deferred |
 | 10 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |

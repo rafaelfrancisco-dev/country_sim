@@ -66,13 +66,15 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 - `World` goods market (`run_daily_goods_economy`) runs several parallel regions after country ticks complete:
   - `produce_goods_daily`: outer `par_iter_mut` over countries; sequential inner company loop. Countries are fully independent.
   - `consume_superficial_stock_daily`: outer `par_iter_mut` over countries; sequential inner person loop. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
-  - `GoodsMarketDayCache::precompute_all_essential_demands`: one parallel pass (`par_iter_mut` zipped with `par_iter` over countries) that reads each person once and writes demand for all 9 round-robin goods simultaneously into a flat `[person_idx * 9 + slot]` buffer. Eliminates 8 redundant cold-memory scans that the old per-good approach required.
-  - `process_good_round_robin` (×9 goods): copies per-good demand from the precomputed buffer (stride-9 gather, all in L3), then runs the round-robin loop. An O(N) `pending_non_zero` counter is computed once before the loop and decremented on each demand transition to zero — this allows the loop to break immediately after round 1 if all demand is satisfied, eliminating a full O(max_people × country_count) scan per good per tick.
+  - `GoodsMarketDayCache` is now a persistent world-owned runtime cache rather than a fresh per-day build. Supplier topology and quote templates are invalidated separately, while daily work only resets cursors and sparse active-demand state.
+  - Stockable essentials maintain persistent per-person deficit/target state. The daily round-robin path activates only buyers with non-zero deficit for the current good instead of sweeping the full population for every essential.
+  - `process_good_round_robin` (×9 goods): prepares sparse active buyers for that good, plans intents in parallel, then applies them in deterministic order. Fairness remains round-robin by seller, but the hot path now scales with active buyers rather than total population.
   - `adjust_dynamic_country_tariffs`: outer `par_iter_mut` over countries; sequential work within each country.
   - `recompute_aggregates`: runs `par_iter_mut` over all countries after the goods market completes.
-  - `process_discretionary_superficial_purchases` uses a two-phase pattern per country:
-    - Phase A (parallel planning): `par_chunks` over people, each chunk uses `thread_rng()`, produces a `Vec<person_idx>` of intending buyers. Read-only on all country/company state.
-    - Phase B (sequential apply): iterates the buyer list, re-fetches the current cheapest supplier (respecting live inventory), re-checks affordability, then executes each purchase.
+  - `process_discretionary_superficial_purchases` now uses deterministic weekly cohorts:
+    - each person is assigned to one of 7 stable purchase cohorts by hash
+    - each superficial good keeps a candidate set of zero-stock people
+    - the daily pass filters only the active cohort inside that candidate set, then applies purchases sequentially against live inventory
 - Essential-goods round-robin uses two-phase execution:
   - Phase A (parallel): build purchase intents from snapshot budgets/cash and quote templates.
   - Phase B (single-writer): apply intents in deterministic key order `(round, person_idx, country_rr_order)`.
@@ -102,12 +104,13 @@ At each 30-day boundary, the shared world tick pipeline runs the following steps
    - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
    - otherwise tariff mean-reverts toward the baseline tariff rate
 5. `update_policy_rate` + propagate to all countries — updates world policy rate and assigns it to each country before history capture
-6. `capture_snapshot` — records `MetricPoint` into the rolling history window
-7. `push_export_snapshot` *(only when `--export-csv` was passed)* — collects a full `CountryExportData` snapshot while monthly tracker fields are still populated and `pending_events` still holds the day-30 events; appends to `world.export_queue`
-8. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
-9. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
+6. `refresh_monthly_export_caches` — updates country-level monthly/export aggregates and cached bank-derived metrics while month-close data is still live
+7. `capture_snapshot` — records `MetricPoint` into the rolling history window
+8. `push_export_snapshot` *(only when `--export-csv` was passed)* — serializes `CountryExportData` from the cached monthly aggregates while `pending_events` still holds the day-30 events; appends to `world.export_queue`
+9. `Country::reset_month_trackers` (parallel) — zeroes all `monthly_*` accumulators
+10. `drain_country_events` — moves `pending_events` from each country into `world.event_log`
 
-Step 7 must precede step 8 so that monthly accumulators are readable, and precede step 9 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
+Step 8 must precede step 9 so that monthly accumulators are readable, and precede step 10 so that month-end events are still in `pending_events` rather than the global log (which would require filtering by day to isolate the current month).
 
 ### Essential-Need Scoring
 - Stockable essentials (water, food, electricity, medicine) no longer mark monthly unmet directly from a failed daily purchase.

@@ -48,6 +48,7 @@ impl Country {
         self.process_monthly_labor_churn();
         self.recompute_company_headcounts();
         self.recompute_bank_headcounts();
+        self.rebuild_person_runtime();
         self.close_company_months();
         for bank in self.all_banks_mut() {
             bank.close_month();
@@ -98,6 +99,7 @@ impl Country {
         let job_switches_ms = time_op!(self.process_monthly_job_switches());
         time_op!(self.process_monthly_labor_churn());
         let recompute_headcounts_after_ms = time_op!(self.recompute_company_headcounts());
+        self.rebuild_person_runtime();
         let close_company_months_ms = time_op!(self.close_company_months());
         for bank in self.all_banks_mut() {
             bank.close_month();

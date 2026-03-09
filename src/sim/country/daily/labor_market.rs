@@ -64,11 +64,14 @@ impl CountryDailyScratch {
 
     pub(super) fn prepare_labor_market(&mut self, country: &Country) {
         self.labor_market.rebuild(country);
-        let chunk_count = country.people.len().div_ceil(PEOPLE_CHUNK_SIZE);
+        let chunk_count = country
+            .eligible_unemployed_ids()
+            .len()
+            .div_ceil(PEOPLE_CHUNK_SIZE);
         self.intents_by_chunk.resize_with(chunk_count, Vec::new);
         for (chunk_idx, intents) in self.intents_by_chunk.iter_mut().enumerate() {
             let chunk_len = country
-                .people
+                .eligible_unemployed_ids()
                 .len()
                 .saturating_sub(chunk_idx * PEOPLE_CHUNK_SIZE)
                 .min(PEOPLE_CHUNK_SIZE);
@@ -81,28 +84,32 @@ impl CountryDailyScratch {
 
     pub(super) fn plan_job_seekers(
         &mut self,
+        country: &Country,
         people: &[Person],
-        country_id: u16,
         day: u64,
         labor_params: LaborParams,
         use_parallelism: bool,
     ) {
         let labor_market = &self.labor_market;
+        let eligible_unemployed_ids = country.eligible_unemployed_ids();
         let fill_chunk = |chunk_idx: usize, intents: &mut Vec<JobSeekIntent>| {
             intents.clear();
             let base_idx = chunk_idx.saturating_mul(PEOPLE_CHUNK_SIZE);
-            let end = (base_idx + PEOPLE_CHUNK_SIZE).min(people.len());
+            let end = (base_idx + PEOPLE_CHUNK_SIZE).min(eligible_unemployed_ids.len());
             if base_idx >= end {
                 return;
             }
-            for (offset, person) in people[base_idx..end].iter().enumerate() {
-                if person.is_employed() || !person.can_seek_job() {
+            for &person_id in &eligible_unemployed_ids[base_idx..end] {
+                let Some(person_idx) = country.runtime_person_idx(person_id) else {
                     continue;
-                }
+                };
+                let Some(person) = people.get(person_idx) else {
+                    continue;
+                };
                 let seek_probability =
                     labor_params.daily_seek_probability(person.age_years(), person.cash_balance);
                 let seek_seed = hash64(
-                    (u64::from(country_id) << 48)
+                    (u64::from(country.id()) << 48)
                         ^ (day << 24)
                         ^ u64::from(person.id)
                         ^ u64::from(person.name_seed)
@@ -112,7 +119,7 @@ impl CountryDailyScratch {
                     continue;
                 }
                 intents.push(JobSeekIntent {
-                    person_idx: base_idx + offset,
+                    person_idx,
                     seek_seed,
                     qualification: person.habilitation,
                     preferred_company_entry: labor_market

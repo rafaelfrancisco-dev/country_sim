@@ -3,11 +3,12 @@ use super::*;
 impl World {
     pub(in crate::sim::world) fn run_daily_goods_economy(&mut self) {
         self.produce_goods_daily();
-        self.consume_superficial_stock_daily();
-        let mut day_cache = GoodsMarketDayCache::default();
-        day_cache.prepare(self);
-        self.process_global_goods_market(&mut day_cache);
-        self.process_discretionary_superficial_purchases(&mut day_cache);
+        let mut goods_runtime = std::mem::take(&mut self.goods_runtime);
+        self.consume_superficial_stock_daily(&mut goods_runtime);
+        goods_runtime.prepare(self);
+        self.process_global_goods_market(&mut goods_runtime);
+        self.process_discretionary_superficial_purchases(&mut goods_runtime);
+        self.goods_runtime = goods_runtime;
     }
 
     pub(in crate::sim::world) fn produce_goods_daily(&mut self) {
@@ -66,15 +67,10 @@ impl World {
 
         let mut discretionary_budgets = self.initial_discretionary_budgets();
 
-        // Precompute demands for all 9 round-robin goods in one pass over the people array,
-        // so each per-good call below can copy from cache instead of re-streaming cold memory.
-        day_cache.precompute_all_essential_demands(self);
-
         for good in common_goods()
             .iter()
             .filter(|g| g.id < SUPERFICIAL_GOOD_START_ID && !g.is_durable)
         {
-            day_cache.round_robin.prepare_for_world(&self.countries);
             self.process_good_round_robin(
                 good.id,
                 good.necessity_rank,
@@ -85,15 +81,18 @@ impl World {
         }
     }
 
-    pub(in crate::sim::world) fn consume_superficial_stock_daily(&mut self) {
+    pub(in crate::sim::world) fn consume_superficial_stock_daily(
+        &mut self,
+        day_cache: &mut GoodsMarketDayCache,
+    ) {
         // Hoist the static per-slot computation out of the 5M-person loop.
         let daily_usages: [f32; SUPERFICIAL_GOOD_SLOT_COUNT] = std::array::from_fn(|slot_idx| {
             let good_id = SUPERFICIAL_GOOD_IDS[slot_idx];
             (common_goods()[good_id as usize].monthly_demand_factor / 30.0).max(0.0) as f32
         });
 
-        self.countries.par_iter_mut().for_each(|country| {
-            for person in &mut country.people {
+        for (country_idx, country) in self.countries.iter_mut().enumerate() {
+            for (person_idx, person) in country.people.iter_mut().enumerate() {
                 for (slot_idx, &daily_usage) in daily_usages.iter().enumerate() {
                     if daily_usage <= 0.0 {
                         continue;
@@ -108,12 +107,15 @@ impl World {
 
                     person.superficial_stock_consumption_carry[slot_idx] -=
                         f32::from(consume_units);
-                    person.superficial_stock_units[slot_idx] = person
-                        .superficial_stock_units[slot_idx]
-                        .saturating_sub(consume_units);
+                    let had_stock = person.superficial_stock_units[slot_idx] > 0;
+                    person.superficial_stock_units[slot_idx] =
+                        person.superficial_stock_units[slot_idx].saturating_sub(consume_units);
+                    if had_stock && person.superficial_stock_units[slot_idx] == 0 {
+                        day_cache.mark_superficial_zero_stock(country_idx, person_idx, slot_idx);
+                    }
                 }
             }
-        });
+        }
     }
 
     pub(in crate::sim::world) fn process_discretionary_superficial_purchases(
@@ -126,6 +128,7 @@ impl World {
 
         for good_id in SUPERFICIAL_GOOD_IDS {
             let stock_slot = usize::from(good_id - SUPERFICIAL_GOOD_START_ID);
+            let active_cohort = self.day.saturating_sub(1) % 7;
 
             for buyer_country_idx in 0..self.countries.len() {
                 let Some(snapshot_quote) =
@@ -138,41 +141,44 @@ impl World {
                 }
 
                 // Phase A — parallel planning: each person independently decides to buy.
-                // Uses per-chunk thread_rng(); discretionary purchases are non-deterministic.
                 let mut buyers = std::mem::take(&mut day_cache.discretionary_buyers_scratch);
                 buyers.clear();
-                buyers.extend(
-                    self.countries[buyer_country_idx]
-                        .people
-                        .par_chunks(PEOPLE_CHUNK_SIZE)
-                        .enumerate()
-                        .flat_map(|(chunk_idx, chunk)| {
-                            let mut rng = rand::thread_rng();
-                            let base_idx = chunk_idx * PEOPLE_CHUNK_SIZE;
-                            chunk
-                                .iter()
-                                .enumerate()
-                                .filter_map(|(offset, person)| {
-                                    if person.superficial_stock_units[stock_slot] > 0 {
-                                        return None;
-                                    }
-                                    let cash_cents = to_cents(person.cash_balance);
-                                    if cash_cents < snapshot_quote.landed_price_cents {
-                                        return None;
-                                    }
-                                    let affordability_ratio = cash_cents as f64
-                                        / snapshot_quote.landed_price_cents as f64;
-                                    let probability =
-                                        ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
-                                    if probability <= 0.0 || !rng.gen_bool(probability) {
-                                        return None;
-                                    }
-                                    Some(base_idx + offset)
-                                })
-                                .collect::<Vec<_>>()
-                        })
-                        .collect::<Vec<_>>(),
-                );
+                for &person_idx in
+                    day_cache.superficial_zero_stock_candidates(buyer_country_idx, stock_slot)
+                {
+                    let Some(person) = self.countries[buyer_country_idx].people.get(person_idx)
+                    else {
+                        continue;
+                    };
+                    if hash64(
+                        (u64::from(self.countries[buyer_country_idx].id) << 48)
+                            ^ u64::from(person.id)
+                            ^ u64::from(good_id),
+                    ) % 7
+                        != active_cohort
+                    {
+                        continue;
+                    }
+                    let cash_cents = to_cents(person.cash_balance);
+                    if cash_cents < snapshot_quote.landed_price_cents {
+                        continue;
+                    }
+                    let affordability_ratio =
+                        cash_cents as f64 / snapshot_quote.landed_price_cents as f64;
+                    let probability = ((affordability_ratio - 2.0) / 40.0).clamp(0.0, 0.05);
+                    if probability <= 0.0 {
+                        continue;
+                    }
+                    let buy_roll = unit_interval(
+                        (self.day << 40)
+                            ^ (u64::from(self.countries[buyer_country_idx].id) << 24)
+                            ^ (u64::from(person.id) << 8)
+                            ^ u64::from(good_id),
+                    );
+                    if buy_roll < probability {
+                        buyers.push(person_idx);
+                    }
+                }
 
                 // Phase B — sequential apply: re-fetch current cheapest supplier per purchase
                 // so inventory depletion is respected, then execute.
@@ -194,6 +200,13 @@ impl World {
                         .get_mut(buyer_country_idx)
                         .and_then(|country| country.people.get_mut(person_idx))
                     {
+                        if person.superficial_stock_units[stock_slot] == 0 {
+                            day_cache.mark_superficial_stock_replenished(
+                                buyer_country_idx,
+                                person_idx,
+                                stock_slot,
+                            );
+                        }
                         person.superficial_stock_units[stock_slot] =
                             person.superficial_stock_units[stock_slot].saturating_add(1);
                     }

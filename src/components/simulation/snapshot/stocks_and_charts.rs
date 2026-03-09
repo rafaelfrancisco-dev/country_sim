@@ -440,7 +440,9 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
                     .listed
                     .get(&pos.security_id.company_id)
             });
-        let ticker_owned: String = equity.map(|e| e.ticker.to_string()).unwrap_or_else(|| "???".to_string());
+        let ticker_owned: String = equity
+            .map(|e| e.ticker.to_string())
+            .unwrap_or_else(|| "???".to_string());
         let ticker: &str = &ticker_owned;
         let last_price = equity.map_or(0.0, |e| e.last_price);
         let value = pos.market_value(last_price);

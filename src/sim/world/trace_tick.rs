@@ -35,15 +35,23 @@ impl WorldTickHooks for TraceWorldTickHooks {
     fn run_country_daily(&mut self, world: &mut World) {
         let started = Instant::now();
         self.daily_traces = if world.countries.len() >= 2 {
-            world.countries.par_iter_mut().map(|c| {
-                c.use_inner_parallelism = false;
-                Country::tick_day_without_month_traced(c)
-            }).collect()
+            world
+                .countries
+                .par_iter_mut()
+                .map(|c| {
+                    c.use_inner_parallelism = false;
+                    Country::tick_day_without_month_traced(c)
+                })
+                .collect()
         } else {
-            world.countries.iter_mut().map(|c| {
-                c.use_inner_parallelism = true;
-                Country::tick_day_without_month_traced(c)
-            }).collect()
+            world
+                .countries
+                .iter_mut()
+                .map(|c| {
+                    c.use_inner_parallelism = true;
+                    Country::tick_day_without_month_traced(c)
+                })
+                .collect()
         };
         self.world_country_tick_ms = duration_ms(started.elapsed());
     }
@@ -63,15 +71,23 @@ impl WorldTickHooks for TraceWorldTickHooks {
     fn run_monthly_country_processing(&mut self, world: &mut World) {
         let started = Instant::now();
         self.monthly_traces = if world.countries.len() >= 2 {
-            world.countries.par_iter_mut().map(|c| {
-                c.use_inner_parallelism = false;
-                Country::process_month_end_traced(c)
-            }).collect()
+            world
+                .countries
+                .par_iter_mut()
+                .map(|c| {
+                    c.use_inner_parallelism = false;
+                    Country::process_month_end_traced(c)
+                })
+                .collect()
         } else {
-            world.countries.iter_mut().map(|c| {
-                c.use_inner_parallelism = true;
-                Country::process_month_end_traced(c)
-            }).collect()
+            world
+                .countries
+                .iter_mut()
+                .map(|c| {
+                    c.use_inner_parallelism = true;
+                    Country::process_month_end_traced(c)
+                })
+                .collect()
         };
         self.world_monthly_process_countries_ms = duration_ms(started.elapsed());
     }

@@ -1,5 +1,7 @@
 use super::*;
-use crate::sim::essentials::{is_essential_good, is_stockable_essential_good, stockable_essential_slot};
+use crate::sim::essentials::{
+    is_essential_good, is_stockable_essential_good, stockable_essential_slot,
+};
 
 /// Wraps a raw pointer so it can cross rayon task boundaries.
 /// Safety is upheld by the caller through disjoint-partition invariants.
@@ -33,65 +35,26 @@ impl World {
         day_cache: &mut GoodsMarketDayCache,
     ) {
         let country_count = self.countries.len();
-
-        // Copy pre-computed demands for this good's slot into pending_demands.
-        // precompute_all_essential_demands() has already run once this tick.
-        let Some(good_slot) = ESSENTIAL_ND_SLOT[good_id as usize] else {
-            return;
-        };
-        {
-            let (precomputed, scratch) = (
-                &day_cache.precomputed_essential_demands,
-                &mut day_cache.round_robin,
-            );
-            scratch.pending_non_zero = 0;
-            for (country_idx, country_pending) in
-                scratch.pending_demands.iter_mut().enumerate()
-            {
-                if let Some(src) = precomputed.get(country_idx) {
-                    for (p_idx, pending) in country_pending.iter_mut().enumerate() {
-                        *pending = src
-                            .get(p_idx * ESSENTIAL_ND_GOOD_COUNT + good_slot)
-                            .copied()
-                            .unwrap_or(0);
-                        if *pending > 0 {
-                            scratch.pending_non_zero += 1;
-                        }
-                    }
-                }
-            }
-        }
+        day_cache.prepare_round_robin_for_good(&self.countries, good_id);
 
         let essential = is_essential_good(good_id) || necessity_rank <= 4;
         let deferred_unmet = is_stockable_essential_good(good_id);
         let mut round = 0_u64;
         let needs_mask_bit = 1_u16 << good_id;
-        {
-            let scratch = &mut day_cache.round_robin;
-            scratch
-                .planning
-                .buyer_slots
-                .reserve(scratch.max_people.saturating_mul(country_count));
-        }
 
         loop {
             {
                 let scratch = &mut day_cache.round_robin;
-                // Fast exit: skip the O(max_people × country_count) slot scan when no demand remains.
                 if scratch.pending_non_zero == 0 {
                     break;
                 }
                 if round == 0 {
-                    // Round 0: full O(max_people × country_count) build of buyer_slots.
                     scratch.planning.buyer_slots.clear();
-                    for person_idx in 0..scratch.max_people {
-                        for country_rr_order in 0..country_count {
-                            let buyer_country_idx =
-                                (start_country_idx + country_rr_order) % country_count;
-                            let country_pending = &scratch.pending_demands[buyer_country_idx];
-                            if person_idx >= country_pending.len()
-                                || country_pending[person_idx] == 0
-                            {
+                    for country_rr_order in 0..country_count {
+                        let buyer_country_idx =
+                            (start_country_idx + country_rr_order) % country_count;
+                        for &person_idx in &scratch.active_indices[buyer_country_idx] {
+                            if scratch.pending_demands[buyer_country_idx][person_idx] == 0 {
                                 continue;
                             }
                             scratch.planning.buyer_slots.push(BuyerSlot {
@@ -102,8 +65,11 @@ impl World {
                             });
                         }
                     }
+                    scratch
+                        .planning
+                        .buyer_slots
+                        .sort_unstable_by_key(|slot| (slot.person_idx, slot.country_rr_order));
                 } else {
-                    // Subsequent rounds: O(active_buyers) retain of still-pending slots.
                     let pending = &scratch.pending_demands;
                     scratch.planning.buyer_slots.retain(|slot| {
                         pending
@@ -306,8 +272,8 @@ impl World {
                             // Update scratch.
                             {
                                 let scratch = &mut day_cache.round_robin;
-                                let pending = &mut scratch.pending_demands
-                                    [info.buyer_country_idx][info.person_idx];
+                                let pending = &mut scratch.pending_demands[info.buyer_country_idx]
+                                    [info.person_idx];
                                 *pending = pending.saturating_sub(1);
                                 if *pending == 0 {
                                     scratch.pending_non_zero -= 1;
@@ -317,7 +283,15 @@ impl World {
                                 }
                             }
                             if deferred_unmet {
-                                self.record_stockable_essential_purchase(
+                                if let Some(slot_idx) = stockable_essential_slot(good_id)
+                                    && let Some(person) = self
+                                        .countries
+                                        .get_mut(info.buyer_country_idx)
+                                        .and_then(|country| country.people.get_mut(info.person_idx))
+                                {
+                                    person.essential_stock_units[slot_idx] += 1.0;
+                                }
+                                day_cache.record_stockable_purchase(
                                     info.buyer_country_idx,
                                     info.person_idx,
                                     good_id,
@@ -355,10 +329,10 @@ impl World {
             }
             let needs_met = &scratch.needs_met[country_idx];
             let needs_unmet = &scratch.needs_unmet[country_idx];
-            for (person_idx, person) in country.people.iter_mut().enumerate() {
-                if person_idx >= needs_met.len() || person_idx >= needs_unmet.len() {
-                    break;
-                }
+            for &person_idx in &scratch.active_indices[country_idx] {
+                let Some(person) = country.people.get_mut(person_idx) else {
+                    continue;
+                };
                 if needs_met[person_idx] != 0 {
                     person.last_month_needs_met_mask |= needs_mask_bit;
                 }
@@ -465,23 +439,4 @@ impl World {
             }
         }
     }
-
-    fn record_stockable_essential_purchase(
-        &mut self,
-        buyer_country_idx: usize,
-        person_idx: usize,
-        good_id: GoodId,
-    ) {
-        let Some(slot_idx) = stockable_essential_slot(good_id) else {
-            return;
-        };
-        if let Some(person) = self
-            .countries
-            .get_mut(buyer_country_idx)
-            .and_then(|country| country.people.get_mut(person_idx))
-        {
-            person.essential_stock_units[slot_idx] += 1.0;
-        }
-    }
-
 }

@@ -8,12 +8,10 @@ use crate::sim::essentials::{
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_COUNT: usize = 9;
 
 /// Good IDs processed in the global round-robin, in slot order.
-/// Slot index corresponds to the column in `precomputed_essential_demands`.
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_IDS: [GoodId; ESSENTIAL_ND_GOOD_COUNT] =
     [0, 1, 3, 4, 5, 6, 7, 8, 9];
 
-/// Maps good_id (0..GOODS_COUNT) → slot in precomputed_essential_demands.
-/// None = durable (Housing) or superficial (id ≥ 10) — not in global round-robin.
+/// Maps good_id (0..GOODS_COUNT) -> round-robin slot.
 pub(in crate::sim::world) const ESSENTIAL_ND_SLOT: [Option<usize>; GOODS_COUNT] = [
     Some(0), // 0  Water
     Some(1), // 1  Food
@@ -25,116 +23,175 @@ pub(in crate::sim::world) const ESSENTIAL_ND_SLOT: [Option<usize>; GOODS_COUNT] 
     Some(6), // 7  Transport
     Some(7), // 8  Internet
     Some(8), // 9  Education Services
-    None,    // 10 Household Goods  (superficial)
-    None,    // 11 Electronics      (superficial)
-    None,    // 12 Appliances       (superficial)
-    None,    // 13 Cars             (superficial)
-    None,    // 14 Entertainment    (superficial)
+    None,    // 10 Household Goods
+    None,    // 11 Electronics
+    None,    // 12 Appliances
+    None,    // 13 Cars
+    None,    // 14 Entertainment
 ];
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub(in crate::sim::world) struct GoodsMarketDayCache {
-    supplier_lists_ready: bool,
+    supplier_topology_signature: u64,
+    quote_signature: u64,
     pub(in crate::sim::world) suppliers_by_good: Vec<Vec<SupplierRef>>,
     pub(in crate::sim::world) quote_templates_by_good: Vec<Vec<Vec<QuoteTemplate>>>,
     pub(in crate::sim::world) cheapest_quote_cursors: Vec<Vec<usize>>,
     pub(in crate::sim::world) round_robin: RoundRobinScratch,
-    /// Flat demand buffer: [country_idx][person_idx * ESSENTIAL_ND_GOOD_COUNT + slot].
-    /// Populated once per tick by `precompute_all_essential_demands` before the goods loop.
-    pub(in crate::sim::world) precomputed_essential_demands: Vec<Vec<u32>>,
-    /// Reusable scratch buffer for discretionary buyer indices — avoids a per-iteration allocation.
+    /// Indexed by essential slot, then country.
+    pub(in crate::sim::world) active_demands_by_good: Vec<Vec<Vec<BuyerDemand>>>,
     pub(in crate::sim::world) discretionary_buyers_scratch: Vec<usize>,
+    countries_runtime: Vec<CountryGoodsRuntime>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct CountryGoodsRuntime {
+    stockable_state_month: u64,
+    person_count: usize,
+    stockable_deficits: Vec<[u32; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT]>,
+    stockable_targets: Vec<[u32; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT]>,
+    stockable_active_buyers: [Vec<usize>; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT],
+    stockable_active_positions: [Vec<usize>; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT],
+    superficial_zero_stock_buyers: [Vec<usize>; SUPERFICIAL_GOOD_SLOT_COUNT],
+    superficial_zero_stock_positions: [Vec<usize>; SUPERFICIAL_GOOD_SLOT_COUNT],
+}
+
+impl Default for CountryGoodsRuntime {
+    fn default() -> Self {
+        Self {
+            stockable_state_month: u64::MAX,
+            person_count: 0,
+            stockable_deficits: Vec::new(),
+            stockable_targets: Vec::new(),
+            stockable_active_buyers: std::array::from_fn(|_| Vec::new()),
+            stockable_active_positions: std::array::from_fn(|_| Vec::new()),
+            superficial_zero_stock_buyers: std::array::from_fn(|_| Vec::new()),
+            superficial_zero_stock_positions: std::array::from_fn(|_| Vec::new()),
+        }
+    }
 }
 
 impl GoodsMarketDayCache {
     pub(in crate::sim::world) fn prepare(&mut self, world: &World) {
+        self.ensure_country_runtime(world);
+        self.prepare_quote_cache(world);
+        self.prepare_daily_demands(world);
+        self.reset_daily_cursors(world.countries.len());
+    }
+
+    fn ensure_country_runtime(&mut self, world: &World) {
+        self.countries_runtime
+            .resize_with(world.countries.len(), CountryGoodsRuntime::default);
+
+        for (country_idx, country) in world.countries.iter().enumerate() {
+            let runtime = &mut self.countries_runtime[country_idx];
+            if runtime.person_count != country.people.len()
+                || runtime.stockable_state_month != country.month
+            {
+                runtime.rebuild_from_country(country);
+            }
+        }
+    }
+
+    fn prepare_quote_cache(&mut self, world: &World) {
+        let topology_signature = supplier_topology_signature(world);
+        let quote_signature = quote_signature(world);
         let country_count = world.countries.len();
+
         if self.suppliers_by_good.len() != GOODS_COUNT {
             self.suppliers_by_good = vec![Vec::new(); GOODS_COUNT];
-        } else {
-            for suppliers in &mut self.suppliers_by_good {
-                suppliers.clear();
-            }
         }
         if self.quote_templates_by_good.len() != GOODS_COUNT {
             self.quote_templates_by_good = vec![Vec::new(); GOODS_COUNT];
-        } else {
-            for templates in &mut self.quote_templates_by_good {
-                templates.clear();
-            }
         }
         if self.cheapest_quote_cursors.len() != GOODS_COUNT {
             self.cheapest_quote_cursors = vec![vec![0; country_count]; GOODS_COUNT];
         } else {
             for cursors in &mut self.cheapest_quote_cursors {
                 cursors.resize(country_count, 0);
-                cursors.fill(0);
             }
         }
 
-        world.fill_suppliers_by_good(&mut self.suppliers_by_good);
-        for good_idx in 0..GOODS_COUNT {
-            self.quote_templates_by_good[good_idx] = world.build_quote_templates_by_buyer(
-                good_idx as GoodId,
-                &self.suppliers_by_good[good_idx],
-                &world.tariff_rates_by_good,
-            );
+        if self.supplier_topology_signature != topology_signature {
+            for suppliers in &mut self.suppliers_by_good {
+                suppliers.clear();
+            }
+            world.fill_suppliers_by_good(&mut self.suppliers_by_good);
+            self.supplier_topology_signature = topology_signature;
+            self.quote_signature = 0;
         }
-        self.supplier_lists_ready = true;
+
+        if self.quote_signature != quote_signature {
+            for good_idx in 0..GOODS_COUNT {
+                self.quote_templates_by_good[good_idx] = world.build_quote_templates_by_buyer(
+                    good_idx as GoodId,
+                    &self.suppliers_by_good[good_idx],
+                    &world.tariff_rates_by_good,
+                );
+            }
+            self.quote_signature = quote_signature;
+        }
     }
 
-    /// Precompute initial demands for all 9 round-robin goods in one pass over the people array.
-    ///
-    /// Buffer layout: `precomputed_essential_demands[country_idx][person_idx * ESSENTIAL_ND_GOOD_COUNT + slot]`
-    /// where `slot = ESSENTIAL_ND_SLOT[good_id]`.
-    ///
-    /// This replaces the per-good O(people) scan in `process_good_round_robin`, reducing 9 separate
-    /// cold memory reads to a single warm pass shared across all goods.
-    pub(in crate::sim::world) fn precompute_all_essential_demands(&mut self, world: &World) {
-        let country_count = world.countries.len();
-        self.precomputed_essential_demands
-            .resize_with(country_count, Vec::new);
-        for (c_idx, buf) in self.precomputed_essential_demands.iter_mut().enumerate() {
-            let person_count = world.countries[c_idx].people.len();
-            let required = person_count * ESSENTIAL_ND_GOOD_COUNT;
-            if buf.len() != required {
-                buf.resize(required, 0);
+    fn prepare_daily_demands(&mut self, world: &World) {
+        self.active_demands_by_good
+            .resize_with(ESSENTIAL_ND_GOOD_COUNT, Vec::new);
+        for slot in 0..ESSENTIAL_ND_GOOD_COUNT {
+            self.active_demands_by_good[slot].resize_with(world.countries.len(), Vec::new);
+            for country_demands in &mut self.active_demands_by_good[slot] {
+                country_demands.clear();
             }
         }
 
         let day = world.day;
         let goods = common_goods();
-
-        self.precomputed_essential_demands
-            .par_iter_mut()
-            .zip(world.countries.par_iter())
-            .for_each(|(buf, country)| {
-                let country_id = country.id;
-                for (p_idx, person) in country.people.iter().enumerate() {
-                    let household_size = country.household_size_for_person(p_idx);
-                    for (slot, &good_id) in ESSENTIAL_ND_GOOD_IDS.iter().enumerate() {
-                        let good = &goods[good_id as usize];
-                        let demand = if is_stockable_essential_good(good_id) {
-                            compute_stockable_demand(
-                                country,
-                                household_size,
-                                good_id,
-                                &person.essential_stock_units,
-                            )
-                        } else {
-                            demand_units_for_person_good(
-                                day,
-                                country_id,
-                                person.id,
-                                person.name_seed,
-                                good_id,
-                                good.monthly_demand_factor,
-                            )
-                        };
-                        buf[p_idx * ESSENTIAL_ND_GOOD_COUNT + slot] = demand;
-                    }
+        for (country_idx, country) in world.countries.iter().enumerate() {
+            for (slot, &good_id) in ESSENTIAL_ND_GOOD_IDS.iter().enumerate() {
+                let demands = &mut self.active_demands_by_good[slot][country_idx];
+                if is_stockable_essential_good(good_id) {
+                    self.countries_runtime[country_idx].fill_stockable_demands(good_id, demands);
+                    continue;
                 }
-            });
+
+                for (person_idx, person) in country.people.iter().enumerate() {
+                    let units = demand_units_for_person_good(
+                        day,
+                        country.id,
+                        person.id,
+                        person.name_seed,
+                        good_id,
+                        goods[good_id as usize].monthly_demand_factor,
+                    );
+                    if units == 0 {
+                        continue;
+                    }
+                    demands.push(BuyerDemand { person_idx, units });
+                }
+            }
+        }
+    }
+
+    fn reset_daily_cursors(&mut self, country_count: usize) {
+        for cursors in &mut self.cheapest_quote_cursors {
+            cursors.resize(country_count, 0);
+            cursors.fill(0);
+        }
+    }
+
+    pub(in crate::sim::world) fn prepare_round_robin_for_good(
+        &mut self,
+        countries: &[crate::sim::country::Country],
+        good_id: GoodId,
+    ) {
+        let Some(slot) = ESSENTIAL_ND_SLOT[good_id as usize] else {
+            return;
+        };
+        let active_demands = self
+            .active_demands_by_good
+            .get(slot)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        self.round_robin.prepare_for_good(countries, active_demands);
     }
 
     pub(in crate::sim::world) fn current_cheapest_quote(
@@ -143,9 +200,6 @@ impl GoodsMarketDayCache {
         good_id: GoodId,
         buyer_country_idx: usize,
     ) -> Option<SellerQuote> {
-        if !self.supplier_lists_ready {
-            self.prepare(world);
-        }
         let buyer_templates = self
             .quote_templates_by_good
             .get(good_id as usize)?
@@ -174,26 +228,244 @@ impl GoodsMarketDayCache {
         }
         None
     }
+
+    pub(in crate::sim::world) fn mark_superficial_zero_stock(
+        &mut self,
+        country_idx: usize,
+        person_idx: usize,
+        stock_slot: usize,
+    ) {
+        let Some(runtime) = self.countries_runtime.get_mut(country_idx) else {
+            return;
+        };
+        runtime.add_superficial_zero_stock(person_idx, stock_slot);
+    }
+
+    pub(in crate::sim::world) fn mark_superficial_stock_replenished(
+        &mut self,
+        country_idx: usize,
+        person_idx: usize,
+        stock_slot: usize,
+    ) {
+        let Some(runtime) = self.countries_runtime.get_mut(country_idx) else {
+            return;
+        };
+        runtime.remove_superficial_zero_stock(person_idx, stock_slot);
+    }
+
+    pub(in crate::sim::world) fn superficial_zero_stock_candidates(
+        &self,
+        country_idx: usize,
+        stock_slot: usize,
+    ) -> &[usize] {
+        self.countries_runtime
+            .get(country_idx)
+            .map(|runtime| runtime.superficial_zero_stock_buyers[stock_slot].as_slice())
+            .unwrap_or(&[])
+    }
+
+    pub(in crate::sim::world) fn record_stockable_purchase(
+        &mut self,
+        country_idx: usize,
+        person_idx: usize,
+        good_id: GoodId,
+    ) {
+        let Some(slot_idx) = stockable_essential_slot(good_id) else {
+            return;
+        };
+        let Some(runtime) = self.countries_runtime.get_mut(country_idx) else {
+            return;
+        };
+        if let Some(deficits) = runtime.stockable_deficits.get_mut(person_idx) {
+            deficits[slot_idx] = deficits[slot_idx].saturating_sub(1);
+            if deficits[slot_idx] == 0 {
+                runtime.remove_stockable_active_buyer(person_idx, slot_idx);
+            }
+        }
+    }
 }
 
-/// Standalone version of `World::stockable_essential_purchase_gap` that works without `&World`.
-/// Computes how many units of a stockable essential good a person needs to buy to hit their target.
-fn compute_stockable_demand(
+impl CountryGoodsRuntime {
+    fn rebuild_from_country(&mut self, country: &crate::sim::country::Country) {
+        let person_count = country.people.len();
+        self.person_count = person_count;
+        self.stockable_state_month = country.month;
+        self.stockable_deficits.resize(
+            person_count,
+            [0; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT],
+        );
+        self.stockable_targets.resize(
+            person_count,
+            [0; crate::sim::person::ESSENTIAL_STOCK_SLOT_COUNT],
+        );
+
+        for buyers in &mut self.stockable_active_buyers {
+            buyers.clear();
+        }
+        for positions in &mut self.stockable_active_positions {
+            positions.clear();
+            positions.resize(person_count, usize::MAX);
+        }
+        for buyers in &mut self.superficial_zero_stock_buyers {
+            buyers.clear();
+        }
+        for positions in &mut self.superficial_zero_stock_positions {
+            positions.clear();
+            positions.resize(person_count, usize::MAX);
+        }
+
+        for (person_idx, person) in country.people.iter().enumerate() {
+            let household_size = country.household_size_for_person(person_idx);
+            for &good_id in &crate::sim::essentials::STOCKABLE_ESSENTIAL_GOOD_IDS {
+                let Some(slot_idx) = stockable_essential_slot(good_id) else {
+                    continue;
+                };
+                let target_units = stock_target_units(country, good_id, household_size);
+                let current_units = person.essential_stock_units[slot_idx].max(0.0);
+                let deficit = (target_units - current_units).ceil().max(0.0) as u32;
+                self.stockable_targets[person_idx][slot_idx] = target_units.ceil().max(0.0) as u32;
+                self.stockable_deficits[person_idx][slot_idx] = deficit;
+                if deficit > 0 {
+                    self.add_stockable_active_buyer(person_idx, slot_idx);
+                }
+            }
+
+            for stock_slot in 0..SUPERFICIAL_GOOD_SLOT_COUNT {
+                if person.superficial_stock_units[stock_slot] == 0 {
+                    self.add_superficial_zero_stock(person_idx, stock_slot);
+                }
+            }
+        }
+    }
+
+    fn fill_stockable_demands(&self, good_id: GoodId, out: &mut Vec<BuyerDemand>) {
+        let Some(slot_idx) = stockable_essential_slot(good_id) else {
+            return;
+        };
+        for &person_idx in &self.stockable_active_buyers[slot_idx] {
+            let units = self
+                .stockable_deficits
+                .get(person_idx)
+                .map(|deficits| deficits[slot_idx])
+                .unwrap_or(0);
+            if units == 0 {
+                continue;
+            }
+            out.push(BuyerDemand { person_idx, units });
+        }
+        out.sort_unstable_by_key(|demand| demand.person_idx);
+    }
+
+    fn add_stockable_active_buyer(&mut self, person_idx: usize, slot_idx: usize) {
+        if person_idx >= self.person_count {
+            return;
+        }
+        if self.stockable_active_positions[slot_idx][person_idx] != usize::MAX {
+            return;
+        }
+        self.stockable_active_positions[slot_idx][person_idx] =
+            self.stockable_active_buyers[slot_idx].len();
+        self.stockable_active_buyers[slot_idx].push(person_idx);
+    }
+
+    fn remove_stockable_active_buyer(&mut self, person_idx: usize, slot_idx: usize) {
+        if person_idx >= self.person_count {
+            return;
+        }
+        let remove_idx = self.stockable_active_positions[slot_idx][person_idx];
+        if remove_idx == usize::MAX {
+            return;
+        }
+        let Some(swapped_person_idx) = self.stockable_active_buyers[slot_idx].pop() else {
+            return;
+        };
+        if remove_idx < self.stockable_active_buyers[slot_idx].len() {
+            self.stockable_active_buyers[slot_idx][remove_idx] = swapped_person_idx;
+            self.stockable_active_positions[slot_idx][swapped_person_idx] = remove_idx;
+        }
+        self.stockable_active_positions[slot_idx][person_idx] = usize::MAX;
+    }
+
+    fn add_superficial_zero_stock(&mut self, person_idx: usize, stock_slot: usize) {
+        if person_idx >= self.person_count || stock_slot >= SUPERFICIAL_GOOD_SLOT_COUNT {
+            return;
+        }
+        if self.superficial_zero_stock_positions[stock_slot][person_idx] != usize::MAX {
+            return;
+        }
+        self.superficial_zero_stock_positions[stock_slot][person_idx] =
+            self.superficial_zero_stock_buyers[stock_slot].len();
+        self.superficial_zero_stock_buyers[stock_slot].push(person_idx);
+    }
+
+    fn remove_superficial_zero_stock(&mut self, person_idx: usize, stock_slot: usize) {
+        if person_idx >= self.person_count || stock_slot >= SUPERFICIAL_GOOD_SLOT_COUNT {
+            return;
+        }
+        let remove_idx = self.superficial_zero_stock_positions[stock_slot][person_idx];
+        if remove_idx == usize::MAX {
+            return;
+        }
+        let Some(swapped_person_idx) = self.superficial_zero_stock_buyers[stock_slot].pop() else {
+            return;
+        };
+        if remove_idx < self.superficial_zero_stock_buyers[stock_slot].len() {
+            self.superficial_zero_stock_buyers[stock_slot][remove_idx] = swapped_person_idx;
+            self.superficial_zero_stock_positions[stock_slot][swapped_person_idx] = remove_idx;
+        }
+        self.superficial_zero_stock_positions[stock_slot][person_idx] = usize::MAX;
+    }
+}
+
+fn supplier_topology_signature(world: &World) -> u64 {
+    let mut signature = 0_u64;
+    for (country_idx, country) in world.countries.iter().enumerate() {
+        signature ^= hash64(
+            ((country_idx as u64) << 48)
+                ^ ((country.companies.len() as u64) << 24)
+                ^ u64::from(country.id),
+        );
+        for (company_idx, company) in country.companies.iter().enumerate() {
+            signature ^= hash64(
+                ((country_idx as u64) << 48)
+                    ^ ((company_idx as u64) << 24)
+                    ^ u64::from(company.produced_good_id)
+                    ^ u64::from((to_cents(company.unit_price) > 0) as u8),
+            );
+        }
+    }
+    signature
+}
+
+fn quote_signature(world: &World) -> u64 {
+    let mut signature = 0_u64;
+    for (country_idx, country) in world.countries.iter().enumerate() {
+        for (company_idx, company) in country.companies.iter().enumerate() {
+            signature ^= hash64(
+                ((country_idx as u64) << 48)
+                    ^ ((company_idx as u64) << 24)
+                    ^ (to_cents(company.unit_price) as u64),
+            );
+        }
+    }
+    for (good_idx, tariff_rates) in world.tariff_rates_by_good.iter().enumerate() {
+        for (seller_country_idx, rate) in tariff_rates.iter().enumerate() {
+            signature ^= hash64(
+                ((good_idx as u64) << 48)
+                    ^ ((seller_country_idx as u64) << 24)
+                    ^ (to_cents(*rate * 10_000.0) as u64),
+            );
+        }
+    }
+    signature
+}
+
+fn stock_target_units(
     country: &crate::sim::country::Country,
-    household_size: usize,
     good_id: GoodId,
-    essential_stock_units: &[f32],
-) -> u32 {
-    let Some(slot_idx) = stockable_essential_slot(good_id) else {
-        return 0;
-    };
+    household_size: usize,
+) -> f32 {
     let essentials = &country.sim_params.essentials;
-    let target_units = monthly_requirement_for_good(essentials, good_id, household_size)
-        + target_buffer_units(essentials, good_id, household_size);
-    let current_units = essential_stock_units
-        .get(slot_idx)
-        .copied()
-        .unwrap_or(0.0)
-        .max(0.0);
-    (target_units - current_units).ceil().max(0.0) as u32
+    monthly_requirement_for_good(essentials, good_id, household_size)
+        + target_buffer_units(essentials, good_id, household_size)
 }

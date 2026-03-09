@@ -22,7 +22,9 @@ mod essential_economy;
 mod init;
 mod metrics;
 mod monthly;
+mod runtime;
 mod tax;
+use runtime::CountryRuntime;
 
 pub const DAYS_PER_MONTH: u64 = 30;
 const PEOPLE_CHUNK_SIZE: usize = 2_048;
@@ -106,6 +108,7 @@ pub struct Country {
     pub(crate) monthly_foreclosures: u32,
     pub(crate) monthly_housing_units_built: u32,
     pub(crate) use_inner_parallelism: bool,
+    pub(crate) runtime: CountryRuntime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

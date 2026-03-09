@@ -10,21 +10,20 @@ impl Country {
         let expansion_mult = self.expansion_multiplier().max(0.01);
         let inverse_expansion = (1.0 / expansion_mult).max(0.01);
         let mut company_growth = self.sim_params.company_growth;
-        company_growth.min_profitable_months =
-            ((company_growth.min_profitable_months as f64 * inverse_expansion)
-                .round()
-                .clamp(1.0, u8::MAX as f64)) as u8;
+        company_growth.min_profitable_months = ((company_growth.min_profitable_months as f64
+            * inverse_expansion)
+            .round()
+            .clamp(1.0, u8::MAX as f64)) as u8;
         company_growth.min_cash_reserve =
             round_cents((company_growth.min_cash_reserve * inverse_expansion).max(0.0));
         company_growth.payroll_reserve_multiplier =
             (company_growth.payroll_reserve_multiplier * inverse_expansion).max(0.0);
-        company_growth.profit_per_opening = round_cents(
-            (company_growth.profit_per_opening * inverse_expansion).max(1.0),
-        );
-        company_growth.max_monthly_openings =
-            ((company_growth.max_monthly_openings as f64 * expansion_mult)
-                .round()
-                .clamp(1.0, u16::MAX as f64)) as u16;
+        company_growth.profit_per_opening =
+            round_cents((company_growth.profit_per_opening * inverse_expansion).max(1.0));
+        company_growth.max_monthly_openings = ((company_growth.max_monthly_openings as f64
+            * expansion_mult)
+            .round()
+            .clamp(1.0, u16::MAX as f64)) as u16;
 
         let labor_demand = self.sim_params.labor_demand;
         if self.use_inner_parallelism {
@@ -101,7 +100,11 @@ impl Country {
 
         while startups_created < startup_budget && failed_attempts < max_attempts {
             let job = jobs[job_cursor % jobs.len()];
-            if self.try_form_startup_for_job_with_cache(job.id, startup_loan_fraction, debt_to_income_cap) {
+            if self.try_form_startup_for_job_with_cache(
+                job.id,
+                startup_loan_fraction,
+                debt_to_income_cap,
+            ) {
                 startups_created = startups_created.saturating_add(1);
                 failed_attempts = 0;
             } else {
