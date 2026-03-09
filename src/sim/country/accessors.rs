@@ -351,7 +351,7 @@ impl Country {
         let total_exposure = self
             .banks
             .iter()
-            .flat_map(|bank| bank.stock_positions.values())
+            .flat_map(|bank| bank.stock_positions.iter())
             .map(|position| position.shares as f64 * position.avg_cost)
             .sum::<f64>();
         round_cents(total_exposure)

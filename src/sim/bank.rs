@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use super::{
     job::{JobTypeId, salary_for_job},
@@ -137,7 +137,7 @@ pub struct Bank {
     pub last_month_deposit_interest_expense: f64,
     pub last_month_credit_losses: f64,
     pub last_month_profit: f64,
-    pub stock_positions: HashMap<BankSecurityId, BankStockPosition>,
+    pub stock_positions: Vec<BankStockPosition>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -191,7 +191,7 @@ impl Bank {
             last_month_deposit_interest_expense: 0.0,
             last_month_credit_losses: 0.0,
             last_month_profit: 0.0,
-            stock_positions: HashMap::new(),
+            stock_positions: Vec::new(),
         }
     }
 

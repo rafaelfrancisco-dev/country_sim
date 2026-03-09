@@ -73,12 +73,11 @@ impl GoodsMarketDayCache {
         }
 
         world.fill_suppliers_by_good(&mut self.suppliers_by_good);
-        let tariff_rates_by_good = world.tariff_rates_by_good_for_month();
         for good_idx in 0..GOODS_COUNT {
             self.quote_templates_by_good[good_idx] = world.build_quote_templates_by_buyer(
                 good_idx as GoodId,
                 &self.suppliers_by_good[good_idx],
-                &tariff_rates_by_good,
+                &world.tariff_rates_by_good,
             );
         }
         self.supplier_lists_ready = true;

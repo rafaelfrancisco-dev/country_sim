@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use crate::sim::params::CompanyGrowthParams;
 use super::*;
 
 #[test]
@@ -53,7 +54,7 @@ fn growth_openings_require_profitability_and_reserve() {
     company.monthly_payroll_budget = 50_000.0;
     company.last_month_profit = 180_000.0;
 
-    let created = company.open_positions_from_growth(&SimulationParams::default(), 12);
+    let created = company.open_positions_from_growth(&CompanyGrowthParams::default(), 12);
 
     assert!(created > 0);
     assert!(!company.open_positions.is_empty());

@@ -257,7 +257,7 @@ impl World {
                 }
             }
         });
-        self.invalidate_tariff_rate_lookup_cache();
+        self.rebuild_tariff_matrix_in_place();
     }
 
     pub(in crate::sim::world) fn initial_discretionary_budgets(&self) -> Vec<Vec<i64>> {
@@ -287,40 +287,12 @@ impl World {
             .collect()
     }
 
-    pub(in crate::sim::world) fn tariff_rates_by_good_for_month(&self) -> Arc<Vec<Vec<f64>>> {
-        let world_ptr = self as *const Self as usize;
-        let month_stamp = self.countries.first().map_or(0, |country| country.month);
-        let country_count = self.countries.len();
-
-        TARIFF_RATE_LOOKUP_CACHE.with(|cache| {
-            let mut cached = cache.borrow_mut();
-            let needs_refresh = cached.as_ref().is_none_or(|entry| {
-                entry.world_ptr != world_ptr
-                    || entry.month_stamp != month_stamp
-                    || entry.country_count != country_count
-            });
-
-            if needs_refresh {
-                *cached = Some(TariffRateLookupCache {
-                    world_ptr,
-                    month_stamp,
-                    country_count,
-                    rates_by_good: Arc::new(self.rebuild_tariff_rates_by_good()),
-                });
-            }
-
-            cached
-                .as_ref()
-                .map(|entry| entry.rates_by_good.clone())
-                .unwrap_or_else(|| Arc::new(vec![vec![0.0; country_count]; GOODS_COUNT]))
-        })
-    }
-
-    pub(in crate::sim::world) fn rebuild_tariff_rates_by_good(&self) -> Vec<Vec<f64>> {
-        let country_count = self.countries.len();
+    pub(crate) fn build_tariff_rates_from_countries(
+        countries: &[crate::sim::country::Country],
+    ) -> Vec<Vec<f64>> {
+        let country_count = countries.len();
         let mut rates_by_good = vec![vec![0.0; country_count]; GOODS_COUNT];
-
-        for (seller_country_idx, country) in self.countries.iter().enumerate() {
+        for (seller_country_idx, country) in countries.iter().enumerate() {
             for (good_idx, rates) in rates_by_good.iter_mut().enumerate().take(GOODS_COUNT) {
                 rates[seller_country_idx] = country
                     .export_tariffs_by_good
@@ -329,20 +301,28 @@ impl World {
                     .unwrap_or(0.0);
             }
         }
-
         rates_by_good
     }
 
-    pub(in crate::sim::world) fn invalidate_tariff_rate_lookup_cache(&self) {
-        let world_ptr = self as *const Self as usize;
-        TARIFF_RATE_LOOKUP_CACHE.with(|cache| {
-            let mut cached = cache.borrow_mut();
-            if cached
-                .as_ref()
-                .is_some_and(|entry| entry.world_ptr == world_ptr)
-            {
-                *cached = None;
+    pub(in crate::sim::world) fn rebuild_tariff_matrix_in_place(&mut self) {
+        let country_count = self.countries.len();
+        if self.tariff_rates_by_good.len() != GOODS_COUNT {
+            self.tariff_rates_by_good = vec![vec![0.0; country_count]; GOODS_COUNT];
+        }
+        for (good_idx, rates) in self
+            .tariff_rates_by_good
+            .iter_mut()
+            .enumerate()
+            .take(GOODS_COUNT)
+        {
+            rates.resize(country_count, 0.0);
+            for (seller_country_idx, country) in self.countries.iter().enumerate() {
+                rates[seller_country_idx] = country
+                    .export_tariffs_by_good
+                    .get(good_idx)
+                    .copied()
+                    .unwrap_or(0.0);
             }
-        });
+        }
     }
 }

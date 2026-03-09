@@ -4,8 +4,9 @@ use crate::sim::money::round_cents;
 impl Bank {
     pub fn stock_position_shares(&self, security_id: BankSecurityId) -> u64 {
         self.stock_positions
-            .get(&security_id)
-            .map_or(0, |position| position.shares)
+            .iter()
+            .find(|p| p.security_id == security_id)
+            .map_or(0, |p| p.shares)
     }
 
     pub fn add_stock_shares(
@@ -18,7 +19,11 @@ impl Bank {
             return;
         }
         let cost_per_share = round_cents(cost_per_share.max(0.0));
-        if let Some(position) = self.stock_positions.get_mut(&security_id) {
+        if let Some(position) = self
+            .stock_positions
+            .iter_mut()
+            .find(|p| p.security_id == security_id)
+        {
             let total_cost =
                 position.avg_cost * position.shares as f64 + cost_per_share * shares as f64;
             position.shares = position.shares.saturating_add(shares);
@@ -29,13 +34,10 @@ impl Bank {
             };
             return;
         }
-        self.stock_positions.insert(
+        self.stock_positions.push(BankStockPosition {
             security_id,
-            BankStockPosition {
-                security_id,
-                shares,
-                avg_cost: cost_per_share,
-            },
-        );
+            shares,
+            avg_cost: cost_per_share,
+        });
     }
 }

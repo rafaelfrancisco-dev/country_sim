@@ -5,7 +5,7 @@ use super::{
     good::{GoodId, common_goods, good_by_id},
     job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
-    params::{GoodsMarketParams, LaborDemandParams, SimulationParams},
+    params::{CompanyGrowthParams, GoodsMarketParams, LaborDemandParams},
 };
 
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
@@ -312,12 +312,11 @@ impl Company {
         }
     }
 
-    pub fn can_expand_hiring(&self, params: &SimulationParams, payroll_reference: f64) -> bool {
+    pub fn can_expand_hiring(&self, params: &CompanyGrowthParams, payroll_reference: f64) -> bool {
         let required_cash = params
-            .company_growth
             .min_cash_reserve
-            .max(payroll_reference * params.company_growth.payroll_reserve_multiplier);
-        self.consecutive_profitable_months >= params.company_growth.min_profitable_months
+            .max(payroll_reference * params.payroll_reserve_multiplier);
+        self.consecutive_profitable_months >= params.min_profitable_months
             && self.cash_balance >= required_cash
     }
 
@@ -332,16 +331,16 @@ impl Company {
 
     pub fn open_positions_from_growth(
         &mut self,
-        params: &SimulationParams,
+        params: &CompanyGrowthParams,
         month_seed: u64,
     ) -> u16 {
         if !self.can_expand_hiring(params, self.monthly_payroll_budget) {
             return 0;
         }
 
-        let growth_step = params.company_growth.profit_per_opening.max(1.0);
+        let growth_step = params.profit_per_opening.max(1.0);
         let openings_to_add = ((self.last_month_profit / growth_step).floor() as i64 + 1)
-            .clamp(1, i64::from(params.company_growth.max_monthly_openings))
+            .clamp(1, i64::from(params.max_monthly_openings))
             as u16;
 
         let weighted_jobs = self

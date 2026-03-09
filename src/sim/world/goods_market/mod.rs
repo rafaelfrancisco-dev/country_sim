@@ -6,7 +6,6 @@ use crate::sim::{
 };
 use rand::Rng;
 use rayon::prelude::*;
-use std::sync::Arc;
 
 mod day_cache;
 mod demand_sampling;

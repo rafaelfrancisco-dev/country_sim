@@ -12,20 +12,10 @@ Analysis of performance pitfalls in the simulation codebase, organized by severi
 
 ## HIGH
 
-**6. Tariff matrix rebuilt every tick** (`goods_market/entrypoints.rs:284–328`)
-`rebuild_tariff_rates_by_good()` allocates a new `Vec<Vec<f64>>` each tick and is guarded by a `RefCell` pointer-comparison cache. Fix: store as a `World` field, update in-place when tariffs change.
+*(Issues #6, #7, #8, #10 have been fixed — see commit history.)*
 
-**7. HashMap for bank stock positions** (`bank.rs:139`)
-`stock_positions: HashMap<BankSecurityId, BankStockPosition>` causes cache-miss iteration during dividend distribution and monthly processing. Banks hold 5–10 positions at most. Fix: `SmallVec<[(BankSecurityId, BankStockPosition); 16]>` or `Vec` with linear scan.
-
-**8. `SimulationParams` clone in monthly growth** (`monthly_growth_backfill_public_wages.rs:10`)
-`let mut sim_params = self.sim_params.clone()` copies the entire ~2 KB params struct. Fix: take `&self.sim_params` or borrow only the sub-struct needed.
-
-**9. Sequential apply phase after parallel planning** (`goods_market/entrypoints.rs:175–195`)
-Rayon threads plan in parallel, then all purchases are applied serially per good. Fix: batch purchases by supplier and apply in parallel.
-
-**10. String clone in stock market ticker/name paths** (`stock_market/matching.rs`, `cross_market_stock.rs`)
-`equity.ticker.clone()` and `country.name.clone()` in per-tick matching. Fix: `Arc<str>` for all name-like fields.
+**9. Sequential apply phase after parallel planning** (`goods_market/round_robin.rs:141–204`)
+Rayon threads plan in parallel, then all purchases are applied serially per good. Fix: batch purchases by supplier and apply in parallel (complex due to shared buyer-country aggregates; deferred).
 
 ---
 
@@ -89,6 +79,8 @@ Cache it as a `last_health_score: f64` field updated once per month, invalidated
 | 3 | `collect()` in discretionary hot path (Critical #2) | 10–20% | Done |
 | 4 | `pending_non_zero` incremental init (Critical #3) | 5–10% | Done |
 | 5 | Retain-based round-robin active set (Critical #4) | 3–8% | Done |
-| 6 | Tariff matrix as World field (High #6) | 3–5% | Open |
-| 7 | `SimulationParams` no-clone (High #8) | 2–3% | Open |
-| 8 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |
+| 6 | Tariff matrix as World field (High #6) | 3–5% | Done |
+| 7 | HashMap → Vec for bank positions (High #7) | 1–2% | Done |
+| 8 | `SimulationParams` no-clone (High #8) | 2–3% | Done |
+| 9 | Sequential goods apply phase (High #9) | 2–4% | Open |
+| 10 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |

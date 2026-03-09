@@ -1,5 +1,4 @@
 use crate::sim::{good::GoodId, person::SUPERFICIAL_GOOD_SLOT_COUNT};
-use std::{cell::RefCell, sync::Arc};
 
 pub(in crate::sim::world) const PEOPLE_CHUNK_SIZE: usize = 2_048;
 pub(in crate::sim::world) const DYNAMIC_TARIFF_INCREASE_STEP: f64 = 0.05;
@@ -94,14 +93,6 @@ impl PlanningScratch {
     }
 }
 
-#[derive(Debug, Clone)]
-pub(in crate::sim::world) struct TariffRateLookupCache {
-    pub(in crate::sim::world) world_ptr: usize,
-    pub(in crate::sim::world) month_stamp: u64,
-    pub(in crate::sim::world) country_count: usize,
-    pub(in crate::sim::world) rates_by_good: Arc<Vec<Vec<f64>>>,
-}
-
 #[derive(Debug, Default)]
 pub(in crate::sim::world) struct RoundRobinScratch {
     pub(in crate::sim::world) pending_demands: Vec<Vec<u32>>,
@@ -112,10 +103,6 @@ pub(in crate::sim::world) struct RoundRobinScratch {
     /// Used to skip the buyer-slot scan when all demands are already satisfied.
     pub(in crate::sim::world) pending_non_zero: usize,
     pub(in crate::sim::world) planning: PlanningScratch,
-}
-
-thread_local! {
-    pub(in crate::sim::world) static TARIFF_RATE_LOOKUP_CACHE: RefCell<Option<TariffRateLookupCache>> = const { RefCell::new(None) };
 }
 
 impl RoundRobinScratch {

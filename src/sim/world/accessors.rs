@@ -17,6 +17,7 @@ impl World {
             .map(|c| c.sim_params.monetary.neutral_policy_rate)
             .unwrap_or(0.04);
 
+        let tariff_rates_by_good = Self::build_tariff_rates_from_countries(&countries);
         let mut world = Self {
             day: 0,
             generation_seed,
@@ -31,6 +32,7 @@ impl World {
             export_queue_active: false,
             stock_country_export_queue: Vec::new(),
             stock_equity_export_queue: Vec::new(),
+            tariff_rates_by_good,
         };
         world.capture_snapshot();
         world
