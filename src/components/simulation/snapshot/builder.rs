@@ -153,16 +153,9 @@ impl UiSnapshot {
             }
             RunningTab::Goods => {
                 let mut company_rows = Vec::new();
-                if selected_country.is_some() {
-                    let company_page_start = ui.company_page
-                        * crate::components::simulation::ui_state::COMPANY_PAGE_SIZE;
-                    for (row_idx, company) in ui
-                        .selected_companies_page(world)
-                        .unwrap_or(&[])
-                        .iter()
-                        .enumerate()
-                    {
-                        let absolute_idx = company_page_start + row_idx;
+                if let Some(country) = selected_country {
+                    let selected_abs = ui.selected_company_absolute_index();
+                    for (row_idx, company) in country.companies.iter().enumerate() {
                         let good_name = good_by_id(company.produced_good_id)
                             .map_or("Unknown", |good| good.name)
                             .to_string();
@@ -194,7 +187,7 @@ impl UiSnapshot {
                                 company.last_month_export_units_sold
                             ),
                             sales: money(company.last_month_sales, currency_symbol),
-                            is_selected: absolute_idx == ui.selected_company_absolute_index(),
+                            is_selected: row_idx == selected_abs,
                             is_even: row_idx.is_multiple_of(2),
                         });
                     }

@@ -183,36 +183,57 @@ impl UiState {
 
     pub(super) fn next_company_page(&mut self, world: &World) {
         self.selection_focus = SelectionFocus::Company;
-        let max_page = self.total_company_pages(world).saturating_sub(1);
-        if self.company_page < max_page {
-            self.company_page += 1;
+        let total = self
+            .selected_country(world)
+            .map_or(0, |c| c.companies.len());
+        if total == 0 {
+            return;
         }
-        self.clamp_selected_company_row(world);
+        let abs = self.selected_company_absolute_index();
+        let new_abs = (abs + COMPANY_PAGE_SIZE).min(total.saturating_sub(1));
+        self.company_page = new_abs / COMPANY_PAGE_SIZE;
+        self.selected_company_row = new_abs % COMPANY_PAGE_SIZE;
     }
 
     pub(super) fn prev_company_page(&mut self, world: &World) {
         self.selection_focus = SelectionFocus::Company;
-        self.company_page = self.company_page.saturating_sub(1);
-        self.clamp_selected_company_row(world);
+        let total = self
+            .selected_country(world)
+            .map_or(0, |c| c.companies.len());
+        if total == 0 {
+            return;
+        }
+        let abs = self.selected_company_absolute_index();
+        let new_abs = abs.saturating_sub(COMPANY_PAGE_SIZE);
+        self.company_page = new_abs / COMPANY_PAGE_SIZE;
+        self.selected_company_row = new_abs % COMPANY_PAGE_SIZE;
     }
 
     pub(super) fn select_next_company_row(&mut self, world: &World) {
         self.selection_focus = SelectionFocus::Company;
-        let len = self.selected_companies_page_len(world);
-        if len == 0 {
+        let total = self
+            .selected_country(world)
+            .map_or(0, |c| c.companies.len());
+        if total == 0 {
             self.selected_company_row = 0;
             return;
         }
-
-        let max_row = len.saturating_sub(1);
-        if self.selected_company_row < max_row {
-            self.selected_company_row += 1;
+        let abs = self.selected_company_absolute_index();
+        if abs + 1 < total {
+            let new_abs = abs + 1;
+            self.company_page = new_abs / COMPANY_PAGE_SIZE;
+            self.selected_company_row = new_abs % COMPANY_PAGE_SIZE;
         }
     }
 
     pub(super) fn select_prev_company_row(&mut self, _world: &World) {
         self.selection_focus = SelectionFocus::Company;
-        self.selected_company_row = self.selected_company_row.saturating_sub(1);
+        let abs = self.selected_company_absolute_index();
+        if abs > 0 {
+            let new_abs = abs - 1;
+            self.company_page = new_abs / COMPANY_PAGE_SIZE;
+            self.selected_company_row = new_abs % COMPANY_PAGE_SIZE;
+        }
     }
 
     pub(super) fn next_goods_production_page(&mut self) {
