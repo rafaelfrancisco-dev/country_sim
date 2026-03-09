@@ -92,7 +92,23 @@ pub(super) fn selected_company_related_events_snapshot(
 }
 
 fn event_matches_person(event: &SimEvent, selected_country_name: &str, person_id: u32) -> bool {
-    if event_country_name(event) != selected_country_name {
+    let selected_country_matches = match event {
+        SimEvent::PersonMigratedForWork {
+            from_country_name,
+            to_country_name,
+            ..
+        }
+        | SimEvent::PersonMigratedForDistress {
+            from_country_name,
+            to_country_name,
+            ..
+        } => {
+            from_country_name.as_ref() == selected_country_name
+                || to_country_name.as_ref() == selected_country_name
+        }
+        _ => event_country_name(event) == selected_country_name,
+    };
+    if !selected_country_matches {
         return false;
     }
 
@@ -117,10 +133,18 @@ fn event_matches_person(event: &SimEvent, selected_country_name: &str, person_id
             person_id: switched_person_id,
             ..
         }
+        | SimEvent::PersonMigratedForWork {
+            person_id: switched_person_id,
+            ..
+        }
         | SimEvent::StockMarginCall {
             person_id: switched_person_id,
             ..
         } => *switched_person_id == person_id,
+        SimEvent::PersonMigratedForDistress {
+            person_id: migrated_person_id,
+            ..
+        } => *migrated_person_id == person_id,
         _ => false,
     }
 }
@@ -241,6 +265,14 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::MortgagePaidOff { country_name, .. }
         | SimEvent::HousingPriceChanged { country_name, .. }
         | SimEvent::RentUnpaid { country_name, .. } => country_name,
+        SimEvent::PersonMigratedForWork {
+            from_country_name,
+            ..
+        }
+        | SimEvent::PersonMigratedForDistress {
+            from_country_name,
+            ..
+        } => from_country_name,
         SimEvent::ForeignDepositOpened {
             home_country_name: country_name,
             ..

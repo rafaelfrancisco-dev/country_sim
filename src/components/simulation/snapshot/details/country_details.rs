@@ -76,6 +76,16 @@ pub(in crate::components::simulation) fn country_details_lines(
             "Open Positions (slots): {}",
             compact_count(total_open_slots as f64)
         ),
+        format!(
+            "Migration Flow (In / Out): {} / {}",
+            compact_count(country.monthly_immigrants() as f64),
+            compact_count(country.monthly_emigrants() as f64)
+        ),
+        format!(
+            "Migration Mix (Work / Distress): {} / {}",
+            compact_count(country.monthly_migrants_for_work() as f64),
+            compact_count(country.monthly_migrants_for_distress() as f64)
+        ),
         format!("Listed Companies: {}", compact_count(listed_count as f64)),
         format!(
             "Banks (Public / In Resolution): {} ({} / {})",

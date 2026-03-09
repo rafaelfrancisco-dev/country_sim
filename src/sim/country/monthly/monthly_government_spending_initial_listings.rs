@@ -88,10 +88,12 @@ impl Country {
         for person in &mut self.people {
             let age = person.age_years();
             let is_working_age = (18..=65).contains(&age);
+            let mut paid_unemployment_benefit = false;
 
             // Track consecutive unemployment months
             if person.is_employed() {
                 person.months_unemployed = 0;
+                person.months_on_benefits = 0;
             } else if is_working_age {
                 person.months_unemployed = person.months_unemployed.saturating_add(1);
             }
@@ -110,6 +112,15 @@ impl Country {
                     self.treasury_balance = round_cents(self.treasury_balance - payout);
                     total_spent = round_cents(total_spent + payout);
                     total_recipients = total_recipients.saturating_add(1);
+                    paid_unemployment_benefit = true;
+                }
+            }
+
+            if !person.is_employed() && is_working_age {
+                if paid_unemployment_benefit {
+                    person.months_on_benefits = person.months_on_benefits.saturating_add(1);
+                } else {
+                    person.months_on_benefits = 0;
                 }
             }
 

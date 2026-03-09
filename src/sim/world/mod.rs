@@ -1,6 +1,7 @@
 mod accessors;
 mod bank_history;
 mod cross_country_banking;
+mod cross_country_migration;
 mod cross_country_stock_investing;
 mod cross_market_stock;
 mod export;
@@ -65,6 +66,10 @@ pub struct MetricPoint {
     pub housing_vacancy_rate: f64,
     pub monthly_foreclosures: f64,
     pub monthly_home_purchases: f64,
+    pub monthly_immigrants: f64,
+    pub monthly_emigrants: f64,
+    pub monthly_migrants_for_work: f64,
+    pub monthly_migrants_for_distress: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

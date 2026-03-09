@@ -188,6 +188,22 @@ pub enum SimEvent {
         monthly_salary: f64,
         day: u64,
     },
+    PersonMigratedForWork {
+        from_country_name: Arc<str>,
+        to_country_name: Arc<str>,
+        person_id: u32,
+        job_type_id: u8,
+        monthly_salary: f64,
+        day: u64,
+    },
+    PersonMigratedForDistress {
+        from_country_name: Arc<str>,
+        to_country_name: Arc<str>,
+        person_id: u32,
+        months_unemployed: u32,
+        months_on_benefits: u32,
+        day: u64,
+    },
     CompanyBankrupt {
         country_name: Arc<str>,
         company_id: u16,
@@ -357,7 +373,9 @@ impl SimEvent {
             | Self::CompanyWageCut { .. }
             | Self::CompanyLayoffs { .. }
             | Self::LaborChurnMonthly { .. }
-            | Self::JobSwitched { .. } => EventCategory::CompaniesLabor,
+            | Self::JobSwitched { .. }
+            | Self::PersonMigratedForWork { .. }
+            | Self::PersonMigratedForDistress { .. } => EventCategory::CompaniesLabor,
             Self::BankRunStarted { .. }
             | Self::BankRunWithdrawal { .. }
             | Self::BankResolutionStarted { .. }

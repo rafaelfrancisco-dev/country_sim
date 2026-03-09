@@ -209,15 +209,24 @@ impl Country {
     pub fn monthly_hires_total(&self) -> u64 {
         self.monthly_hires_total
     }
-
+    pub fn monthly_immigrants(&self) -> u64 {
+        self.monthly_immigrants
+    }
+    pub fn monthly_emigrants(&self) -> u64 {
+        self.monthly_emigrants
+    }
+    pub fn monthly_migrants_for_work(&self) -> u64 {
+        self.monthly_migrants_for_work
+    }
+    pub fn monthly_migrants_for_distress(&self) -> u64 {
+        self.monthly_migrants_for_distress
+    }
     pub fn export_tariffs_by_good(&self) -> &[f64; GOODS_COUNT] {
         &self.export_tariffs_by_good
     }
-
     pub fn pending_events(&self) -> &[SimEvent] {
         &self.pending_events
     }
-
     pub(crate) fn push_pending_event(&mut self, event: SimEvent) {
         self.pending_events.push(event);
     }

@@ -111,3 +111,20 @@ fn money_minted_event_is_government_policy_and_formats_with_currency() {
     assert!(formatted.contains("[MINT]"));
     assert!(formatted.contains("$12.5k"));
 }
+
+#[test]
+fn migration_event_is_companies_labor_and_formats_with_countries() {
+    let event = SimEvent::PersonMigratedForWork {
+        from_country_name: Arc::from("A"),
+        to_country_name: Arc::from("B"),
+        person_id: 7,
+        job_type_id: 2,
+        monthly_salary: 4_500.0,
+        day: 30,
+    };
+
+    assert_eq!(event.category(), EventCategory::CompaniesLabor);
+    let formatted = event.format_with_currency("$");
+    assert!(formatted.contains("[MOVE+]"));
+    assert!(formatted.contains("A -> B"));
+}

@@ -86,6 +86,10 @@ impl Country {
             monthly_chronic_unmet_need_count: 0,
             monthly_essential_debt_spending: 0.0,
             monthly_hires_total: 0,
+            monthly_immigrants: 0,
+            monthly_emigrants: 0,
+            monthly_migrants_for_work: 0,
+            monthly_migrants_for_distress: 0,
             monthly_private_banks_founded: 0,
             cumulative_private_banks_founded: 0,
             monthly_private_banks_closed: 0,
@@ -138,6 +142,10 @@ impl Country {
             use_inner_parallelism: true,
             runtime: super::runtime::CountryRuntime::default(),
         };
+        for person in &mut country.people {
+            person.birth_country_id = id;
+            person.current_country_id = id;
+        }
         country.ensure_entity_deposit_assignments();
         let initial_cpi = country.cpi_basket_index();
         country.cpi_index = initial_cpi;

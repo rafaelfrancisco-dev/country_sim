@@ -144,6 +144,10 @@ impl CsvExporter {
             "count_with_unmet_needs",
             "count_with_severe_unmet_needs",
             "count_with_chronic_unmet_needs",
+            "monthly_immigrants",
+            "monthly_emigrants",
+            "monthly_migrants_for_work",
+            "monthly_migrants_for_distress",
         ])?;
 
         company_agg.write_record([
@@ -192,6 +196,10 @@ impl CsvExporter {
             "debt_distress_events",
             "gov_transfers",
             "hires_total",
+            "monthly_immigrants",
+            "monthly_emigrants",
+            "monthly_migrants_for_work",
+            "monthly_migrants_for_distress",
             "stock_ipos",
             "stock_delistings",
             "stock_margin_calls",
@@ -361,6 +369,10 @@ impl CsvExporter {
             data.count_with_unmet_needs.to_string(),
             data.count_with_severe_unmet_needs.to_string(),
             data.count_with_chronic_unmet_needs.to_string(),
+            data.monthly_immigrants.to_string(),
+            data.monthly_emigrants.to_string(),
+            data.monthly_migrants_for_work.to_string(),
+            data.monthly_migrants_for_distress.to_string(),
         ])?;
 
         self.company_agg.write_record([
@@ -409,6 +421,10 @@ impl CsvExporter {
             data.debt_distress_events.to_string(),
             data.gov_transfers.to_string(),
             data.hires_total.to_string(),
+            data.monthly_immigrants.to_string(),
+            data.monthly_emigrants.to_string(),
+            data.monthly_migrants_for_work.to_string(),
+            data.monthly_migrants_for_distress.to_string(),
             data.stock_ipos.to_string(),
             data.stock_delistings.to_string(),
             data.stock_margin_calls.to_string(),

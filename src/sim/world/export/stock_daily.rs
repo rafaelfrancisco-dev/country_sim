@@ -201,6 +201,10 @@ pub struct CountryExportData {
     pub count_with_unmet_needs: usize,
     pub count_with_severe_unmet_needs: usize,
     pub count_with_chronic_unmet_needs: usize,
+    pub monthly_immigrants: u64,
+    pub monthly_emigrants: u64,
+    pub monthly_migrants_for_work: u64,
+    pub monthly_migrants_for_distress: u64,
     pub essential_goods: [EssentialGoodExportData; ESSENTIAL_GOOD_IDS.len()],
 
     // company_agg

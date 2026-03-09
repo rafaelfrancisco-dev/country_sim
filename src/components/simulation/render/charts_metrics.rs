@@ -229,6 +229,56 @@ impl Simulation {
                     axis_format: AxisValueFormat::Percent,
                 },
             ],
+            5 => [
+                ChartSpec {
+                    title: "Inbound Migration",
+                    color: Color::LightGreen,
+                    value_fn: Self::metric_monthly_immigrants,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Outbound Migration",
+                    color: Color::LightRed,
+                    value_fn: Self::metric_monthly_emigrants,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Net Migration",
+                    color: Color::LightBlue,
+                    value_fn: Self::metric_net_migration,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Work Migration",
+                    color: Color::Yellow,
+                    value_fn: Self::metric_monthly_migrants_for_work,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Distress Migration",
+                    color: Color::Magenta,
+                    value_fn: Self::metric_monthly_migrants_for_distress,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Immigration per 1k",
+                    color: Color::Cyan,
+                    value_fn: Self::metric_monthly_immigrants_per_1k,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Emigration per 1k",
+                    color: Color::LightYellow,
+                    value_fn: Self::metric_monthly_emigrants_per_1k,
+                    axis_format: AxisValueFormat::Count,
+                },
+                ChartSpec {
+                    title: "Gross Migration",
+                    color: Color::LightCyan,
+                    value_fn: Self::metric_gross_migration,
+                    axis_format: AxisValueFormat::Count,
+                },
+            ],
             _ => [
                 ChartSpec {
                     title: "Deposit Rate %",
@@ -373,5 +423,32 @@ impl Simulation {
         } else {
             (point.monthly_rent / point.housing_price_index) * 100.0
         }
+    }
+    metric_field_fn!(metric_monthly_immigrants, monthly_immigrants);
+    metric_field_fn!(metric_monthly_emigrants, monthly_emigrants);
+    metric_field_fn!(metric_monthly_migrants_for_work, monthly_migrants_for_work);
+    metric_field_fn!(
+        metric_monthly_migrants_for_distress,
+        monthly_migrants_for_distress
+    );
+    fn metric_net_migration(point: &MetricPoint) -> f64 {
+        point.monthly_immigrants - point.monthly_emigrants
+    }
+    fn metric_monthly_immigrants_per_1k(point: &MetricPoint) -> f64 {
+        if point.population <= 0.0 {
+            0.0
+        } else {
+            point.monthly_immigrants / point.population * 1_000.0
+        }
+    }
+    fn metric_monthly_emigrants_per_1k(point: &MetricPoint) -> f64 {
+        if point.population <= 0.0 {
+            0.0
+        } else {
+            point.monthly_emigrants / point.population * 1_000.0
+        }
+    }
+    fn metric_gross_migration(point: &MetricPoint) -> f64 {
+        point.monthly_immigrants + point.monthly_emigrants
     }
 }

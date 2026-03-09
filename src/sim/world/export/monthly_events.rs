@@ -22,6 +22,8 @@ pub(super) struct EventCounts {
     pub(super) loans_defaulted: u64,
     pub(super) debt_distress_events: u64,
     pub(super) gov_transfers: u64,
+    pub(super) migrations_for_work: u64,
+    pub(super) migrations_for_distress: u64,
     pub(super) stock_ipos: u64,
     pub(super) stock_delistings: u64,
     pub(super) stock_margin_calls: u64,
@@ -60,6 +62,8 @@ impl EventCounts {
             SimEvent::LoanWrittenOff { .. } => self.loans_defaulted += 1,
             SimEvent::DebtDistress { .. } => self.debt_distress_events += 1,
             SimEvent::GovTransfer { .. } => self.gov_transfers += 1,
+            SimEvent::PersonMigratedForWork { .. } => self.migrations_for_work += 1,
+            SimEvent::PersonMigratedForDistress { .. } => self.migrations_for_distress += 1,
             SimEvent::StockIpo { .. } => self.stock_ipos += 1,
             SimEvent::StockDelisted { .. } => self.stock_delistings += 1,
             SimEvent::StockMarginCall { .. } => self.stock_margin_calls += 1,
@@ -130,6 +134,16 @@ pub(super) fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::JobSwitched {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::PersonMigratedForWork {
+            from_country_name,
+            day,
+            ..
+        } => (from_country_name, *day),
+        SimEvent::PersonMigratedForDistress {
+            from_country_name,
+            day,
+            ..
+        } => (from_country_name, *day),
         SimEvent::CompanyBankrupt {
             country_name, day, ..
         } => (country_name, *day),

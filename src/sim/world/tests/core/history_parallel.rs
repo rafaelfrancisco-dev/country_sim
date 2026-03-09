@@ -125,6 +125,10 @@ fn aggregate_history_matches_country_sums() {
             housing_vacancy_rate: 0.0,
             monthly_foreclosures: 0.0,
             monthly_home_purchases: 0.0,
+            monthly_immigrants: 0.0,
+            monthly_emigrants: 0.0,
+            monthly_migrants_for_work: 0.0,
+            monthly_migrants_for_distress: 0.0,
         },
         |acc, point| MetricPoint {
             month: acc.month.max(point.month),
@@ -174,6 +178,12 @@ fn aggregate_history_matches_country_sums() {
             housing_vacancy_rate: acc.housing_vacancy_rate + point.housing_vacancy_rate,
             monthly_foreclosures: acc.monthly_foreclosures + point.monthly_foreclosures,
             monthly_home_purchases: acc.monthly_home_purchases + point.monthly_home_purchases,
+            monthly_immigrants: acc.monthly_immigrants + point.monthly_immigrants,
+            monthly_emigrants: acc.monthly_emigrants + point.monthly_emigrants,
+            monthly_migrants_for_work: acc.monthly_migrants_for_work
+                + point.monthly_migrants_for_work,
+            monthly_migrants_for_distress: acc.monthly_migrants_for_distress
+                + point.monthly_migrants_for_distress,
         },
     );
 

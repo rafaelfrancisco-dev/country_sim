@@ -39,6 +39,7 @@ impl World {
         if self.day.is_multiple_of(DAYS_PER_MONTH) {
             hooks.on_monthly_start();
             hooks.run_monthly_country_processing(self);
+            self.process_cross_country_migration();
             self.process_cross_market_stock_dividends();
             self.cleanup_stale_cross_market_positions();
             self.process_cross_country_deposits();

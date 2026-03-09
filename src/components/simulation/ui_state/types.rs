@@ -3,7 +3,7 @@ pub const COUNTRY_PAGE_SIZE: usize = 10;
 pub const COMPANY_PAGE_SIZE: usize = 12;
 pub const BANK_PAGE_SIZE: usize = 12;
 pub const GOODS_PRODUCTION_PAGE_SIZE: usize = 8;
-pub const CHART_PAGE_COUNT: usize = 7;
+pub const CHART_PAGE_COUNT: usize = 8;
 pub const DISASTER_INTENSITY_COUNT: usize = crate::sim::DISASTER_INTENSITY_LEVELS.len();
 pub const DISASTER_KIND_COUNT: usize = crate::sim::DISASTER_KIND_COUNT;
 

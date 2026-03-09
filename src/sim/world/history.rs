@@ -69,6 +69,10 @@ impl World {
         let mut stock_bank_equity_exposure = 0.0_f64;
         let mut monthly_foreclosures = 0.0_f64;
         let mut monthly_home_purchases = 0.0_f64;
+        let mut monthly_immigrants = 0.0_f64;
+        let mut monthly_emigrants = 0.0_f64;
+        let mut monthly_migrants_for_work = 0.0_f64;
+        let mut monthly_migrants_for_distress = 0.0_f64;
         // Accumulators for averages.
         let mut cpi_index_sum = 0.0_f64;
         let mut inflation_rate_sum = 0.0_f64;
@@ -115,6 +119,10 @@ impl World {
                 .unwrap_or_else(|| self.market_bank_portfolio_value(country.id()));
             monthly_foreclosures += country.monthly_foreclosures() as f64;
             monthly_home_purchases += country.monthly_home_purchases() as f64;
+            monthly_immigrants += country.monthly_immigrants() as f64;
+            monthly_emigrants += country.monthly_emigrants() as f64;
+            monthly_migrants_for_work += country.monthly_migrants_for_work() as f64;
+            monthly_migrants_for_distress += country.monthly_migrants_for_distress() as f64;
             cpi_index_sum += country.cpi_index();
             inflation_rate_sum += country.monthly_inflation_rate();
             housing_price_index_sum += country.housing_price_index();
@@ -174,6 +182,10 @@ impl World {
             housing_vacancy_rate: housing_vacancy_rate_sum / n,
             monthly_foreclosures,
             monthly_home_purchases,
+            monthly_immigrants,
+            monthly_emigrants,
+            monthly_migrants_for_work,
+            monthly_migrants_for_distress,
         }
     }
 
@@ -224,6 +236,10 @@ impl World {
             housing_vacancy_rate: country.housing_vacancy_rate(),
             monthly_foreclosures: country.monthly_foreclosures() as f64,
             monthly_home_purchases: country.monthly_home_purchases() as f64,
+            monthly_immigrants: country.monthly_immigrants() as f64,
+            monthly_emigrants: country.monthly_emigrants() as f64,
+            monthly_migrants_for_work: country.monthly_migrants_for_work() as f64,
+            monthly_migrants_for_distress: country.monthly_migrants_for_distress() as f64,
         }
     }
 

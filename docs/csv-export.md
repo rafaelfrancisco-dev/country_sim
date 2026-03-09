@@ -139,6 +139,10 @@ Population and labour aggregates per country per month.
 | `count_with_unmet_needs` | integer | Persons with at least one unmet essential good last month (masked to goods `0..=4`) |
 | `count_with_severe_unmet_needs` | integer | Persons with at least one severe unmet essential good last month |
 | `count_with_chronic_unmet_needs` | integer | Persons whose severe unmet status has persisted for multiple months |
+| `monthly_immigrants` | integer | People who moved into the country this month |
+| `monthly_emigrants` | integer | People who moved out of the country this month |
+| `monthly_migrants_for_work` | integer | Migration arrivals/departures classified as work-driven |
+| `monthly_migrants_for_distress` | integer | Migration arrivals/departures classified as distress-driven |
 
 ---
 
@@ -199,6 +203,10 @@ Discrete simulation event counts per country per month. Each column is the count
 | `debt_distress_events` | integer | Missed loan payment events |
 | `gov_transfers` | integer | Government benefit transfer batches paid |
 | `hires_total` | integer | Total unemployed→employed transitions during the month |
+| `monthly_immigrants` | integer | People who moved into the country this month |
+| `monthly_emigrants` | integer | People who moved out of the country this month |
+| `monthly_migrants_for_work` | integer | Migration events driven by irresistible foreign offers |
+| `monthly_migrants_for_distress` | integer | Migration events driven by prolonged unemployment/benefit distress |
 | `stock_ipos` | integer | Companies that completed an IPO |
 | `stock_delistings` | integer | Companies that were delisted |
 | `stock_margin_calls` | integer | Person margin call liquidations |
@@ -209,6 +217,7 @@ Discrete simulation event counts per country per month. Each column is the count
 
 - Snapshot timing: month-close now refreshes cached export aggregates first, then runs `capture_snapshot()`, then `push_export_snapshot()`, and only then `Country::reset_month_trackers()`. This keeps all `monthly_*` fields readable while also letting export/history consume cached aggregates instead of rescanning all people, companies, banks, and essential-good state.
 - Event timing: month-end events (from `process_month_end`) are still in `country.pending_events` when export rows are built, so they are counted directly; events from days 1–29 are filtered from `world.event_log` by day range.
+- Migration timing: the world migration pass runs after country month-close and before snapshot/export capture, so exported population, labor counts, and migration counters already reflect that month's transfers.
 - Essential unmet semantics: stockable essentials now buy toward a monthly target plus buffer and are scored at month-end. `count_with_unmet_needs` is now masked to essential goods only, so the headline people aggregate no longer mixes in non-essential deprivation.
 - The `CsvExporter` is opened lazily on the first month boundary, so the files are only created if the simulation actually runs past day 30.
 - Each run opens files with `File::create` (truncate), so re-running with the same seed and output directory will overwrite the previous files.

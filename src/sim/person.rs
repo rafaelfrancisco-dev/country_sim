@@ -115,6 +115,8 @@ pub enum ClearedEmployment {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Person {
     pub id: u32,
+    pub birth_country_id: u16,
+    pub current_country_id: u16,
     pub employment: EmploymentStatus,
     pub employment_start_day: Option<u64>,
     pub agreed_monthly_salary: f64,
@@ -149,6 +151,10 @@ pub struct Person {
     pub housing: HousingStatus,
     /// Consecutive months this person has been unemployed (resets to 0 on employment).
     pub months_unemployed: u32,
+    /// Consecutive months this person received unemployment benefits.
+    pub months_on_benefits: u32,
+    pub lifetime_migrations: u32,
+    pub last_migration_day: Option<u64>,
     pub essential_stock_units: [f32; ESSENTIAL_STOCK_SLOT_COUNT],
     pub superficial_stock_units: [u16; SUPERFICIAL_GOOD_SLOT_COUNT],
     pub superficial_stock_consumption_carry: [f32; SUPERFICIAL_GOOD_SLOT_COUNT],
@@ -180,6 +186,8 @@ impl Person {
     ) -> Self {
         let mut person = Self {
             id,
+            birth_country_id: 0,
+            current_country_id: 0,
             employment,
             employment_start_day: None,
             agreed_monthly_salary: 0.0,
@@ -213,6 +221,9 @@ impl Person {
             last_month_mortgage_payment: 0.0,
             housing: HousingStatus::Unhoused,
             months_unemployed: 0,
+            months_on_benefits: 0,
+            lifetime_migrations: 0,
+            last_migration_day: None,
             essential_stock_units: [0.0; ESSENTIAL_STOCK_SLOT_COUNT],
             superficial_stock_units: [0; SUPERFICIAL_GOOD_SLOT_COUNT],
             superficial_stock_consumption_carry: [0.0; SUPERFICIAL_GOOD_SLOT_COUNT],
@@ -430,6 +441,12 @@ impl Person {
         } else {
             0.0
         }
+    }
+
+    pub fn record_migration(&mut self, destination_country_id: u16, current_day: u64) {
+        self.current_country_id = destination_country_id;
+        self.lifetime_migrations = self.lifetime_migrations.saturating_add(1);
+        self.last_migration_day = Some(current_day);
     }
 
     pub fn reset_monthly_trackers(&mut self) {

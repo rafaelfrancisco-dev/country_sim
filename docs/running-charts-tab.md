@@ -118,22 +118,34 @@ The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `P
 
 This page focuses on bank transmission and credit quality without repeating charts from page 3. Deposit and loan rates show policy passthrough; spread is the gross intermediation margin; real deposit and real loan rates adjust for inflation; monthly savings interest paid shows cash transfer to depositors; credit-to-money tracks leverage in the money stock; reserve coverage tracks liquid backing against the loan book.
 
-### Page 5 — World Cross-Sectional Pie Charts
+### Page 5 — Country Migration Flow
+This page is meaningful only for selected-country scope.
+
+| Row | Left | Right |
+|---|---|---|
+| 1 | Inbound Migration | Outbound Migration |
+| 2 | Net Migration | Work Migration |
+| 3 | Distress Migration | Immigration per 1k |
+| 4 | Emigration per 1k | Gross Migration |
+
+When chart scope is `World Aggregate`, this page shows a placeholder instead of an aggregate migration chart.
+
+### Page 6 — World Cross-Sectional Pie Charts
 | Row | Left | Right |
 |---|---|---|
 | 1 | Population by Country | Total Money Supply by Country |
 | 2 | Stock Market Cap by Country | Treasury Balance by Country |
 
-### Page 6 — Selected-Country Pie Charts
+### Page 7 — Selected-Country Pie Charts
 | Row | Left | Right |
 |---|---|---|
 | 1 | Education Track | Employment Status |
 | 2 | Age Brackets | Wealth Breakdown |
 
-Pages 5-6 are cross-sectional instead of time-series:
-- page 5 compares all countries at the current snapshot
-- page 6 always uses the selected country
-- `t` does not affect pages 5-6 because these charts are not scope-based history views
+Pages 6-7 are cross-sectional instead of time-series:
+- page 6 compares all countries at the current snapshot
+- page 7 always uses the selected country
+- `t` does not affect pages 6-7 because these charts are not scope-based history views
 - the pie charts are split across two pages so legends stay visible on shorter terminals
 
-Pages 1-4 are line charts with dynamic axis bounds and month-based x-axis labels. Pages 5-6 use pie charts with legends and percentages.
+Pages 1-5 are line charts with dynamic axis bounds and month-based x-axis labels. Pages 6-7 use pie charts with legends and percentages.

@@ -311,6 +311,37 @@ impl LaborChurnParams {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct MigrationParams {
+    pub enabled: bool,
+    pub long_term_unemployment_months: u32,
+    pub benefit_exhaustion_bonus_months: u32,
+    pub chronic_unmet_needs_months: u8,
+    pub base_monthly_migration_rate: f64,
+    pub destination_unemployment_guard: f64,
+    pub irresistible_offer_salary_premium: f64,
+    pub irresistible_offer_min_open_slots: u16,
+    pub cash_buffer_required: f64,
+    pub migration_cooldown_months: u32,
+}
+
+impl Default for MigrationParams {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            long_term_unemployment_months: 10,
+            benefit_exhaustion_bonus_months: 2,
+            chronic_unmet_needs_months: 4,
+            base_monthly_migration_rate: 0.08,
+            destination_unemployment_guard: 0.16,
+            irresistible_offer_salary_premium: 0.30,
+            irresistible_offer_min_open_slots: 3,
+            cash_buffer_required: 100.0,
+            migration_cooldown_months: 6,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct GoodsMarketParams {
     pub tariff_rate: f64,
     pub worker_effort_per_month: f64,
@@ -376,6 +407,7 @@ pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,
     pub labor: LaborParams,
+    pub migration: MigrationParams,
     pub essentials: EssentialEconomyParams,
     pub annual_wage_raise: AnnualWageRaiseParams,
     pub labor_churn: LaborChurnParams,

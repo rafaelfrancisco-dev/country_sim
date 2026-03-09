@@ -155,6 +155,10 @@ impl Country {
         self.monthly_chronic_unmet_need_count = 0;
         self.monthly_essential_debt_spending = 0.0;
         self.monthly_hires_total = 0;
+        self.monthly_immigrants = 0;
+        self.monthly_emigrants = 0;
+        self.monthly_migrants_for_work = 0;
+        self.monthly_migrants_for_distress = 0;
         self.monthly_private_banks_founded = 0;
         self.monthly_private_banks_closed = 0;
         self.monthly_gov_spending = 0.0;

@@ -19,6 +19,10 @@ People carry:
 - `habilitation`: `NoSchoolYet`, `BasicSchool`, `HighSchool`, `HigherLearning`
 - `employment`: `Unemployed` or `Employed { job_type_id, employer_company_id }`
 - `agreed_monthly_salary` (employment contract salary; 0 for unemployed)
+- `months_unemployed`
+- `months_on_benefits`
+- `birth_country_id`, `current_country_id`
+- `lifetime_migrations`, `last_migration_day`
 
 ### Habilitation Progression
 - age < 12: `NoSchoolYet`
@@ -90,6 +94,15 @@ For unemployed, eligible people:
 - On switch:
   - worker moves to target and adopts offered salary
   - prior employer receives a replacement opening at the worker's previous salary
+
+### Monthly Cross-Country Migration
+- Evaluated once per month at `World` scope after all countries finish month-end processing.
+- Distress migration targets long-term unemployed workers with prolonged benefits or chronic severe unmet needs.
+- Work migration targets already-employed workers only when a foreign same-job opening exceeds the current contract by the configured irresistible premium.
+- Destination countries must pass an unemployment guard and offer compatible openings for the person's habilitation.
+- Migration physically moves the `Person` record between countries.
+- Distress migrants may arrive unemployed; work migrants consume a destination opening and arrive already employed.
+- Housing resets to `Unhoused`; deposit placement and loan lender are reattached locally in the destination country.
 
 ## Monthly Labor Churn + Separations
 Independent from the distress/bankruptcy path, month-end processing includes labor churn for employed workers:

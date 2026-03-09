@@ -214,6 +214,27 @@ pub(super) fn format_event(event: &SimEvent, currency_symbol: &str) -> String {
             "[SWITCH] Day {day:>6} | {country_name}: Person #{person_id} switched Company #{from_company_id} -> #{to_company_id} at {}/mo",
             format_money(*monthly_salary, currency_symbol)
         ),
+        SimEvent::PersonMigratedForWork {
+            from_country_name,
+            to_country_name,
+            person_id,
+            job_type_id,
+            monthly_salary,
+            day,
+        } => format!(
+            "[MOVE+] Day {day:>6} | {from_country_name} -> {to_country_name}: Person #{person_id} moved for job #{job_type_id} at {}/mo",
+            format_money(*monthly_salary, currency_symbol)
+        ),
+        SimEvent::PersonMigratedForDistress {
+            from_country_name,
+            to_country_name,
+            person_id,
+            months_unemployed,
+            months_on_benefits,
+            day,
+        } => format!(
+            "[MOVE!] Day {day:>6} | {from_country_name} -> {to_country_name}: Person #{person_id} relocated after {months_unemployed} unemployed month(s) and {months_on_benefits} benefit month(s)"
+        ),
         SimEvent::CompanyBankrupt {
             country_name,
             company_id,

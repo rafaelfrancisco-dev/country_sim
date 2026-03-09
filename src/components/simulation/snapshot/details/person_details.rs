@@ -34,6 +34,8 @@ pub(in crate::components::simulation) fn person_details_lines(
     let mut lines = vec![
         format!("Name: {name}"),
         format!("Citizen ID: {}", person.id),
+        format!("Birth Country ID: {}", person.birth_country_id),
+        format!("Current Country ID: {}", person.current_country_id),
         format!("Country: {}", country.name),
         format!("Day: {}", world.day),
         format!("Age: {}", person.age_years()),
@@ -50,6 +52,16 @@ pub(in crate::components::simulation) fn person_details_lines(
         format!(
             "Cash Balance: {}",
             money(person.cash_balance, currency_symbol)
+        ),
+        format!("Months Unemployed: {}", person.months_unemployed),
+        format!("Months On Benefits: {}", person.months_on_benefits),
+        format!("Lifetime Migrations: {}", person.lifetime_migrations),
+        format!(
+            "Last Migration Day: {}",
+            person
+                .last_migration_day
+                .map(|day| day.to_string())
+                .unwrap_or_else(|| "Never".to_string())
         ),
         format!(
             "Loan Debt: {}",

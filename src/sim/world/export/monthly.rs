@@ -124,6 +124,10 @@ fn collect_country_data(
         count_with_unmet_needs: cache.count_with_unmet_needs,
         count_with_severe_unmet_needs: cache.count_with_severe_unmet_needs,
         count_with_chronic_unmet_needs: cache.count_with_chronic_unmet_needs,
+        monthly_immigrants: country.monthly_immigrants(),
+        monthly_emigrants: country.monthly_emigrants(),
+        monthly_migrants_for_work: country.monthly_migrants_for_work(),
+        monthly_migrants_for_distress: country.monthly_migrants_for_distress(),
         essential_goods: cache.essential_goods,
         total_companies: country.companies().len(),
         total_employees: cache.total_employees,
@@ -201,6 +205,10 @@ mod tests {
 
         let country = Country::with_economy(1, "A".to_string(), vec![person], companies, 0.0);
         let mut world = World::new(vec![country]);
+        world.countries[0].monthly_immigrants = 2;
+        world.countries[0].monthly_emigrants = 1;
+        world.countries[0].monthly_migrants_for_work = 1;
+        world.countries[0].monthly_migrants_for_distress = 2;
         world.refresh_monthly_export_caches();
         let empty_log = std::collections::VecDeque::new();
         let data = collect_country_data(&world, 0, &world.countries[0], &empty_log, 1, 1);
@@ -210,5 +218,9 @@ mod tests {
         assert_eq!(data.essential_goods[0].producer_count, 1);
         assert_eq!(data.essential_goods[0].public_utility_count, 1);
         assert!(data.essential_goods[0].inventory_cover_months > 0.0);
+        assert_eq!(data.monthly_immigrants, 2);
+        assert_eq!(data.monthly_emigrants, 1);
+        assert_eq!(data.monthly_migrants_for_work, 1);
+        assert_eq!(data.monthly_migrants_for_distress, 2);
     }
 }
