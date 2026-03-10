@@ -27,15 +27,22 @@ fn sample_fx_tab(summary_lines: usize, pair_lines: usize, breakdown_lines: usize
 }
 
 #[test]
-fn fx_top_height_grows_to_fit_reserve_breakdown_when_space_is_available() {
-    let tab = sample_fx_tab(7, 5, 3);
+fn fx_top_height_uses_extra_columns_when_width_allows() {
+    let tab = sample_fx_tab(7, 5, 4);
 
-    assert_eq!(Simulation::fx_top_height(40, &tab), 12);
+    assert_eq!(Simulation::fx_top_height(160, 40, &tab), 10);
+}
+
+#[test]
+fn fx_top_height_grows_when_reserve_table_wraps() {
+    let tab = sample_fx_tab(7, 5, 4);
+
+    assert_eq!(Simulation::fx_top_height(60, 40, &tab), 13);
 }
 
 #[test]
 fn fx_top_height_stays_at_baseline_when_terminal_has_no_spare_height() {
-    let tab = sample_fx_tab(7, 5, 3);
+    let tab = sample_fx_tab(7, 5, 4);
 
-    assert_eq!(Simulation::fx_top_height(32, &tab), 10);
+    assert_eq!(Simulation::fx_top_height(120, 32, &tab), 10);
 }

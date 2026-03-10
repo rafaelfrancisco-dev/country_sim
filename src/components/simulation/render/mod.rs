@@ -8,6 +8,7 @@ mod disaster_markers;
 mod disasters;
 mod events;
 mod fx;
+mod fx_summary;
 mod goods;
 mod goods_overview;
 mod running;

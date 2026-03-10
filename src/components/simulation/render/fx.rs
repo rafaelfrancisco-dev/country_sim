@@ -10,7 +10,10 @@ use ratatui::{
     },
 };
 
-use super::super::{Simulation, theme};
+use super::{
+    super::{Simulation, theme},
+    fx_summary,
+};
 use crate::components::simulation::{
     hotkeys,
     snapshot::{FxRowSnapshot, FxTabSnapshot, RunningSnapshot, compact_num},
@@ -42,7 +45,7 @@ impl Simulation {
         _world: &RunningSnapshot,
         tab: &FxTabSnapshot,
     ) -> String {
-        let top_height = Self::fx_top_height(body.height, tab);
+        let top_height = Self::fx_top_height(body.width, body.height, tab);
         let [top, middle, bottom] = Layout::vertical([
             Constraint::Length(top_height),
             Constraint::Min(FX_MIDDLE_MIN_HEIGHT),
@@ -60,7 +63,7 @@ impl Simulation {
         ])
         .areas(bottom);
 
-        self.draw_fx_summary(frame, summary_area, tab);
+        fx_summary::draw_fx_summary(frame, summary_area, tab);
         self.draw_fx_pairs(frame, pairs_area, tab);
         self.draw_fx_table(frame, middle, tab);
         self.draw_fx_chart(
@@ -104,58 +107,15 @@ impl Simulation {
         )
     }
 
-    fn draw_fx_summary(&self, frame: &mut Frame, area: Rect, tab: &FxTabSnapshot) {
-        let mut lines: Vec<Line<'_>> = tab
-            .selected_fx_summary_lines
-            .iter()
-            .map(|line| Line::raw(line.as_str()))
-            .collect();
-
-        if !tab.selected_reserves_breakdown.is_empty() {
-            let colors = [
-                Color::Cyan,
-                Color::Green,
-                Color::Yellow,
-                Color::Magenta,
-                Color::LightBlue,
-                Color::LightGreen,
-            ];
-            let mut color_idx = 0;
-            for entry in &tab.selected_reserves_breakdown {
-                let color = colors[color_idx % colors.len()];
-                color_idx += 1;
-                lines.push(Line::styled(
-                    format!(
-                        "  {}: {} {}",
-                        entry.currency_code,
-                        compact_num(entry.amount_local),
-                        entry.currency_symbol,
-                    ),
-                    Style::default().fg(color),
-                ));
-            }
-        }
-
-        let block = Block::default()
-            .title(" Selected FX Summary ")
-            .borders(Borders::ALL)
-            .border_style(theme::neutral_border())
-            .title_style(theme::primary_text());
-        frame.render_widget(
-            Paragraph::new(lines)
-                .style(theme::primary_text())
-                .wrap(Wrap { trim: false })
-                .block(block),
-            area,
+    fn fx_top_height(body_width: u16, body_height: u16, tab: &FxTabSnapshot) -> u16 {
+        let summary_width = body_width / 2;
+        let reserve_rows = fx_summary::reserve_summary_row_count(
+            summary_width,
+            tab.selected_reserves_breakdown.len(),
         );
-    }
-
-    fn fx_top_height(body_height: u16, tab: &FxTabSnapshot) -> u16 {
-        let summary_height = u16::try_from(
-            tab.selected_fx_summary_lines.len() + tab.selected_reserves_breakdown.len(),
-        )
-        .unwrap_or(u16::MAX)
-        .saturating_add(2);
+        let summary_height = u16::try_from(tab.selected_fx_summary_lines.len() + reserve_rows)
+            .unwrap_or(u16::MAX)
+            .saturating_add(2);
         let pairs_height = u16::try_from(tab.pair_board_lines.len().max(1))
             .unwrap_or(u16::MAX)
             .saturating_add(2);
