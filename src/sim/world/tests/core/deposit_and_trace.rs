@@ -27,11 +27,12 @@ fn cross_country_deposit_open_targets_best_foreign_private_bank() {
         .reserve_balance;
 
     let mut world = World::new(vec![home, foreign]);
+    let expected_settlement = world.convert_between_countries(0, 1, 5_000.0);
     world.process_cross_country_deposits();
 
     let home = &world.countries[0];
     let foreign = &world.countries[1];
-    let expected_amount = 5_000.0;
+    let expected_amount = expected_settlement.payee_amount_local;
 
     assert_eq!(
         home.people[0].foreign_deposit,
@@ -39,6 +40,8 @@ fn cross_country_deposit_open_targets_best_foreign_private_bank() {
             country_id: foreign.id,
             bank_id: foreign_private_bank_id,
             balance: expected_amount,
+            home_amount_at_open: 5_000.0,
+            opening_fx_rate_home_per_foreign: 5_000.0 / expected_amount,
         })
     );
     assert_eq!(home.people[0].cash_balance, 15_000.0);
@@ -68,9 +71,9 @@ fn cross_country_deposit_open_targets_best_foreign_private_bank() {
         event,
         SimEvent::ForeignDepositOpened {
             bank_id,
-            amount,
+            home_amount,
             ..
-        } if *bank_id == foreign_private_bank_id && (*amount - expected_amount).abs() < 0.01
+        } if *bank_id == foreign_private_bank_id && (*home_amount - 5_000.0).abs() < 0.01
     )));
 }
 
@@ -87,6 +90,8 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
         country_id: foreign.id,
         bank_id: foreign_private_bank_id,
         balance: 12_000.0,
+        home_amount_at_open: 12_000.0,
+        opening_fx_rate_home_per_foreign: 1.0,
     });
     foreign.policy_rate = 0.03;
     foreign.sim_params.monetary.deposit_spread = 0.01;
@@ -119,11 +124,14 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
         .foreign_deposit_liabilities;
 
     let mut world = World::new(vec![home, foreign]);
+    let expected_home_interest = world
+        .convert_between_countries(1, 0, expected_interest)
+        .payee_amount_local;
     world.process_cross_country_deposits();
 
     let home = &world.countries[0];
     let foreign = &world.countries[1];
-    assert_eq!(home.people[0].cash_balance, 1_000.0 + expected_interest);
+    assert_eq!(home.people[0].cash_balance, 1_000.0 + expected_home_interest);
     assert_eq!(
         home.people[0]
             .foreign_deposit
@@ -172,6 +180,8 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
         country_id: foreign.id,
         bank_id: foreign_private_bank_id,
         balance: 8_000.0,
+        home_amount_at_open: 8_000.0,
+        opening_fx_rate_home_per_foreign: 1.0,
     });
     foreign.policy_rate = 0.0;
     foreign.sim_params.monetary.deposit_spread = 0.0;
@@ -198,11 +208,17 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
         .foreign_deposit_liabilities;
 
     let mut world = World::new(vec![home, foreign]);
+    let expected_returned_home = world
+        .convert_between_countries(1, 0, 8_000.0)
+        .payee_amount_local;
+    let expected_interest_home = world
+        .convert_between_countries(1, 0, 0.0)
+        .payee_amount_local;
     world.process_cross_country_deposits();
 
     let home = &world.countries[0];
     let foreign = &world.countries[1];
-    assert_eq!(home.people[0].cash_balance, 8_100.0);
+    assert_eq!(home.people[0].cash_balance, 100.0 + expected_interest_home + expected_returned_home);
     assert!(home.people[0].foreign_deposit.is_none());
     assert_eq!(
         foreign.public_bank().unwrap().reserve_balance,
@@ -229,8 +245,8 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
     assert!(home.pending_events.iter().any(|event| matches!(
         event,
         SimEvent::ForeignDepositClosed {
-            returned_amount, ..
-        } if (*returned_amount - 8_000.0).abs() < 0.01
+            returned_foreign_amount, ..
+        } if (*returned_foreign_amount - 8_000.0).abs() < 0.01
     )));
 }
 

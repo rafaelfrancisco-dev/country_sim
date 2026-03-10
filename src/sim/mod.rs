@@ -1,6 +1,7 @@
 pub mod bank;
 pub mod company;
 pub mod country;
+pub mod currency;
 pub mod disaster;
 pub mod engine;
 pub mod essentials;

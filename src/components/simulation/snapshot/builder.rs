@@ -22,8 +22,6 @@ impl UiSnapshot {
     ) -> Self {
         let phase = match phase {
             GamePhase::Setup(setup) => {
-                ui_state.currency_symbol =
-                    normalized_currency_symbol(&setup.currency_symbol_input).to_string();
                 SnapshotPhase::Setup(Box::new(SetupSnapshot::from_setup_form(setup, false)))
             }
             GamePhase::Running(world) => SnapshotPhase::Running(Box::new(
@@ -55,7 +53,13 @@ impl UiSnapshot {
         runtime_stats: RuntimeStatsSnapshot,
     ) -> RunningSnapshot {
         ui.ensure_valid(world);
-        let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
+        if ui.currency_symbol.trim().is_empty()
+            && let Some(country) = ui.selected_country(world)
+        {
+            ui.currency_symbol = country.currency_symbol().to_string();
+        }
+        let currency_symbol_owned = normalized_currency_symbol(&ui.currency_symbol).to_string();
+        let currency_symbol = currency_symbol_owned.as_str();
 
         let selected_country = ui.selected_country(world);
         let selected_country_name: Arc<str> = selected_country

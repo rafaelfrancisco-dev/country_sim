@@ -32,6 +32,7 @@ impl World {
             tariff_rates_by_good,
             goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
         };
+        world.initialize_fx_state();
         world.refresh_policy_rate_aggregate();
         world.refresh_monthly_export_caches();
         world.capture_snapshot();

@@ -34,6 +34,8 @@ pub struct ForeignDeposit {
     pub country_id: u16,
     pub bank_id: BankId,
     pub balance: f64,
+    pub home_amount_at_open: f64,
+    pub opening_fx_rate_home_per_foreign: f64,
 }
 
 pub const DAYS_PER_YEAR: u16 = 365;

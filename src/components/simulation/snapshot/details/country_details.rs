@@ -61,6 +61,11 @@ pub(in crate::components::simulation) fn country_details_lines(
     vec![
         format!("Name: {}", country.name()),
         format!("Country ID: {}", country.id()),
+        format!(
+            "Currency: {} ({})",
+            country.currency_name(),
+            country.currency_code()
+        ),
         format!("Day: {}", world.day()),
         format!("Month: {}", country.month()),
         String::new(),
@@ -130,6 +135,19 @@ pub(in crate::components::simulation) fn country_details_lines(
         format!(
             "MTD Tax Collected: {}",
             money(country.monthly_tax_collected(), currency_symbol)
+        ),
+        format!(
+            "FX Rate / Base: {:.4}",
+            country.fx_rate_local_per_base()
+        ),
+        format!(
+            "FX Reserves (base): {}",
+            money(country.fx_reserves_base(), "")
+        ),
+        format!("FX Pressure: {:.2}", country.fx_pressure()),
+        format!(
+            "MTD FX Net Flow (base): {}",
+            money(country.monthly_fx_net_flow_base(), "")
         ),
         format!(
             "MTD Gov Spending: {}",
@@ -218,6 +236,11 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Imports / Exports: {} / {}",
             money(country.monthly_goods_import_spending(), currency_symbol),
             money(country.monthly_goods_export_revenue(), currency_symbol)
+        ),
+        format!(
+            "MTD Imports / Exports (base): {} / {}",
+            money(country.monthly_goods_import_spending_base(), ""),
+            money(country.monthly_goods_export_revenue_base(), "")
         ),
         format!(
             "MTD Trade Balance: {}",

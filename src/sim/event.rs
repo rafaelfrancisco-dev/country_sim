@@ -310,7 +310,9 @@ pub enum SimEvent {
         foreign_country_name: Arc<str>,
         person_id: u32,
         bank_id: u16,
-        amount: f64,
+        home_amount: f64,
+        foreign_amount: f64,
+        fx_rate_home_per_foreign: f64,
         annual_rate: f64,
         day: u64,
     },
@@ -318,7 +320,26 @@ pub enum SimEvent {
         home_country_name: Arc<str>,
         foreign_country_name: Arc<str>,
         person_id: u32,
-        returned_amount: f64,
+        returned_home_amount: f64,
+        returned_foreign_amount: f64,
+        fx_rate_home_per_foreign: f64,
+        day: u64,
+    },
+    FxRateChanged {
+        country_name: Arc<str>,
+        currency_code: Arc<str>,
+        old_rate: f64,
+        new_rate: f64,
+        pressure: f64,
+        reserves_base: f64,
+        day: u64,
+    },
+    FxReservePressure {
+        country_name: Arc<str>,
+        currency_code: Arc<str>,
+        reserves_base: f64,
+        reserve_gap: f64,
+        pressure: f64,
         day: u64,
     },
     DisasterApplied {
@@ -391,6 +412,8 @@ impl SimEvent {
             Self::GovTransfer { .. }
             | Self::GovCompanyFunded { .. }
             | Self::RatePolicyChange { .. }
+            | Self::FxRateChanged { .. }
+            | Self::FxReservePressure { .. }
             | Self::BondIssued { .. }
             | Self::CouponPaid { .. }
             | Self::BondMatured { .. }

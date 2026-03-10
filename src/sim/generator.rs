@@ -1,6 +1,7 @@
 use super::{
     company::{Company, DEFAULT_COMPANIES_PER_COUNTRY},
     country::Country,
+    currency::generated_currency,
     essentials::{
         STOCKABLE_ESSENTIAL_GOOD_IDS, estimated_country_monthly_requirement,
         estimated_country_stock_target_units, production_capacity_units_for_workers,
@@ -264,6 +265,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         total_supply,
         config.sim_params.clone(),
     );
+    country.currency = generated_currency(country_idx, config.seed);
     companies::seed_initial_essential_supply(&mut country);
     companies::fund_initial_bank_reserve(&mut country);
     companies::seed_initial_bank_openings(&mut country);

@@ -162,6 +162,7 @@ impl Country {
         self.monthly_savings_interest_paid
     }
 
+
     pub fn bonds_outstanding(&self) -> f64 {
         self.bonds_outstanding
     }

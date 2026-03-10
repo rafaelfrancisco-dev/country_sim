@@ -89,6 +89,10 @@ fn aggregate_history_matches_country_sums() {
     let country_sum = world.country_history.iter().map(|series| series[0]).fold(
         MetricPoint {
             month: 0,
+            fx_rate_local_per_base: 0.0,
+            fx_reserves_base: 0.0,
+            fx_net_flow_base: 0.0,
+            fx_pressure: 0.0,
             population: 0.0,
             total_money_supply: 0.0,
             household_cash_total: 0.0,
@@ -133,6 +137,10 @@ fn aggregate_history_matches_country_sums() {
         },
         |acc, point| MetricPoint {
             month: acc.month.max(point.month),
+            fx_rate_local_per_base: acc.fx_rate_local_per_base + point.fx_rate_local_per_base,
+            fx_reserves_base: acc.fx_reserves_base + point.fx_reserves_base,
+            fx_net_flow_base: acc.fx_net_flow_base + point.fx_net_flow_base,
+            fx_pressure: acc.fx_pressure + point.fx_pressure,
             population: acc.population + point.population,
             total_money_supply: acc.total_money_supply + point.total_money_supply,
             household_cash_total: acc.household_cash_total + point.household_cash_total,

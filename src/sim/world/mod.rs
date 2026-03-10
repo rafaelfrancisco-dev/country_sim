@@ -5,6 +5,7 @@ mod cross_country_migration;
 mod cross_country_stock_investing;
 mod cross_market_stock;
 mod export;
+mod fx;
 mod goods_market;
 mod history;
 mod invariants;
@@ -29,6 +30,10 @@ pub const HISTORY_LIMIT: usize = 120;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct MetricPoint {
     pub month: u64,
+    pub fx_rate_local_per_base: f64,
+    pub fx_reserves_base: f64,
+    pub fx_net_flow_base: f64,
+    pub fx_pressure: f64,
     pub population: f64,
     pub total_money_supply: f64,
     pub household_cash_total: f64,

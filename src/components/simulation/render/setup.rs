@@ -26,8 +26,7 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let [intro, countries, thousands, seed, currency, status, help] = Layout::vertical([
-            Constraint::Length(3),
+        let [intro, countries, thousands, seed, status, help] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
@@ -38,7 +37,7 @@ impl Simulation {
         .areas(inner);
 
         frame.render_widget(
-            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 10-20000 thousand people per country. Currency defaults to € and can be changed.")
+            Paragraph::new("Configure world size. Inputs are constrained to 1-50 countries and 10-20000 thousand people per country. Countries will be assigned currencies from a built-in real-world pool.")
                 .style(theme::primary_text())
                 .wrap(Wrap { trim: true }),
             intro,
@@ -67,12 +66,6 @@ impl Simulation {
         } else {
             inactive_style
         };
-        let currency_style = if setup.active_field == crate::sim::setup::SetupField::CurrencySymbol
-        {
-            active_style
-        } else {
-            inactive_style
-        };
 
         let country_text = if setup.country_count_input.is_empty() {
             "<enter number>".to_string()
@@ -89,11 +82,6 @@ impl Simulation {
             "<enter decimal or 0xhex>".to_string()
         } else {
             setup.generation_seed_input.clone()
-        };
-        let currency_text = if setup.currency_symbol_input.is_empty() {
-            "<enter symbol>".to_string()
-        } else {
-            setup.currency_symbol_input.clone()
         };
 
         frame.render_widget(
@@ -154,24 +142,6 @@ impl Simulation {
                 .style(seed_style),
             seed,
         );
-        frame.render_widget(
-            Paragraph::new(currency_text)
-                .block(
-                    Block::default()
-                        .title(" Currency Symbol ")
-                        .borders(Borders::ALL)
-                        .border_style(
-                            if setup.active_field == crate::sim::setup::SetupField::CurrencySymbol {
-                                theme::active_border()
-                            } else {
-                                theme::neutral_border()
-                            },
-                        )
-                        .title_style(theme::primary_text()),
-                )
-                .style(currency_style),
-            currency,
-        );
 
         let mut status_lines = Vec::new();
         if let Some(error) = &setup.validation_error {
@@ -204,7 +174,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field  [0-9] edit numeric fields  [0-9/a-f/x/_] edit seed  [printable char] edit currency symbol  [Backspace] erase  [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field  [0-9] edit numeric fields  [0-9/a-f/x/_] edit seed  [Backspace] erase  [Enter] start simulation",
             )
             .style(theme::muted_text()),
             help,

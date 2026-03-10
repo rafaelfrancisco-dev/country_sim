@@ -149,7 +149,9 @@ impl Country {
         self.monthly_household_spending = 0.0;
         self.monthly_tariff_collected = 0.0;
         self.monthly_goods_import_spending = 0.0;
+        self.monthly_goods_import_spending_base = 0.0;
         self.monthly_goods_export_revenue = 0.0;
+        self.monthly_goods_export_revenue_base = 0.0;
         self.monthly_unmet_need_events = 0;
         self.monthly_severe_unmet_need_events = 0;
         self.monthly_chronic_unmet_need_count = 0;
@@ -167,6 +169,9 @@ impl Country {
         self.monthly_bonds_issued = 0.0;
         self.monthly_bonds_matured = 0.0;
         self.monthly_savings_interest_paid = 0.0;
+        self.monthly_fx_financial_inflows_base = 0.0;
+        self.monthly_fx_financial_outflows_base = 0.0;
+        self.monthly_fx_net_flow_base = 0.0;
         self.monthly_money_minted = 0.0;
         self.monthly_rent_collected = 0.0;
         self.monthly_mortgage_payments = 0.0;

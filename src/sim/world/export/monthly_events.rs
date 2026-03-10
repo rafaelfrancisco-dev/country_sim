@@ -165,6 +165,12 @@ pub(super) fn event_country_and_day(event: &SimEvent) -> (&str, u64) {
         SimEvent::RatePolicyChange {
             country_name, day, ..
         } => (country_name, *day),
+        SimEvent::FxRateChanged {
+            country_name, day, ..
+        } => (country_name, *day),
+        SimEvent::FxReservePressure {
+            country_name, day, ..
+        } => (country_name, *day),
         SimEvent::BondIssued {
             country_name, day, ..
         } => (country_name, *day),

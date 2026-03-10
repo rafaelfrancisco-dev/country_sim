@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::{
     bank::{Bank, BankId, BankKind, DEFAULT_MAX_DEBT_TO_INCOME},
     company::{Company, FounderStake},
+    currency::CurrencySpec,
     essentials::Household,
     event::{EntityKind, IpoReason, SimEvent},
     good::GOODS_COUNT,
@@ -16,6 +17,7 @@ use super::{
 use rayon::prelude::*;
 
 mod accessors;
+mod accessors_fx;
 mod banking;
 mod daily;
 mod essential_economy;
@@ -34,6 +36,7 @@ const COMPANY_CHUNK_SIZE: usize = 16;
 pub struct Country {
     pub(crate) id: u16,
     pub(crate) name: Arc<str>,
+    pub(crate) currency: CurrencySpec,
     pub(crate) people: Vec<Person>,
     pub(crate) companies: Vec<Company>,
     pub(crate) households: Vec<Household>,
@@ -52,7 +55,9 @@ pub struct Country {
     pub(crate) monthly_household_spending: f64,
     pub(crate) monthly_tariff_collected: f64,
     pub(crate) monthly_goods_import_spending: f64,
+    pub(crate) monthly_goods_import_spending_base: f64,
     pub(crate) monthly_goods_export_revenue: f64,
+    pub(crate) monthly_goods_export_revenue_base: f64,
     pub(crate) monthly_unmet_need_events: u64,
     pub(crate) monthly_severe_unmet_need_events: u64,
     pub(crate) monthly_chronic_unmet_need_count: u64,
@@ -78,12 +83,18 @@ pub struct Country {
     pub(crate) monthly_bonds_issued: f64,
     pub(crate) monthly_bonds_matured: f64,
     pub(crate) monthly_savings_interest_paid: f64,
+    pub(crate) monthly_fx_financial_inflows_base: f64,
+    pub(crate) monthly_fx_financial_outflows_base: f64,
+    pub(crate) monthly_fx_net_flow_base: f64,
     pub(crate) monthly_money_minted: f64,
     pub(crate) cumulative_money_minted: f64,
     pub(crate) last_mint_inflation_shortfall: f64,
     pub(crate) last_mint_unemployment_gap: f64,
     pub(crate) last_mint_fraction: f64,
     pub(crate) policy_rate: f64,
+    pub(crate) fx_rate_local_per_base: f64,
+    pub(crate) fx_reserves_base: f64,
+    pub(crate) fx_pressure: f64,
     pub(crate) cpi_index: f64,
     pub(crate) last_month_cpi_index: f64,
     pub(crate) monthly_inflation_rate: f64,

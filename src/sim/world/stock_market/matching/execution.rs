@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 
 use super::*;
+use crate::sim::world::fx::CrossBorderFlowKind;
 
 pub(in crate::sim::world) fn run_world_stock_market(world: &mut World, day: u64) {
     let symbol_contexts = build_symbol_contexts(world, day);
@@ -360,6 +361,22 @@ fn settle_fills(
         };
 
         let cost = round_cents(fill.shares as f64 * fill.price);
+        let buyer_cost = if buyer_country_idx == listing_country_idx {
+            cost
+        } else {
+            world.local_amount_from_base(
+                buyer_country_idx,
+                world.base_amount_from_local(listing_country_idx, cost),
+            )
+        };
+        let seller_proceeds = if seller_country_idx == listing_country_idx {
+            cost
+        } else {
+            world.local_amount_from_base(
+                seller_country_idx,
+                world.base_amount_from_local(listing_country_idx, cost),
+            )
+        };
         let buyer_ok = match fill.buyer {
             TraderId::Person {
                 country_id: _,
@@ -368,10 +385,10 @@ fn settle_fills(
                 .get(buyer_country_idx)
                 .and_then(|lookup| lookup.get(&person_id))
                 .and_then(|idx| world.countries[buyer_country_idx].people().get(*idx))
-                .is_some_and(|person| person.cash_balance >= cost),
+                .is_some_and(|person| person.cash_balance >= buyer_cost),
             TraderId::Bank { bank_id, .. } => world.countries[buyer_country_idx]
                 .bank_by_id(bank_id)
-                .is_some_and(|bank| bank.reserve_balance >= cost),
+                .is_some_and(|bank| bank.reserve_balance >= buyer_cost),
         };
         let seller_ok = match fill.seller {
             TraderId::Person {
@@ -393,6 +410,23 @@ fn settle_fills(
             continue;
         }
 
+        if buyer_country_idx != listing_country_idx {
+            world.settle_cross_border_cash(
+                CrossBorderFlowKind::StockTrade,
+                buyer_country_idx,
+                listing_country_idx,
+                buyer_cost,
+            );
+        }
+        if seller_country_idx != listing_country_idx {
+            world.settle_cross_border_cash(
+                CrossBorderFlowKind::StockTrade,
+                listing_country_idx,
+                seller_country_idx,
+                cost,
+            );
+        }
+
         match fill.buyer {
             TraderId::Person { person_id, .. } => {
                 if let Some(&person_idx) = person_index_lookups[buyer_country_idx].get(&person_id)
@@ -400,7 +434,7 @@ fn settle_fills(
                         .people_mut()
                         .get_mut(person_idx)
                 {
-                    person.cash_balance = round_cents(person.cash_balance - cost);
+                    person.cash_balance = round_cents(person.cash_balance - buyer_cost);
                 }
                 world.countries[buyer_country_idx]
                     .stock_market_mut()
@@ -409,7 +443,7 @@ fn settle_fills(
             }
             TraderId::Bank { bank_id, .. } => {
                 if let Some(bank) = world.countries[buyer_country_idx].bank_by_id_mut(bank_id) {
-                    bank.reserve_balance = round_cents(bank.reserve_balance - cost).max(0.0);
+                    bank.reserve_balance = round_cents(bank.reserve_balance - buyer_cost).max(0.0);
                 }
                 world.countries[buyer_country_idx]
                     .stock_market_mut()
@@ -432,7 +466,7 @@ fn settle_fills(
                         .people_mut()
                         .get_mut(person_idx)
                 {
-                    person.cash_balance = round_cents(person.cash_balance + cost);
+                    person.cash_balance = round_cents(person.cash_balance + seller_proceeds);
                 }
             }
             TraderId::Bank { bank_id, .. } => {
@@ -441,7 +475,7 @@ fn settle_fills(
                     .bank_portfolio
                     .remove_shares(security_id, fill.shares, fill.price);
                 if let Some(bank) = world.countries[seller_country_idx].bank_by_id_mut(bank_id) {
-                    bank.reserve_balance = round_cents(bank.reserve_balance + cost);
+                    bank.reserve_balance = round_cents(bank.reserve_balance + seller_proceeds);
                 }
             }
         }

@@ -11,14 +11,12 @@ pub const CITIZENS_PER_THOUSAND: u32 = 1_000;
 pub const MEMORY_WARNING_THRESHOLD_BYTES: u64 = (2.5 * 1024.0 * 1024.0 * 1024.0) as u64;
 pub const DEFAULT_CURRENCY_SYMBOL: &str = "€";
 const DEFAULT_SETUP_GENERATION_SEED: u64 = 0x5eed_c0de;
-const MAX_CURRENCY_SYMBOL_CHARS: usize = 4;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SetupField {
     CountryCount,
     ThousandsPerCountry,
     GenerationSeed,
-    CurrencySymbol,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,7 +24,6 @@ pub struct SetupForm {
     pub country_count_input: String,
     pub thousands_per_country_input: String,
     pub generation_seed_input: String,
-    pub currency_symbol_input: String,
     pub active_field: SetupField,
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
@@ -37,7 +34,6 @@ pub struct SetupValues {
     pub country_count: u16,
     pub thousands_per_country: u32,
     pub generation_seed: u64,
-    pub currency_symbol: String,
     pub estimated_person_bytes: u64,
 }
 
@@ -47,7 +43,6 @@ impl Default for SetupForm {
             country_count_input: String::new(),
             thousands_per_country_input: String::new(),
             generation_seed_input: format_generation_seed(DEFAULT_SETUP_GENERATION_SEED),
-            currency_symbol_input: DEFAULT_CURRENCY_SYMBOL.to_string(),
             active_field: SetupField::CountryCount,
             validation_error: None,
             memory_warning: None,
@@ -77,12 +72,6 @@ impl SetupForm {
             {
                 self.generation_seed_input.push(input);
             }
-            SetupField::CurrencySymbol
-                if is_valid_currency_input_char(input)
-                    && self.currency_symbol_input.chars().count() < MAX_CURRENCY_SYMBOL_CHARS =>
-            {
-                self.currency_symbol_input.push(input);
-            }
             _ => return,
         }
         self.refresh_memory_warning();
@@ -100,9 +89,6 @@ impl SetupForm {
             SetupField::GenerationSeed => {
                 self.generation_seed_input.pop();
             }
-            SetupField::CurrencySymbol => {
-                self.currency_symbol_input.pop();
-            }
         }
         self.refresh_memory_warning();
     }
@@ -111,17 +97,15 @@ impl SetupForm {
         self.active_field = match self.active_field {
             SetupField::CountryCount => SetupField::ThousandsPerCountry,
             SetupField::ThousandsPerCountry => SetupField::GenerationSeed,
-            SetupField::GenerationSeed => SetupField::CurrencySymbol,
-            SetupField::CurrencySymbol => SetupField::CountryCount,
+            SetupField::GenerationSeed => SetupField::CountryCount,
         };
     }
 
     pub fn prev_field(&mut self) {
         self.active_field = match self.active_field {
-            SetupField::CountryCount => SetupField::CurrencySymbol,
+            SetupField::CountryCount => SetupField::GenerationSeed,
             SetupField::ThousandsPerCountry => SetupField::CountryCount,
             SetupField::GenerationSeed => SetupField::ThousandsPerCountry,
-            SetupField::CurrencySymbol => SetupField::GenerationSeed,
         };
     }
 
@@ -153,16 +137,6 @@ impl SetupForm {
 
         let generation_seed = parse_generation_seed(&self.generation_seed_input)
             .ok_or_else(|| "Generation seed must be decimal or 0x-prefixed hex.".to_string())?;
-        let currency_symbol = self.currency_symbol_input.trim().to_string();
-        if currency_symbol.is_empty() {
-            return Err("Currency symbol cannot be empty.".to_string());
-        }
-        if currency_symbol.chars().count() > MAX_CURRENCY_SYMBOL_CHARS {
-            return Err(format!(
-                "Currency symbol must be at most {} characters.",
-                MAX_CURRENCY_SYMBOL_CHARS
-            ));
-        }
 
         let estimated_person_bytes =
             estimate_person_storage_bytes(country_count, thousands_per_country);
@@ -172,7 +146,6 @@ impl SetupForm {
             country_count,
             thousands_per_country,
             generation_seed,
-            currency_symbol,
             estimated_person_bytes,
         })
     }
@@ -234,10 +207,6 @@ pub fn build_memory_warning(estimated_bytes: u64) -> Option<String> {
     ))
 }
 
-fn is_valid_currency_input_char(input: char) -> bool {
-    !input.is_control() && !input.is_whitespace()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,7 +224,6 @@ mod tests {
         assert_eq!(values.country_count, 4);
         assert_eq!(values.thousands_per_country, 2500);
         assert_eq!(values.generation_seed, DEFAULT_SETUP_GENERATION_SEED);
-        assert_eq!(values.currency_symbol, DEFAULT_CURRENCY_SYMBOL);
     }
 
     #[test]
@@ -341,50 +309,10 @@ mod tests {
     fn with_generation_seed_prefills_setup_seed_input() {
         let form = SetupForm::with_generation_seed(0xabc);
         assert_eq!(form.generation_seed_input, "0x0000000000000abc");
-        assert_eq!(form.currency_symbol_input, DEFAULT_CURRENCY_SYMBOL);
     }
 
     #[test]
     fn estimate_population_uses_thousand_scale() {
         assert_eq!(estimate_population(2, 3), 6_000);
-    }
-
-    #[test]
-    fn validate_accepts_custom_currency_symbol() {
-        let mut form = SetupForm {
-            country_count_input: "2".to_string(),
-            thousands_per_country_input: "100".to_string(),
-            currency_symbol_input: "R$".to_string(),
-            ..SetupForm::default()
-        };
-
-        let values = form.validate().expect("custom symbol should pass");
-        assert_eq!(values.currency_symbol, "R$");
-    }
-
-    #[test]
-    fn validate_rejects_empty_currency_symbol() {
-        let mut form = SetupForm {
-            country_count_input: "2".to_string(),
-            thousands_per_country_input: "100".to_string(),
-            currency_symbol_input: "   ".to_string(),
-            ..SetupForm::default()
-        };
-
-        let error = form.validate().expect_err("empty symbol must fail");
-        assert_eq!(error, "Currency symbol cannot be empty.");
-    }
-
-    #[test]
-    fn validate_rejects_too_long_currency_symbol() {
-        let mut form = SetupForm {
-            country_count_input: "2".to_string(),
-            thousands_per_country_input: "100".to_string(),
-            currency_symbol_input: "LONGER".to_string(),
-            ..SetupForm::default()
-        };
-
-        let error = form.validate().expect_err("long symbol must fail");
-        assert_eq!(error, "Currency symbol must be at most 4 characters.");
     }
 }

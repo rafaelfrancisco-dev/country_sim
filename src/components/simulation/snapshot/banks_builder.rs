@@ -212,6 +212,8 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::StockDelisted { country_name, .. }
         | SimEvent::StockMarketClose { country_name, .. }
         | SimEvent::RatePolicyChange { country_name, .. }
+        | SimEvent::FxRateChanged { country_name, .. }
+        | SimEvent::FxReservePressure { country_name, .. }
         | SimEvent::BondIssued { country_name, .. }
         | SimEvent::CouponPaid { country_name, .. }
         | SimEvent::BondMatured { country_name, .. }

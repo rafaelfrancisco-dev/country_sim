@@ -1,7 +1,13 @@
 use std::sync::Arc;
 
 use super::World;
-use crate::sim::{bank::BankId, event::SimEvent, money::round_cents, person::ForeignDeposit};
+use crate::sim::{
+    bank::BankId,
+    event::SimEvent,
+    money::round_cents,
+    person::ForeignDeposit,
+    world::fx::CrossBorderFlowKind,
+};
 
 /// Per-country snapshot used during cross-country deposit processing.
 struct CountryDepositInfo {
@@ -101,6 +107,12 @@ impl World {
 
         for op in interest_ops {
             if op.interest > 0.0 {
+                let settlement = self.settle_cross_border_cash(
+                    CrossBorderFlowKind::ForeignDepositInterest,
+                    op.foreign_c_idx,
+                    op.home_c_idx,
+                    op.interest,
+                );
                 {
                     let foreign = &mut self.countries[op.foreign_c_idx];
                     let Some(bank) = foreign.bank_by_id_mut(op.foreign_bank_id) else {
@@ -113,12 +125,13 @@ impl World {
                 }
 
                 if let Some(person) = self.countries[op.home_c_idx].people.get_mut(op.person_idx) {
-                    person.cash_balance = round_cents(person.cash_balance + op.interest);
+                    person.cash_balance =
+                        round_cents(person.cash_balance + settlement.payee_amount_local);
                 }
             }
 
             if op.recall {
-                let (returned, foreign_country_name, person_id, day) = {
+                let (returned_foreign, foreign_country_name, person_id, day) = {
                     let person = match self.countries[op.home_c_idx].people.get(op.person_idx) {
                         Some(person) => person,
                         None => continue,
@@ -135,26 +148,37 @@ impl World {
                     )
                 };
 
+                let settlement = self.settle_cross_border_cash(
+                    CrossBorderFlowKind::ForeignDepositRecall,
+                    op.foreign_c_idx,
+                    op.home_c_idx,
+                    returned_foreign,
+                );
+
                 {
                     let foreign = &mut self.countries[op.foreign_c_idx];
                     let Some(bank) = foreign.bank_by_id_mut(op.foreign_bank_id) else {
                         continue;
                     };
-                    bank.reserve_balance = round_cents((bank.reserve_balance - returned).max(0.0));
+                    bank.reserve_balance =
+                        round_cents((bank.reserve_balance - returned_foreign).max(0.0));
                     bank.foreign_deposit_liabilities =
-                        round_cents((bank.foreign_deposit_liabilities - returned).max(0.0));
+                        round_cents((bank.foreign_deposit_liabilities - returned_foreign).max(0.0));
                 }
 
                 let home = &mut self.countries[op.home_c_idx];
                 if let Some(person) = home.people.get_mut(op.person_idx) {
-                    person.cash_balance = round_cents(person.cash_balance + returned);
+                    person.cash_balance =
+                        round_cents(person.cash_balance + settlement.payee_amount_local);
                     person.foreign_deposit = None;
                 }
                 home.pending_events.push(SimEvent::ForeignDepositClosed {
                     home_country_name: home.name.clone(),
                     foreign_country_name,
                     person_id,
-                    returned_amount: returned,
+                    returned_home_amount: settlement.payee_amount_local,
+                    returned_foreign_amount: returned_foreign,
+                    fx_rate_home_per_foreign: settlement.fx_rate_payee_per_payer,
                     day,
                 });
             }
@@ -229,7 +253,20 @@ impl World {
             {
                 continue;
             }
+            let can_fund = self.countries[op.home_c_idx]
+                .people
+                .get(op.person_idx)
+                .is_some_and(|person| person.cash_balance >= op.amount);
+            if !can_fund {
+                continue;
+            }
 
+            let settlement = self.settle_cross_border_cash(
+                CrossBorderFlowKind::ForeignDepositOpen,
+                op.home_c_idx,
+                op.foreign_c_idx,
+                op.amount,
+            );
             let (person_id, home_country_name, day) = {
                 let home = &mut self.countries[op.home_c_idx];
                 let Some(person) = home.people.get_mut(op.person_idx) else {
@@ -238,12 +275,17 @@ impl World {
                 if person.cash_balance < op.amount {
                     continue;
                 }
-
                 person.cash_balance = round_cents(person.cash_balance - op.amount);
                 person.foreign_deposit = Some(ForeignDeposit {
                     country_id: infos[op.foreign_c_idx].id,
                     bank_id: op.foreign_bank_id,
-                    balance: op.amount,
+                    balance: settlement.payee_amount_local,
+                    home_amount_at_open: op.amount,
+                    opening_fx_rate_home_per_foreign: if settlement.payee_amount_local > 0.0 {
+                        op.amount / settlement.payee_amount_local
+                    } else {
+                        1.0
+                    },
                 });
                 (person.id, home.name.clone(), home.day)
             };
@@ -253,9 +295,10 @@ impl World {
                 let Some(bank) = foreign.bank_by_id_mut(op.foreign_bank_id) else {
                     continue;
                 };
-                bank.reserve_balance = round_cents(bank.reserve_balance + op.amount);
+                bank.reserve_balance =
+                    round_cents(bank.reserve_balance + settlement.payee_amount_local);
                 bank.foreign_deposit_liabilities =
-                    round_cents(bank.foreign_deposit_liabilities + op.amount);
+                    round_cents(bank.foreign_deposit_liabilities + settlement.payee_amount_local);
             }
 
             let foreign_country_name = infos[op.foreign_c_idx].name.clone();
@@ -265,7 +308,13 @@ impl World {
                 foreign_country_name,
                 person_id,
                 bank_id: op.foreign_bank_id,
-                amount: op.amount,
+                home_amount: op.amount,
+                foreign_amount: settlement.payee_amount_local,
+                fx_rate_home_per_foreign: if settlement.payee_amount_local > 0.0 {
+                    op.amount / settlement.payee_amount_local
+                } else {
+                    1.0
+                },
                 annual_rate: op.annual_rate,
                 day,
             });

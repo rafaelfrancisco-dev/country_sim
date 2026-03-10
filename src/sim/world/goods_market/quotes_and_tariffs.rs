@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::world::fx::CrossBorderFlowKind;
 
 impl World {
     pub(in crate::sim::world) fn build_quote_templates_by_buyer(
@@ -73,36 +74,38 @@ impl World {
         }
 
         if buyer_country_idx < quote.seller_country_idx {
+            let settlement = self.settle_cross_border_cash(
+                CrossBorderFlowKind::GoodsImport,
+                buyer_country_idx,
+                quote.seller_country_idx,
+                from_cents(quote.base_price_cents),
+            );
             let (left, right) = self.countries.split_at_mut(quote.seller_country_idx);
             let buyer_country = &mut left[buyer_country_idx];
             let seller_country = &mut right[0];
-            Self::apply_purchase_to_buyer(
-                buyer_country,
-                person_idx,
-                quote.landed_price_cents,
-                true,
-            );
-            Self::apply_sale_to_seller(
+            Self::apply_purchase_to_buyer(buyer_country, person_idx, quote.landed_price_cents, true);
+            Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
-                quote.base_price_cents,
+                settlement.payee_amount_local,
                 false,
             );
             Self::apply_tariff_to_exporter(seller_country, quote.tariff_cents);
         } else {
+            let settlement = self.settle_cross_border_cash(
+                CrossBorderFlowKind::GoodsImport,
+                buyer_country_idx,
+                quote.seller_country_idx,
+                from_cents(quote.base_price_cents),
+            );
             let (left, right) = self.countries.split_at_mut(buyer_country_idx);
             let seller_country = &mut left[quote.seller_country_idx];
             let buyer_country = &mut right[0];
-            Self::apply_purchase_to_buyer(
-                buyer_country,
-                person_idx,
-                quote.landed_price_cents,
-                true,
-            );
-            Self::apply_sale_to_seller(
+            Self::apply_purchase_to_buyer(buyer_country, person_idx, quote.landed_price_cents, true);
+            Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
-                quote.base_price_cents,
+                settlement.payee_amount_local,
                 false,
             );
             Self::apply_tariff_to_exporter(seller_country, quote.tariff_cents);
@@ -145,7 +148,17 @@ impl World {
         base_price_cents: i64,
         domestic: bool,
     ) {
-        let amount = from_cents(base_price_cents);
+        Self::apply_sale_to_seller_with_amount(country, company_idx, from_cents(base_price_cents), domestic);
+    }
+
+    pub(in crate::sim::world) fn apply_sale_to_seller_with_amount(
+        country: &mut crate::sim::country::Country,
+        company_idx: usize,
+        amount: f64,
+        domestic: bool,
+    ) {
+        let amount = round_cents(amount);
+        let base_price_cents = to_cents(amount);
 
         if let Some(company) = country.companies.get_mut(company_idx) {
             company.inventory_units = company.inventory_units.saturating_sub(1);

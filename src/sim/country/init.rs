@@ -6,6 +6,7 @@ use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies
 use crate::sim::{
     bank::{Bank, BankKind},
     company::Company,
+    currency::generated_currency,
     essentials::{Household, estimated_household_count},
     good::GOODS_COUNT,
     money::round_cents,
@@ -57,11 +58,13 @@ impl Country {
         export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
         let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
         let name: Arc<str> = name.into();
+        let currency = generated_currency(id, 0);
         let public_bank_name: Arc<str> = format!("{name} Public Bank").into();
 
         let mut country = Self {
             id,
             name,
+            currency,
             people,
             companies,
             households: Vec::new(),
@@ -80,7 +83,9 @@ impl Country {
             monthly_household_spending: 0.0,
             monthly_tariff_collected: 0.0,
             monthly_goods_import_spending: 0.0,
+            monthly_goods_import_spending_base: 0.0,
             monthly_goods_export_revenue: 0.0,
+            monthly_goods_export_revenue_base: 0.0,
             monthly_unmet_need_events: 0,
             monthly_severe_unmet_need_events: 0,
             monthly_chronic_unmet_need_count: 0,
@@ -106,12 +111,18 @@ impl Country {
             monthly_bonds_issued: 0.0,
             monthly_bonds_matured: 0.0,
             monthly_savings_interest_paid: 0.0,
+            monthly_fx_financial_inflows_base: 0.0,
+            monthly_fx_financial_outflows_base: 0.0,
+            monthly_fx_net_flow_base: 0.0,
             monthly_money_minted: 0.0,
             cumulative_money_minted: 0.0,
             last_mint_inflation_shortfall: 0.0,
             last_mint_unemployment_gap: 0.0,
             last_mint_fraction: 0.0,
             policy_rate: initial_policy_rate,
+            fx_rate_local_per_base: 1.0,
+            fx_reserves_base: 0.0,
+            fx_pressure: 0.0,
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,
             monthly_inflation_rate: 0.0,

@@ -9,7 +9,6 @@ impl SetupSnapshot {
             country_count_input: setup.country_count_input.clone(),
             thousands_per_country_input: setup.thousands_per_country_input.clone(),
             generation_seed_input: setup.generation_seed_input.clone(),
-            currency_symbol_input: setup.currency_symbol_input.clone(),
             active_field: setup.active_field,
             validation_error: setup.validation_error.clone(),
             memory_warning: setup.memory_warning.clone(),

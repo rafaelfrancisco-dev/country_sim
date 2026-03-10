@@ -1,4 +1,5 @@
 use super::*;
+
 impl World {
     /// Monthly: let all banks allocate part of their reserves to listed equities
     /// in foreign countries.

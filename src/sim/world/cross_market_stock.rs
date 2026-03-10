@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::money::round_cents;
+use crate::sim::world::fx::CrossBorderFlowKind;
 
 #[derive(Debug, Clone, Copy)]
 enum DividendHolder {
@@ -152,6 +153,17 @@ impl World {
                         } => {
                             let tax = round_cents(gross * 0.15);
                             let net = round_cents(gross - tax);
+                            let net_local = if country_idx == listing_country_idx {
+                                net
+                            } else {
+                                self.settle_cross_border_cash(
+                                    CrossBorderFlowKind::StockDividend,
+                                    listing_country_idx,
+                                    country_idx,
+                                    net,
+                                )
+                                .payee_amount_local
+                            };
                             if let Some(person_idx) = self.countries[country_idx]
                                 .people
                                 .iter()
@@ -159,7 +171,7 @@ impl World {
                                 && let Some(person) =
                                     self.countries[country_idx].people.get_mut(person_idx)
                             {
-                                person.cash_balance = round_cents(person.cash_balance + net);
+                                person.cash_balance = round_cents(person.cash_balance + net_local);
                             }
                             if let Some(portfolio) = self.countries[country_idx]
                                 .stock_market
@@ -167,7 +179,7 @@ impl World {
                                 .get_mut(&person_id)
                             {
                                 portfolio.dividends_mtd =
-                                    round_cents(portfolio.dividends_mtd + net);
+                                    round_cents(portfolio.dividends_mtd + net_local);
                             }
                             self.countries[listing_country_idx].treasury_balance = round_cents(
                                 self.countries[listing_country_idx].treasury_balance + tax,
@@ -178,13 +190,24 @@ impl World {
                             total_paid = round_cents(total_paid + gross);
                         }
                         DividendHolder::Bank { country_idx } => {
+                            let gross_local = if country_idx == listing_country_idx {
+                                gross
+                            } else {
+                                self.settle_cross_border_cash(
+                                    CrossBorderFlowKind::StockDividend,
+                                    listing_country_idx,
+                                    country_idx,
+                                    gross,
+                                )
+                                .payee_amount_local
+                            };
                             let stock_bank_id = self.countries[country_idx]
                                 .stock_market_bank_id()
                                 .unwrap_or(self.countries[country_idx].primary_bank().id);
                             if let Some(bank) =
                                 self.countries[country_idx].bank_by_id_mut(stock_bank_id)
                             {
-                                bank.reserve_balance = round_cents(bank.reserve_balance + gross);
+                                bank.reserve_balance = round_cents(bank.reserve_balance + gross_local);
                             }
                             self.countries[country_idx]
                                 .stock_market
@@ -194,7 +217,7 @@ impl World {
                                     .stock_market
                                     .bank_portfolio
                                     .dividends_mtd
-                                    + gross,
+                                    + gross_local,
                             );
                             total_paid = round_cents(total_paid + gross);
                         }
