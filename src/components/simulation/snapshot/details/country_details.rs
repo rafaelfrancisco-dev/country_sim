@@ -335,7 +335,7 @@ pub(in crate::components::simulation) fn country_details_lines(
 }
 
 /// Format the FX reserves line for the country details view.
-/// Shows per-currency breakdown when cross-border flows have been tracked,
+/// Shows per-currency breakdown when reserve composition has been seeded or tracked,
 /// otherwise falls back to the total in local currency.
 fn fx_reserves_detail_line(world: &World, selected_idx: usize) -> String {
     let Some(country) = world.countries().get(selected_idx) else {
@@ -346,7 +346,7 @@ fn fx_reserves_detail_line(world: &World, selected_idx: usize) -> String {
     if src.is_empty() {
         let total_local = country.fx_reserves_base() * country.fx_rate_local_per_base();
         return format!(
-            "FX Reserves: {} (unattributed)",
+            "FX Reserves: {}",
             money(total_local, country.currency_symbol())
         );
     }

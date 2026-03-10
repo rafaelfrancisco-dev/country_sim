@@ -259,7 +259,6 @@ pub(in crate::components::simulation) struct FxRowSnapshot {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct FxReserveEntry {
-    pub is_unattributed: bool,
     pub currency_symbol: String,
     pub currency_code: String,
     pub amount_local: f64,

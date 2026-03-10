@@ -111,41 +111,22 @@ fn build_reserves_breakdown(world: &World, selected_idx: usize) -> Vec<FxReserve
         return Vec::new();
     };
 
-    let attributed_total_base = selected
-        .fx_reserves_by_source()
+    world
+        .countries()
         .iter()
-        .filter(|(source_idx, _)| **source_idx != selected_idx)
-        .map(|(_, amount_base)| *amount_base)
-        .sum::<f64>();
-    let unattributed_local = (selected.fx_reserves_base() - attributed_total_base).max(0.0)
-        * selected.fx_rate_local_per_base();
-
-    let mut entries = vec![FxReserveEntry {
-        is_unattributed: true,
-        currency_symbol: selected.currency_symbol().to_string(),
-        currency_code: "Unattributed".to_string(),
-        amount_local: unattributed_local,
-    }];
-
-    entries.extend(
-        world
-            .countries()
-            .iter()
-            .enumerate()
-            .filter(|(source_idx, _)| *source_idx != selected_idx)
-            .map(|(source_idx, source)| FxReserveEntry {
-                is_unattributed: false,
-                currency_symbol: source.currency_symbol().to_string(),
-                currency_code: source.currency_code().to_string(),
-                amount_local: selected
-                    .fx_reserves_by_source()
-                    .get(&source_idx)
-                    .copied()
-                    .unwrap_or(0.0)
-                    * source.fx_rate_local_per_base(),
-            }),
-    );
-    entries
+        .enumerate()
+        .filter(|(source_idx, _)| *source_idx != selected_idx)
+        .map(|(source_idx, source)| FxReserveEntry {
+            currency_symbol: source.currency_symbol().to_string(),
+            currency_code: source.currency_code().to_string(),
+            amount_local: selected
+                .fx_reserves_by_source()
+                .get(&source_idx)
+                .copied()
+                .unwrap_or(0.0)
+                * source.fx_rate_local_per_base(),
+        })
+        .collect()
 }
 
 fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {

@@ -14,7 +14,6 @@ fn sample_fx_tab(summary_lines: usize, pair_lines: usize, breakdown_lines: usize
         fx_rows: Vec::new(),
         selected_reserves_breakdown: (0..breakdown_lines)
             .map(|_| FxReserveEntry {
-                is_unattributed: false,
                 currency_symbol: "¥".to_string(),
                 currency_code: "JPY".to_string(),
                 amount_local: 10.0,

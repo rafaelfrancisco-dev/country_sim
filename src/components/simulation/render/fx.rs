@@ -122,20 +122,16 @@ impl Simulation {
             ];
             let mut color_idx = 0;
             for entry in &tab.selected_reserves_breakdown {
-                let (label, style) = if entry.is_unattributed {
-                    ("Unattributed".to_string(), theme::primary_text())
-                } else {
-                    let color = colors[color_idx % colors.len()];
-                    color_idx += 1;
-                    (entry.currency_code.clone(), Style::default().fg(color))
-                };
+                let color = colors[color_idx % colors.len()];
+                color_idx += 1;
                 lines.push(Line::styled(
                     format!(
-                        "  {label}: {} {}",
+                        "  {}: {} {}",
+                        entry.currency_code,
                         compact_num(entry.amount_local),
                         entry.currency_symbol,
                     ),
-                    style,
+                    Style::default().fg(color),
                 ));
             }
         }

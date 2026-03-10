@@ -1,5 +1,8 @@
 use super::World;
-use crate::sim::{event::SimEvent, money::round_cents};
+use crate::sim::{
+    event::SimEvent,
+    money::{from_cents, round_cents, to_cents},
+};
 
 const MIN_FX_RATE_LOCAL_PER_BASE: f64 = 0.25;
 const MAX_FX_RATE_LOCAL_PER_BASE: f64 = 4.0;
@@ -25,6 +28,7 @@ pub struct FxSettlement {
 
 impl World {
     pub(crate) fn initialize_fx_state(&mut self) {
+        let country_count = self.countries.len();
         for (country_idx, country) in self.countries.iter_mut().enumerate() {
             let rate = 0.85 + (country_idx % 8) as f64 * 0.12;
             country.fx_rate_local_per_base =
@@ -35,6 +39,31 @@ impl World {
                 0.0
             };
             country.fx_reserves_base = round_cents((supply_base * 0.20).max(5_000.0));
+            country.fx_reserves_by_source.clear();
+            let foreign_currency_count = country_count.saturating_sub(1);
+            if foreign_currency_count > 0 {
+                let total_reserve_cents = to_cents(country.fx_reserves_base);
+                let share_cents = total_reserve_cents / foreign_currency_count as i64;
+                let mut remainder_cents = total_reserve_cents % foreign_currency_count as i64;
+
+                for source_idx in 0..country_count {
+                    if source_idx == country_idx {
+                        continue;
+                    }
+
+                    let mut amount_cents = share_cents;
+                    if remainder_cents > 0 {
+                        amount_cents += 1;
+                        remainder_cents -= 1;
+                    }
+
+                    if amount_cents > 0 {
+                        country
+                            .fx_reserves_by_source
+                            .insert(source_idx, from_cents(amount_cents));
+                    }
+                }
+            }
             country.fx_pressure = 0.0;
         }
     }

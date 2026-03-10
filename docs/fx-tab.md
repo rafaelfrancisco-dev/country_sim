@@ -33,7 +33,7 @@ The tab uses a 3-section dashboard:
 - four trend charts:
   - `FX Rate (index)` — the selected country's rate history (internal index unit)
   - `FX Net Flow` — the selected country's monthly net FX flow
-  - `FX Reserves by Currency` — one line per foreign currency held, in local-currency equivalent; empty until the first cross-border flows are recorded
+  - `FX Reserves by Currency` — one line per foreign currency held, in local-currency equivalent; seeded at startup and updated by cross-border flows
   - `FX Pressure` — the selected country's FX pressure indicator
 
 ## Selected-Country Summary
@@ -44,13 +44,13 @@ The summary panel shows:
 - goods exports / imports in local currency equivalent
 - financial inflows / outflows in local currency equivalent
 - net FX flow in local currency equivalent
-- FX reserves broken down by foreign currency held (e.g. `50M€ + 37M¥`); shown as "unattributed" until sufficient cross-border flows have built up a tracked position
+- FX reserves broken down by foreign currency held (e.g. `50M€ + 37M¥`); startup reserves are evenly split across all foreign currencies, excluding the country's own
 
 ## Foreign Currency Reserves
 Each country tracks which foreign currencies make up its reserve pool:
+- initial reserves (seeded at startup) are split evenly across every other country's currency, excluding the country's own
 - reserves are attributed to the source country when cross-border payments are received (goods exports, deposit interest, stock dividends, etc.)
 - when spending reserves, the simulation uses the target country's currency first, then falls back proportionally to the remaining pool
-- initial reserves (seeded at startup) start unattributed and erode last via the proportional fallback
 
 ## Leaderboard Columns
 The main table is sorted by the country's underlying FX rate (strongest first) and shows:

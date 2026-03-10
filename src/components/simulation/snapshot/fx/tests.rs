@@ -84,9 +84,27 @@ fn fx_snapshot_uses_reserve_header_when_breakdown_exists() {
         fx_tab.selected_fx_summary_lines.last(),
         Some(&"FX Reserves:".to_string())
     );
-    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 2);
-    assert!(fx_tab.selected_reserves_breakdown[0].is_unattributed);
-    assert!((fx_tab.selected_reserves_breakdown[1].amount_local - 63.0).abs() < f64::EPSILON);
+    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 1);
+    assert!((fx_tab.selected_reserves_breakdown[0].amount_local - 63.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn fx_snapshot_seeds_initial_reserves_into_foreign_currency_lines() {
+    let world = sample_world_two_countries();
+
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Fx,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
+        panic!("fx tab payload expected");
+    };
+
+    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 1);
+    assert!(fx_tab.selected_reserves_breakdown[0].amount_local > 0.0);
 }
 
 #[test]
@@ -131,9 +149,10 @@ fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
 }
 
 #[test]
-fn fx_snapshot_includes_unattributed_and_zero_value_foreign_lines() {
+fn fx_snapshot_includes_zero_value_foreign_lines() {
     let mut world = sample_world_two_countries();
     world.country_mut(0).unwrap().fx_reserves_base = 120.0;
+    world.country_mut(0).unwrap().fx_reserves_by_source.clear();
 
     let snapshot = snapshot_from_world_with_ui(
         world,
@@ -146,8 +165,6 @@ fn fx_snapshot_includes_unattributed_and_zero_value_foreign_lines() {
         panic!("fx tab payload expected");
     };
 
-    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 2);
-    assert!(fx_tab.selected_reserves_breakdown[0].is_unattributed);
-    assert!(fx_tab.selected_reserves_breakdown[0].amount_local > 0.0);
-    assert_eq!(fx_tab.selected_reserves_breakdown[1].amount_local, 0.0);
+    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 1);
+    assert_eq!(fx_tab.selected_reserves_breakdown[0].amount_local, 0.0);
 }

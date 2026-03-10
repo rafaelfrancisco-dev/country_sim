@@ -173,6 +173,28 @@ fn monthly_tick_executes_cross_country_migration_on_day_30() {
 }
 
 #[test]
+fn initial_fx_reserves_are_split_across_foreign_currencies_only() {
+    let world = World::new(vec![
+        Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
+        Country::new(2, "B".to_string(), vec![Person::new(2, 30, 0, 12)]),
+        Country::new(3, "C".to_string(), vec![Person::new(3, 30, 0, 13)]),
+    ]);
+
+    for country_idx in 0..world.country_count() {
+        let country = world.country(country_idx).unwrap();
+        let reserves_by_source = country.fx_reserves_by_source();
+        let attributed_total = round_cents(reserves_by_source.values().copied().sum::<f64>());
+        let mut reserve_slices = reserves_by_source.values().copied().collect::<Vec<_>>();
+        reserve_slices.sort_by(|left, right| left.total_cmp(right));
+
+        assert_eq!(reserves_by_source.len(), world.country_count() - 1);
+        assert!(!reserves_by_source.contains_key(&country_idx));
+        assert_eq!(attributed_total, country.fx_reserves_base());
+        assert!((reserve_slices[0] - reserve_slices[1]).abs() <= 0.01);
+    }
+}
+
+#[test]
 fn migration_respects_destination_unemployment_guard() {
     let params = migration_params();
     let mut distressed = unemployed_person(1, 0.0);
