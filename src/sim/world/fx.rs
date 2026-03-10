@@ -103,11 +103,37 @@ impl World {
             let old_total = payer.fx_reserves_base;
             payer.fx_reserves_base =
                 round_cents((old_total - settlement.payer_amount_base).max(0.0));
-            // Reduce per-source holdings proportionally to the spend.
-            if old_total > 0.0 {
-                let fraction_remaining = payer.fx_reserves_base / old_total;
-                for v in payer.fx_reserves_by_source.values_mut() {
-                    *v = round_cents(*v * fraction_remaining);
+            let actual_spent = old_total - payer.fx_reserves_base;
+
+            // Spend from the payee's specific currency bucket first (targeted spending),
+            // then fall back proportionally to the remaining pool.
+            if actual_spent > 0.0 {
+                let target_held = payer
+                    .fx_reserves_by_source
+                    .get(&payee_country_idx)
+                    .copied()
+                    .unwrap_or(0.0);
+                let from_target = actual_spent.min(target_held);
+                if from_target > 0.0 {
+                    let entry = payer
+                        .fx_reserves_by_source
+                        .entry(payee_country_idx)
+                        .or_insert(0.0);
+                    *entry = round_cents(*entry - from_target);
+                }
+
+                let leftover = actual_spent - from_target;
+                if leftover > 0.0 {
+                    // Remaining pool = everything except what we already took from target.
+                    let remaining_pool = old_total - from_target;
+                    if remaining_pool > 0.0 {
+                        let fraction = (remaining_pool - leftover) / remaining_pool;
+                        for (&source_idx, v) in payer.fx_reserves_by_source.iter_mut() {
+                            if source_idx != payee_country_idx {
+                                *v = round_cents(*v * fraction);
+                            }
+                        }
+                    }
                 }
             }
             match kind {

@@ -31,30 +31,35 @@ The tab uses a 3-section dashboard:
 
 ### Bottom Row
 - four trend charts:
-  - `Selected FX Rate`
-  - `World Avg FX Rate`
-  - `Selected FX Reserves`
-  - `Selected FX Pressure`
+  - `FX Rate (index)` — the selected country's rate history (internal index unit)
+  - `FX Net Flow` — the selected country's monthly net FX flow
+  - `FX Reserves (total)` — total reserves of the selected country
+  - `FX Pressure` — the selected country's FX pressure indicator
 
 ## Selected-Country Summary
 The summary panel shows:
 - currency name, code, and symbol
-- current FX rate versus the shared base unit
 - last monthly FX move
-- FX reserves in base terms
 - FX pressure with a qualitative label
-- goods exports/imports in base terms
-- financial inflows/outflows in base terms
-- net FX flow in base terms
+- goods exports / imports in local currency equivalent
+- financial inflows / outflows in local currency equivalent
+- net FX flow in local currency equivalent
+- FX reserves broken down by foreign currency held (e.g. `50M€ + 37M¥`); shown as "unattributed" until sufficient cross-border flows have built up a tracked position
+
+## Foreign Currency Reserves
+Each country tracks which foreign currencies make up its reserve pool:
+- reserves are attributed to the source country when cross-border payments are received (goods exports, deposit interest, stock dividends, etc.)
+- when spending reserves, the simulation uses the target country's currency first, then falls back proportionally to the remaining pool
+- initial reserves (seeded at startup) start unattributed and erode last via the proportional fallback
 
 ## Leaderboard Columns
-The main table is sorted by strongest current FX rate first and shows:
+The main table is sorted by the country's underlying FX rate (strongest first) and shows:
 - country
 - currency code
-- current FX rate
+- rate vs selected (cross-rate of each peer to the selected country; `—` for the selected row itself)
 - monthly move %
-- FX reserves (base)
-- net FX flow (base)
+- FX reserves in that country's local currency equivalent
+- net FX flow in that country's local currency equivalent
 - FX pressure
 - export/import ratio
 
@@ -63,7 +68,7 @@ If imports are zero, the export/import ratio also shows `N/A`.
 
 ## Pair Board
 The pair board compares the selected country against a small set of top peer currencies:
-- implied pair rate from the selected currency to the peer currency
+- cross-rate: how many units of the peer currency equal one unit of the selected currency
 - a simple relative-strength label (`stronger`, `weaker`, or `flat`)
 
 This panel is meant to be fast to scan, not a full market-depth or order-book view.
