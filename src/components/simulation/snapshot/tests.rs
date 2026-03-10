@@ -198,9 +198,9 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
     };
 
     let text = fx_tab.selected_fx_summary_lines.join("\n");
-    assert!(text.contains("FX Reserves (base):"));
-    assert!(text.contains("Financial Inflows / Outflows (base):"));
-    assert!(text.contains("Net FX Flow (base):"));
+    assert!(text.contains("FX Reserves:"));
+    assert!(text.contains("Financial In / Out:"));
+    assert!(text.contains("Net FX Flow:"));
     assert!(text.contains("FX Pressure: 0.22"));
 }
 

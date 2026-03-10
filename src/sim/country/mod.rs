@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::{
@@ -94,6 +95,9 @@ pub struct Country {
     pub(crate) policy_rate: f64,
     pub(crate) fx_rate_local_per_base: f64,
     pub(crate) fx_reserves_base: f64,
+    /// Per-source-country reserves in base units, keyed by source country index.
+    /// Tracks which foreign currencies make up fx_reserves_base.
+    pub(crate) fx_reserves_by_source: HashMap<usize, f64>,
     pub(crate) fx_pressure: f64,
     pub(crate) cpi_index: f64,
     pub(crate) last_month_cpi_index: f64,

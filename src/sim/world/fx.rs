@@ -100,8 +100,16 @@ impl World {
 
         {
             let payer = &mut self.countries[payer_country_idx];
+            let old_total = payer.fx_reserves_base;
             payer.fx_reserves_base =
-                round_cents((payer.fx_reserves_base - settlement.payer_amount_base).max(0.0));
+                round_cents((old_total - settlement.payer_amount_base).max(0.0));
+            // Reduce per-source holdings proportionally to the spend.
+            if old_total > 0.0 {
+                let fraction_remaining = payer.fx_reserves_base / old_total;
+                for v in payer.fx_reserves_by_source.values_mut() {
+                    *v = round_cents(*v * fraction_remaining);
+                }
+            }
             match kind {
                 CrossBorderFlowKind::GoodsImport => {
                     payer.monthly_goods_import_spending_base = round_cents(
@@ -122,6 +130,12 @@ impl World {
             let payee = &mut self.countries[payee_country_idx];
             payee.fx_reserves_base =
                 round_cents(payee.fx_reserves_base + settlement.payer_amount_base);
+            // Credit the inflow to the payer's source bucket.
+            let entry = payee
+                .fx_reserves_by_source
+                .entry(payer_country_idx)
+                .or_insert(0.0);
+            *entry = round_cents(*entry + settlement.payer_amount_base);
             match kind {
                 CrossBorderFlowKind::GoodsImport => {
                     payee.monthly_goods_export_revenue_base = round_cents(

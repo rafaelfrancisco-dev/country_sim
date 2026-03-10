@@ -62,7 +62,7 @@ impl Simulation {
             frame,
             c1,
             FxChart {
-                title: " Selected FX Rate ",
+                title: " FX Rate (index) ",
                 data: tab.selected_fx_rate_history.as_ref(),
                 color: Color::Cyan,
                 format: FxAxisFormat::Rate,
@@ -72,17 +72,17 @@ impl Simulation {
             frame,
             c2,
             FxChart {
-                title: " World Avg FX Rate ",
-                data: tab.world_avg_fx_rate_history.as_ref(),
+                title: " FX Net Flow ",
+                data: tab.selected_fx_net_flow_history.as_ref(),
                 color: Color::Green,
-                format: FxAxisFormat::Rate,
+                format: FxAxisFormat::Money,
             },
         );
         self.draw_fx_chart(
             frame,
             c3,
             FxChart {
-                title: " Selected FX Reserves ",
+                title: " FX Reserves (total) ",
                 data: tab.selected_fx_reserves_history.as_ref(),
                 color: Color::Yellow,
                 format: FxAxisFormat::Money,
@@ -92,7 +92,7 @@ impl Simulation {
             frame,
             c4,
             FxChart {
-                title: " Selected FX Pressure ",
+                title: " FX Pressure ",
                 data: tab.selected_fx_pressure_history.as_ref(),
                 color: Color::Magenta,
                 format: FxAxisFormat::Pressure,
@@ -109,11 +109,35 @@ impl Simulation {
     }
 
     fn draw_fx_summary(&self, frame: &mut Frame, area: Rect, tab: &FxTabSnapshot) {
-        let lines = tab
+        let mut lines: Vec<Line<'_>> = tab
             .selected_fx_summary_lines
             .iter()
             .map(|line| Line::raw(line.as_str()))
-            .collect::<Vec<_>>();
+            .collect();
+
+        // Append per-currency reserves breakdown as styled entries.
+        if !tab.selected_reserves_breakdown.is_empty() {
+            let colors = [
+                Color::Cyan,
+                Color::Green,
+                Color::Yellow,
+                Color::Magenta,
+                Color::LightBlue,
+                Color::LightGreen,
+            ];
+            for (i, entry) in tab.selected_reserves_breakdown.iter().enumerate() {
+                let color = colors[i % colors.len()];
+                lines.push(Line::styled(
+                    format!(
+                        "  {} {}",
+                        crate::components::simulation::snapshot::compact_num(entry.amount_local),
+                        entry.currency_symbol,
+                    ),
+                    Style::default().fg(color),
+                ));
+            }
+        }
+
         let block = Block::default()
             .title(" Selected FX Summary ")
             .borders(Borders::ALL)
@@ -166,7 +190,14 @@ impl Simulation {
         };
 
         let header = Row::new([
-            "Country", "CCY", "Rate", "MoM", "Reserves", "Net Flow", "Pressure", "X/M",
+            "Country",
+            "CCY",
+            "Rate vs Sel",
+            "MoM",
+            "Reserves",
+            "Net Flow",
+            "Pressure",
+            "X/M",
         ])
         .style(
             Style::default()
@@ -185,7 +216,7 @@ impl Simulation {
         let widths = [
             Constraint::Length(16),
             Constraint::Length(6),
-            Constraint::Length(9),
+            Constraint::Length(11),
             Constraint::Length(8),
             Constraint::Length(12),
             Constraint::Length(12),
@@ -240,8 +271,8 @@ impl Simulation {
             ratatui::text::Text::from(row.currency_code.clone()),
             ratatui::text::Text::from(row.current_fx_rate.clone()),
             ratatui::text::Text::styled(row.month_move_pct.clone(), move_style),
-            ratatui::text::Text::from(row.reserves_base.clone()),
-            ratatui::text::Text::from(row.net_flow_base.clone()),
+            ratatui::text::Text::from(row.reserves.clone()),
+            ratatui::text::Text::from(row.net_flow.clone()),
             ratatui::text::Text::from(row.pressure.clone()),
             ratatui::text::Text::from(row.export_import_ratio.clone()),
         ])

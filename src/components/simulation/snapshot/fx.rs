@@ -15,13 +15,8 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
             selected_fx_summary_lines: vec!["No country selected.".to_string()],
             pair_board_lines: vec!["No FX peers available.".to_string()],
             fx_rows: Vec::new(),
+            selected_reserves_breakdown: Vec::new(),
             selected_fx_rate_history: Arc::default(),
-            world_avg_fx_rate_history: world
-                .world_history()
-                .iter()
-                .map(|point| point.fx_rate_local_per_base)
-                .collect::<Vec<_>>()
-                .into(),
             selected_fx_reserves_history: Arc::default(),
             selected_fx_net_flow_history: Arc::default(),
             selected_fx_pressure_history: Arc::default(),
@@ -36,21 +31,22 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
         .unwrap_or_default();
     let month_move = monthly_move_pct(&selected_history);
 
+    let reserves_breakdown = build_reserves_breakdown(world, ui.selected_country);
+
     RunningTabSnapshot::Fx(Box::new(FxTabSnapshot {
         selected_country_name: selected_country.name().to_string(),
         selected_currency_code: selected_country.currency_code().to_string(),
         selected_currency_name: selected_country.currency_name().to_string(),
         selected_currency_symbol: selected_country.currency_symbol().to_string(),
-        selected_fx_summary_lines: selected_fx_summary_lines(selected_country, month_move),
+        selected_fx_summary_lines: selected_fx_summary_lines(
+            selected_country,
+            month_move,
+            &reserves_breakdown,
+        ),
         pair_board_lines: pair_board_lines(selected_country, &fx_rows),
         fx_rows,
+        selected_reserves_breakdown: reserves_breakdown,
         selected_fx_rate_history: selected_history
-            .iter()
-            .map(|point| point.fx_rate_local_per_base)
-            .collect::<Vec<_>>()
-            .into(),
-        world_avg_fx_rate_history: world
-            .world_history()
             .iter()
             .map(|point| point.fx_rate_local_per_base)
             .collect::<Vec<_>>()
@@ -73,7 +69,46 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
     }))
 }
 
+/// Build the per-currency reserves breakdown for the selected country.
+fn build_reserves_breakdown(world: &World, selected_idx: usize) -> Vec<FxReserveEntry> {
+    let Some(selected) = world.countries().get(selected_idx) else {
+        return Vec::new();
+    };
+
+    let mut entries: Vec<FxReserveEntry> = selected
+        .fx_reserves_by_source()
+        .iter()
+        .filter_map(|(&source_idx, &amount_base)| {
+            if amount_base < 0.01 {
+                return None;
+            }
+            let source = world.countries().get(source_idx)?;
+            let amount_local = amount_base * source.fx_rate_local_per_base();
+            Some(FxReserveEntry {
+                currency_symbol: source.currency_symbol().to_string(),
+                currency_code: source.currency_code().to_string(),
+                amount_local,
+            })
+        })
+        .collect();
+
+    // Sort descending by amount so the largest holding appears first.
+    entries.sort_by(|a, b| {
+        b.amount_local
+            .partial_cmp(&a.amount_local)
+            .unwrap_or(Ordering::Equal)
+    });
+    entries
+}
+
 fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {
+    let selected_rate = world
+        .countries()
+        .get(selected_country_idx)
+        .map(|c| c.fx_rate_local_per_base())
+        .unwrap_or(1.0)
+        .max(0.0001);
+
     let mut rows = world
         .countries()
         .iter()
@@ -90,15 +125,30 @@ fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {
                 country.monthly_goods_import_spending_base(),
             );
 
+            // Cross-rate to selected country: how many of this country's currency
+            // per one unit of the selected country's currency.
+            let peer_rate = country.fx_rate_local_per_base().max(0.0001);
+            let cross_rate = peer_rate / selected_rate;
+
+            // Reserves and net flow shown in the country's own local currency.
+            let reserves_local = country.fx_reserves_base() * country.fx_rate_local_per_base();
+            let net_flow_local =
+                country.monthly_fx_net_flow_base() * country.fx_rate_local_per_base();
+
             FxRowSnapshot {
                 country: country.name().to_string(),
                 currency_code: country.currency_code().to_string(),
-                current_fx_rate: format!("{:.4}", country.fx_rate_local_per_base()),
+                current_fx_rate: if idx == selected_country_idx {
+                    "—".to_string()
+                } else {
+                    format!("{cross_rate:.4}")
+                },
+                fx_rate_raw: country.fx_rate_local_per_base(),
                 month_move_pct: month_move
                     .map(|value| format!("{value:+.2}%"))
                     .unwrap_or_else(|| "N/A".to_string()),
-                reserves_base: base_money(country.fx_reserves_base()),
-                net_flow_base: base_money(country.monthly_fx_net_flow_base()),
+                reserves: money_sym(reserves_local, country.currency_symbol()),
+                net_flow: money_sym(net_flow_local, country.currency_symbol()),
                 pressure: format!("{:.2}", country.fx_pressure()),
                 export_import_ratio: format_export_import_ratio(export_import_ratio),
                 is_selected: idx == selected_country_idx,
@@ -107,25 +157,27 @@ fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {
         .collect::<Vec<_>>();
 
     rows.sort_by(|left, right| {
-        let left_rate = parse_rate(&left.current_fx_rate);
-        let right_rate = parse_rate(&right.current_fx_rate);
-        right_rate
-            .partial_cmp(&left_rate)
+        right
+            .fx_rate_raw
+            .partial_cmp(&left.fx_rate_raw)
             .unwrap_or(Ordering::Equal)
             .then_with(|| left.country.cmp(&right.country))
     });
     rows
 }
 
-fn selected_fx_summary_lines(country: &Country, month_move: Option<f64>) -> Vec<String> {
-    vec![
+fn selected_fx_summary_lines(
+    country: &Country,
+    month_move: Option<f64>,
+    breakdown: &[FxReserveEntry],
+) -> Vec<String> {
+    let mut lines = vec![
         format!(
             "Currency: {} ({}) {}",
             country.currency_name(),
             country.currency_code(),
             country.currency_symbol()
         ),
-        format!("FX Rate vs Base: {:.4}", country.fx_rate_local_per_base()),
         format!(
             "Last Monthly Move: {}",
             month_move
@@ -133,33 +185,64 @@ fn selected_fx_summary_lines(country: &Country, month_move: Option<f64>) -> Vec<
                 .unwrap_or_else(|| "N/A".to_string())
         ),
         format!(
-            "FX Reserves (base): {}",
-            base_money(country.fx_reserves_base())
-        ),
-        format!(
             "FX Pressure: {:.2} ({})",
             country.fx_pressure(),
             pressure_label(country.fx_pressure())
         ),
         format!(
-            "Goods Exports / Imports (base): {} / {}",
-            base_money(country.monthly_goods_export_revenue_base()),
-            base_money(country.monthly_goods_import_spending_base())
+            "Goods Exports / Imports: {} / {}",
+            money_sym(
+                country.monthly_goods_export_revenue_base()
+                    * country.fx_rate_local_per_base(),
+                country.currency_symbol()
+            ),
+            money_sym(
+                country.monthly_goods_import_spending_base()
+                    * country.fx_rate_local_per_base(),
+                country.currency_symbol()
+            ),
         ),
         format!(
-            "Financial Inflows / Outflows (base): {} / {}",
-            base_money(country.monthly_fx_financial_inflows_base()),
-            base_money(country.monthly_fx_financial_outflows_base())
+            "Financial In / Out: {} / {}",
+            money_sym(
+                country.monthly_fx_financial_inflows_base()
+                    * country.fx_rate_local_per_base(),
+                country.currency_symbol()
+            ),
+            money_sym(
+                country.monthly_fx_financial_outflows_base()
+                    * country.fx_rate_local_per_base(),
+                country.currency_symbol()
+            ),
         ),
         format!(
-            "Net FX Flow (base): {}",
-            base_money(country.monthly_fx_net_flow_base())
+            "Net FX Flow: {}",
+            money_sym(
+                country.monthly_fx_net_flow_base() * country.fx_rate_local_per_base(),
+                country.currency_symbol()
+            )
         ),
-    ]
+    ];
+
+    // Reserves breakdown.
+    if breakdown.is_empty() {
+        let total_local = country.fx_reserves_base() * country.fx_rate_local_per_base();
+        lines.push(format!(
+            "FX Reserves: {} (unattributed)",
+            money_sym(total_local, country.currency_symbol())
+        ));
+    } else {
+        let parts: Vec<String> = breakdown
+            .iter()
+            .map(|e| format!("{}{}", compact_num(e.amount_local), e.currency_symbol))
+            .collect();
+        lines.push(format!("FX Reserves: {}", parts.join(" + ")));
+    }
+
+    lines
 }
 
 fn pair_board_lines(selected_country: &Country, fx_rows: &[FxRowSnapshot]) -> Vec<String> {
-    let selected_rate = selected_country.fx_rate_local_per_base().max(0.0001);
     let mut lines = Vec::new();
 
     for row in fx_rows
@@ -168,20 +251,21 @@ fn pair_board_lines(selected_country: &Country, fx_rows: &[FxRowSnapshot]) -> Ve
         .take(5)
     {
         let peer_rate = parse_rate(&row.current_fx_rate).max(0.0001);
-        let implied_pair = peer_rate / selected_rate;
-        let relative = if peer_rate > selected_rate {
-            "stronger"
-        } else if peer_rate < selected_rate {
+        // current_fx_rate is already the cross-rate (peer / selected), so:
+        // 1 {selected_ccy} = peer_rate {peer_ccy}
+        let relative = if peer_rate > 1.0 {
             "weaker"
+        } else if peer_rate < 1.0 {
+            "stronger"
         } else {
             "flat"
         };
         lines.push(format!(
-            "{} ({}) 1 {} = {:.4} {} | {} than selected",
+            "{} ({}) 1 {} = {:.4} {} | {} vs selected",
             row.country,
             row.currency_code,
             selected_country.currency_code(),
-            implied_pair,
+            peer_rate,
             row.currency_code,
             relative
         ));
@@ -237,4 +321,12 @@ fn pressure_label(pressure: f64) -> &'static str {
 
 fn parse_rate(text: &str) -> f64 {
     text.parse::<f64>().unwrap_or(0.0)
+}
+
+fn compact_num(n: f64) -> String {
+    super::compact_num(n)
+}
+
+fn money_sym(amount: f64, symbol: &str) -> String {
+    super::money(amount, symbol)
 }

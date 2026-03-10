@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::Country;
 
 impl Country {
@@ -39,6 +41,10 @@ impl Country {
 
     pub fn fx_reserves_base(&self) -> f64 {
         self.fx_reserves_base
+    }
+
+    pub fn fx_reserves_by_source(&self) -> &HashMap<usize, f64> {
+        &self.fx_reserves_by_source
     }
 
     pub fn fx_pressure(&self) -> f64 {

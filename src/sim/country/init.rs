@@ -122,6 +122,7 @@ impl Country {
             policy_rate: initial_policy_rate,
             fx_rate_local_per_base: 1.0,
             fx_reserves_base: 0.0,
+            fx_reserves_by_source: std::collections::HashMap::new(),
             fx_pressure: 0.0,
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,

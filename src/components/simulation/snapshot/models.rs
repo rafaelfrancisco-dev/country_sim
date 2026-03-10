@@ -245,13 +245,23 @@ pub(in crate::components::simulation) struct StocksTabSnapshot {
 pub(in crate::components::simulation) struct FxRowSnapshot {
     pub country: String,
     pub currency_code: String,
+    /// Display string for the cross-rate vs the selected country ("—" for the selected row).
     pub current_fx_rate: String,
+    /// Raw fx_rate_local_per_base used for sorting.
+    pub fx_rate_raw: f64,
     pub month_move_pct: String,
-    pub reserves_base: String,
-    pub net_flow_base: String,
+    pub reserves: String,
+    pub net_flow: String,
     pub pressure: String,
     pub export_import_ratio: String,
     pub is_selected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct FxReserveEntry {
+    pub currency_symbol: String,
+    pub currency_code: String,
+    pub amount_local: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -263,8 +273,9 @@ pub(in crate::components::simulation) struct FxTabSnapshot {
     pub selected_fx_summary_lines: Vec<String>,
     pub pair_board_lines: Vec<String>,
     pub fx_rows: Vec<FxRowSnapshot>,
+    /// Per-source-currency breakdown of the selected country's reserves (current state).
+    pub selected_reserves_breakdown: Vec<FxReserveEntry>,
     pub selected_fx_rate_history: Arc<[f64]>,
-    pub world_avg_fx_rate_history: Arc<[f64]>,
     pub selected_fx_reserves_history: Arc<[f64]>,
     pub selected_fx_net_flow_history: Arc<[f64]>,
     pub selected_fx_pressure_history: Arc<[f64]>,
