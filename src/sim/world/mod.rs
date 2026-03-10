@@ -21,7 +21,7 @@ pub use export::{
 };
 pub use invariants::InvariantViolation;
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use super::{country::Country, event::SimEvent};
 
@@ -86,6 +86,9 @@ pub struct World {
     pub(crate) policy_rate: f64,
     pub(crate) world_history: VecDeque<MetricPoint>,
     pub(crate) country_history: Vec<VecDeque<MetricPoint>>,
+    /// Per-source-country FX reserve history, one `BTreeMap` per country.
+    /// Inner map: source_country_idx → time series of reserve amounts (base units).
+    pub(crate) country_fx_source_history: Vec<BTreeMap<usize, VecDeque<f64>>>,
     pub(crate) bank_history: std::collections::HashMap<(usize, u16), VecDeque<BankMetricPoint>>,
     pub(crate) event_log: VecDeque<SimEvent>,
     pub(crate) export_queue: Vec<MonthlyExportData>,

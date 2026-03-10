@@ -1,4 +1,4 @@
-use super::utils::{entity_kind_label, format_base_money, format_money, format_money_fixed};
+use super::utils::{entity_kind_label, format_compact, format_money, format_money_fixed};
 use crate::sim::event::{IpoReason, SimEvent};
 
 pub(super) fn format_event(event: &SimEvent, currency_symbol: &str) -> String {
@@ -433,11 +433,11 @@ pub(super) fn format_event(event: &SimEvent, currency_symbol: &str) -> String {
             reserves_base,
             day,
         } => format!(
-            "[FX]    Day {day:>6} | {country_name} ({currency_code}) rate {:.4} -> {:.4}, pressure {:.2}, reserves {} base",
+            "[FX]    Day {day:>6} | {country_name} ({currency_code}) rate {:.4} -> {:.4}, pressure {:.2}, reserves {}",
             old_rate,
             new_rate,
             pressure,
-            format_base_money(*reserves_base),
+            format_compact(*reserves_base),
         ),
         SimEvent::FxReservePressure {
             country_name,
@@ -447,10 +447,10 @@ pub(super) fn format_event(event: &SimEvent, currency_symbol: &str) -> String {
             pressure,
             day,
         } => format!(
-            "[FX!]   Day {day:>6} | {country_name} ({currency_code}) reserve pressure: gap {:.1}%, pressure {:.2}, reserves {} base",
+            "[FX!]   Day {day:>6} | {country_name} ({currency_code}) reserve pressure: gap {:.1}%, pressure {:.2}, reserves {}",
             reserve_gap * 100.0,
             pressure,
-            format_base_money(*reserves_base),
+            format_compact(*reserves_base),
         ),
         SimEvent::DisasterApplied {
             country_name,

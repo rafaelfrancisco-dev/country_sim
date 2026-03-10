@@ -136,15 +136,15 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Tax Collected: {}",
             money(country.monthly_tax_collected(), currency_symbol)
         ),
-        format!("FX Rate / Base: {:.4}", country.fx_rate_local_per_base()),
-        format!(
-            "FX Reserves (base): {}",
-            base_money(country.fx_reserves_base())
-        ),
+        format!("FX Rate Index: {:.4}", country.fx_rate_local_per_base()),
+        fx_reserves_detail_line(world, ui.selected_country),
         format!("FX Pressure: {:.2}", country.fx_pressure()),
         format!(
-            "MTD FX Net Flow (base): {}",
-            base_money(country.monthly_fx_net_flow_base())
+            "MTD FX Net Flow: {}",
+            money(
+                country.monthly_fx_net_flow_base() * country.fx_rate_local_per_base(),
+                currency_symbol
+            )
         ),
         format!(
             "MTD Gov Spending: {}",
@@ -233,11 +233,6 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Imports / Exports: {} / {}",
             money(country.monthly_goods_import_spending(), currency_symbol),
             money(country.monthly_goods_export_revenue(), currency_symbol)
-        ),
-        format!(
-            "MTD Imports / Exports (base): {} / {}",
-            base_money(country.monthly_goods_import_spending_base()),
-            base_money(country.monthly_goods_export_revenue_base())
         ),
         format!(
             "MTD Trade Balance: {}",
@@ -337,4 +332,39 @@ pub(in crate::components::simulation) fn country_details_lines(
             ui.total_people_pages(world)
         ),
     ]
+}
+
+/// Format the FX reserves line for the country details view.
+/// Shows per-currency breakdown when cross-border flows have been tracked,
+/// otherwise falls back to the total in local currency.
+fn fx_reserves_detail_line(world: &World, selected_idx: usize) -> String {
+    let Some(country) = world.countries().get(selected_idx) else {
+        return "FX Reserves: —".to_string();
+    };
+
+    let src = country.fx_reserves_by_source();
+    if src.is_empty() {
+        let total_local = country.fx_reserves_base() * country.fx_rate_local_per_base();
+        return format!(
+            "FX Reserves: {} (unattributed)",
+            money(total_local, country.currency_symbol())
+        );
+    }
+
+    let mut parts: Vec<String> = src
+        .iter()
+        .filter(|&(_, &amt)| amt >= 0.01)
+        .filter_map(|(&src_idx, &amount_base)| {
+            let src_country = world.countries().get(src_idx)?;
+            let amount_local = amount_base * src_country.fx_rate_local_per_base();
+            Some(format!(
+                "{}{}",
+                compact_num(amount_local),
+                src_country.currency_symbol()
+            ))
+        })
+        .collect();
+    // Sort descending by amount would require extra work; alphabetical by string is fine.
+    parts.sort_unstable();
+    format!("FX Reserves: {}", parts.join(" + "))
 }

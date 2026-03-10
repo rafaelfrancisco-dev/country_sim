@@ -276,7 +276,9 @@ pub(in crate::components::simulation) struct FxTabSnapshot {
     /// Per-source-currency breakdown of the selected country's reserves (current state).
     pub selected_reserves_breakdown: Vec<FxReserveEntry>,
     pub selected_fx_rate_history: Arc<[f64]>,
-    pub selected_fx_reserves_history: Arc<[f64]>,
+    /// Per-source-currency reserves history: (currency_code, local-currency time series).
+    /// Sorted by source country index so colors are stable across renders.
+    pub selected_fx_reserves_by_currency: Vec<(String, Arc<[f64]>)>,
     pub selected_fx_net_flow_history: Arc<[f64]>,
     pub selected_fx_pressure_history: Arc<[f64]>,
 }
@@ -302,7 +304,8 @@ pub(in crate::components::simulation) struct DisastersTabSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct ChartsTabSnapshot {
     pub chart_scope_label: String,
-    pub money_axis_uses_base: bool,
+    /// Currency symbol for monetary chart axes. "~" for world-aggregate scope.
+    pub chart_currency_symbol: Arc<str>,
     pub chart_page: usize,
     pub total_chart_pages: usize,
     pub chart_history: Arc<[MetricPoint]>,

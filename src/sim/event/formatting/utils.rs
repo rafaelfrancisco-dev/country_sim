@@ -24,9 +24,9 @@ pub(super) fn format_money_fixed(amount: f64, currency_symbol: &str, precision: 
     )
 }
 
-pub(super) fn format_base_money(amount: f64) -> String {
+pub(super) fn format_compact(amount: f64) -> String {
     let sign = if amount < 0.0 { "-" } else { "" };
-    format!("{sign}{} base", compact_money_amount(amount.abs()))
+    format!("{sign}{}", compact_money_amount(amount.abs()))
 }
 
 fn normalized_currency_symbol(raw: &str) -> &str {

@@ -12,6 +12,16 @@ impl World {
                 Self::push_metric_point(history, point);
             }
 
+            // Record per-source FX reserves, aligned to the main history length.
+            let main_len = self.country_history.get(idx).map(|h| h.len()).unwrap_or(0);
+            if let Some(src_hist) = self.country_fx_source_history.get_mut(idx) {
+                Self::push_fx_source_snapshot(
+                    src_hist,
+                    country.fx_reserves_by_source(),
+                    main_len,
+                );
+            }
+
             for bank in country.all_banks() {
                 let key = (idx, bank.id);
                 let bank_point = Self::bank_metric_point(country.month(), bank);
@@ -309,5 +319,36 @@ impl World {
             history.pop_front();
         }
         history.push_back(point);
+    }
+
+    /// Appends one data point per source country to the FX-source history map.
+    /// New sources are back-padded with zeros so every series stays aligned
+    /// with the main `country_history` (length = `main_len`).
+    fn push_fx_source_snapshot(
+        src_hist: &mut std::collections::BTreeMap<usize, VecDeque<f64>>,
+        current: &std::collections::HashMap<usize, f64>,
+        main_len: usize,
+    ) {
+        // Union of known sources and current sources.
+        let all_keys: Vec<usize> = {
+            let mut keys: std::collections::BTreeSet<usize> =
+                src_hist.keys().copied().collect();
+            keys.extend(current.keys().copied());
+            keys.into_iter().collect()
+        };
+
+        for src_idx in all_keys {
+            let series = src_hist.entry(src_idx).or_insert_with(VecDeque::new);
+            // Back-pad a newly-seen source so it aligns with main_len.
+            let target_len = main_len.saturating_sub(1);
+            while series.len() < target_len {
+                series.push_back(0.0);
+            }
+            let value = current.get(&src_idx).copied().unwrap_or(0.0);
+            if series.len() >= HISTORY_LIMIT {
+                series.pop_front();
+            }
+            series.push_back(value);
+        }
     }
 }

@@ -78,16 +78,7 @@ impl Simulation {
                 format: FxAxisFormat::Money,
             },
         );
-        self.draw_fx_chart(
-            frame,
-            c3,
-            FxChart {
-                title: " FX Reserves (total) ",
-                data: tab.selected_fx_reserves_history.as_ref(),
-                color: Color::Yellow,
-                format: FxAxisFormat::Money,
-            },
-        );
+        self.draw_fx_reserves_chart(frame, c3, tab);
         self.draw_fx_chart(
             frame,
             c4,
@@ -168,6 +159,110 @@ impl Simulation {
                 .style(theme::primary_text())
                 .wrap(Wrap { trim: false })
                 .block(block),
+            area,
+        );
+    }
+
+    fn draw_fx_reserves_chart(&self, frame: &mut Frame, area: Rect, tab: &FxTabSnapshot) {
+        const COLORS: [Color; 6] = [
+            Color::Yellow,
+            Color::Cyan,
+            Color::Green,
+            Color::Magenta,
+            Color::LightBlue,
+            Color::LightRed,
+        ];
+
+        let series = &tab.selected_fx_reserves_by_currency;
+
+        if series.is_empty() {
+            frame.render_widget(
+                Paragraph::new("No cross-border flows yet.")
+                    .style(theme::muted_text())
+                    .block(
+                        Block::default()
+                            .title(" FX Reserves by Currency ")
+                            .borders(Borders::ALL)
+                            .border_style(theme::neutral_border())
+                            .title_style(theme::primary_text()),
+                    ),
+                area,
+            );
+            return;
+        }
+
+        // Build point vecs for each series (must outlive the Dataset borrows).
+        let all_points: Vec<Vec<(f64, f64)>> = series
+            .iter()
+            .map(|(_, data)| {
+                data.iter()
+                    .enumerate()
+                    .map(|(i, &v)| (i as f64, v))
+                    .collect()
+            })
+            .collect();
+
+        let x_max = all_points
+            .iter()
+            .map(|pts| pts.len())
+            .max()
+            .unwrap_or(1)
+            .saturating_sub(1)
+            .max(1) as f64;
+
+        let (min, max) = all_points
+            .iter()
+            .flat_map(|pts| pts.iter().map(|(_, v)| *v))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(mn, mx), v| {
+                (mn.min(v), mx.max(v))
+            });
+        let (y_min, y_max) = Self::fx_axis_bounds(min, max);
+
+        let datasets: Vec<Dataset<'_>> = all_points
+            .iter()
+            .zip(series.iter())
+            .enumerate()
+            .map(|(i, (pts, (label, _)))| {
+                Dataset::default()
+                    .name(label.as_str())
+                    .graph_type(GraphType::Line)
+                    .marker(symbols::Marker::Braille)
+                    .style(Style::default().fg(COLORS[i % COLORS.len()]))
+                    .data(pts)
+            })
+            .collect();
+
+        frame.render_widget(
+            Chart::new(datasets)
+                .x_axis(
+                    Axis::default()
+                        .title("Month")
+                        .style(theme::primary_text())
+                        .bounds([0.0, x_max])
+                        .labels(vec![
+                            Line::raw("0"),
+                            Line::raw(format!("{}", x_max as usize)),
+                        ]),
+                )
+                .y_axis(
+                    Axis::default()
+                        .style(theme::primary_text())
+                        .bounds([y_min, y_max])
+                        .labels(vec![
+                            Self::fx_axis_label(FxAxisFormat::Money, y_min),
+                            Self::fx_axis_label(FxAxisFormat::Money, y_max),
+                        ]),
+                )
+                .block(
+                    Block::default()
+                        .title(format!(
+                            " FX Reserves by Currency ({}) ",
+                            tab.selected_currency_code
+                        ))
+                        .borders(Borders::ALL)
+                        .border_style(theme::neutral_border())
+                        .title_style(theme::primary_text()),
+                ),
             area,
         );
     }
@@ -369,7 +464,7 @@ impl Simulation {
         match format {
             FxAxisFormat::Rate => Line::raw(format!("{value:.2}")),
             FxAxisFormat::Money => {
-                Line::raw(crate::components::simulation::snapshot::base_money(value))
+                Line::raw(crate::components::simulation::snapshot::compact_num(value))
             }
             FxAxisFormat::Pressure => Line::raw(format!("{value:.2}")),
         }

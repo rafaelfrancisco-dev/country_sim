@@ -5,7 +5,7 @@ use crate::sim::world::MetricPoint;
 #[path = "stocks_and_charts_format.rs"]
 mod format;
 pub(in crate::components::simulation) use format::{
-    base_money, compact_count, compact_num, money, normalized_currency_symbol,
+    compact_count, compact_num, money, normalized_currency_symbol,
 };
 
 type StockTabData = (
@@ -51,9 +51,17 @@ pub(in crate::components::simulation) fn build_charts_tab_snapshot(
         ChartScope::WorldAggregate => disaster_days_world(world),
     };
 
+    let chart_currency_symbol: Arc<str> = match ui.chart_scope {
+        ChartScope::WorldAggregate => "~".into(),
+        ChartScope::SelectedCountry => ui
+            .selected_country(world)
+            .map(|c| c.currency_symbol().into())
+            .unwrap_or_else(|| "~".into()),
+    };
+
     RunningTabSnapshot::Charts(Box::new(ChartsTabSnapshot {
         chart_scope_label,
-        money_axis_uses_base: matches!(ui.chart_scope, ChartScope::WorldAggregate),
+        chart_currency_symbol,
         chart_page: ui.chart_page,
         total_chart_pages: crate::components::simulation::ui_state::CHART_PAGE_COUNT,
         chart_history: chart_history.into(),

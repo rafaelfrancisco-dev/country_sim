@@ -22,6 +22,7 @@ impl World {
             policy_rate: 0.0,
             world_history: VecDeque::with_capacity(HISTORY_LIMIT),
             country_history: vec![VecDeque::with_capacity(HISTORY_LIMIT); country_count],
+            country_fx_source_history: vec![std::collections::BTreeMap::new(); country_count],
             bank_history: std::collections::HashMap::new(),
             event_log: VecDeque::with_capacity(crate::sim::event::EVENT_LOG_LIMIT),
             export_queue: Vec::new(),

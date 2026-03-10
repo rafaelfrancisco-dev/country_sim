@@ -17,7 +17,7 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
             fx_rows: Vec::new(),
             selected_reserves_breakdown: Vec::new(),
             selected_fx_rate_history: Arc::default(),
-            selected_fx_reserves_history: Arc::default(),
+            selected_fx_reserves_by_currency: Vec::new(),
             selected_fx_net_flow_history: Arc::default(),
             selected_fx_pressure_history: Arc::default(),
         }));
@@ -51,11 +51,11 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
             .map(|point| point.fx_rate_local_per_base)
             .collect::<Vec<_>>()
             .into(),
-        selected_fx_reserves_history: selected_history
-            .iter()
-            .map(|point| point.fx_reserves_base)
-            .collect::<Vec<_>>()
-            .into(),
+        selected_fx_reserves_by_currency: build_reserves_currency_history(
+            world,
+            ui.selected_country,
+            &selected_history,
+        ),
         selected_fx_net_flow_history: selected_history
             .iter()
             .map(|point| point.fx_net_flow_base)
@@ -67,6 +67,43 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
             .collect::<Vec<_>>()
             .into(),
     }))
+}
+
+/// Build per-currency reserves time series for the chart.
+/// Each entry is (currency_code, local-currency history) sorted by source country index.
+/// Historical base amounts are converted to local using the rate at each point.
+fn build_reserves_currency_history(
+    world: &World,
+    selected_idx: usize,
+    selected_history: &[MetricPoint],
+) -> Vec<(String, Arc<[f64]>)> {
+    let Some(src_hist) = world.country_fx_source_history.get(selected_idx) else {
+        return Vec::new();
+    };
+
+    src_hist
+        .iter()
+        .filter_map(|(&src_idx, series)| {
+            let src = world.countries().get(src_idx)?;
+            // Convert base amounts to local using the historical rate at each point.
+            let data: Arc<[f64]> = series
+                .iter()
+                .zip(
+                    selected_history
+                        .iter()
+                        .map(|p| p.fx_rate_local_per_base)
+                        .chain(std::iter::repeat(1.0)),
+                )
+                .map(|(&base_amt, rate)| base_amt * rate)
+                .collect::<Vec<_>>()
+                .into();
+            // Skip series that were always zero.
+            if data.iter().all(|&v| v < 0.01) {
+                return None;
+            }
+            Some((src.currency_code().to_string(), data))
+        })
+        .collect()
 }
 
 /// Build the per-currency reserves breakdown for the selected country.

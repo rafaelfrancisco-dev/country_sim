@@ -22,19 +22,14 @@ impl Simulation {
         &self,
         frame: &mut Frame,
         body: Rect,
-        world: &RunningSnapshot,
+        _world: &RunningSnapshot,
         tab: &ChartsTabSnapshot,
     ) -> String {
         let scope_label = tab.chart_scope_label.as_str();
         let history: &[MetricPoint] = tab.chart_history.as_ref();
         let total_pages = tab.total_chart_pages.max(1);
         let page_idx = tab.chart_page.min(total_pages.saturating_sub(1));
-        let currency_symbol = world.currency_symbol.as_str();
-        let money_axis_label = if tab.money_axis_uses_base {
-            "__BASE__"
-        } else {
-            currency_symbol
-        };
+        let money_axis_label = tab.chart_currency_symbol.as_ref();
         let disaster_days = tab.disaster_days.as_ref();
 
         if page_idx >= 6 {
@@ -244,9 +239,6 @@ impl Simulation {
         currency_symbol: &str,
     ) -> String {
         match axis_format {
-            AxisValueFormat::Money if currency_symbol == "__BASE__" => {
-                crate::components::simulation::snapshot::base_money(value)
-            }
             AxisValueFormat::Money => Self::money(value, currency_symbol),
             AxisValueFormat::Percent => format!("{value:.2}%"),
             AxisValueFormat::Index => format!("{value:.3}"),
