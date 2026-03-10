@@ -326,7 +326,11 @@ fn fx_sorted_next(world: &World, current: usize) -> Option<usize> {
 fn fx_sorted_prev(world: &World, current: usize) -> Option<usize> {
     let sorted = fx_sorted_indices(world);
     let pos = sorted.iter().position(|&i| i == current)?;
-    if pos == 0 { None } else { sorted.get(pos - 1).copied() }
+    if pos == 0 {
+        None
+    } else {
+        sorted.get(pos - 1).copied()
+    }
 }
 
 /// Country indices sorted the same way as the FX leaderboard table.

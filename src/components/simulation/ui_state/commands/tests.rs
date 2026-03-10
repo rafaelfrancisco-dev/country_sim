@@ -53,7 +53,10 @@ fn chart_page_commands_clamp_to_valid_range() {
 #[test]
 fn ensure_valid_clamps_chart_page() {
     let world = sample_world();
-    let mut ui = UiState { chart_page: CHART_PAGE_COUNT + 5, ..UiState::default() };
+    let mut ui = UiState {
+        chart_page: CHART_PAGE_COUNT + 5,
+        ..UiState::default()
+    };
     ui.ensure_valid(&world);
     assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
 }
@@ -123,7 +126,11 @@ fn changing_country_preserves_goods_main_page_and_clamps_overview_page() {
 #[test]
 fn details_page_commands_adjust_and_close_resets() {
     let world = sample_world();
-    let mut ui = UiState { details_view: DetailsView::Person, details_page: 0, ..UiState::default() };
+    let mut ui = UiState {
+        details_view: DetailsView::Person,
+        details_page: 0,
+        ..UiState::default()
+    };
     ui.apply(UiCommand::DetailsPageNext, &world);
     ui.apply(UiCommand::DetailsPageNext, &world);
     assert_eq!(ui.details_page, 1);
@@ -137,8 +144,14 @@ fn details_page_commands_adjust_and_close_resets() {
 #[test]
 fn company_details_page_commands_clamp_to_page_three() {
     let world = sample_world();
-    let mut ui = UiState { details_view: DetailsView::Company, details_page: 0, ..UiState::default() };
-    for _ in 0..8 { ui.apply(UiCommand::DetailsPageNext, &world); }
+    let mut ui = UiState {
+        details_view: DetailsView::Company,
+        details_page: 0,
+        ..UiState::default()
+    };
+    for _ in 0..8 {
+        ui.apply(UiCommand::DetailsPageNext, &world);
+    }
     assert_eq!(ui.details_page, 3);
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 2);
@@ -147,8 +160,14 @@ fn company_details_page_commands_clamp_to_page_three() {
 #[test]
 fn bank_details_page_commands_clamp_to_page_three() {
     let world = sample_world();
-    let mut ui = UiState { details_view: DetailsView::Bank, details_page: 0, ..UiState::default() };
-    for _ in 0..8 { ui.apply(UiCommand::DetailsPageNext, &world); }
+    let mut ui = UiState {
+        details_view: DetailsView::Bank,
+        details_page: 0,
+        ..UiState::default()
+    };
+    for _ in 0..8 {
+        ui.apply(UiCommand::DetailsPageNext, &world);
+    }
     assert_eq!(ui.details_page, 3);
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 2);
@@ -157,7 +176,11 @@ fn bank_details_page_commands_clamp_to_page_three() {
 #[test]
 fn country_details_page_commands_remain_unbounded() {
     let world = sample_world();
-    let mut ui = UiState { details_view: DetailsView::Country, details_page: 0, ..UiState::default() };
+    let mut ui = UiState {
+        details_view: DetailsView::Country,
+        details_page: 0,
+        ..UiState::default()
+    };
     ui.apply(UiCommand::DetailsPageNext, &world);
     ui.apply(UiCommand::DetailsPageNext, &world);
     assert_eq!(ui.details_page, 2);

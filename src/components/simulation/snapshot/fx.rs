@@ -1,7 +1,6 @@
 use super::*;
 use crate::sim::{country::Country, world::MetricPoint};
 use std::cmp::Ordering;
-
 pub(in crate::components::simulation) fn build_fx_tab_snapshot(
     world: &World,
     ui: &UiState,
@@ -112,29 +111,40 @@ fn build_reserves_breakdown(world: &World, selected_idx: usize) -> Vec<FxReserve
         return Vec::new();
     };
 
-    let mut entries: Vec<FxReserveEntry> = selected
+    let attributed_total_base = selected
         .fx_reserves_by_source()
         .iter()
-        .filter_map(|(&source_idx, &amount_base)| {
-            if amount_base < 0.01 {
-                return None;
-            }
-            let source = world.countries().get(source_idx)?;
-            let amount_local = amount_base * source.fx_rate_local_per_base();
-            Some(FxReserveEntry {
+        .filter(|(source_idx, _)| **source_idx != selected_idx)
+        .map(|(_, amount_base)| *amount_base)
+        .sum::<f64>();
+    let unattributed_local = (selected.fx_reserves_base() - attributed_total_base).max(0.0)
+        * selected.fx_rate_local_per_base();
+
+    let mut entries = vec![FxReserveEntry {
+        is_unattributed: true,
+        currency_symbol: selected.currency_symbol().to_string(),
+        currency_code: "Unattributed".to_string(),
+        amount_local: unattributed_local,
+    }];
+
+    entries.extend(
+        world
+            .countries()
+            .iter()
+            .enumerate()
+            .filter(|(source_idx, _)| *source_idx != selected_idx)
+            .map(|(source_idx, source)| FxReserveEntry {
+                is_unattributed: false,
                 currency_symbol: source.currency_symbol().to_string(),
                 currency_code: source.currency_code().to_string(),
-                amount_local,
-            })
-        })
-        .collect();
-
-    // Sort descending by amount so the largest holding appears first.
-    entries.sort_by(|a, b| {
-        b.amount_local
-            .partial_cmp(&a.amount_local)
-            .unwrap_or(Ordering::Equal)
-    });
+                amount_local: selected
+                    .fx_reserves_by_source()
+                    .get(&source_idx)
+                    .copied()
+                    .unwrap_or(0.0)
+                    * source.fx_rate_local_per_base(),
+            }),
+    );
     entries
 }
 
@@ -206,7 +216,7 @@ fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {
 fn selected_fx_summary_lines(
     country: &Country,
     month_move: Option<f64>,
-    breakdown: &[FxReserveEntry],
+    _breakdown: &[FxReserveEntry],
 ) -> Vec<String> {
     let mut lines = vec![
         format!(
@@ -229,26 +239,22 @@ fn selected_fx_summary_lines(
         format!(
             "Goods Exports / Imports: {} / {}",
             money_sym(
-                country.monthly_goods_export_revenue_base()
-                    * country.fx_rate_local_per_base(),
+                country.monthly_goods_export_revenue_base() * country.fx_rate_local_per_base(),
                 country.currency_symbol()
             ),
             money_sym(
-                country.monthly_goods_import_spending_base()
-                    * country.fx_rate_local_per_base(),
+                country.monthly_goods_import_spending_base() * country.fx_rate_local_per_base(),
                 country.currency_symbol()
             ),
         ),
         format!(
             "Financial In / Out: {} / {}",
             money_sym(
-                country.monthly_fx_financial_inflows_base()
-                    * country.fx_rate_local_per_base(),
+                country.monthly_fx_financial_inflows_base() * country.fx_rate_local_per_base(),
                 country.currency_symbol()
             ),
             money_sym(
-                country.monthly_fx_financial_outflows_base()
-                    * country.fx_rate_local_per_base(),
+                country.monthly_fx_financial_outflows_base() * country.fx_rate_local_per_base(),
                 country.currency_symbol()
             ),
         ),
@@ -261,20 +267,7 @@ fn selected_fx_summary_lines(
         ),
     ];
 
-    // Reserves breakdown.
-    if breakdown.is_empty() {
-        let total_local = country.fx_reserves_base() * country.fx_rate_local_per_base();
-        lines.push(format!(
-            "FX Reserves: {} (unattributed)",
-            money_sym(total_local, country.currency_symbol())
-        ));
-    } else {
-        let parts: Vec<String> = breakdown
-            .iter()
-            .map(|e| format!("{}{}", compact_num(e.amount_local), e.currency_symbol))
-            .collect();
-        lines.push(format!("FX Reserves: {}", parts.join(" + ")));
-    }
+    lines.push("FX Reserves:".to_string());
 
     lines
 }
@@ -360,10 +353,9 @@ fn parse_rate(text: &str) -> f64 {
     text.parse::<f64>().unwrap_or(0.0)
 }
 
-fn compact_num(n: f64) -> String {
-    super::compact_num(n)
-}
-
 fn money_sym(amount: f64, symbol: &str) -> String {
     super::money(amount, symbol)
 }
+
+#[cfg(test)]
+mod tests;

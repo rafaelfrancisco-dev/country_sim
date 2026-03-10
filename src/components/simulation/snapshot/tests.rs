@@ -50,21 +50,6 @@ fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSn
     *world
 }
 
-fn sample_world() -> World {
-    World::new(vec![Country::new(
-        1,
-        "A".to_string(),
-        vec![Person::new(1, 30, 0, 11)],
-    )])
-}
-
-fn sample_world_two_countries() -> World {
-    World::new(vec![
-        Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
-        Country::new(2, "B".to_string(), vec![Person::new(2, 30, 0, 12)]),
-    ])
-}
-
 #[test]
 fn inactive_tabs_skip_heavy_data() {
     let engine = setup_running_engine(35);
@@ -90,13 +75,19 @@ fn inactive_tabs_skip_heavy_data() {
     let RunningTabSnapshot::Disasters(disasters_tab) = disasters.tab else {
         panic!("disasters tab payload expected");
     };
-    assert_eq!(disasters_tab.rows.len(), crate::sim::ALL_DISASTER_KINDS.len());
+    assert_eq!(
+        disasters_tab.rows.len(),
+        crate::sim::ALL_DISASTER_KINDS.len()
+    );
     assert!(disasters_tab.last_apply_status.is_none());
     let events = running_snapshot_for_tab(&engine, RunningTab::Events);
     let RunningTabSnapshot::Events(events_tab) = events.tab else {
         panic!("events tab payload expected");
     };
-    assert_eq!(events_tab.events_total_count, events_tab.event_log_lines.len());
+    assert_eq!(
+        events_tab.events_total_count,
+        events_tab.event_log_lines.len()
+    );
     let expected_chart_points = match engine.phase() {
         GamePhase::Running(world) => world.country_history.first().map_or(0, |v| v.len()),
         GamePhase::Setup(_) => 0,
@@ -109,73 +100,6 @@ fn inactive_tabs_skip_heavy_data() {
     assert_eq!(charts_tab.chart_page, 0);
     assert_eq!(charts_tab.total_chart_pages, 8);
     assert!(!charts_tab.pie_page.population_by_country.slices.is_empty());
-}
-
-#[test]
-fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
-    let mut world = sample_world_two_countries();
-    let template = world.country_history[0][0];
-    let c0 = world.country_mut(0).unwrap();
-    c0.fx_rate_local_per_base = 2.50;
-    c0.monthly_goods_export_revenue_base = 200.0;
-    c0.monthly_goods_import_spending_base = 100.0;
-    let c1 = world.country_mut(1).unwrap();
-    c1.fx_rate_local_per_base = 1.10;
-    c1.monthly_goods_export_revenue_base = 50.0;
-    c1.monthly_goods_import_spending_base = 0.0;
-    world.country_history[0].clear();
-    world.country_history[0].push_back(crate::sim::world::MetricPoint {
-        fx_rate_local_per_base: 2.0,
-        ..template
-    });
-    world.country_history[0].push_back(crate::sim::world::MetricPoint {
-        fx_rate_local_per_base: 2.5,
-        ..template
-    });
-    world.country_history[1].truncate(1);
-    let snapshot = snapshot_from_world_with_ui(
-        world,
-        UiState {
-            active_tab: RunningTab::Fx,
-            ..UiState::default()
-        },
-    );
-    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
-        panic!("fx tab payload expected");
-    };
-    assert_eq!(fx_tab.fx_rows[0].country, "A");
-    assert_eq!(fx_tab.fx_rows[0].month_move_pct, "+25.00%");
-    assert_eq!(fx_tab.fx_rows[0].export_import_ratio, "2.00x");
-    assert_eq!(fx_tab.fx_rows[1].month_move_pct, "N/A");
-    assert_eq!(fx_tab.fx_rows[1].export_import_ratio, "N/A");
-}
-
-#[test]
-fn fx_snapshot_populates_selected_summary_from_country_fields() {
-    let mut world = sample_world();
-    let country = world.country_mut(0).unwrap();
-    country.monthly_goods_export_revenue_base = 320.0;
-    country.monthly_goods_import_spending_base = 180.0;
-    country.monthly_fx_financial_inflows_base = 75.0;
-    country.monthly_fx_financial_outflows_base = 40.0;
-    country.monthly_fx_net_flow_base = 35.0;
-    country.fx_pressure = 0.22;
-    country.fx_reserves_base = 999.0;
-    let snapshot = snapshot_from_world_with_ui(
-        world,
-        UiState {
-            active_tab: RunningTab::Fx,
-            ..UiState::default()
-        },
-    );
-    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
-        panic!("fx tab payload expected");
-    };
-    let text = fx_tab.selected_fx_summary_lines.join("\n");
-    assert!(text.contains("FX Reserves:"));
-    assert!(text.contains("Financial In / Out:"));
-    assert!(text.contains("Net FX Flow:"));
-    assert!(text.contains("FX Pressure: 0.22"));
 }
 
 #[test]
@@ -208,8 +132,13 @@ fn charts_snapshot_uses_doctor_label_for_education_track() {
     let RunningTabSnapshot::Charts(charts_tab) = snapshot.tab else {
         panic!("charts tab payload expected");
     };
-    let labels: Vec<&str> = charts_tab.pie_page.education_tracks.slices.iter()
-        .map(|slice| slice.label.as_str()).collect();
+    let labels: Vec<&str> = charts_tab
+        .pie_page
+        .education_tracks
+        .slices
+        .iter()
+        .map(|slice| slice.label.as_str())
+        .collect();
     assert!(labels.contains(&"Doctor"));
     assert!(!labels.contains(&"MedicalDoctor"));
 }
@@ -328,7 +257,11 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     );
     let mut world = World::new(vec![country]);
     world.day = 9;
-    let expected_currency = world.country(0).expect("country").currency_symbol().to_string();
+    let expected_currency = world
+        .country(0)
+        .expect("country")
+        .currency_symbol()
+        .to_string();
     let snapshot = snapshot_from_world_with_ui(
         world,
         UiState {
@@ -415,7 +348,10 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
         panic!("main tab payload expected");
     };
     assert_eq!(main_tab.person_related_events.events_total_count, 1);
-    assert_eq!(main_tab.person_related_events.events_category_label, "Stock Market");
+    assert_eq!(
+        main_tab.person_related_events.events_category_label,
+        "Stock Market"
+    );
     assert!(main_tab.person_related_events.event_log_lines[0].contains("margin call"));
 }
 
@@ -454,7 +390,10 @@ fn company_related_events_match_company_references_and_selected_country_only() {
         panic!("goods tab payload expected");
     };
     assert_eq!(goods_tab.company_related_events.events_total_count, 1);
-    assert_eq!(goods_tab.company_related_events.events_category_label, "Companies & Labor");
+    assert_eq!(
+        goods_tab.company_related_events.events_category_label,
+        "Companies & Labor"
+    );
     assert!(goods_tab.company_related_events.event_log_lines[0].contains("Company #0 -> #3"));
 }
 

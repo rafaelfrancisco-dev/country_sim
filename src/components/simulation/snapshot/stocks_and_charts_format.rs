@@ -47,4 +47,3 @@ pub(in crate::components::simulation) fn money(amount: f64, currency_symbol: &st
     let sign = if amount < 0.0 { "-" } else { "" };
     format!("{sign}{symbol}{}", compact_num(amount.abs()))
 }
-

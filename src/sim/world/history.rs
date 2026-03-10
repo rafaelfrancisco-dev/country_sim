@@ -15,11 +15,7 @@ impl World {
             // Record per-source FX reserves, aligned to the main history length.
             let main_len = self.country_history.get(idx).map(|h| h.len()).unwrap_or(0);
             if let Some(src_hist) = self.country_fx_source_history.get_mut(idx) {
-                Self::push_fx_source_snapshot(
-                    src_hist,
-                    country.fx_reserves_by_source(),
-                    main_len,
-                );
+                Self::push_fx_source_snapshot(src_hist, country.fx_reserves_by_source(), main_len);
             }
 
             for bank in country.all_banks() {
@@ -331,8 +327,7 @@ impl World {
     ) {
         // Union of known sources and current sources.
         let all_keys: Vec<usize> = {
-            let mut keys: std::collections::BTreeSet<usize> =
-                src_hist.keys().copied().collect();
+            let mut keys: std::collections::BTreeSet<usize> = src_hist.keys().copied().collect();
             keys.extend(current.keys().copied());
             keys.into_iter().collect()
         };

@@ -13,8 +13,12 @@ use ratatui::{
 use super::super::{Simulation, theme};
 use crate::components::simulation::{
     hotkeys,
-    snapshot::{FxRowSnapshot, FxTabSnapshot, RunningSnapshot},
+    snapshot::{FxRowSnapshot, FxTabSnapshot, RunningSnapshot, compact_num},
 };
+
+const FX_TOP_BASE_HEIGHT: u16 = 10;
+const FX_MIDDLE_MIN_HEIGHT: u16 = 10;
+const FX_BOTTOM_MIN_HEIGHT: u16 = 12;
 
 struct FxChart<'a> {
     title: &'a str,
@@ -38,10 +42,11 @@ impl Simulation {
         _world: &RunningSnapshot,
         tab: &FxTabSnapshot,
     ) -> String {
+        let top_height = Self::fx_top_height(body.height, tab);
         let [top, middle, bottom] = Layout::vertical([
-            Constraint::Length(10),
-            Constraint::Length(10),
-            Constraint::Min(12),
+            Constraint::Length(top_height),
+            Constraint::Min(FX_MIDDLE_MIN_HEIGHT),
+            Constraint::Min(FX_BOTTOM_MIN_HEIGHT),
         ])
         .areas(body);
 
@@ -106,7 +111,6 @@ impl Simulation {
             .map(|line| Line::raw(line.as_str()))
             .collect();
 
-        // Append per-currency reserves breakdown as styled entries.
         if !tab.selected_reserves_breakdown.is_empty() {
             let colors = [
                 Color::Cyan,
@@ -116,15 +120,22 @@ impl Simulation {
                 Color::LightBlue,
                 Color::LightGreen,
             ];
-            for (i, entry) in tab.selected_reserves_breakdown.iter().enumerate() {
-                let color = colors[i % colors.len()];
+            let mut color_idx = 0;
+            for entry in &tab.selected_reserves_breakdown {
+                let (label, style) = if entry.is_unattributed {
+                    ("Unattributed".to_string(), theme::primary_text())
+                } else {
+                    let color = colors[color_idx % colors.len()];
+                    color_idx += 1;
+                    (entry.currency_code.clone(), Style::default().fg(color))
+                };
                 lines.push(Line::styled(
                     format!(
-                        "  {} {}",
-                        crate::components::simulation::snapshot::compact_num(entry.amount_local),
+                        "  {label}: {} {}",
+                        compact_num(entry.amount_local),
                         entry.currency_symbol,
                     ),
-                    Style::default().fg(color),
+                    style,
                 ));
             }
         }
@@ -141,6 +152,22 @@ impl Simulation {
                 .block(block),
             area,
         );
+    }
+
+    fn fx_top_height(body_height: u16, tab: &FxTabSnapshot) -> u16 {
+        let summary_height = u16::try_from(
+            tab.selected_fx_summary_lines.len() + tab.selected_reserves_breakdown.len(),
+        )
+        .unwrap_or(u16::MAX)
+        .saturating_add(2);
+        let pairs_height = u16::try_from(tab.pair_board_lines.len().max(1))
+            .unwrap_or(u16::MAX)
+            .saturating_add(2);
+        let desired = FX_TOP_BASE_HEIGHT.max(summary_height.max(pairs_height));
+        let max_height = body_height
+            .saturating_sub(FX_MIDDLE_MIN_HEIGHT + FX_BOTTOM_MIN_HEIGHT)
+            .max(FX_TOP_BASE_HEIGHT.min(body_height));
+        desired.min(max_height)
     }
 
     fn draw_fx_pairs(&self, frame: &mut Frame, area: Rect, tab: &FxTabSnapshot) {
@@ -191,7 +218,6 @@ impl Simulation {
             return;
         }
 
-        // Build point vecs for each series (must outlive the Dataset borrows).
         let all_points: Vec<Vec<(f64, f64)>> = series
             .iter()
             .map(|(_, data)| {
@@ -463,10 +489,11 @@ impl Simulation {
     fn fx_axis_label(format: FxAxisFormat, value: f64) -> Line<'static> {
         match format {
             FxAxisFormat::Rate => Line::raw(format!("{value:.2}")),
-            FxAxisFormat::Money => {
-                Line::raw(crate::components::simulation::snapshot::compact_num(value))
-            }
+            FxAxisFormat::Money => Line::raw(compact_num(value)),
             FxAxisFormat::Pressure => Line::raw(format!("{value:.2}")),
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
