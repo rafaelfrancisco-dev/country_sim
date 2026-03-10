@@ -53,11 +53,7 @@ fn chart_page_commands_clamp_to_valid_range() {
 #[test]
 fn ensure_valid_clamps_chart_page() {
     let world = sample_world();
-    let mut ui = UiState {
-        chart_page: CHART_PAGE_COUNT + 5,
-        ..UiState::default()
-    };
-
+    let mut ui = UiState { chart_page: CHART_PAGE_COUNT + 5, ..UiState::default() };
     ui.ensure_valid(&world);
     assert_eq!(ui.chart_page, CHART_PAGE_COUNT - 1);
 }
@@ -71,7 +67,6 @@ fn ensure_valid_resets_chart_page_when_world_is_empty() {
         goods_production_page: 3,
         ..UiState::default()
     };
-
     ui.ensure_valid(&world);
     assert_eq!(ui.chart_page, 0);
     assert_eq!(ui.goods_main_page, GoodsMainPage::Companies);
@@ -128,19 +123,12 @@ fn changing_country_preserves_goods_main_page_and_clamps_overview_page() {
 #[test]
 fn details_page_commands_adjust_and_close_resets() {
     let world = sample_world();
-    let mut ui = UiState {
-        details_view: DetailsView::Person,
-        details_page: 0,
-        ..UiState::default()
-    };
-
+    let mut ui = UiState { details_view: DetailsView::Person, details_page: 0, ..UiState::default() };
     ui.apply(UiCommand::DetailsPageNext, &world);
     ui.apply(UiCommand::DetailsPageNext, &world);
     assert_eq!(ui.details_page, 1);
-
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 0);
-
     ui.apply(UiCommand::CloseDetails, &world);
     assert_eq!(ui.details_view, DetailsView::List);
     assert_eq!(ui.details_page, 0);
@@ -149,17 +137,9 @@ fn details_page_commands_adjust_and_close_resets() {
 #[test]
 fn company_details_page_commands_clamp_to_page_three() {
     let world = sample_world();
-    let mut ui = UiState {
-        details_view: DetailsView::Company,
-        details_page: 0,
-        ..UiState::default()
-    };
-
-    for _ in 0..8 {
-        ui.apply(UiCommand::DetailsPageNext, &world);
-    }
+    let mut ui = UiState { details_view: DetailsView::Company, details_page: 0, ..UiState::default() };
+    for _ in 0..8 { ui.apply(UiCommand::DetailsPageNext, &world); }
     assert_eq!(ui.details_page, 3);
-
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 2);
 }
@@ -167,17 +147,9 @@ fn company_details_page_commands_clamp_to_page_three() {
 #[test]
 fn bank_details_page_commands_clamp_to_page_three() {
     let world = sample_world();
-    let mut ui = UiState {
-        details_view: DetailsView::Bank,
-        details_page: 0,
-        ..UiState::default()
-    };
-
-    for _ in 0..8 {
-        ui.apply(UiCommand::DetailsPageNext, &world);
-    }
+    let mut ui = UiState { details_view: DetailsView::Bank, details_page: 0, ..UiState::default() };
+    for _ in 0..8 { ui.apply(UiCommand::DetailsPageNext, &world); }
     assert_eq!(ui.details_page, 3);
-
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 2);
 }
@@ -185,16 +157,10 @@ fn bank_details_page_commands_clamp_to_page_three() {
 #[test]
 fn country_details_page_commands_remain_unbounded() {
     let world = sample_world();
-    let mut ui = UiState {
-        details_view: DetailsView::Country,
-        details_page: 0,
-        ..UiState::default()
-    };
-
+    let mut ui = UiState { details_view: DetailsView::Country, details_page: 0, ..UiState::default() };
     ui.apply(UiCommand::DetailsPageNext, &world);
     ui.apply(UiCommand::DetailsPageNext, &world);
     assert_eq!(ui.details_page, 2);
-
     ui.apply(UiCommand::DetailsPagePrev, &world);
     assert_eq!(ui.details_page, 1);
 }
@@ -253,9 +219,7 @@ fn switching_to_stocks_tab_sets_stock_focus() {
         selection_focus: SelectionFocus::Bank,
         ..UiState::default()
     };
-
     ui.next_tab();
-
     assert_eq!(ui.active_tab, RunningTab::Stocks);
     assert_eq!(ui.selection_focus, SelectionFocus::Stock);
 }
@@ -267,9 +231,7 @@ fn switching_to_fx_tab_keeps_current_focus() {
         selection_focus: SelectionFocus::Stock,
         ..UiState::default()
     };
-
     ui.next_tab();
-
     assert_eq!(ui.active_tab, RunningTab::Fx);
     assert_eq!(ui.selection_focus, SelectionFocus::Stock);
 }
@@ -277,17 +239,16 @@ fn switching_to_fx_tab_keeps_current_focus() {
 #[test]
 fn fx_country_navigation_changes_country_without_switching_focus() {
     let world = sample_world_two_countries();
+    // idx 1 has higher fx_rate → sorted first; FxNextCountry moves to sorted-second (idx 0).
     let mut ui = UiState {
         active_tab: RunningTab::Fx,
         selection_focus: SelectionFocus::Stock,
-        selected_country: 0,
+        selected_country: 1,
         ..UiState::default()
     };
-
     ui.apply(UiCommand::FxNextCountry, &world);
-
     assert_eq!(ui.active_tab, RunningTab::Fx);
-    assert_eq!(ui.selected_country, 1);
+    assert_eq!(ui.selected_country, 0);
     assert_eq!(ui.selection_focus, SelectionFocus::Stock);
     assert_eq!(ui.details_view, DetailsView::List);
 }

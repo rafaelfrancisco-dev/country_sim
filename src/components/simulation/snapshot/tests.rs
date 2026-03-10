@@ -70,45 +70,33 @@ fn inactive_tabs_skip_heavy_data() {
     let engine = setup_running_engine(35);
     let main = running_snapshot_for_tab(&engine, RunningTab::Main);
     assert!(matches!(main.tab, RunningTabSnapshot::Main(_)));
-
     let banks = running_snapshot_for_tab(&engine, RunningTab::Banks);
     let RunningTabSnapshot::Banks(banks_tab) = banks.tab else {
         panic!("banks tab payload expected");
     };
     assert!(!banks_tab.country_banks_summary_lines.is_empty());
-
     let stocks = running_snapshot_for_tab(&engine, RunningTab::Stocks);
     let RunningTabSnapshot::Stocks(stocks_tab) = stocks.tab else {
         panic!("stocks tab payload expected");
     };
     assert!(!stocks_tab.stock_summary_lines.is_empty());
-
     let fx = running_snapshot_for_tab(&engine, RunningTab::Fx);
     let RunningTabSnapshot::Fx(fx_tab) = fx.tab else {
         panic!("fx tab payload expected");
     };
     assert!(!fx_tab.selected_fx_summary_lines.is_empty());
     assert!(!fx_tab.fx_rows.is_empty());
-
     let disasters = running_snapshot_for_tab(&engine, RunningTab::Disasters);
     let RunningTabSnapshot::Disasters(disasters_tab) = disasters.tab else {
         panic!("disasters tab payload expected");
     };
-    assert_eq!(
-        disasters_tab.rows.len(),
-        crate::sim::ALL_DISASTER_KINDS.len()
-    );
+    assert_eq!(disasters_tab.rows.len(), crate::sim::ALL_DISASTER_KINDS.len());
     assert!(disasters_tab.last_apply_status.is_none());
-
     let events = running_snapshot_for_tab(&engine, RunningTab::Events);
     let RunningTabSnapshot::Events(events_tab) = events.tab else {
         panic!("events tab payload expected");
     };
-    assert_eq!(
-        events_tab.events_total_count,
-        events_tab.event_log_lines.len()
-    );
-
+    assert_eq!(events_tab.events_total_count, events_tab.event_log_lines.len());
     let expected_chart_points = match engine.phase() {
         GamePhase::Running(world) => world.country_history.first().map_or(0, |v| v.len()),
         GamePhase::Setup(_) => 0,
@@ -127,24 +115,14 @@ fn inactive_tabs_skip_heavy_data() {
 fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
     let mut world = sample_world_two_countries();
     let template = world.country_history[0][0];
-    world.country_mut(0).unwrap().fx_rate_local_per_base = 2.50;
-    world
-        .country_mut(0)
-        .unwrap()
-        .monthly_goods_export_revenue_base = 200.0;
-    world
-        .country_mut(0)
-        .unwrap()
-        .monthly_goods_import_spending_base = 100.0;
-    world.country_mut(1).unwrap().fx_rate_local_per_base = 1.10;
-    world
-        .country_mut(1)
-        .unwrap()
-        .monthly_goods_export_revenue_base = 50.0;
-    world
-        .country_mut(1)
-        .unwrap()
-        .monthly_goods_import_spending_base = 0.0;
+    let c0 = world.country_mut(0).unwrap();
+    c0.fx_rate_local_per_base = 2.50;
+    c0.monthly_goods_export_revenue_base = 200.0;
+    c0.monthly_goods_import_spending_base = 100.0;
+    let c1 = world.country_mut(1).unwrap();
+    c1.fx_rate_local_per_base = 1.10;
+    c1.monthly_goods_export_revenue_base = 50.0;
+    c1.monthly_goods_import_spending_base = 0.0;
     world.country_history[0].clear();
     world.country_history[0].push_back(crate::sim::world::MetricPoint {
         fx_rate_local_per_base: 2.0,
@@ -155,7 +133,6 @@ fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
         ..template
     });
     world.country_history[1].truncate(1);
-
     let snapshot = snapshot_from_world_with_ui(
         world,
         UiState {
@@ -166,7 +143,6 @@ fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
     let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
         panic!("fx tab payload expected");
     };
-
     assert_eq!(fx_tab.fx_rows[0].country, "A");
     assert_eq!(fx_tab.fx_rows[0].month_move_pct, "+25.00%");
     assert_eq!(fx_tab.fx_rows[0].export_import_ratio, "2.00x");
@@ -185,7 +161,6 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
     country.monthly_fx_net_flow_base = 35.0;
     country.fx_pressure = 0.22;
     country.fx_reserves_base = 999.0;
-
     let snapshot = snapshot_from_world_with_ui(
         world,
         UiState {
@@ -196,7 +171,6 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
     let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
         panic!("fx tab payload expected");
     };
-
     let text = fx_tab.selected_fx_summary_lines.join("\n");
     assert!(text.contains("FX Reserves:"));
     assert!(text.contains("Financial In / Out:"));
@@ -207,7 +181,6 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
 #[test]
 fn charts_snapshot_uses_doctor_label_for_education_track() {
     use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
-
     let doctor = Person::new_with_profile(
         1,
         EmploymentStatus::Unemployed,
@@ -231,19 +204,12 @@ fn charts_snapshot_uses_doctor_label_for_education_track() {
         active_tab: RunningTab::Charts,
         ..UiState::default()
     };
-
     let snapshot = snapshot_from_world_with_ui(world, ui);
     let RunningTabSnapshot::Charts(charts_tab) = snapshot.tab else {
         panic!("charts tab payload expected");
     };
-    let labels = charts_tab
-        .pie_page
-        .education_tracks
-        .slices
-        .iter()
-        .map(|slice| slice.label.as_str())
-        .collect::<Vec<_>>();
-
+    let labels: Vec<&str> = charts_tab.pie_page.education_tracks.slices.iter()
+        .map(|slice| slice.label.as_str()).collect();
     assert!(labels.contains(&"Doctor"));
     assert!(!labels.contains(&"MedicalDoctor"));
 }
@@ -282,14 +248,12 @@ fn events_category_filter_limits_results() {
             day: 1,
         },
     ]);
-
     let ui = UiState {
         active_tab: RunningTab::Events,
         events_category: EventsCategoryFilter::StockMarket,
         ..UiState::default()
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
-
     let RunningTabSnapshot::Events(events_tab) = snapshot.tab else {
         panic!("events tab payload expected");
     };
@@ -319,7 +283,6 @@ fn events_search_intersects_with_category_filter() {
             day: 2,
         },
     ]);
-
     let ui = UiState {
         active_tab: RunningTab::Events,
         events_category: EventsCategoryFilter::BankruptciesDistress,
@@ -327,7 +290,6 @@ fn events_search_intersects_with_category_filter() {
         ..UiState::default()
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
-
     let RunningTabSnapshot::Events(events_tab) = snapshot.tab else {
         panic!("events tab payload expected");
     };
@@ -357,7 +319,6 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     food.inventory_units = 9;
     food.last_month_units_produced = 11;
     food.last_month_units_sold = 7;
-
     let country = Country::with_economy(
         1,
         "A".to_string(),
@@ -367,12 +328,7 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     );
     let mut world = World::new(vec![country]);
     world.day = 9;
-    let expected_currency = world
-        .country(0)
-        .expect("country")
-        .currency_symbol()
-        .to_string();
-
+    let expected_currency = world.country(0).expect("country").currency_symbol().to_string();
     let snapshot = snapshot_from_world_with_ui(
         world,
         UiState {
@@ -384,10 +340,8 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
         panic!("goods tab payload expected");
     };
-
     assert_eq!(goods_tab.total_goods_production_pages, 2);
     assert_eq!(goods_tab.goods_production_page, 0);
-
     let water_row = goods_tab
         .production_demand_rows
         .iter()
@@ -401,7 +355,6 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     assert_eq!(water_row.export_units, "7");
     assert_eq!(water_row.est_daily_demand_units, "2");
     assert_eq!(water_row.est_mtd_demand_units, "22");
-
     let medicine_row = goods_tab
         .production_demand_rows
         .iter()
@@ -450,7 +403,6 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
             day: 3,
         },
     ]);
-
     let ui = UiState {
         active_tab: RunningTab::Main,
         details_view: DetailsView::Person,
@@ -459,15 +411,11 @@ fn person_related_events_apply_shared_filter_and_country_scope() {
         ..UiState::default()
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
-
     let RunningTabSnapshot::Main(main_tab) = snapshot.tab else {
         panic!("main tab payload expected");
     };
     assert_eq!(main_tab.person_related_events.events_total_count, 1);
-    assert_eq!(
-        main_tab.person_related_events.events_category_label,
-        "Stock Market"
-    );
+    assert_eq!(main_tab.person_related_events.events_category_label, "Stock Market");
     assert!(main_tab.person_related_events.event_log_lines[0].contains("margin call"));
 }
 
@@ -495,7 +443,6 @@ fn company_related_events_match_company_references_and_selected_country_only() {
             day: 4,
         },
     ]);
-
     let ui = UiState {
         active_tab: RunningTab::Goods,
         details_view: DetailsView::Company,
@@ -503,15 +450,11 @@ fn company_related_events_match_company_references_and_selected_country_only() {
         ..UiState::default()
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
-
     let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
         panic!("goods tab payload expected");
     };
     assert_eq!(goods_tab.company_related_events.events_total_count, 1);
-    assert_eq!(
-        goods_tab.company_related_events.events_category_label,
-        "Companies & Labor"
-    );
+    assert_eq!(goods_tab.company_related_events.events_category_label, "Companies & Labor");
     assert!(goods_tab.company_related_events.event_log_lines[0].contains("Company #0 -> #3"));
 }
 
@@ -538,7 +481,6 @@ fn bank_related_events_match_selected_bank_only() {
             day: 5,
         },
     ]);
-
     let ui = UiState {
         active_tab: RunningTab::Banks,
         details_view: DetailsView::Bank,
@@ -546,7 +488,6 @@ fn bank_related_events_match_selected_bank_only() {
         ..UiState::default()
     };
     let snapshot = snapshot_from_world_with_ui(world, ui);
-
     let RunningTabSnapshot::Banks(banks_tab) = snapshot.tab else {
         panic!("banks tab payload expected");
     };

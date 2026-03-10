@@ -222,14 +222,15 @@ impl Simulation {
     }
 
     fn map_fx_key(&self, key: KeyEvent) -> Option<SimulationCommand> {
-        if hotkeys::is_country_prev_key(key) {
-            return Some(SimulationCommand::Ui(UiCommand::FxPrevCountry));
+        match key.code {
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'w') => {
+                Some(SimulationCommand::Ui(UiCommand::FxPrevCountry))
+            }
+            KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
+                Some(SimulationCommand::Ui(UiCommand::FxNextCountry))
+            }
+            _ => None,
         }
-        if hotkeys::is_country_next_key(key) {
-            return Some(SimulationCommand::Ui(UiCommand::FxNextCountry));
-        }
-
-        None
     }
 
     fn map_disasters_key(&self, key: KeyEvent) -> Option<SimulationCommand> {

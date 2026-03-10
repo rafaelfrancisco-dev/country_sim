@@ -219,15 +219,21 @@ impl UiState {
                 self.stock_selected_row = self.stock_selected_row.saturating_sub(1);
             }
             UiCommand::StocksNextRow => {
-                self.stock_selected_row = self.stock_selected_row.saturating_add(1);
+                let max = self
+                    .selected_country(world)
+                    .map(|c| c.stock_market.listed.len().saturating_sub(1))
+                    .unwrap_or(0);
+                self.stock_selected_row = (self.stock_selected_row + 1).min(max);
             }
             UiCommand::StocksPagePrev => {
-                self.stock_page = self.stock_page.saturating_sub(1);
-                self.stock_selected_row = 0;
+                self.stock_selected_row = self.stock_selected_row.saturating_sub(1);
             }
             UiCommand::StocksPageNext => {
-                self.stock_page = self.stock_page.saturating_add(1);
-                self.stock_selected_row = 0;
+                let max = self
+                    .selected_country(world)
+                    .map(|c| c.stock_market.listed.len().saturating_sub(1))
+                    .unwrap_or(0);
+                self.stock_selected_row = (self.stock_selected_row + 1).min(max);
             }
             UiCommand::StocksOpenSelectedCompanyDetails => {
                 self.open_selected_stock_company_details(world);

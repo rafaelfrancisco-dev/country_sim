@@ -91,7 +91,7 @@ impl Simulation {
         );
 
         format!(
-            "Controls: {}  [,/.] change country | FX Monitor: {} ({}) | Countries: {}",
+            "Controls: {}  [w/s] scroll currency list | FX Monitor: {} ({}) | Countries: {}",
             hotkeys::GLOBAL_RUNNING_HINT,
             tab.selected_country_name,
             tab.selected_currency_code,

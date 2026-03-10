@@ -296,12 +296,7 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    const STOCKS_PAGE_SIZE: usize = 15;
-    let page_start = ui.stock_page.saturating_mul(STOCKS_PAGE_SIZE);
-    let page_end = (page_start + STOCKS_PAGE_SIZE).min(equities.len());
-    let page_equities = &equities[page_start.min(equities.len())..page_end];
-
-    let stock_rows: Vec<StockRowSnapshot> = page_equities
+    let stock_rows: Vec<StockRowSnapshot> = equities
         .iter()
         .enumerate()
         .map(|(row_idx, equity)| {
@@ -324,7 +319,6 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
                 0.0
             };
 
-            let abs_row = page_start + row_idx;
             StockRowSnapshot {
                 ticker: equity.ticker.to_string(),
                 company_name,
@@ -334,8 +328,8 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
                 volume: compact_count(equity.day_volume as f64),
                 float_shares: compact_count(equity.free_float_shares as f64),
                 bank_pct: format!("{:.1}%", bank_pct),
-                is_selected: abs_row == ui.stock_selected_row,
-                is_even: abs_row.is_multiple_of(2),
+                is_selected: row_idx == ui.stock_selected_row,
+                is_even: row_idx.is_multiple_of(2),
             }
         })
         .collect();

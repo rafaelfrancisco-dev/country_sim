@@ -99,7 +99,7 @@ fn running_keymap_maps_stocks_enter_to_open_selected_company() {
 }
 
 #[test]
-fn fx_tab_maps_country_cycle_keys_only() {
+fn fx_tab_maps_ws_to_scroll_list() {
     let simulation = Simulation::new();
     let state = RunningInputState {
         details_view: DetailsView::List,
@@ -112,15 +112,20 @@ fn fx_tab_maps_country_cycle_keys_only() {
     };
 
     assert_eq!(
-        simulation.map_running_key(KeyEvent::from(KeyCode::Char(',')), state),
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), state),
         Some(SimulationCommand::Ui(UiCommand::FxPrevCountry))
     );
     assert_eq!(
-        simulation.map_running_key(KeyEvent::from(KeyCode::Char('.')), state),
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('s')), state),
         Some(SimulationCommand::Ui(UiCommand::FxNextCountry))
     );
+    // comma/period no longer bound on FX tab
     assert_eq!(
-        simulation.map_running_key(KeyEvent::from(KeyCode::Char('w')), state),
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char(',')), state),
+        None
+    );
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Char('.')), state),
         None
     );
 }

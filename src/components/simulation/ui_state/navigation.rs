@@ -289,24 +289,14 @@ impl UiState {
     }
 
     pub(super) fn select_next_fx_country(&mut self, world: &World) {
-        if world.countries.is_empty() {
-            return;
-        }
-
-        let max_index = world.countries.len().saturating_sub(1);
-        if self.selected_country < max_index {
-            self.selected_country += 1;
+        if let Some(next) = fx_sorted_next(world, self.selected_country) {
+            self.selected_country = next;
             self.reset_country_dependent_navigation();
         }
     }
 
     pub(super) fn select_prev_fx_country(&mut self, world: &World) {
-        if world.countries.is_empty() {
-            return;
-        }
-
-        let prev = self.selected_country.saturating_sub(1);
-        if prev != self.selected_country {
+        if let Some(prev) = fx_sorted_prev(world, self.selected_country) {
             self.selected_country = prev;
             self.reset_country_dependent_navigation();
         }
@@ -322,4 +312,33 @@ impl UiState {
     pub(super) fn prev_chart_page(&mut self) {
         self.chart_page = self.chart_page.saturating_sub(1);
     }
+}
+
+/// Returns the country index that comes after `current` in the FX table's sorted order
+/// (sorted by fx_rate_local_per_base descending, then by name ascending).
+fn fx_sorted_next(world: &World, current: usize) -> Option<usize> {
+    let sorted = fx_sorted_indices(world);
+    let pos = sorted.iter().position(|&i| i == current)?;
+    sorted.get(pos + 1).copied()
+}
+
+/// Returns the country index that comes before `current` in the FX table's sorted order.
+fn fx_sorted_prev(world: &World, current: usize) -> Option<usize> {
+    let sorted = fx_sorted_indices(world);
+    let pos = sorted.iter().position(|&i| i == current)?;
+    if pos == 0 { None } else { sorted.get(pos - 1).copied() }
+}
+
+/// Country indices sorted the same way as the FX leaderboard table.
+fn fx_sorted_indices(world: &World) -> Vec<usize> {
+    let mut indices: Vec<usize> = (0..world.countries.len()).collect();
+    indices.sort_by(|&a, &b| {
+        let rate_a = world.countries[a].fx_rate_local_per_base();
+        let rate_b = world.countries[b].fx_rate_local_per_base();
+        rate_b
+            .partial_cmp(&rate_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| world.countries[a].name().cmp(world.countries[b].name()))
+    });
+    indices
 }
