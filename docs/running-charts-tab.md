@@ -23,7 +23,7 @@ Tab switching uses `Tab` and `Shift+Tab`. The active tab is shown in the top hea
 The running UI uses one navigation convention across tabs:
 - `w` / `s`: move selection up/down; all list tables (People, Countries, Companies, Banks, Stocks) auto-scroll to keep the selected row visible, with a scrollbar thumb indicating position
 - `a` / `d`: move focus left/right between panes
-- `PageUp` / `PageDown`: previous/next page in paged tables
+- `u` / `i`: previous/next page in paged tables
 - `Enter`: open selected details
 - `Esc`: close details or close active search editing
 - `,` / `.`: previous/next country context where applicable
@@ -49,7 +49,7 @@ The running UI uses one navigation convention across tabs:
     - page 1: company list + goods summary
     - page 2: selected-country production and demand overview
   - `g` toggles between the two Goods pages.
-  - Goods page 2 uses `PageUp` / `PageDown` to paginate the per-good overview table.
+  - Goods page 2 uses `u` / `i` to paginate the per-good overview table.
   - Company details use fixed pages:
     - page 1: company overview details
     - page 2: company history charts
@@ -65,8 +65,8 @@ The running UI uses one navigation convention across tabs:
     - page 4: current depositors table (`Type`, `Entity`, `Balance`, `Share`)
   - Bank page 3 reuses Events controls (`w/s`, `/`, `o`, `f`, `Ctrl+u`) and the same shared filter/search/sort state as the Events tab.
   - Bank page 4 uses `w/s` to scroll depositors.
-- `Main`/`Goods`/`Banks` details view: `PageUp` / `PageDown` navigate detail pages.
-- On Goods page 2, `PageUp` / `PageDown` page the per-good production/demand table instead of the company list.
+- `Main`/`Goods`/`Banks` details view: `u` / `i` navigate detail pages.
+- On Goods page 2, `u` / `i` page the per-good production/demand table instead of the company list.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
   - Person stock-holdings details can include foreign securities; foreign holdings are prefixed with the listing-country name.
 - `Disasters`: selected-country disaster controls.
@@ -74,7 +74,7 @@ The running UI uses one navigation convention across tabs:
   - `a/d`: choose intensity tier (`5%`, `10%`, `25%`, `50%`)
   - `x`: enable/disable current disaster
   - `Enter`: apply all enabled disasters together
-- `Charts`: `t` toggles scope between selected country and world aggregate on line-chart pages; `PageUp` / `PageDown` switch chart pages.
+- `Charts`: `t` toggles scope between selected country and world aggregate on line-chart pages; `u` / `i` switch chart pages.
 - `Events`: `/` toggles search editing, `o` toggles sort order, `f` cycles event category, `Ctrl+u` clears search query while editing.
   - Category cycle order: `All` -> `Stock Market` -> `Births/Deaths` -> `Bankruptcies & Distress` -> `Loans & Debt` -> `Companies & Labor` -> `Government & Policy` -> `All`
   - When both a search query and category are set, results must match both filters.
@@ -82,7 +82,7 @@ The running UI uses one navigation convention across tabs:
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
 
 ## Charts and Metrics
-The `Charts` tab renders eight charts per page in a 4×2 grid. Use `PageUp` / `PageDown` to switch pages.
+The `Charts` tab renders eight charts per page in a 4×2 grid. Use `u` / `i` to switch pages.
 
 ### Page 1 — Liquidity & Balance Sheet
 | Row | Left | Right |

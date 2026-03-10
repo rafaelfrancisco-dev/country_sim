@@ -18,11 +18,11 @@ pub(super) fn is_country_next_key(key: KeyEvent) -> bool {
 }
 
 pub(super) fn is_page_prev_key(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::PageUp)
+    is_char(key, 'u')
 }
 
 pub(super) fn is_page_next_key(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::PageDown)
+    is_char(key, 'i')
 }
 
 pub(super) fn is_ctrl_u(key: KeyEvent) -> bool {

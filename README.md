@@ -20,7 +20,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 
 ## Recent UI Additions
 - Seven running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, `Events`
-- Unified running navigation: `w/s` (move), `a/d` (focus), `PageUp/PageDown` (page), `,/.` (country cycle)
+- Unified running navigation: `w/s` (move), `a/d` (focus), `u/i` (page), `,/.` (country cycle)
 - New `Disasters` tab for scenario shocks on the selected country:
   - row controls: `w/s` select disaster, `a/d` intensity, `x` enable toggle
   - apply controls: `Enter` applies all enabled disasters together

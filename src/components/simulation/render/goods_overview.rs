@@ -174,7 +174,7 @@ impl Simulation {
         self.draw_goods_production_table(frame, table_area, tab);
 
         format!(
-            "Controls: {}  [,/.] change country  [g] switch goods page  [PgUp/PgDn] page goods overview | Goods Page 2/2 | Overview Page {}/{}",
+            "Controls: {}  [,/.] change country  [g] switch goods page  [u/i] page goods overview | Goods Page 2/2 | Overview Page {}/{}",
             crate::components::simulation::hotkeys::GLOBAL_RUNNING_HINT,
             tab.goods_production_page + 1,
             tab.total_goods_production_pages,

@@ -83,7 +83,7 @@ impl Simulation {
         }
 
         format!(
-            "Controls: {}  [t] toggle scope  [,/.] cycle country  [PgUp/PgDn] chart page | {}",
+            "Controls: {}  [t] toggle scope  [,/.] cycle country  [u/i] chart page | {}",
             hotkeys::GLOBAL_RUNNING_HINT,
             Self::chart_page_label(page_idx, total_pages)
         )

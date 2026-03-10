@@ -34,15 +34,15 @@ impl Simulation {
                 self.draw_bank_details(frame, body, world, tab);
                 match world.details_page {
                     0 => format!(
-                        "Controls: {}  [Esc] back to banks list  [PgUp/PgDn] details page (1/4)",
+                        "Controls: {}  [Esc] back to banks list  [u/i] details page (1/4)",
                         hotkeys::GLOBAL_RUNNING_HINT
                     ),
                     1 => format!(
-                        "Controls: {}  [Esc] back to banks list  [PgUp/PgDn] details page (2/4)",
+                        "Controls: {}  [Esc] back to banks list  [u/i] details page (2/4)",
                         hotkeys::GLOBAL_RUNNING_HINT
                     ),
                     2 => format!(
-                        "Controls: {}  [Esc] back to banks list  [PgUp/PgDn] details page (3/4)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
+                        "Controls: {}  [Esc] back to banks list  [u/i] details page (3/4)  [w/s] scroll  [{}]  [o] toggle sort  [f] category | Events: {} | Sort: {} | Category: {}",
                         hotkeys::GLOBAL_RUNNING_HINT,
                         event_search_hint(
                             world.events_search_active,
@@ -53,7 +53,7 @@ impl Simulation {
                         tab.bank_related_events.events_category_label,
                     ),
                     _ => format!(
-                        "Controls: {}  [Esc] back to banks list  [PgUp/PgDn] details page (4/4)  [w/s] scroll depositors | Depositors: {}",
+                        "Controls: {}  [Esc] back to banks list  [u/i] details page (4/4)  [w/s] scroll depositors | Depositors: {}",
                         hotkeys::GLOBAL_RUNNING_HINT,
                         tab.bank_depositor_rows.len(),
                     ),
@@ -65,7 +65,7 @@ impl Simulation {
                 self.draw_banks_summary(frame, top, tab);
                 self.draw_banks_table(frame, bottom, world, tab);
                 format!(
-                    "Controls: {}  [,/.] change country  [a/d] focus country/bank  [w/s] move row (focused list)  [PgUp/PgDn] page (focused list)  [Enter] bank details | Country Page {}/{} | Bank Page {}/{}",
+                    "Controls: {}  [,/.] change country  [a/d] focus country/bank  [w/s] move row (focused list)  [u/i] page (focused list)  [Enter] bank details | Country Page {}/{} | Bank Page {}/{}",
                     hotkeys::GLOBAL_RUNNING_HINT,
                     world.country_page + 1,
                     world.total_country_pages,

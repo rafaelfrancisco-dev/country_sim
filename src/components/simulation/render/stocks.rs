@@ -55,7 +55,7 @@ impl Simulation {
         );
 
         format!(
-            "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [PgUp/PgDn] page | Listed: {}",
+            "Controls: {}  [,/.] cycle country  [a/d] focus country/table  [w/s] move row  [u/i] page | Listed: {}",
             hotkeys::GLOBAL_RUNNING_HINT,
             tab.stock_rows.len()
         )
