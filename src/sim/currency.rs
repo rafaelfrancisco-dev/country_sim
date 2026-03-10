@@ -17,23 +17,22 @@ impl CurrencySpec {
     }
 }
 
-const COMMON_CURRENCIES: [(&str, &str, &str); 16] = [
+const COMMON_CURRENCIES: [(&str, &str, &str); 15] = [
     ("USD", "US Dollar", "$"),
-    ("EUR", "Euro", "EUR"),
-    ("JPY", "Japanese Yen", "JPY"),
-    ("GBP", "Pound Sterling", "GBP"),
-    ("CHF", "Swiss Franc", "CHF"),
-    ("CAD", "Canadian Dollar", "CAD"),
-    ("AUD", "Australian Dollar", "AUD"),
-    ("CNY", "Chinese Yuan", "CNY"),
-    ("INR", "Indian Rupee", "INR"),
-    ("BRL", "Brazilian Real", "BRL"),
-    ("MXN", "Mexican Peso", "MXN"),
-    ("KRW", "South Korean Won", "KRW"),
-    ("SGD", "Singapore Dollar", "SGD"),
-    ("SEK", "Swedish Krona", "SEK"),
-    ("NOK", "Norwegian Krone", "NOK"),
-    ("ZAR", "South African Rand", "ZAR"),
+    ("EUR", "Euro", "€"),
+    ("JPY", "Japanese Yen", "¥"),
+    ("GBP", "Pound Sterling", "£"),
+    ("CAD", "Canadian Dollar", "$"),
+    ("AUD", "Australian Dollar", "$"),
+    ("CNY", "Chinese Yuan", "¥"),
+    ("INR", "Indian Rupee", "₹"),
+    ("KRW", "South Korean Won", "₩"),
+    ("RUB", "Russian Ruble", "₽"),
+    ("TRY", "Turkish Lira", "₺"),
+    ("UAH", "Ukrainian Hryvnia", "₴"),
+    ("THB", "Thai Baht", "฿"),
+    ("VND", "Vietnamese Dong", "₫"),
+    ("PHP", "Philippine Peso", "₱"),
 ];
 
 fn mix_seed(mut value: u64) -> u64 {
