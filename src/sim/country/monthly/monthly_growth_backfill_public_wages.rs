@@ -136,7 +136,6 @@ impl Country {
                 let bank_wage_multiplier = params.bank_wage_multiplier.max(1.0);
                 if let Some(new_bank) = self.bank_by_id_mut(bank_id) {
                     let target = new_bank.target_employee_count(
-                        new_bank.deposit_liabilities,
                         params.bank_min_employees,
                         params.bank_max_employees,
                         params.bank_employees_per_deposit_unit,

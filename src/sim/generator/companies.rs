@@ -321,7 +321,6 @@ pub(super) fn seed_initial_bank_openings(country: &mut Country) {
 
     let primary_bank = country.primary_bank_mut();
     let target = primary_bank.target_employee_count(
-        primary_bank.deposit_liabilities,
         params.bank_min_employees,
         params.bank_max_employees,
         params.bank_employees_per_deposit_unit,

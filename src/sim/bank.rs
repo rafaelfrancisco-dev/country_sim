@@ -260,17 +260,26 @@ impl Bank {
         );
     }
 
+    /// Total assets under management: deposits + outstanding loan book + equity positions.
+    pub fn total_aum(&self) -> f64 {
+        let equity_book_value: f64 = self
+            .stock_positions
+            .iter()
+            .map(|p| p.shares as f64 * p.avg_cost)
+            .sum();
+        self.deposit_liabilities + self.created_money_outstanding + equity_book_value
+    }
+
     pub fn target_employee_count(
         &self,
-        deposit_liabilities: f64,
         min_employees: u32,
         max_employees: u32,
-        employees_per_deposit_unit: f64,
+        employees_per_aum_unit: f64,
     ) -> u32 {
-        if employees_per_deposit_unit <= 0.0 {
+        if employees_per_aum_unit <= 0.0 {
             return min_employees;
         }
-        let computed = (deposit_liabilities / employees_per_deposit_unit).ceil() as u32;
+        let computed = (self.total_aum() / employees_per_aum_unit).ceil() as u32;
         computed.max(min_employees).min(max_employees)
     }
 

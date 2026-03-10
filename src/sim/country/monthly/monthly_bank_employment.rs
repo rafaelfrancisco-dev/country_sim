@@ -27,7 +27,6 @@ impl Country {
         for bank_id in bank_ids {
             if let Some(bank) = self.bank_by_id_mut(bank_id) {
                 let target = bank.target_employee_count(
-                    bank.deposit_liabilities,
                     params.bank_min_employees,
                     params.bank_max_employees,
                     params.bank_employees_per_deposit_unit,

@@ -183,11 +183,11 @@ pub struct BankingSystemParams {
     // --- Bank employment ---
     /// Job type IDs that banks hire (e.g. Office Clerk=2, Software Dev=9).
     pub bank_employee_job_types: [u8; 2],
-    /// One employee per this many dollars of deposit liabilities.
+    /// One employee per this many dollars of total AUM (deposits + loans + equity book value).
     pub bank_employees_per_deposit_unit: f64,
     /// Minimum staff even for a tiny bank.
     pub bank_min_employees: u32,
-    /// Maximum staff cap per bank.
+    /// Hard cap on bank headcount (safety valve for extreme AUM growth).
     pub bank_max_employees: u32,
     /// Banks pay this multiple of the catalog salary (1.15 = 15% premium).
     pub bank_wage_multiplier: f64,
@@ -232,9 +232,9 @@ impl Default for BankingSystemParams {
             cross_country_deposit_fraction: 0.30,
             cross_country_deposit_distress_threshold: 500.0,
             bank_employee_job_types: [2, 9],
-            bank_employees_per_deposit_unit: 500_000.0,
+            bank_employees_per_deposit_unit: 5_000_000.0,
             bank_min_employees: 2,
-            bank_max_employees: 50,
+            bank_max_employees: 500,
             bank_wage_multiplier: 1.15,
             initial_private_banks: 1,
             private_bank_deposit_rate_bonus: 0.010,
