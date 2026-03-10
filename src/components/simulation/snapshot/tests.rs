@@ -264,6 +264,7 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     );
     let mut world = World::new(vec![country]);
     world.day = 9;
+    let expected_currency = world.country(0).expect("country").currency_symbol().to_string();
 
     let snapshot = snapshot_from_world_with_ui(
         world,
@@ -286,7 +287,7 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
         .find(|row| row.good == "Water")
         .expect("water row");
     assert_eq!(water_row.producer_count, "2");
-    assert_eq!(water_row.avg_price, "€15.00");
+    assert_eq!(water_row.avg_price, format!("{expected_currency}15.00"));
     assert_eq!(water_row.inventory_units, "35");
     assert_eq!(water_row.produced_units, "50");
     assert_eq!(water_row.sold_units, "43");

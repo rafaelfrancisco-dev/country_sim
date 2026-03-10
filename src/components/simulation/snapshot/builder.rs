@@ -53,9 +53,7 @@ impl UiSnapshot {
         runtime_stats: RuntimeStatsSnapshot,
     ) -> RunningSnapshot {
         ui.ensure_valid(world);
-        if ui.currency_symbol.trim().is_empty()
-            && let Some(country) = ui.selected_country(world)
-        {
+        if let Some(country) = ui.selected_country(world) {
             ui.currency_symbol = country.currency_symbol().to_string();
         }
         let currency_symbol_owned = normalized_currency_symbol(&ui.currency_symbol).to_string();
@@ -88,13 +86,14 @@ impl UiSnapshot {
                     .enumerate()
                     .map(|(page_idx, country)| {
                         let idx = country_page_start + page_idx;
+                        let row_currency_symbol = country.currency_symbol();
                         CountryRowSnapshot {
                             name: country.name.to_string(),
                             population: compact_count(country.population() as f64),
-                            household_cash: money(country.household_cash_total, currency_symbol),
-                            company_cash: money(country.company_cash_total, currency_symbol),
-                            treasury: money(country.treasury_balance, currency_symbol),
-                            loans: money(country.total_bank_created_money(), currency_symbol),
+                            household_cash: money(country.household_cash_total, row_currency_symbol),
+                            company_cash: money(country.company_cash_total, row_currency_symbol),
+                            treasury: money(country.treasury_balance, row_currency_symbol),
+                            loans: money(country.total_bank_created_money(), row_currency_symbol),
                             is_selected: idx == ui.selected_country,
                             is_even: idx.is_multiple_of(2),
                         }
