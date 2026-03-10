@@ -261,6 +261,38 @@ fn switching_to_stocks_tab_sets_stock_focus() {
 }
 
 #[test]
+fn switching_to_fx_tab_keeps_current_focus() {
+    let mut ui = UiState {
+        active_tab: RunningTab::Stocks,
+        selection_focus: SelectionFocus::Stock,
+        ..UiState::default()
+    };
+
+    ui.next_tab();
+
+    assert_eq!(ui.active_tab, RunningTab::Fx);
+    assert_eq!(ui.selection_focus, SelectionFocus::Stock);
+}
+
+#[test]
+fn fx_country_navigation_changes_country_without_switching_focus() {
+    let world = sample_world_two_countries();
+    let mut ui = UiState {
+        active_tab: RunningTab::Fx,
+        selection_focus: SelectionFocus::Stock,
+        selected_country: 0,
+        ..UiState::default()
+    };
+
+    ui.apply(UiCommand::FxNextCountry, &world);
+
+    assert_eq!(ui.active_tab, RunningTab::Fx);
+    assert_eq!(ui.selected_country, 1);
+    assert_eq!(ui.selection_focus, SelectionFocus::Stock);
+    assert_eq!(ui.details_view, DetailsView::List);
+}
+
+#[test]
 fn changing_country_resets_details_page() {
     let world = sample_world_two_countries();
     let mut ui = UiState {

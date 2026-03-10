@@ -17,7 +17,8 @@
       "Bash(rm:*)",
       "Bash(git commit:*)",
       "Bash(BENCH_SEED=0x5eedc0de BENCH_COUNTRIES=3 BENCH_POP_PER_COUNTRY=200000 BENCH_DAYS=1095 BENCH_THREADS=4 BENCH_SIM_MODE=max-speed cargo bench:*)",
-      "WebFetch(domain:crates.io)"
+      "WebFetch(domain:crates.io)",
+      "Bash(git stash:*)"
     ]
   }
 }

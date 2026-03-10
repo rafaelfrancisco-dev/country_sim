@@ -139,12 +139,12 @@ pub(in crate::components::simulation) fn country_details_lines(
         format!("FX Rate / Base: {:.4}", country.fx_rate_local_per_base()),
         format!(
             "FX Reserves (base): {}",
-            money(country.fx_reserves_base(), "")
+            base_money(country.fx_reserves_base())
         ),
         format!("FX Pressure: {:.2}", country.fx_pressure()),
         format!(
             "MTD FX Net Flow (base): {}",
-            money(country.monthly_fx_net_flow_base(), "")
+            base_money(country.monthly_fx_net_flow_base())
         ),
         format!(
             "MTD Gov Spending: {}",
@@ -236,8 +236,8 @@ pub(in crate::components::simulation) fn country_details_lines(
         ),
         format!(
             "MTD Imports / Exports (base): {} / {}",
-            money(country.monthly_goods_import_spending_base(), ""),
-            money(country.monthly_goods_export_revenue_base(), "")
+            base_money(country.monthly_goods_import_spending_base()),
+            base_money(country.monthly_goods_export_revenue_base())
         ),
         format!(
             "MTD Trade Balance: {}",

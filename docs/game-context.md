@@ -64,13 +64,13 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 
 ### `World`
 - Engine state: `day`, `countries`, pause flag, and monthly histories.
-- Running views: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
+- Running views: `Main`, `Goods`, `Banks`, `Stocks`, `FX`, `Disasters`, `Charts`, and `Events` (switched with `Tab` / `Shift+Tab`).
 - Chart history: monthly snapshots (`world_history`, `country_history`, max 120 points).
 - Daily tick increments world day and ticks every country.
 - Daily stock trading is world-level:
   - residents and the market bank in any country can trade any listed security across countries
   - each security still belongs to its home-country listing and updates that market's price/history/export rows
-  - settlement is single-currency for now; there is no FX conversion layer
+  - cross-border cash settlement uses the world FX layer and country FX reserve state
 - Monthly world passes include:
   - cross-country labor migration
   - cross-market stock dividends and stale-position cleanup for foreign holders
@@ -114,6 +114,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
     - page 4: depositors table with balance share
 - `Stocks`: stock table + market summary + stock charts
   - person holdings can include foreign securities, shown with country-qualified labels in details
+- `FX`: world FX leaderboard + selected-country FX summary + pair board + FX charts
 - `Disasters`: selected-country shock controls with checkbox-driven intensity selection and one-shot apply
 - `Charts`: 8-page monthly trend dashboard (4 metric pages + 1 housing page + 1 migration page + 2 pie-chart pages)
 - `Events`: scrollable event log with search, sorting, and category filtering

@@ -67,6 +67,8 @@ pub enum UiCommand {
     BanksNextCountry,
     StocksPrevCountry,
     StocksNextCountry,
+    FxPrevCountry,
+    FxNextCountry,
     StocksFocusCountry,
     StocksFocusTable,
     StocksPrevRow,

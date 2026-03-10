@@ -255,6 +255,7 @@ impl UiSnapshot {
                     ),
                 }))
             }
+            RunningTab::Fx => build_fx_tab_snapshot(world, ui),
             RunningTab::Disasters => {
                 RunningTabSnapshot::Disasters(Box::new(build_disasters_tab_snapshot(world, ui)))
             }

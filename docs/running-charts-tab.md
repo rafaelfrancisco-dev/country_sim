@@ -1,11 +1,12 @@
 # Running UI Tabs
 
 ## Overview
-The running simulation UI has seven tabs:
+The running simulation UI has eight tabs:
 - `Main`: country/people navigation and details screens.
 - `Goods`: company and goods market view.
 - `Banks`: bank list and bank details view.
 - `Stocks`: listed equities and stock-market charts.
+- `FX`: foreign-exchange dashboard and cross-country monitor.
 - `Disasters`: selected-country shock controls.
 - `Charts`: trend and distribution charts for core economy metrics.
 - `Events`: scrollable log of simulation events.
@@ -69,6 +70,12 @@ The running UI uses one navigation convention across tabs:
 - On Goods page 2, `u` / `i` page the per-good production/demand table instead of the company list.
 - `Stocks`: country/table focus, stock-row navigation, stock charts.
   - Person stock-holdings details can include foreign securities; foreign holdings are prefixed with the listing-country name.
+- `FX`: world-monitor dashboard for foreign exchange.
+  - `,` / `.`: previous/next selected country
+  - top row: selected-country summary and pair board
+  - middle row: world FX leaderboard sorted by strongest current FX rate
+  - bottom row: selected FX rate, world average FX rate, selected FX reserves, and selected FX pressure charts
+  - v1 is read-only: no focused rows, details pages, or edit actions
 - `Disasters`: selected-country disaster controls.
   - `w/s`: select disaster row
   - `a/d`: choose intensity tier (`5%`, `10%`, `25%`, `50%`)
@@ -80,6 +87,8 @@ The running UI uses one navigation convention across tabs:
   - When both a search query and category are set, results must match both filters.
 
 UI navigation commands are applied on the UI side from the latest engine snapshot and are not queued as simulation mutations.
+
+See also: [FX tab](fx-tab.md).
 
 ## Charts and Metrics
 The `Charts` tab renders eight charts per page in a 4×2 grid. Use `u` / `i` to switch pages.

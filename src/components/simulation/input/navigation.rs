@@ -57,6 +57,7 @@ impl Simulation {
             RunningTab::Banks => self.map_banks_key(key, input_state),
             RunningTab::Main => self.map_main_key(key, input_state),
             RunningTab::Stocks => self.map_stocks_key(key, input_state),
+            RunningTab::Fx => self.map_fx_key(key),
             RunningTab::Disasters => self.map_disasters_key(key),
             RunningTab::Events => self.map_events_key(key, input_state),
         }
@@ -218,6 +219,17 @@ impl Simulation {
             }
             _ => None,
         }
+    }
+
+    fn map_fx_key(&self, key: KeyEvent) -> Option<SimulationCommand> {
+        if hotkeys::is_country_prev_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::FxPrevCountry));
+        }
+        if hotkeys::is_country_next_key(key) {
+            return Some(SimulationCommand::Ui(UiCommand::FxNextCountry));
+        }
+
+        None
     }
 
     fn map_disasters_key(&self, key: KeyEvent) -> Option<SimulationCommand> {

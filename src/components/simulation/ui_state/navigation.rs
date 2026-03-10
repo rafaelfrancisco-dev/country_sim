@@ -288,6 +288,30 @@ impl UiState {
         self.selected_bank_row = self.selected_bank_row.saturating_sub(1);
     }
 
+    pub(super) fn select_next_fx_country(&mut self, world: &World) {
+        if world.countries.is_empty() {
+            return;
+        }
+
+        let max_index = world.countries.len().saturating_sub(1);
+        if self.selected_country < max_index {
+            self.selected_country += 1;
+            self.reset_country_dependent_navigation();
+        }
+    }
+
+    pub(super) fn select_prev_fx_country(&mut self, world: &World) {
+        if world.countries.is_empty() {
+            return;
+        }
+
+        let prev = self.selected_country.saturating_sub(1);
+        if prev != self.selected_country {
+            self.selected_country = prev;
+            self.reset_country_dependent_navigation();
+        }
+    }
+
     pub(super) fn next_chart_page(&mut self) {
         let max_page = CHART_PAGE_COUNT.saturating_sub(1);
         if self.chart_page < max_page {

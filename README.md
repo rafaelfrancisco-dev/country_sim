@@ -19,8 +19,13 @@ Files are keyed by the world seed in hex so re-runs with different seeds never o
 See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage examples.
 
 ## Recent UI Additions
-- Seven running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `Disasters`, `Charts`, `Events`
+- Eight running tabs switched via `Tab` / `Shift+Tab`: `Main`, `Goods`, `Banks`, `Stocks`, `FX`, `Disasters`, `Charts`, `Events`
 - Unified running navigation: `w/s` (move), `a/d` (focus), `u/i` (page), `,/.` (country cycle)
+- New `FX` tab for foreign-exchange monitoring on the selected country and the full world set:
+  - top row: selected-country summary + pair board
+  - middle row: world FX leaderboard
+  - bottom row: FX rate/reserves/pressure charts
+  - controls: `,/.` changes selected country; no detail drill-downs in v1
 - New `Disasters` tab for scenario shocks on the selected country:
   - row controls: `w/s` select disaster, `a/d` intensity, `x` enable toggle
   - apply controls: `Enter` applies all enabled disasters together
@@ -80,6 +85,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 
 ## Documentation
 - [Game context](docs/game-context.md)
+- [FX tab](docs/fx-tab.md)
 - [Disasters tab](docs/disasters-tab.md)
 - [Running charts tab](docs/running-charts-tab.md)
 - [Money simulation requirements](docs/money-simulation-requirements.md)

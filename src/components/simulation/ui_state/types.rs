@@ -127,6 +127,7 @@ pub enum RunningTab {
     Goods,
     Banks,
     Stocks,
+    Fx,
     Disasters,
     Charts,
     Events,

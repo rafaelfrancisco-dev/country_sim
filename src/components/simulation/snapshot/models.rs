@@ -176,6 +176,7 @@ pub(in crate::components::simulation) enum RunningTabSnapshot {
     Goods(Box<GoodsTabSnapshot>),
     Banks(Box<BanksTabSnapshot>),
     Stocks(Box<StocksTabSnapshot>),
+    Fx(Box<FxTabSnapshot>),
     Disasters(Box<DisastersTabSnapshot>),
     Charts(Box<ChartsTabSnapshot>),
     Events(Box<EventsTabSnapshot>),
@@ -241,6 +242,35 @@ pub(in crate::components::simulation) struct StocksTabSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct FxRowSnapshot {
+    pub country: String,
+    pub currency_code: String,
+    pub current_fx_rate: String,
+    pub month_move_pct: String,
+    pub reserves_base: String,
+    pub net_flow_base: String,
+    pub pressure: String,
+    pub export_import_ratio: String,
+    pub is_selected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(in crate::components::simulation) struct FxTabSnapshot {
+    pub selected_country_name: String,
+    pub selected_currency_code: String,
+    pub selected_currency_name: String,
+    pub selected_currency_symbol: String,
+    pub selected_fx_summary_lines: Vec<String>,
+    pub pair_board_lines: Vec<String>,
+    pub fx_rows: Vec<FxRowSnapshot>,
+    pub selected_fx_rate_history: Arc<[f64]>,
+    pub world_avg_fx_rate_history: Arc<[f64]>,
+    pub selected_fx_reserves_history: Arc<[f64]>,
+    pub selected_fx_net_flow_history: Arc<[f64]>,
+    pub selected_fx_pressure_history: Arc<[f64]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct DisasterRowSnapshot {
     pub label: String,
     pub enabled: bool,
@@ -261,6 +291,7 @@ pub(in crate::components::simulation) struct DisastersTabSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::components::simulation) struct ChartsTabSnapshot {
     pub chart_scope_label: String,
+    pub money_axis_uses_base: bool,
     pub chart_page: usize,
     pub total_chart_pages: usize,
     pub chart_history: Arc<[MetricPoint]>,

@@ -171,7 +171,9 @@ fn append_bank_market_maker_orders(
     let Some(country) = world.countries().iter().find(|c| c.id() == country_id) else {
         return;
     };
-    let stock_bank_id = country.stock_market_bank_id().unwrap_or(country.primary_bank().id);
+    let stock_bank_id = country
+        .stock_market_bank_id()
+        .unwrap_or(country.primary_bank().id);
     let Some(bank) = country.bank_by_id(stock_bank_id) else {
         return;
     };
@@ -242,7 +244,9 @@ fn append_bank_market_maker_orders(
         } else {
             0
         };
-        let ask_shares = bank_inventory.saturating_sub(target_per_symbol).min(ask_cap);
+        let ask_shares = bank_inventory
+            .saturating_sub(target_per_symbol)
+            .min(ask_cap);
         if ask_shares > 0 {
             scratch.push_sell(
                 symbol_idx,

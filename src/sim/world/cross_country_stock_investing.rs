@@ -63,8 +63,7 @@ impl World {
                 continue;
             }
 
-            let bank_equity_budget =
-                bank_reserve * params.bank_max_equity_reserve_fraction;
+            let bank_equity_budget = bank_reserve * params.bank_max_equity_reserve_fraction;
             let bank_exposure = self.market_bank_portfolio_value(investor_country_id);
             let headroom = (bank_equity_budget - bank_exposure).max(0.0);
             let monthly_budget = (bank_reserve * invest_fraction).min(headroom);
@@ -75,8 +74,7 @@ impl World {
             // Equal allocation across all tradeable securities.
             let budget_per_security = round_cents(monthly_budget / num_securities as f64);
             // Equal target holdings per security.
-            let target_per_security_base =
-                bank_equity_budget / num_securities as f64;
+            let target_per_security_base = bank_equity_budget / num_securities as f64;
 
             for &(listing_idx, listing_country_id, company_id, current_company_id, last_price) in
                 &securities
@@ -91,8 +89,7 @@ impl World {
                 };
 
                 // Only buy up to the per-security target.
-                let target_shares =
-                    (target_per_security_base / last_price).floor() as u64;
+                let target_shares = (target_per_security_base / last_price).floor() as u64;
                 let current_holding = self.countries[investor_idx]
                     .stock_market()
                     .bank_portfolio
@@ -103,8 +100,7 @@ impl World {
                     continue;
                 }
 
-                let shares =
-                    ((budget_per_security / last_price) as u64).min(shares_needed);
+                let shares = ((budget_per_security / last_price) as u64).min(shares_needed);
                 if shares == 0 {
                     continue;
                 }
@@ -115,8 +111,7 @@ impl World {
                 let cost_local = if investor_idx == listing_idx {
                     cost_listing_currency
                 } else {
-                    let base =
-                        self.base_amount_from_local(listing_idx, cost_listing_currency);
+                    let base = self.base_amount_from_local(listing_idx, cost_listing_currency);
                     self.local_amount_from_base(investor_idx, base)
                 };
 
@@ -139,9 +134,7 @@ impl World {
                 }
 
                 // Deduct from bank reserve.
-                if let Some(bank) =
-                    self.countries[investor_idx].bank_by_id_mut(bank_id)
-                {
+                if let Some(bank) = self.countries[investor_idx].bank_by_id_mut(bank_id) {
                     bank.reserve_balance =
                         round_cents((bank.reserve_balance - cost_local).max(0.0));
                 }
@@ -159,10 +152,8 @@ impl World {
                     .listed
                     .get_mut(&company_id)
                 {
-                    equity.shares_outstanding =
-                        equity.shares_outstanding.saturating_add(shares);
-                    equity.free_float_shares =
-                        equity.free_float_shares.saturating_add(shares);
+                    equity.shares_outstanding = equity.shares_outstanding.saturating_add(shares);
+                    equity.free_float_shares = equity.free_float_shares.saturating_add(shares);
                 }
                 // Company receives the proceeds (capital injection).
                 if let Some(company) = self.countries[listing_idx]

@@ -50,6 +50,21 @@ fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSn
     *world
 }
 
+fn sample_world() -> World {
+    World::new(vec![Country::new(
+        1,
+        "A".to_string(),
+        vec![Person::new(1, 30, 0, 11)],
+    )])
+}
+
+fn sample_world_two_countries() -> World {
+    World::new(vec![
+        Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
+        Country::new(2, "B".to_string(), vec![Person::new(2, 30, 0, 12)]),
+    ])
+}
+
 #[test]
 fn inactive_tabs_skip_heavy_data() {
     let engine = setup_running_engine(35);
@@ -67,6 +82,13 @@ fn inactive_tabs_skip_heavy_data() {
         panic!("stocks tab payload expected");
     };
     assert!(!stocks_tab.stock_summary_lines.is_empty());
+
+    let fx = running_snapshot_for_tab(&engine, RunningTab::Fx);
+    let RunningTabSnapshot::Fx(fx_tab) = fx.tab else {
+        panic!("fx tab payload expected");
+    };
+    assert!(!fx_tab.selected_fx_summary_lines.is_empty());
+    assert!(!fx_tab.fx_rows.is_empty());
 
     let disasters = running_snapshot_for_tab(&engine, RunningTab::Disasters);
     let RunningTabSnapshot::Disasters(disasters_tab) = disasters.tab else {
@@ -99,6 +121,87 @@ fn inactive_tabs_skip_heavy_data() {
     assert_eq!(charts_tab.chart_page, 0);
     assert_eq!(charts_tab.total_chart_pages, 8);
     assert!(!charts_tab.pie_page.population_by_country.slices.is_empty());
+}
+
+#[test]
+fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
+    let mut world = sample_world_two_countries();
+    let template = world.country_history[0][0];
+    world.country_mut(0).unwrap().fx_rate_local_per_base = 2.50;
+    world
+        .country_mut(0)
+        .unwrap()
+        .monthly_goods_export_revenue_base = 200.0;
+    world
+        .country_mut(0)
+        .unwrap()
+        .monthly_goods_import_spending_base = 100.0;
+    world.country_mut(1).unwrap().fx_rate_local_per_base = 1.10;
+    world
+        .country_mut(1)
+        .unwrap()
+        .monthly_goods_export_revenue_base = 50.0;
+    world
+        .country_mut(1)
+        .unwrap()
+        .monthly_goods_import_spending_base = 0.0;
+    world.country_history[0].clear();
+    world.country_history[0].push_back(crate::sim::world::MetricPoint {
+        fx_rate_local_per_base: 2.0,
+        ..template
+    });
+    world.country_history[0].push_back(crate::sim::world::MetricPoint {
+        fx_rate_local_per_base: 2.5,
+        ..template
+    });
+    world.country_history[1].truncate(1);
+
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Fx,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
+        panic!("fx tab payload expected");
+    };
+
+    assert_eq!(fx_tab.fx_rows[0].country, "A");
+    assert_eq!(fx_tab.fx_rows[0].month_move_pct, "+25.00%");
+    assert_eq!(fx_tab.fx_rows[0].export_import_ratio, "2.00x");
+    assert_eq!(fx_tab.fx_rows[1].month_move_pct, "N/A");
+    assert_eq!(fx_tab.fx_rows[1].export_import_ratio, "N/A");
+}
+
+#[test]
+fn fx_snapshot_populates_selected_summary_from_country_fields() {
+    let mut world = sample_world();
+    let country = world.country_mut(0).unwrap();
+    country.monthly_goods_export_revenue_base = 320.0;
+    country.monthly_goods_import_spending_base = 180.0;
+    country.monthly_fx_financial_inflows_base = 75.0;
+    country.monthly_fx_financial_outflows_base = 40.0;
+    country.monthly_fx_net_flow_base = 35.0;
+    country.fx_pressure = 0.22;
+    country.fx_reserves_base = 999.0;
+
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Fx,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
+        panic!("fx tab payload expected");
+    };
+
+    let text = fx_tab.selected_fx_summary_lines.join("\n");
+    assert!(text.contains("FX Reserves (base):"));
+    assert!(text.contains("Financial Inflows / Outflows (base):"));
+    assert!(text.contains("Net FX Flow (base):"));
+    assert!(text.contains("FX Pressure: 0.22"));
 }
 
 #[test]

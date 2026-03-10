@@ -207,6 +207,8 @@ impl UiState {
             }
             UiCommand::StocksPrevCountry => self.select_prev_country_row(world),
             UiCommand::StocksNextCountry => self.select_next_country_row(world),
+            UiCommand::FxPrevCountry => self.select_prev_fx_country(world),
+            UiCommand::FxNextCountry => self.select_next_fx_country(world),
             UiCommand::StocksFocusCountry => {
                 self.selection_focus = SelectionFocus::Country;
             }
