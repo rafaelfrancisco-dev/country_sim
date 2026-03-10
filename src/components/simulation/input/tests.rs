@@ -83,7 +83,7 @@ fn running_keymap_maps_stocks_enter_to_open_selected_company() {
     let state = RunningInputState {
         details_view: DetailsView::List,
         details_page: 0,
-        selection_focus: SelectionFocus::Stock,
+        selection_focus: SelectionFocus::Country,
         active_tab: RunningTab::Stocks,
         goods_main_page: GoodsMainPage::Companies,
         events_search_active: false,

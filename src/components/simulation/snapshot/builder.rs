@@ -90,7 +90,10 @@ impl UiSnapshot {
                         CountryRowSnapshot {
                             name: country.name.to_string(),
                             population: compact_count(country.population() as f64),
-                            household_cash: money(country.household_cash_total, row_currency_symbol),
+                            household_cash: money(
+                                country.household_cash_total,
+                                row_currency_symbol,
+                            ),
                             company_cash: money(country.company_cash_total, row_currency_symbol),
                             treasury: money(country.treasury_balance, row_currency_symbol),
                             loans: money(country.total_bank_created_money(), row_currency_symbol),

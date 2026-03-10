@@ -127,6 +127,7 @@ impl UiState {
         match self.active_tab {
             RunningTab::Goods => self.selection_focus = SelectionFocus::Company,
             RunningTab::Banks => self.selection_focus = SelectionFocus::Bank,
+            RunningTab::Stocks => self.selection_focus = SelectionFocus::Stock,
             _ => {}
         }
     }
@@ -144,6 +145,7 @@ impl UiState {
         match self.active_tab {
             RunningTab::Goods => self.selection_focus = SelectionFocus::Company,
             RunningTab::Banks => self.selection_focus = SelectionFocus::Bank,
+            RunningTab::Stocks => self.selection_focus = SelectionFocus::Stock,
             _ => {}
         }
     }

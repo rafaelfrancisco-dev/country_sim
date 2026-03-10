@@ -247,6 +247,20 @@ fn opening_selected_stock_company_details_switches_to_goods_company_view() {
 }
 
 #[test]
+fn switching_to_stocks_tab_sets_stock_focus() {
+    let mut ui = UiState {
+        active_tab: RunningTab::Banks,
+        selection_focus: SelectionFocus::Bank,
+        ..UiState::default()
+    };
+
+    ui.next_tab();
+
+    assert_eq!(ui.active_tab, RunningTab::Stocks);
+    assert_eq!(ui.selection_focus, SelectionFocus::Stock);
+}
+
+#[test]
 fn changing_country_resets_details_page() {
     let world = sample_world_two_countries();
     let mut ui = UiState {

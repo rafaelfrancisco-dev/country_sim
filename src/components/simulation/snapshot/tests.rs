@@ -264,7 +264,11 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     );
     let mut world = World::new(vec![country]);
     world.day = 9;
-    let expected_currency = world.country(0).expect("country").currency_symbol().to_string();
+    let expected_currency = world
+        .country(0)
+        .expect("country")
+        .currency_symbol()
+        .to_string();
 
     let snapshot = snapshot_from_world_with_ui(
         world,

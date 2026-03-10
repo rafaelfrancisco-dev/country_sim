@@ -207,14 +207,9 @@ impl Simulation {
                     _ => Some(SimulationCommand::Ui(UiCommand::StocksNextRow)),
                 }
             }
-            KeyCode::Enter
-                if input_state.details_view == DetailsView::List
-                    && input_state.selection_focus == SelectionFocus::Stock =>
-            {
-                Some(SimulationCommand::Ui(
-                    UiCommand::StocksOpenSelectedCompanyDetails,
-                ))
-            }
+            KeyCode::Enter if input_state.details_view == DetailsView::List => Some(
+                SimulationCommand::Ui(UiCommand::StocksOpenSelectedCompanyDetails),
+            ),
             _ if hotkeys::is_page_prev_key(key) => {
                 Some(SimulationCommand::Ui(UiCommand::StocksPagePrev))
             }
