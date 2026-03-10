@@ -31,8 +31,6 @@ pub struct StockMarketParams {
     pub max_order_fraction_of_float: f64,
     /// Share of population sampled daily as participants.
     pub participant_population_fraction: f64,
-    /// Minimum sampled participants per listed symbol.
-    pub min_participants_per_listed: usize,
     /// Initial bank reserve injected (and removed from company cash) to enable maker liquidity.
     pub maker_bootstrap_reserve: f64,
     /// Minimum private-company age in months before growth IPO eligibility.
@@ -67,6 +65,9 @@ pub struct StockMarketParams {
     pub cross_country_bank_investing_enabled: bool,
     /// Fraction of each bank's reserves deployed monthly into cross-country equities.
     pub cross_country_bank_invest_fraction_monthly: f64,
+    /// Maximum number of companies that may be listed simultaneously per country.
+    /// New growth IPOs are blocked once the market reaches this cap.
+    pub max_total_listings: usize,
 }
 
 impl Default for StockMarketParams {
@@ -88,7 +89,6 @@ impl Default for StockMarketParams {
             retail_noise_trade_prob: 0.12,
             max_order_fraction_of_float: 0.05,
             participant_population_fraction: 0.004,
-            min_participants_per_listed: 50,
             maker_bootstrap_reserve: 2_000_000.0,
             ipo_min_company_age_months: 3,
             ipo_growth_min_profitable_months: 1,
@@ -109,6 +109,7 @@ impl Default for StockMarketParams {
             secondary_offering_max_dilution: 0.15,
             cross_country_bank_investing_enabled: true,
             cross_country_bank_invest_fraction_monthly: 0.02,
+            max_total_listings: 50,
         }
     }
 }

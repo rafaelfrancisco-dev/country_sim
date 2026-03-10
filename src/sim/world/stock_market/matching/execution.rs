@@ -26,13 +26,7 @@ pub(in crate::sim::world) fn run_world_stock_market(world: &mut World, day: u64)
         let people_count = country.people().len();
         let scaled_by_population =
             (people_count as f64 * params.participant_population_fraction).round() as usize;
-        let scaled_by_listings = params
-            .min_participants_per_listed
-            .saturating_mul(symbol_contexts.len());
-        let sample_target = params
-            .daily_participant_cap
-            .max(scaled_by_population)
-            .max(scaled_by_listings);
+        let sample_target = params.daily_participant_cap.max(scaled_by_population);
         let sample_count = sample_target.min(people_count);
         let sampled_people =
             deterministic_sample_people_indices(people_count, sample_count, day, country.id());

@@ -14,6 +14,11 @@ impl Country {
         if !params.enabled || params.ipo_max_new_listings_per_month == 0 {
             return;
         }
+        if params.max_total_listings > 0
+            && self.stock_market.listed.len() >= params.max_total_listings
+        {
+            return;
+        }
 
         let mut candidates: Vec<(usize, f64)> = self
             .companies

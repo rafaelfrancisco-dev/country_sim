@@ -8,6 +8,9 @@ Analysis of performance pitfalls in the simulation codebase, organized by severi
 
 *(All five critical issues have been fixed — see commit history.)*
 
+**C6. O(N²) stock market sampling grows with listed symbol count** (`world/stock_market/matching/execution.rs`)
+The daily participant sample count was `max(daily_participant_cap, population_fraction, 50 × N_symbols)`, and each sampled person iterated over all N symbols. Total daily work = O(50·N²) — quadratic in listed company count. With `ipo_max_new_listings_per_month = 4` and zero bankruptcies, after one year of a 5-country sim there were ~240 symbols → 12,500 sampled participants × 240 symbols per country = 3M ops/day/country, and growing. Fixed by: (a) removing the `min_participants_per_listed` scaling term so sample count stays O(1) in symbol count, and (b) adding `max_total_listings = 50` per country to cap the `listed` HashMap. Status: **Done**.
+
 ---
 
 ## HIGH
