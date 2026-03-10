@@ -35,19 +35,18 @@ impl Simulation {
         if page_idx >= 6 {
             self.draw_pie_charts_page(frame, body, &tab.pie_page, page_idx - 6);
         } else if page_idx == 5 && tab.chart_scope_label == "World Aggregate" {
-            let placeholder = Paragraph::new(
-                "Migration flow is available only for selected-country scope.",
-            )
-            .style(theme::primary_text().bg(theme::PANEL_BG))
-            .wrap(Wrap { trim: true })
-            .block(
-                Block::default()
-                    .title(" Charts ")
-                    .borders(Borders::ALL)
-                    .border_style(theme::neutral_border())
-                    .title_style(theme::primary_text())
-                    .style(Style::default().bg(theme::PANEL_BG)),
-            );
+            let placeholder =
+                Paragraph::new("Migration flow is available only for selected-country scope.")
+                    .style(theme::primary_text().bg(theme::PANEL_BG))
+                    .wrap(Wrap { trim: true })
+                    .block(
+                        Block::default()
+                            .title(" Charts ")
+                            .borders(Borders::ALL)
+                            .border_style(theme::neutral_border())
+                            .title_style(theme::primary_text())
+                            .style(Style::default().bg(theme::PANEL_BG)),
+                    );
             frame.render_widget(placeholder, body);
         } else if history.is_empty() {
             let placeholder = Paragraph::new(

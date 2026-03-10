@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use super::World;
@@ -10,9 +11,9 @@ use crate::sim::{
 mod helpers;
 use helpers::{
     apply_assignment_to_person, assignment_job_type_id, assignment_salary,
-    backfill_departed_opening, destination_snapshot_for_person, labor_force_unemployment,
-    refresh_country_after_migration, reserve_opening, transfer_person_loan_in,
-    transfer_person_loan_out, unwind_housing_departure,
+    backfill_departed_opening, refresh_country_after_migration, reserve_opening,
+    summarize_country_migration_market, transfer_person_loan_in, transfer_person_loan_out,
+    unwind_housing_departure,
 };
 
 #[derive(Debug, Copy, Clone)]
@@ -47,11 +48,24 @@ struct PlannedMigration {
     kind: MigrationKind,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 struct CountryPlanSnapshot {
     unemployment_rate: f64,
     compatible_opening_slots: u32,
     best_compatible_opening: Option<DestinationOpeningRef>,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+struct JobMarketSnapshot {
+    open_slots: u32,
+    best_opening: Option<DestinationOpeningRef>,
+}
+
+#[derive(Debug, Clone)]
+struct CountryMigrationSnapshot {
+    unemployment_rate: f64,
+    distress_by_habilitation: [CountryPlanSnapshot; 4],
+    work_by_job_type: HashMap<u8, JobMarketSnapshot>,
 }
 
 impl World {
@@ -69,6 +83,7 @@ impl World {
             return;
         }
 
+        let country_snapshots = self.build_country_migration_snapshots();
         let mut plans = Vec::new();
         for (source_country_idx, source_country) in self.countries.iter().enumerate() {
             for person in &source_country.people {
@@ -76,8 +91,8 @@ impl World {
                     continue;
                 }
 
-                let cooldown_days =
-                    u64::from(migration_params.migration_cooldown_months) * crate::sim::country::DAYS_PER_MONTH;
+                let cooldown_days = u64::from(migration_params.migration_cooldown_months)
+                    * crate::sim::country::DAYS_PER_MONTH;
                 if person
                     .last_migration_day
                     .is_some_and(|day| source_country.day().saturating_sub(day) < cooldown_days)
@@ -91,6 +106,7 @@ impl World {
                 if let Some(plan) = self.plan_work_migration(
                     source_country_idx,
                     person,
+                    &country_snapshots,
                     migration_params.irresistible_offer_salary_premium,
                     migration_params.irresistible_offer_min_open_slots,
                     migration_params.destination_unemployment_guard,
@@ -99,23 +115,44 @@ impl World {
                     continue;
                 }
 
-                if let Some(plan) =
-                    self.plan_distress_migration(source_country_idx, person, migration_params)
-                {
+                if let Some(plan) = self.plan_distress_migration(
+                    source_country_idx,
+                    person,
+                    &country_snapshots,
+                    migration_params,
+                ) {
                     plans.push(plan);
                 }
             }
         }
 
+        let mut touched_countries = HashSet::new();
         for plan in plans {
-            self.apply_planned_migration(plan);
+            if let Some((source_country_idx, dest_country_idx)) = self.apply_planned_migration(plan)
+            {
+                touched_countries.insert(source_country_idx);
+                touched_countries.insert(dest_country_idx);
+            }
         }
+        for country_idx in touched_countries {
+            if let Some(country) = self.countries.get_mut(country_idx) {
+                refresh_country_after_migration(country);
+            }
+        }
+    }
+
+    fn build_country_migration_snapshots(&self) -> Vec<CountryMigrationSnapshot> {
+        self.countries
+            .iter()
+            .map(summarize_country_migration_market)
+            .collect()
     }
 
     fn plan_work_migration(
         &self,
         source_country_idx: usize,
         person: &Person,
+        country_snapshots: &[CountryMigrationSnapshot],
         salary_premium: f64,
         min_open_slots: u16,
         destination_unemployment_guard: f64,
@@ -127,63 +164,26 @@ impl World {
         }
 
         let mut best: Option<(usize, DestinationOpeningRef)> = None;
-        for (dest_country_idx, country) in self.countries.iter().enumerate() {
+        for (dest_country_idx, snapshot) in country_snapshots.iter().enumerate() {
             if dest_country_idx == source_country_idx {
                 continue;
             }
-            if labor_force_unemployment(country) > destination_unemployment_guard {
+            if snapshot.unemployment_rate > destination_unemployment_guard {
                 continue;
             }
 
-            let mut country_best = None;
-            let mut open_slots = 0_u32;
-            for company in &country.companies {
-                for opening in &company.open_positions {
-                    if opening.slots == 0 || opening.job_type_id != current_job_type_id {
-                        continue;
-                    }
-                    open_slots = open_slots.saturating_add(u32::from(opening.slots));
-                    if opening.offered_monthly_salary
-                        >= current_salary * (1.0 + salary_premium.max(0.0))
-                    {
-                        let candidate = DestinationOpeningRef::Company {
-                            company_id: company.id,
-                            job_type_id: opening.job_type_id,
-                            offered_salary: opening.offered_monthly_salary,
-                        };
-                        if opening_is_better(country_best, Some(candidate)) {
-                            country_best = Some(candidate);
-                        }
-                    }
-                }
-            }
-            for bank in &country.banks {
-                for opening in &bank.open_positions {
-                    if opening.slots == 0 || opening.job_type_id != current_job_type_id {
-                        continue;
-                    }
-                    open_slots = open_slots.saturating_add(u32::from(opening.slots));
-                    if opening.offered_monthly_salary
-                        >= current_salary * (1.0 + salary_premium.max(0.0))
-                    {
-                        let candidate = DestinationOpeningRef::Bank {
-                            bank_id: bank.id,
-                            job_type_id: opening.job_type_id,
-                            offered_salary: opening.offered_monthly_salary,
-                        };
-                        if opening_is_better(country_best, Some(candidate)) {
-                            country_best = Some(candidate);
-                        }
-                    }
-                }
-            }
-
-            if open_slots < u32::from(min_open_slots) {
-                continue;
-            }
-            let Some(opening) = country_best else {
+            let Some(job_market) = snapshot.work_by_job_type.get(&current_job_type_id) else {
                 continue;
             };
+            if job_market.open_slots < u32::from(min_open_slots) {
+                continue;
+            }
+            let Some(opening) = job_market.best_opening else {
+                continue;
+            };
+            if opening_salary(opening) < current_salary * (1.0 + salary_premium.max(0.0)) {
+                continue;
+            }
             if opening_is_better(best.map(|(_, opening)| opening), Some(opening)) {
                 best = Some((dest_country_idx, opening));
             }
@@ -201,6 +201,7 @@ impl World {
         &self,
         source_country_idx: usize,
         person: &Person,
+        country_snapshots: &[CountryMigrationSnapshot],
         params: crate::sim::params::MigrationParams,
     ) -> Option<PlannedMigration> {
         if person.is_employed() {
@@ -230,16 +231,16 @@ impl World {
         }
 
         let mut best: Option<(usize, CountryPlanSnapshot)> = None;
-        for (dest_country_idx, country) in self.countries.iter().enumerate() {
+        for (dest_country_idx, country_snapshot) in country_snapshots.iter().enumerate() {
             if dest_country_idx == source_country_idx {
                 continue;
             }
-            let unemployment_rate = labor_force_unemployment(country);
-            if unemployment_rate > params.destination_unemployment_guard {
+            if country_snapshot.unemployment_rate > params.destination_unemployment_guard {
                 continue;
             }
 
-            let snapshot = destination_snapshot_for_person(country, person.habilitation);
+            let snapshot =
+                country_snapshot.distress_by_habilitation[habilitation_bucket(person.habilitation)];
             if snapshot.compatible_opening_slots == 0 {
                 continue;
             }
@@ -274,11 +275,14 @@ impl World {
         })
     }
 
-    fn apply_planned_migration(&mut self, plan: PlannedMigration) {
+    fn apply_planned_migration(&mut self, plan: PlannedMigration) -> Option<(usize, usize)> {
         let source_idx = plan.source_country_idx;
         let dest_idx = plan.dest_country_idx;
-        if source_idx == dest_idx || source_idx >= self.countries.len() || dest_idx >= self.countries.len() {
-            return;
+        if source_idx == dest_idx
+            || source_idx >= self.countries.len()
+            || dest_idx >= self.countries.len()
+        {
+            return None;
         }
 
         let person_idx = match self.countries[source_idx]
@@ -287,15 +291,19 @@ impl World {
             .position(|person| person.id == plan.person_id)
         {
             Some(idx) => idx,
-            None => return,
+            None => return None,
         };
 
         let work_assignment = match plan.kind {
-            MigrationKind::Work { opening } => match reserve_opening(&mut self.countries[dest_idx], opening) {
-                Some(assignment) => Some(assignment),
-                None => return,
-            },
-            MigrationKind::Distress { opening } => opening.and_then(|opening| reserve_opening(&mut self.countries[dest_idx], opening)),
+            MigrationKind::Work { opening } => {
+                match reserve_opening(&mut self.countries[dest_idx], opening) {
+                    Some(assignment) => Some(assignment),
+                    None => return None,
+                }
+            }
+            MigrationKind::Distress { opening } => {
+                opening.and_then(|opening| reserve_opening(&mut self.countries[dest_idx], opening))
+            }
         };
 
         let to_country_name = self.countries[dest_idx].name().to_string();
@@ -317,8 +325,9 @@ impl World {
                         source_country.monthly_migrants_for_work.saturating_add(1);
                 }
                 MigrationKind::Distress { .. } => {
-                    source_country.monthly_migrants_for_distress =
-                        source_country.monthly_migrants_for_distress.saturating_add(1);
+                    source_country.monthly_migrants_for_distress = source_country
+                        .monthly_migrants_for_distress
+                        .saturating_add(1);
                 }
             }
             person.deposit_bank_id = None;
@@ -341,8 +350,9 @@ impl World {
                 destination_country.monthly_immigrants.saturating_add(1);
             match plan.kind {
                 MigrationKind::Work { .. } => {
-                    destination_country.monthly_migrants_for_work =
-                        destination_country.monthly_migrants_for_work.saturating_add(1);
+                    destination_country.monthly_migrants_for_work = destination_country
+                        .monthly_migrants_for_work
+                        .saturating_add(1);
                     destination_country.push_pending_event(SimEvent::PersonMigratedForWork {
                         from_country_name: Arc::from(from_country_name),
                         to_country_name: Arc::from(to_country_name),
@@ -353,8 +363,9 @@ impl World {
                     });
                 }
                 MigrationKind::Distress { .. } => {
-                    destination_country.monthly_migrants_for_distress =
-                        destination_country.monthly_migrants_for_distress.saturating_add(1);
+                    destination_country.monthly_migrants_for_distress = destination_country
+                        .monthly_migrants_for_distress
+                        .saturating_add(1);
                     destination_country.push_pending_event(SimEvent::PersonMigratedForDistress {
                         from_country_name: Arc::from(from_country_name),
                         to_country_name: Arc::from(to_country_name),
@@ -374,9 +385,16 @@ impl World {
                 }
             }
         }
+        Some((source_idx, dest_idx))
+    }
+}
 
-        refresh_country_after_migration(&mut self.countries[source_idx]);
-        refresh_country_after_migration(&mut self.countries[dest_idx]);
+fn habilitation_bucket(qualification: crate::sim::person::HabilitationLevel) -> usize {
+    match qualification {
+        crate::sim::person::HabilitationLevel::NoSchoolYet => 0,
+        crate::sim::person::HabilitationLevel::BasicSchool => 1,
+        crate::sim::person::HabilitationLevel::HighSchool => 2,
+        crate::sim::person::HabilitationLevel::HigherLearning => 3,
     }
 }
 

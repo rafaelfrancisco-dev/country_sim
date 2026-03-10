@@ -122,7 +122,10 @@ fn distressed_worker_migrates_to_country_with_compatible_demand() {
     let mut destination = configured_country(
         2,
         "B",
-        vec![employed_person(2, 0, 0, 500.0), employed_person(3, 0, 1, 500.0)],
+        vec![
+            employed_person(2, 0, 0, 500.0),
+            employed_person(3, 0, 1, 500.0),
+        ],
         params,
     );
     destination.companies[0].add_opening_with_salary(0, 1, 3_000.0);
@@ -135,6 +138,38 @@ fn distressed_worker_migrates_to_country_with_compatible_demand() {
     assert_eq!(world.countries[0].monthly_emigrants(), 1);
     assert_eq!(world.countries[1].monthly_immigrants(), 1);
     assert_eq!(world.countries[1].monthly_migrants_for_distress(), 1);
+}
+
+#[test]
+fn monthly_tick_executes_cross_country_migration_on_day_30() {
+    let params = migration_params();
+    let mut distressed = unemployed_person(1, 50.0);
+    distressed.months_unemployed = 8;
+    distressed.months_on_benefits = 4;
+    distressed.consecutive_severe_unmet_months = 5;
+
+    let source = configured_country(1, "A", vec![distressed], params.clone());
+    let mut destination = configured_country(
+        2,
+        "B",
+        vec![
+            employed_person(2, 0, 0, 500.0),
+            employed_person(3, 0, 1, 500.0),
+        ],
+        params,
+    );
+    destination.companies[0].add_opening_with_salary(0, 1, 3_000.0);
+
+    let mut world = World::new(vec![source, destination]);
+    for _ in 0..crate::sim::country::DAYS_PER_MONTH {
+        world.tick_day();
+    }
+
+    assert_eq!(world.day, crate::sim::country::DAYS_PER_MONTH);
+    assert_eq!(world.countries[0].population(), 0);
+    assert_eq!(world.countries[1].population(), 3);
+    assert_eq!(world.completed_month_boundaries(), 1);
+    assert_eq!(world.world_history.len(), 2);
 }
 
 #[test]
@@ -173,7 +208,10 @@ fn employed_worker_migrates_for_irresistible_foreign_offer() {
     let mut destination = configured_country(
         2,
         "B",
-        vec![employed_person(2, 0, 0, 100.0), employed_person(3, 0, 1, 100.0)],
+        vec![
+            employed_person(2, 0, 0, 100.0),
+            employed_person(3, 0, 1, 100.0),
+        ],
         params,
     );
     destination.companies[0].add_opening_with_salary(0, 1, 4_500.0);
@@ -201,7 +239,10 @@ fn migrating_with_loan_transfers_credit_and_preserves_invariants() {
     let mut destination = configured_country(
         2,
         "B",
-        vec![employed_person(2, 0, 0, 100.0), employed_person(3, 0, 1, 100.0)],
+        vec![
+            employed_person(2, 0, 0, 100.0),
+            employed_person(3, 0, 1, 100.0),
+        ],
         params,
     );
     source.banks[0].created_money_outstanding = 1_200.0;
@@ -212,7 +253,10 @@ fn migrating_with_loan_transfers_credit_and_preserves_invariants() {
     world.process_cross_country_migration();
 
     assert_eq!(world.countries[0].banks[0].created_money_outstanding, 0.0);
-    assert_eq!(world.countries[1].banks[0].created_money_outstanding, 1_200.0);
+    assert_eq!(
+        world.countries[1].banks[0].created_money_outstanding,
+        1_200.0
+    );
     assert!(world.countries[0].validate_money_invariants().is_empty());
     assert!(world.countries[1].validate_money_invariants().is_empty());
 }
@@ -225,7 +269,10 @@ fn migration_cooldown_blocks_immediate_return_move() {
     let mut destination = configured_country(
         2,
         "B",
-        vec![employed_person(2, 0, 0, 100.0), employed_person(3, 0, 1, 100.0)],
+        vec![
+            employed_person(2, 0, 0, 100.0),
+            employed_person(3, 0, 1, 100.0),
+        ],
         params,
     );
     destination.companies[0].add_opening_with_salary(0, 1, 4_500.0);

@@ -1,11 +1,14 @@
-use super::{CountryPlanSnapshot, DestinationOpeningRef, opening_is_better, opening_salary};
+use super::{
+    CountryMigrationSnapshot, CountryPlanSnapshot, DestinationOpeningRef, JobMarketSnapshot,
+    opening_is_better, opening_salary,
+};
 use crate::sim::{
     country::Country,
     money::round_cents,
     person::{ClearedEmployment, EmploymentStatus, HabilitationLevel, HousingStatus, Person},
 };
 
-pub(super) fn labor_force_unemployment(country: &Country) -> f64 {
+fn labor_force_unemployment(country: &Country) -> f64 {
     let mut labor_force = 0_usize;
     let mut unemployed = 0_usize;
     for person in &country.people {
@@ -24,62 +27,99 @@ pub(super) fn labor_force_unemployment(country: &Country) -> f64 {
     }
 }
 
-pub(super) fn destination_snapshot_for_person(
-    country: &Country,
-    qualification: HabilitationLevel,
-) -> CountryPlanSnapshot {
-    let mut compatible_opening_slots = 0_u32;
-    let mut best_compatible_opening = None;
+pub(super) fn summarize_country_migration_market(country: &Country) -> CountryMigrationSnapshot {
+    let mut work_by_job_type = std::collections::HashMap::new();
+    let mut distress_by_habilitation = [CountryPlanSnapshot::default(); 4];
 
     for company in &country.companies {
         for opening in &company.open_positions {
-            if opening.slots == 0
-                || !crate::sim::job::job_is_eligible_for_habilitation(
-                    opening.job_type_id,
-                    qualification,
-                )
-            {
+            if opening.slots == 0 {
                 continue;
             }
-            compatible_opening_slots = compatible_opening_slots.saturating_add(u32::from(opening.slots));
             let candidate = DestinationOpeningRef::Company {
                 company_id: company.id,
                 job_type_id: opening.job_type_id,
                 offered_salary: opening.offered_monthly_salary,
             };
-            if opening_is_better(best_compatible_opening, Some(candidate)) {
-                best_compatible_opening = Some(candidate);
-            }
+            add_opening_to_market(
+                &mut work_by_job_type,
+                &mut distress_by_habilitation,
+                opening.job_type_id,
+                opening.slots,
+                candidate,
+            );
         }
     }
 
     for bank in &country.banks {
         for opening in &bank.open_positions {
-            if opening.slots == 0
-                || !crate::sim::job::job_is_eligible_for_habilitation(
-                    opening.job_type_id,
-                    qualification,
-                )
-            {
+            if opening.slots == 0 {
                 continue;
             }
-            compatible_opening_slots = compatible_opening_slots.saturating_add(u32::from(opening.slots));
             let candidate = DestinationOpeningRef::Bank {
                 bank_id: bank.id,
                 job_type_id: opening.job_type_id,
                 offered_salary: opening.offered_monthly_salary,
             };
-            if opening_is_better(best_compatible_opening, Some(candidate)) {
-                best_compatible_opening = Some(candidate);
-            }
+            add_opening_to_market(
+                &mut work_by_job_type,
+                &mut distress_by_habilitation,
+                opening.job_type_id,
+                opening.slots,
+                candidate,
+            );
         }
     }
 
-    CountryPlanSnapshot {
+    CountryMigrationSnapshot {
         unemployment_rate: labor_force_unemployment(country),
-        compatible_opening_slots,
-        best_compatible_opening,
+        distress_by_habilitation,
+        work_by_job_type,
     }
+}
+
+fn add_opening_to_market(
+    work_by_job_type: &mut std::collections::HashMap<u8, JobMarketSnapshot>,
+    distress_by_habilitation: &mut [CountryPlanSnapshot; 4],
+    job_type_id: u8,
+    slots: u16,
+    candidate: DestinationOpeningRef,
+) {
+    let slots = u32::from(slots);
+    let job_market = work_by_job_type.entry(job_type_id).or_default();
+    job_market.open_slots = job_market.open_slots.saturating_add(slots);
+    if opening_is_better(job_market.best_opening, Some(candidate)) {
+        job_market.best_opening = Some(candidate);
+    }
+
+    for qualification in qualifications() {
+        if !crate::sim::job::job_is_eligible_for_habilitation(job_type_id, qualification) {
+            continue;
+        }
+        let snapshot = &mut distress_by_habilitation[qualification_bucket(qualification)];
+        snapshot.compatible_opening_slots = snapshot.compatible_opening_slots.saturating_add(slots);
+        if opening_is_better(snapshot.best_compatible_opening, Some(candidate)) {
+            snapshot.best_compatible_opening = Some(candidate);
+        }
+    }
+}
+
+fn qualification_bucket(qualification: HabilitationLevel) -> usize {
+    match qualification {
+        HabilitationLevel::NoSchoolYet => 0,
+        HabilitationLevel::BasicSchool => 1,
+        HabilitationLevel::HighSchool => 2,
+        HabilitationLevel::HigherLearning => 3,
+    }
+}
+
+fn qualifications() -> [HabilitationLevel; 4] {
+    [
+        HabilitationLevel::NoSchoolYet,
+        HabilitationLevel::BasicSchool,
+        HabilitationLevel::HighSchool,
+        HabilitationLevel::HigherLearning,
+    ]
 }
 
 pub(super) fn unwind_housing_departure(country: &mut Country, person: &Person) {
@@ -98,10 +138,7 @@ pub(super) fn unwind_housing_departure(country: &mut Country, person: &Person) {
     }
 }
 
-pub(super) fn transfer_person_loan_out(
-    country: &mut Country,
-    person: &mut Person,
-) -> Option<f64> {
+pub(super) fn transfer_person_loan_out(country: &mut Country, person: &mut Person) -> Option<f64> {
     let transfer_amount = person
         .loan
         .as_ref()
@@ -123,7 +160,9 @@ pub(super) fn transfer_person_loan_in(
     let Some(loan) = &mut person.loan else {
         return;
     };
-    let lender_bank_id = country.preferred_lender_bank_id().or(country.public_bank_id_or_first());
+    let lender_bank_id = country
+        .preferred_lender_bank_id()
+        .or(country.public_bank_id_or_first());
     let Some(lender_bank_id) = lender_bank_id else {
         return;
     };
@@ -154,7 +193,10 @@ pub(super) fn backfill_departed_opening(
                 company.add_opening_with_salary(job_type_id, 1, offered_salary);
             }
         }
-        ClearedEmployment::Bank { bank_id, job_type_id } => {
+        ClearedEmployment::Bank {
+            bank_id,
+            job_type_id,
+        } => {
             if let Some(bank) = country.bank_by_id_mut(bank_id) {
                 bank.add_opening_with_salary(job_type_id, 1, offered_salary);
             }
@@ -211,7 +253,9 @@ pub(super) fn apply_assignment_to_person(
             company_id,
             job_type_id,
             offered_salary,
-        } => person.set_employment_with_salary(company_id, job_type_id, offered_salary, current_day),
+        } => {
+            person.set_employment_with_salary(company_id, job_type_id, offered_salary, current_day)
+        }
         DestinationOpeningRef::Bank {
             bank_id,
             job_type_id,

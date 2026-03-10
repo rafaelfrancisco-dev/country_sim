@@ -266,12 +266,10 @@ fn event_country_name(event: &SimEvent) -> &str {
         | SimEvent::HousingPriceChanged { country_name, .. }
         | SimEvent::RentUnpaid { country_name, .. } => country_name,
         SimEvent::PersonMigratedForWork {
-            from_country_name,
-            ..
+            from_country_name, ..
         }
         | SimEvent::PersonMigratedForDistress {
-            from_country_name,
-            ..
+            from_country_name, ..
         } => from_country_name,
         SimEvent::ForeignDepositOpened {
             home_country_name: country_name,
