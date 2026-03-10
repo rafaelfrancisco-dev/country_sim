@@ -27,7 +27,8 @@ impl World {
     pub(crate) fn initialize_fx_state(&mut self) {
         for (country_idx, country) in self.countries.iter_mut().enumerate() {
             let rate = 0.85 + (country_idx % 8) as f64 * 0.12;
-            country.fx_rate_local_per_base = rate.clamp(MIN_FX_RATE_LOCAL_PER_BASE, MAX_FX_RATE_LOCAL_PER_BASE);
+            country.fx_rate_local_per_base =
+                rate.clamp(MIN_FX_RATE_LOCAL_PER_BASE, MAX_FX_RATE_LOCAL_PER_BASE);
             let supply_base = if country.fx_rate_local_per_base > 0.0 {
                 country.total_money_supply() / country.fx_rate_local_per_base
             } else {
@@ -88,17 +89,19 @@ impl World {
         payee_country_idx: usize,
         payer_amount_local: f64,
     ) -> FxSettlement {
-        let settlement =
-            self.convert_between_countries(payer_country_idx, payee_country_idx, payer_amount_local);
+        let settlement = self.convert_between_countries(
+            payer_country_idx,
+            payee_country_idx,
+            payer_amount_local,
+        );
         if payer_country_idx == payee_country_idx {
             return settlement;
         }
 
         {
             let payer = &mut self.countries[payer_country_idx];
-            payer.fx_reserves_base = round_cents(
-                (payer.fx_reserves_base - settlement.payer_amount_base).max(0.0),
-            );
+            payer.fx_reserves_base =
+                round_cents((payer.fx_reserves_base - settlement.payer_amount_base).max(0.0));
             match kind {
                 CrossBorderFlowKind::GoodsImport => {
                     payer.monthly_goods_import_spending_base = round_cents(
@@ -111,9 +114,8 @@ impl World {
                     );
                 }
             }
-            payer.monthly_fx_net_flow_base = round_cents(
-                payer.monthly_fx_net_flow_base - settlement.payer_amount_base,
-            );
+            payer.monthly_fx_net_flow_base =
+                round_cents(payer.monthly_fx_net_flow_base - settlement.payer_amount_base);
         }
 
         {
@@ -132,9 +134,8 @@ impl World {
                     );
                 }
             }
-            payee.monthly_fx_net_flow_base = round_cents(
-                payee.monthly_fx_net_flow_base + settlement.payer_amount_base,
-            );
+            payee.monthly_fx_net_flow_base =
+                round_cents(payee.monthly_fx_net_flow_base + settlement.payer_amount_base);
         }
 
         settlement
@@ -142,9 +143,8 @@ impl World {
 
     pub(super) fn update_fx_rates(&mut self) {
         for country in &mut self.countries {
-            let expected_reserves = (country.expected_money_supply() / country.fx_rate_local_per_base)
-                .max(1.0)
-                * 0.15;
+            let expected_reserves =
+                (country.expected_money_supply() / country.fx_rate_local_per_base).max(1.0) * 0.15;
             let reserve_gap = if expected_reserves > 0.0 {
                 (expected_reserves - country.fx_reserves_base) / expected_reserves
             } else {
@@ -156,8 +156,8 @@ impl World {
                 0.0
             };
             let inflation_drag = country.monthly_inflation_rate().clamp(-0.10, 0.30) * 0.1;
-            let raw_pressure = (reserve_gap * 0.55 + external_balance * 0.35 + inflation_drag)
-                .clamp(-1.0, 1.0);
+            let raw_pressure =
+                (reserve_gap * 0.55 + external_balance * 0.35 + inflation_drag).clamp(-1.0, 1.0);
             country.fx_pressure = raw_pressure;
 
             let move_frac = (raw_pressure * MAX_MONTHLY_FX_MOVE)

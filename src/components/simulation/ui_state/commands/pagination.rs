@@ -1,6 +1,8 @@
 use super::super::{
     BANK_PAGE_SIZE, COMPANY_PAGE_SIZE, COUNTRY_PAGE_SIZE, PEOPLE_PAGE_SIZE, UiState,
 };
+use std::cmp::Ordering;
+
 use crate::sim::{bank::Bank, company::Company, person::Person, world::World};
 
 impl UiState {
@@ -114,6 +116,19 @@ impl UiState {
         self.company_page
             .saturating_mul(COMPANY_PAGE_SIZE)
             .saturating_add(self.selected_company_row)
+    }
+
+    pub fn selected_stock_company_id(&self, world: &World) -> Option<u16> {
+        let country = self.selected_country(world)?;
+        let mut equities: Vec<_> = country.stock_market.listed.values().collect();
+        equities.sort_by(|a, b| {
+            b.market_cap
+                .partial_cmp(&a.market_cap)
+                .unwrap_or(Ordering::Equal)
+        });
+        equities
+            .get(self.stock_selected_row)
+            .map(|equity| equity.current_company_id)
     }
 
     pub fn total_bank_pages(&self, world: &World) -> usize {

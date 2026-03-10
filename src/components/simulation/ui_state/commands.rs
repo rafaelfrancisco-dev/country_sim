@@ -227,6 +227,9 @@ impl UiState {
                 self.stock_page = self.stock_page.saturating_add(1);
                 self.stock_selected_row = 0;
             }
+            UiCommand::StocksOpenSelectedCompanyDetails => {
+                self.open_selected_stock_company_details(world);
+            }
             UiCommand::DisastersPrevCountry => self.select_prev_country_row(world),
             UiCommand::DisastersNextCountry => self.select_next_country_row(world),
             UiCommand::DisastersPrevRow => {

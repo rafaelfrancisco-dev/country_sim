@@ -207,7 +207,8 @@ impl World {
                             if let Some(bank) =
                                 self.countries[country_idx].bank_by_id_mut(stock_bank_id)
                             {
-                                bank.reserve_balance = round_cents(bank.reserve_balance + gross_local);
+                                bank.reserve_balance =
+                                    round_cents(bank.reserve_balance + gross_local);
                             }
                             self.countries[country_idx]
                                 .stock_market

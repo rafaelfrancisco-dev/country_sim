@@ -131,7 +131,10 @@ fn cross_country_deposit_interest_uses_stored_foreign_bank_id() {
 
     let home = &world.countries[0];
     let foreign = &world.countries[1];
-    assert_eq!(home.people[0].cash_balance, 1_000.0 + expected_home_interest);
+    assert_eq!(
+        home.people[0].cash_balance,
+        1_000.0 + expected_home_interest
+    );
     assert_eq!(
         home.people[0]
             .foreign_deposit
@@ -218,7 +221,10 @@ fn cross_country_deposit_recall_uses_stored_foreign_bank_id() {
 
     let home = &world.countries[0];
     let foreign = &world.countries[1];
-    assert_eq!(home.people[0].cash_balance, 100.0 + expected_interest_home + expected_returned_home);
+    assert_eq!(
+        home.people[0].cash_balance,
+        100.0 + expected_interest_home + expected_returned_home
+    );
     assert!(home.people[0].foreign_deposit.is_none());
     assert_eq!(
         foreign.public_bank().unwrap().reserve_balance,

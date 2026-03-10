@@ -1,6 +1,8 @@
 use super::*;
 
+use crate::sim::stock_market::ListedEquity;
 use crate::sim::{country::Country, person::Person};
+use std::sync::Arc;
 
 fn build_people(count: usize) -> Vec<Person> {
     (0..count)
@@ -17,6 +19,19 @@ fn sample_world_two_countries() -> World {
         Country::new(1, "A".to_string(), build_people(4)),
         Country::new(2, "B".to_string(), build_people(3)),
     ])
+}
+
+fn sample_world_with_listed_company() -> World {
+    let mut country = Country::new(1, "A".to_string(), build_people(4));
+    country.stock_market.listed.insert(
+        0,
+        ListedEquity::new(0, 0, Arc::from("AAA"), 20.0, 1_000, 800),
+    );
+    country.stock_market.listed.insert(
+        5,
+        ListedEquity::new(5, 5, Arc::from("BBB"), 50.0, 2_000, 1_200),
+    );
+    World::new(vec![country])
 }
 
 #[test]
@@ -207,6 +222,27 @@ fn opening_selected_bank_details_switches_to_banks_tab() {
     assert_eq!(ui.active_tab, RunningTab::Banks);
     assert_eq!(ui.details_view, DetailsView::Bank);
     assert_eq!(ui.selection_focus, SelectionFocus::Bank);
+    assert_eq!(ui.details_page, 0);
+}
+
+#[test]
+fn opening_selected_stock_company_details_switches_to_goods_company_view() {
+    let world = sample_world_with_listed_company();
+    let mut ui = UiState {
+        active_tab: RunningTab::Stocks,
+        selection_focus: SelectionFocus::Stock,
+        stock_selected_row: 0,
+        stock_page: 0,
+        ..UiState::default()
+    };
+
+    ui.apply(UiCommand::StocksOpenSelectedCompanyDetails, &world);
+
+    assert_eq!(ui.active_tab, RunningTab::Goods);
+    assert_eq!(ui.selection_focus, SelectionFocus::Company);
+    assert_eq!(ui.details_view, DetailsView::Company);
+    assert_eq!(ui.company_page, 0);
+    assert_eq!(ui.selected_company_row, 5);
     assert_eq!(ui.details_page, 0);
 }
 

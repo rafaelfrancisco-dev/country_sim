@@ -73,6 +73,7 @@ pub enum UiCommand {
     StocksNextRow,
     StocksPagePrev,
     StocksPageNext,
+    StocksOpenSelectedCompanyDetails,
     DisastersPrevCountry,
     DisastersNextCountry,
     DisastersPrevRow,

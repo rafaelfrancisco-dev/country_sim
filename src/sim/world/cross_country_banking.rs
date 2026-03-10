@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use super::World;
 use crate::sim::{
-    bank::BankId,
-    event::SimEvent,
-    money::round_cents,
-    person::ForeignDeposit,
+    bank::BankId, event::SimEvent, money::round_cents, person::ForeignDeposit,
     world::fx::CrossBorderFlowKind,
 };
 

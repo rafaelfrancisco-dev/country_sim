@@ -97,34 +97,55 @@ impl World {
             fx_net_flow_base += country.monthly_fx_net_flow_base();
             fx_pressure_sum += country.fx_pressure();
             population += pop;
-            total_money_supply += self.base_amount_from_local(country_idx, country.total_money_supply());
-            household_cash_total += self.base_amount_from_local(country_idx, country.household_cash_total());
-            company_cash_total += self.base_amount_from_local(country_idx, country.company_cash_total());
-            expected_money_supply += self.base_amount_from_local(country_idx, country.expected_money_supply());
-            money_supply_gap += self.base_amount_from_local(country_idx, country.money_supply_gap());
-            created_money_outstanding += self.base_amount_from_local(country_idx, country.total_bank_created_money());
+            total_money_supply +=
+                self.base_amount_from_local(country_idx, country.total_money_supply());
+            household_cash_total +=
+                self.base_amount_from_local(country_idx, country.household_cash_total());
+            company_cash_total +=
+                self.base_amount_from_local(country_idx, country.company_cash_total());
+            expected_money_supply +=
+                self.base_amount_from_local(country_idx, country.expected_money_supply());
+            money_supply_gap +=
+                self.base_amount_from_local(country_idx, country.money_supply_gap());
+            created_money_outstanding +=
+                self.base_amount_from_local(country_idx, country.total_bank_created_money());
             bank_reserve += self.base_amount_from_local(country_idx, country.total_bank_reserves());
-            treasury_balance += self.base_amount_from_local(country_idx, country.treasury_balance());
-            budget_balance += self.base_amount_from_local(country_idx, country.monthly_budget_balance());
-            monthly_tax_collected += self.base_amount_from_local(country_idx, country.monthly_tax_collected());
-            monthly_gov_spending += self.base_amount_from_local(country_idx, country.monthly_gov_spending());
+            treasury_balance +=
+                self.base_amount_from_local(country_idx, country.treasury_balance());
+            budget_balance +=
+                self.base_amount_from_local(country_idx, country.monthly_budget_balance());
+            monthly_tax_collected +=
+                self.base_amount_from_local(country_idx, country.monthly_tax_collected());
+            monthly_gov_spending +=
+                self.base_amount_from_local(country_idx, country.monthly_gov_spending());
             gov_debt += self.base_amount_from_local(country_idx, country.gov_debt());
-            monthly_money_minted += self.base_amount_from_local(country_idx, country.monthly_money_minted());
-            cumulative_money_minted += self.base_amount_from_local(country_idx, country.cumulative_money_minted());
+            monthly_money_minted +=
+                self.base_amount_from_local(country_idx, country.monthly_money_minted());
+            cumulative_money_minted +=
+                self.base_amount_from_local(country_idx, country.cumulative_money_minted());
             monthly_mint_fraction_sum += country.last_mint_fraction();
             monthly_goods_import_spending += country.monthly_goods_import_spending_base();
             monthly_goods_export_revenue += country.monthly_goods_export_revenue_base();
             monthly_unmet_need_events += country.monthly_unmet_need_events() as f64;
             monthly_severe_unmet_need_events += country.monthly_severe_unmet_need_events() as f64;
             monthly_chronic_unmet_need_count += country.monthly_chronic_unmet_need_count() as f64;
-            monthly_essential_debt_spending += self.base_amount_from_local(country_idx, country.monthly_essential_debt_spending());
-            monthly_savings_interest_paid += self.base_amount_from_local(country_idx, country.monthly_savings_interest_paid());
-            bonds_outstanding += self.base_amount_from_local(country_idx, country.bonds_outstanding());
-            stock_market_cap += self.base_amount_from_local(country_idx, country.stock_market().total_market_cap());
+            monthly_essential_debt_spending +=
+                self.base_amount_from_local(country_idx, country.monthly_essential_debt_spending());
+            monthly_savings_interest_paid +=
+                self.base_amount_from_local(country_idx, country.monthly_savings_interest_paid());
+            bonds_outstanding +=
+                self.base_amount_from_local(country_idx, country.bonds_outstanding());
+            stock_market_cap +=
+                self.base_amount_from_local(country_idx, country.stock_market().total_market_cap());
             stock_bank_equity_exposure += self
                 .export_cache_for_country(country_idx)
                 .map(|cache| cache.bank_equity_exposure)
-                .unwrap_or_else(|| self.base_amount_from_local(country_idx, self.market_bank_portfolio_value(country.id())));
+                .unwrap_or_else(|| {
+                    self.base_amount_from_local(
+                        country_idx,
+                        self.market_bank_portfolio_value(country.id()),
+                    )
+                });
             monthly_foreclosures += country.monthly_foreclosures() as f64;
             monthly_home_purchases += country.monthly_home_purchases() as f64;
             monthly_immigrants += country.monthly_immigrants() as f64;
@@ -144,16 +165,17 @@ impl World {
             weighted_fx_rate_sum += country.fx_rate_local_per_base() * pop;
         }
 
-        let (policy_rate, deposit_rate, loan_rate, fx_rate_local_per_base) = if total_population_f64 > 0.0 {
-            (
-                weighted_policy_sum / total_population_f64,
-                weighted_deposit_sum / total_population_f64,
-                weighted_loan_sum / total_population_f64,
-                weighted_fx_rate_sum / total_population_f64,
-            )
-        } else {
-            (0.0, 0.0, 0.0, 0.0)
-        };
+        let (policy_rate, deposit_rate, loan_rate, fx_rate_local_per_base) =
+            if total_population_f64 > 0.0 {
+                (
+                    weighted_policy_sum / total_population_f64,
+                    weighted_deposit_sum / total_population_f64,
+                    weighted_loan_sum / total_population_f64,
+                    weighted_fx_rate_sum / total_population_f64,
+                )
+            } else {
+                (0.0, 0.0, 0.0, 0.0)
+            };
 
         MetricPoint {
             month,

@@ -78,6 +78,27 @@ fn running_keymap_maps_person_details_company_jump() {
 }
 
 #[test]
+fn running_keymap_maps_stocks_enter_to_open_selected_company() {
+    let simulation = Simulation::new();
+    let state = RunningInputState {
+        details_view: DetailsView::List,
+        details_page: 0,
+        selection_focus: SelectionFocus::Stock,
+        active_tab: RunningTab::Stocks,
+        goods_main_page: GoodsMainPage::Companies,
+        events_search_active: false,
+        country_policy_is_editing: false,
+    };
+
+    assert_eq!(
+        simulation.map_running_key(KeyEvent::from(KeyCode::Enter), state),
+        Some(SimulationCommand::Ui(
+            UiCommand::StocksOpenSelectedCompanyDetails
+        ))
+    );
+}
+
+#[test]
 fn events_search_mode_keeps_characters_for_query() {
     let simulation = Simulation::new();
     let events_search_state = RunningInputState {

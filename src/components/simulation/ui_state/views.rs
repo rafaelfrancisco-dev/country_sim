@@ -53,6 +53,28 @@ impl UiState {
         }
     }
 
+    pub(super) fn open_selected_stock_company_details(&mut self, world: &World) {
+        if self.details_view != DetailsView::List {
+            return;
+        }
+
+        let Some(company_id) = self.selected_stock_company_id(world) else {
+            return;
+        };
+
+        let company_index = company_id as usize;
+        self.company_page = company_index / COMPANY_PAGE_SIZE;
+        self.selected_company_row = company_index % COMPANY_PAGE_SIZE;
+
+        if self.selected_company_on_page(world).is_some() {
+            self.details_view = DetailsView::Company;
+            self.active_tab = RunningTab::Goods;
+            self.selection_focus = SelectionFocus::Company;
+            self.details_page = 0;
+            self.company_workers_scroll = 0;
+        }
+    }
+
     pub(super) fn open_selected_bank_details(&mut self, world: &World) {
         if self.details_view != DetailsView::List {
             return;

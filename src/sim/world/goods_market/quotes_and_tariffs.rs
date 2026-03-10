@@ -83,7 +83,12 @@ impl World {
             let (left, right) = self.countries.split_at_mut(quote.seller_country_idx);
             let buyer_country = &mut left[buyer_country_idx];
             let seller_country = &mut right[0];
-            Self::apply_purchase_to_buyer(buyer_country, person_idx, quote.landed_price_cents, true);
+            Self::apply_purchase_to_buyer(
+                buyer_country,
+                person_idx,
+                quote.landed_price_cents,
+                true,
+            );
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
@@ -101,7 +106,12 @@ impl World {
             let (left, right) = self.countries.split_at_mut(buyer_country_idx);
             let seller_country = &mut left[quote.seller_country_idx];
             let buyer_country = &mut right[0];
-            Self::apply_purchase_to_buyer(buyer_country, person_idx, quote.landed_price_cents, true);
+            Self::apply_purchase_to_buyer(
+                buyer_country,
+                person_idx,
+                quote.landed_price_cents,
+                true,
+            );
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
@@ -148,7 +158,12 @@ impl World {
         base_price_cents: i64,
         domestic: bool,
     ) {
-        Self::apply_sale_to_seller_with_amount(country, company_idx, from_cents(base_price_cents), domestic);
+        Self::apply_sale_to_seller_with_amount(
+            country,
+            company_idx,
+            from_cents(base_price_cents),
+            domestic,
+        );
     }
 
     pub(in crate::sim::world) fn apply_sale_to_seller_with_amount(

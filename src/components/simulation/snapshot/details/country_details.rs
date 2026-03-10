@@ -136,10 +136,7 @@ pub(in crate::components::simulation) fn country_details_lines(
             "MTD Tax Collected: {}",
             money(country.monthly_tax_collected(), currency_symbol)
         ),
-        format!(
-            "FX Rate / Base: {:.4}",
-            country.fx_rate_local_per_base()
-        ),
+        format!("FX Rate / Base: {:.4}", country.fx_rate_local_per_base()),
         format!(
             "FX Reserves (base): {}",
             money(country.fx_reserves_base(), "")
