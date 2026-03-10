@@ -33,7 +33,7 @@ The tab uses a 3-section dashboard:
 - four trend charts:
   - `FX Rate (index)` — the selected country's rate history (internal index unit)
   - `FX Net Flow` — the selected country's monthly net FX flow
-  - `FX Reserves (total)` — total reserves of the selected country
+  - `FX Reserves by Currency` — one line per foreign currency held, in local-currency equivalent; empty until the first cross-border flows are recorded
   - `FX Pressure` — the selected country's FX pressure indicator
 
 ## Selected-Country Summary

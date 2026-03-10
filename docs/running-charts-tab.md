@@ -74,7 +74,7 @@ The running UI uses one navigation convention across tabs:
   - `,` / `.`: previous/next selected country
   - top row: selected-country summary and pair board
   - middle row: world FX leaderboard sorted by strongest current FX rate
-  - bottom row: selected FX rate, world average FX rate, selected FX reserves, and selected FX pressure charts
+  - bottom row: selected FX rate (index), selected net FX flow, per-currency reserves (multi-line), and selected FX pressure charts
   - v1 is read-only: no focused rows, details pages, or edit actions
 - `Disasters`: selected-country disaster controls.
   - `w/s`: select disaster row
