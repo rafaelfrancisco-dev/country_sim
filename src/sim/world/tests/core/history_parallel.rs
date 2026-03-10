@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::{company::build_default_companies, params::SimulationParams};
 
 #[test]
 fn world_tick_increments_day_and_ticks_countries() {
@@ -229,12 +230,57 @@ fn aggregate_history_uses_population_weighted_rates() {
     let expected_loan_rate = (country_a.bank_loan_rate() * country_a.population() as f64
         + country_b.bank_loan_rate() * country_b.population() as f64)
         / (country_a.population() + country_b.population()) as f64;
+    let expected_policy_rate = (country_a.policy_rate * country_a.population() as f64
+        + country_b.policy_rate * country_b.population() as f64)
+        / (country_a.population() + country_b.population()) as f64;
 
     let world = World::new(vec![country_a, country_b]);
     let aggregate = world.world_history[0];
 
+    assert!((aggregate.policy_rate - expected_policy_rate).abs() < 1e-12);
     assert!((aggregate.deposit_rate - expected_deposit_rate).abs() < 1e-12);
     assert!((aggregate.loan_rate - expected_loan_rate).abs() < 1e-12);
+}
+
+#[test]
+fn monthly_policy_update_keeps_country_rates_independent() {
+    let mut low_inflation_params = SimulationParams::default();
+    low_inflation_params.monetary.policy_rate_step = 0.005;
+    low_inflation_params.monetary.rate_change_event_threshold = 0.001;
+
+    let mut high_inflation_params = SimulationParams::default();
+    high_inflation_params.monetary.policy_rate_step = 0.005;
+    high_inflation_params.monetary.rate_change_event_threshold = 0.001;
+
+    let mut country_a = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        build_default_companies("A", 1),
+        0.0,
+        low_inflation_params,
+    );
+    country_a.monthly_inflation_rate = 0.00;
+
+    let mut country_b = Country::with_economy_and_params(
+        2,
+        "B".to_string(),
+        vec![],
+        build_default_companies("B", 1),
+        0.0,
+        high_inflation_params,
+    );
+    country_b.monthly_inflation_rate = 0.10;
+
+    let mut world = World::new(vec![country_a, country_b]);
+    world.update_country_policy_rates();
+
+    let country_a_rate = world.countries[0].policy_rate();
+    let country_b_rate = world.countries[1].policy_rate();
+    let expected_world_rate = world.population_weighted_policy_rate();
+
+    assert_ne!(country_a_rate, country_b_rate);
+    assert!((world.policy_rate() - expected_world_rate).abs() < 1e-12);
 }
 
 #[test]

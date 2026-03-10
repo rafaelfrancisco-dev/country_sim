@@ -179,7 +179,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 ## Monetary Policy
 
 ### Central Bank Policy Rate (Taylor Rule)
-The world holds a single `policy_rate` updated each month after all country month-ends complete.
+Each country holds its own `policy_rate` updated each month after country month-end processing completes.
 
 **Taylor Rule formula:**
 ```
@@ -194,11 +194,11 @@ Where:
 - `u*` = `natural_unemployment_rate` (default 5%)
 - `u` = current aggregate unemployment rate
 
-The Taylor Rule result is the *target* rate. The actual rate moves at most one `policy_rate_step` (default 0.0025 = 25 bps) per month toward the target, then snapped to the nearest step grid point and clamped to `[rate_floor, rate_ceiling]` (default 0%–20%). This mirrors real central bank practice of moving in discrete quarter-point increments.
+The Taylor Rule result is the *target* rate. The actual country rate moves at most one `policy_rate_step` (default 0.0025 = 25 bps) per month toward the target, then snapped to the nearest step grid point and clamped to `[rate_floor, rate_ceiling]` (default 0%–20%). This mirrors real central bank practice of moving in discrete quarter-point increments.
 
-The new rate is propagated to every `Country.policy_rate` before the monthly snapshot is captured.
+Each country updates its own `Country.policy_rate` before the monthly snapshot is captured.
 
-A `RatePolicyChange` event is emitted if the rate moves by at least `rate_change_event_threshold` (default 0.5%).
+A country-local `RatePolicyChange` event is emitted if that country's rate moves by at least `rate_change_event_threshold` (default 0.5%).
 
 ### CPI Basket
 Each month, after all production prices are set, `recompute_cpi()` calculates a weighted price index:
@@ -494,7 +494,7 @@ Each month `process_bond_coupon_and_maturity()` runs before issuance:
 28. Month increment and aggregate recomputation.
 
 *World-level after all countries complete steps 1–28:*
-- Taylor Rule runs → `World.policy_rate` updated → propagated to each `Country.policy_rate`.
+- Taylor Rule runs per country → each `Country.policy_rate` updates from local macro conditions.
 - **Cross-country deposit processing** — interest paid, distress recalls executed, new foreign deposits opened.
 - Monthly snapshot captured (picks up the new rate).
 - Monthly trackers reset.

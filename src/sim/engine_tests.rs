@@ -153,6 +153,15 @@ fn update_country_policy_changes_only_target_country() {
         unemployment_benefit_rate: 0.42,
         median_income_reference: 2_400.0,
         basic_needs_cash_threshold: 650.0,
+        target_inflation_rate: 0.03,
+        neutral_policy_rate: 0.05,
+        inflation_coefficient: 1.8,
+        unemployment_coefficient: 0.7,
+        natural_unemployment_rate: 0.06,
+        rate_floor: 0.01,
+        rate_ceiling: 0.18,
+        rate_change_event_threshold: 0.01,
+        policy_rate_step: 0.005,
         mint_inflation_gap_weight: 0.33,
         mint_unemployment_gap_weight: 0.22,
         mint_max_fraction_expected_supply: 0.07,
@@ -175,6 +184,15 @@ fn update_country_policy_changes_only_target_country() {
     assert!((second.sim_params.fiscal.unemployment_benefit_rate - 0.42).abs() < f64::EPSILON);
     assert!((second.sim_params.fiscal.median_income_reference - 2_400.0).abs() < f64::EPSILON);
     assert!((second.sim_params.fiscal.basic_needs_cash_threshold - 650.0).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.target_inflation_rate - 0.03).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.neutral_policy_rate - 0.05).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.inflation_coefficient - 1.8).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.unemployment_coefficient - 0.7).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.natural_unemployment_rate - 0.06).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.rate_floor - 0.01).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.rate_ceiling - 0.18).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.rate_change_event_threshold - 0.01).abs() < f64::EPSILON);
+    assert!((second.sim_params.monetary.policy_rate_step - 0.005).abs() < f64::EPSILON);
     assert!((second.sim_params.monetary.mint_inflation_gap_weight - 0.33).abs() < f64::EPSILON);
     assert!((second.sim_params.monetary.mint_unemployment_gap_weight - 0.22).abs() < f64::EPSILON);
     assert!(
@@ -203,6 +221,15 @@ fn update_country_policy_ignores_out_of_bounds_country_index() {
             unemployment_benefit_rate: 0.10,
             median_income_reference: 1_000.0,
             basic_needs_cash_threshold: 100.0,
+            target_inflation_rate: 0.03,
+            neutral_policy_rate: 0.04,
+            inflation_coefficient: 1.5,
+            unemployment_coefficient: 0.5,
+            natural_unemployment_rate: 0.03,
+            rate_floor: 0.0,
+            rate_ceiling: 0.20,
+            rate_change_event_threshold: 0.005,
+            policy_rate_step: 0.0025,
             mint_inflation_gap_weight: 0.1,
             mint_unemployment_gap_weight: 0.2,
             mint_max_fraction_expected_supply: 0.3,

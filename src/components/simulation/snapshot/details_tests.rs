@@ -173,3 +173,18 @@ fn country_details_include_structural_trade_market_and_social_sections() {
     assert!(text.contains("Market Risk:"));
     assert!(text.contains("Social Pressure:"));
 }
+
+#[test]
+fn country_policy_details_show_central_bank_fields() {
+    let world = sample_world_with_stock();
+    let ui = UiState {
+        details_view: DetailsView::CountryPolicy,
+        ..UiState::default()
+    };
+    let lines = country_policy_lines(&world, &ui);
+    let text = lines.join("\n");
+
+    assert!(text.contains("Target Inflation Rate"));
+    assert!(text.contains("Neutral Policy Rate"));
+    assert!(text.contains("Policy Rate Step"));
+}

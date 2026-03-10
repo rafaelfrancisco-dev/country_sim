@@ -333,3 +333,87 @@ fn unemployment_minting_is_blocked_when_inflation_exceeds_cap() {
         country.expected_money_supply - expected_before
     );
 }
+
+#[test]
+fn local_taylor_rule_uses_country_macro_state_and_params() {
+    let mut low_params = SimulationParams::default();
+    low_params.monetary.policy_rate_step = 0.005;
+    low_params.monetary.rate_change_event_threshold = 0.001;
+
+    let mut high_params = low_params.clone();
+    high_params.monetary.inflation_coefficient = 2.0;
+
+    let mut low_country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        build_default_companies("A", 1),
+        0.0,
+        low_params,
+    );
+    low_country.monthly_inflation_rate = 0.00;
+
+    let mut high_country = Country::with_economy_and_params(
+        2,
+        "B".to_string(),
+        vec![],
+        build_default_companies("B", 1),
+        0.0,
+        high_params,
+    );
+    high_country.monthly_inflation_rate = 0.08;
+
+    low_country.update_policy_rate();
+    high_country.update_policy_rate();
+
+    assert!(high_country.policy_rate() > low_country.policy_rate());
+}
+
+#[test]
+fn local_taylor_rule_applies_step_limit_and_emits_event() {
+    let mut params = SimulationParams::default();
+    params.monetary.policy_rate_step = 0.005;
+    params.monetary.rate_change_event_threshold = 0.001;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        build_default_companies("A", 1),
+        0.0,
+        params,
+    );
+    country.policy_rate = 0.04;
+    country.monthly_inflation_rate = 0.10;
+
+    country.update_policy_rate();
+
+    assert!((country.policy_rate() - 0.045).abs() < 1e-12);
+    assert!(country.pending_events.iter().any(|event| {
+        matches!(
+            event,
+            SimEvent::RatePolicyChange {
+                old_rate,
+                new_rate,
+                ..
+            } if (*old_rate - 0.04).abs() < 1e-12 && (*new_rate - 0.045).abs() < 1e-12
+        )
+    }));
+}
+
+#[test]
+fn local_taylor_rule_uses_natural_unemployment_without_labor_force() {
+    let mut params = SimulationParams::default();
+    params.monetary.natural_unemployment_rate = 0.06;
+
+    let country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![],
+        build_default_companies("A", 1),
+        0.0,
+        params,
+    );
+
+    assert!((country.policy_unemployment_rate() - 0.06).abs() < f64::EPSILON);
+}

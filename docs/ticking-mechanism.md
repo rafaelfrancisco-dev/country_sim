@@ -103,7 +103,7 @@ At each 30-day boundary, the shared world tick pipeline runs the following steps
 4. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
    - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
    - otherwise tariff mean-reverts toward the baseline tariff rate
-5. `update_policy_rate` + propagate to all countries — updates world policy rate and assigns it to each country before history capture
+5. `update_policy_rate` per country — updates each country's local policy rate before history capture; world history derives a population-weighted aggregate
 6. `refresh_monthly_export_caches` — updates country-level monthly/export aggregates and cached bank-derived metrics while month-close data is still live
 7. `capture_snapshot` — records `MetricPoint` into the rolling history window
 8. `push_export_snapshot` *(only when `--export-csv` was passed)* — serializes `CountryExportData` from the cached monthly aggregates while `pending_events` still holds the day-30 events; appends to `world.export_queue`

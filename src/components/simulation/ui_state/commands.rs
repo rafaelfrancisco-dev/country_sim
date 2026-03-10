@@ -300,9 +300,18 @@ impl UiState {
             | CountryPolicyField::TaxRate2
             | CountryPolicyField::TaxRate3
             | CountryPolicyField::UnemploymentBenefitRate
+            | CountryPolicyField::TargetInflationRate
+            | CountryPolicyField::NeutralPolicyRate
+            | CountryPolicyField::NaturalUnemploymentRate
+            | CountryPolicyField::RateFloor
+            | CountryPolicyField::RateCeiling
+            | CountryPolicyField::RateChangeEventThreshold
+            | CountryPolicyField::PolicyRateStep
             | CountryPolicyField::MintMaxFractionExpectedSupply => (0.0..=1.0).contains(&value),
             CountryPolicyField::MedianIncomeReference
             | CountryPolicyField::BasicNeedsCashThreshold
+            | CountryPolicyField::InflationCoefficient
+            | CountryPolicyField::UnemploymentCoefficient
             | CountryPolicyField::MintInflationGapWeight
             | CountryPolicyField::MintUnemploymentGapWeight => value >= 0.0,
         };
@@ -324,6 +333,17 @@ impl UiState {
             CountryPolicyField::BasicNeedsCashThreshold => {
                 policy.basic_needs_cash_threshold = value
             }
+            CountryPolicyField::TargetInflationRate => policy.target_inflation_rate = value,
+            CountryPolicyField::NeutralPolicyRate => policy.neutral_policy_rate = value,
+            CountryPolicyField::InflationCoefficient => policy.inflation_coefficient = value,
+            CountryPolicyField::UnemploymentCoefficient => policy.unemployment_coefficient = value,
+            CountryPolicyField::NaturalUnemploymentRate => policy.natural_unemployment_rate = value,
+            CountryPolicyField::RateFloor => policy.rate_floor = value,
+            CountryPolicyField::RateCeiling => policy.rate_ceiling = value,
+            CountryPolicyField::RateChangeEventThreshold => {
+                policy.rate_change_event_threshold = value
+            }
+            CountryPolicyField::PolicyRateStep => policy.policy_rate_step = value,
             CountryPolicyField::MintInflationGapWeight => policy.mint_inflation_gap_weight = value,
             CountryPolicyField::MintUnemploymentGapWeight => {
                 policy.mint_unemployment_gap_weight = value
@@ -357,6 +377,21 @@ impl UiState {
             CountryPolicyField::BasicNeedsCashThreshold => {
                 "Basic-needs cash threshold must be >= 0."
             }
+            CountryPolicyField::TargetInflationRate => {
+                "Target inflation rate must be between 0 and 1."
+            }
+            CountryPolicyField::NeutralPolicyRate => "Neutral policy rate must be between 0 and 1.",
+            CountryPolicyField::InflationCoefficient => "Inflation coefficient must be >= 0.",
+            CountryPolicyField::UnemploymentCoefficient => "Unemployment coefficient must be >= 0.",
+            CountryPolicyField::NaturalUnemploymentRate => {
+                "Natural unemployment rate must be between 0 and 1."
+            }
+            CountryPolicyField::RateFloor => "Rate floor must be between 0 and 1.",
+            CountryPolicyField::RateCeiling => "Rate ceiling must be between 0 and 1.",
+            CountryPolicyField::RateChangeEventThreshold => {
+                "Rate-change event threshold must be between 0 and 1."
+            }
+            CountryPolicyField::PolicyRateStep => "Policy-rate step must be between 0 and 1.",
             CountryPolicyField::MintInflationGapWeight => "Mint inflation-gap weight must be >= 0.",
             CountryPolicyField::MintUnemploymentGapWeight => {
                 "Mint unemployment-gap weight must be >= 0."
@@ -386,6 +421,27 @@ impl UiState {
             CountryPolicyField::BasicNeedsCashThreshold => {
                 country.sim_params.fiscal.basic_needs_cash_threshold
             }
+            CountryPolicyField::TargetInflationRate => {
+                country.sim_params.monetary.target_inflation_rate
+            }
+            CountryPolicyField::NeutralPolicyRate => {
+                country.sim_params.monetary.neutral_policy_rate
+            }
+            CountryPolicyField::InflationCoefficient => {
+                country.sim_params.monetary.inflation_coefficient
+            }
+            CountryPolicyField::UnemploymentCoefficient => {
+                country.sim_params.monetary.unemployment_coefficient
+            }
+            CountryPolicyField::NaturalUnemploymentRate => {
+                country.sim_params.monetary.natural_unemployment_rate
+            }
+            CountryPolicyField::RateFloor => country.sim_params.monetary.rate_floor,
+            CountryPolicyField::RateCeiling => country.sim_params.monetary.rate_ceiling,
+            CountryPolicyField::RateChangeEventThreshold => {
+                country.sim_params.monetary.rate_change_event_threshold
+            }
+            CountryPolicyField::PolicyRateStep => country.sim_params.monetary.policy_rate_step,
             CountryPolicyField::MintInflationGapWeight => {
                 country.sim_params.monetary.mint_inflation_gap_weight
             }
@@ -407,13 +463,22 @@ impl UiState {
             | CountryPolicyField::TaxRate2
             | CountryPolicyField::TaxRate3
             | CountryPolicyField::UnemploymentBenefitRate
+            | CountryPolicyField::TargetInflationRate
+            | CountryPolicyField::NeutralPolicyRate
+            | CountryPolicyField::NaturalUnemploymentRate
+            | CountryPolicyField::RateFloor
+            | CountryPolicyField::RateCeiling
+            | CountryPolicyField::RateChangeEventThreshold
+            | CountryPolicyField::PolicyRateStep
             | CountryPolicyField::MintInflationGapWeight
             | CountryPolicyField::MintUnemploymentGapWeight
             | CountryPolicyField::MintMaxFractionExpectedSupply => format!("{value:.4}"),
             CountryPolicyField::TaxBracket1Max
             | CountryPolicyField::TaxBracket2Max
             | CountryPolicyField::MedianIncomeReference
-            | CountryPolicyField::BasicNeedsCashThreshold => format!("{value:.2}"),
+            | CountryPolicyField::BasicNeedsCashThreshold
+            | CountryPolicyField::InflationCoefficient
+            | CountryPolicyField::UnemploymentCoefficient => format!("{value:.2}"),
         }
     }
 }

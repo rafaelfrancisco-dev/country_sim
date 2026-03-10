@@ -44,6 +44,15 @@ pub struct CountryPolicyOverrides {
     pub unemployment_benefit_rate: f64,
     pub median_income_reference: f64,
     pub basic_needs_cash_threshold: f64,
+    pub target_inflation_rate: f64,
+    pub neutral_policy_rate: f64,
+    pub inflation_coefficient: f64,
+    pub unemployment_coefficient: f64,
+    pub natural_unemployment_rate: f64,
+    pub rate_floor: f64,
+    pub rate_ceiling: f64,
+    pub rate_change_event_threshold: f64,
+    pub policy_rate_step: f64,
     pub mint_inflation_gap_weight: f64,
     pub mint_unemployment_gap_weight: f64,
     pub mint_max_fraction_expected_supply: f64,
@@ -63,6 +72,15 @@ impl CountryPolicyOverrides {
             unemployment_benefit_rate: fiscal.unemployment_benefit_rate,
             median_income_reference: fiscal.median_income_reference,
             basic_needs_cash_threshold: fiscal.basic_needs_cash_threshold,
+            target_inflation_rate: monetary.target_inflation_rate,
+            neutral_policy_rate: monetary.neutral_policy_rate,
+            inflation_coefficient: monetary.inflation_coefficient,
+            unemployment_coefficient: monetary.unemployment_coefficient,
+            natural_unemployment_rate: monetary.natural_unemployment_rate,
+            rate_floor: monetary.rate_floor,
+            rate_ceiling: monetary.rate_ceiling,
+            rate_change_event_threshold: monetary.rate_change_event_threshold,
+            policy_rate_step: monetary.policy_rate_step,
             mint_inflation_gap_weight: monetary.mint_inflation_gap_weight,
             mint_unemployment_gap_weight: monetary.mint_unemployment_gap_weight,
             mint_max_fraction_expected_supply: monetary.mint_max_fraction_expected_supply,
@@ -80,6 +98,15 @@ impl CountryPolicyOverrides {
             unemployment_benefit_rate: params.fiscal.unemployment_benefit_rate,
             median_income_reference: params.fiscal.median_income_reference,
             basic_needs_cash_threshold: params.fiscal.basic_needs_cash_threshold,
+            target_inflation_rate: params.monetary.target_inflation_rate,
+            neutral_policy_rate: params.monetary.neutral_policy_rate,
+            inflation_coefficient: params.monetary.inflation_coefficient,
+            unemployment_coefficient: params.monetary.unemployment_coefficient,
+            natural_unemployment_rate: params.monetary.natural_unemployment_rate,
+            rate_floor: params.monetary.rate_floor,
+            rate_ceiling: params.monetary.rate_ceiling,
+            rate_change_event_threshold: params.monetary.rate_change_event_threshold,
+            policy_rate_step: params.monetary.policy_rate_step,
             mint_inflation_gap_weight: params.monetary.mint_inflation_gap_weight,
             mint_unemployment_gap_weight: params.monetary.mint_unemployment_gap_weight,
             mint_max_fraction_expected_supply: params.monetary.mint_max_fraction_expected_supply,
@@ -267,6 +294,23 @@ impl GameEngine {
                     policy.median_income_reference.max(0.0);
                 country.sim_params.fiscal.basic_needs_cash_threshold =
                     policy.basic_needs_cash_threshold.max(0.0);
+                country.sim_params.monetary.target_inflation_rate =
+                    policy.target_inflation_rate.max(0.0);
+                country.sim_params.monetary.neutral_policy_rate =
+                    policy.neutral_policy_rate.clamp(0.0, 1.0);
+                country.sim_params.monetary.inflation_coefficient =
+                    policy.inflation_coefficient.max(0.0);
+                country.sim_params.monetary.unemployment_coefficient =
+                    policy.unemployment_coefficient.max(0.0);
+                country.sim_params.monetary.natural_unemployment_rate =
+                    policy.natural_unemployment_rate.clamp(0.0, 1.0);
+                country.sim_params.monetary.rate_floor = policy.rate_floor.clamp(0.0, 1.0);
+                country.sim_params.monetary.rate_ceiling = policy
+                    .rate_ceiling
+                    .max(country.sim_params.monetary.rate_floor);
+                country.sim_params.monetary.rate_change_event_threshold =
+                    policy.rate_change_event_threshold.max(0.0);
+                country.sim_params.monetary.policy_rate_step = policy.policy_rate_step.max(0.0);
                 country.sim_params.monetary.mint_inflation_gap_weight =
                     policy.mint_inflation_gap_weight.max(0.0);
                 country.sim_params.monetary.mint_unemployment_gap_weight =

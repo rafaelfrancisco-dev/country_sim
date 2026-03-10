@@ -21,12 +21,9 @@ impl World {
         self.trim_event_log();
     }
 
-    pub(super) fn update_policy_rate_and_propagate(&mut self) {
-        self.update_policy_rate();
-        let rate = self.policy_rate;
-        for country in &mut self.countries {
-            country.set_policy_rate(rate);
-        }
+    pub(super) fn update_country_policy_rates(&mut self) {
+        StandardWorldTickHooks::dispatch_countries(self, Country::update_policy_rate);
+        self.refresh_policy_rate_aggregate();
     }
 
     pub(super) fn tick_day_with_hooks<H: WorldTickHooks>(&mut self, hooks: &mut H) {
@@ -112,7 +109,7 @@ impl WorldTickHooks for StandardWorldTickHooks {
     }
 
     fn run_monthly_rate_update(&mut self, world: &mut World) {
-        world.update_policy_rate_and_propagate();
+        world.update_country_policy_rates();
     }
 
     fn run_monthly_capture_snapshot(&mut self, world: &mut World) {

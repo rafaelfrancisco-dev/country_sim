@@ -223,4 +223,35 @@ mod tests {
         assert_eq!(data.monthly_migrants_for_work, 1);
         assert_eq!(data.monthly_migrants_for_distress, 2);
     }
+
+    #[test]
+    fn collect_country_data_preserves_local_policy_rate() {
+        let mut country_a = Country::with_economy(
+            1,
+            "A".to_string(),
+            vec![],
+            build_default_companies("A", 1),
+            0.0,
+        );
+        country_a.policy_rate = 0.03;
+
+        let mut country_b = Country::with_economy(
+            2,
+            "B".to_string(),
+            vec![],
+            build_default_companies("B", 1),
+            0.0,
+        );
+        country_b.policy_rate = 0.06;
+
+        let mut world = World::new(vec![country_a, country_b]);
+        world.refresh_monthly_export_caches();
+        let empty_log = std::collections::VecDeque::new();
+
+        let data_a = collect_country_data(&world, 0, &world.countries[0], &empty_log, 1, 1);
+        let data_b = collect_country_data(&world, 1, &world.countries[1], &empty_log, 1, 1);
+
+        assert!((data_a.policy_rate - 0.03).abs() < f64::EPSILON);
+        assert!((data_b.policy_rate - 0.06).abs() < f64::EPSILON);
+    }
 }

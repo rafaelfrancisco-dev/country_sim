@@ -106,7 +106,7 @@ Fiscal and monetary state per country per month.
 | `monthly_bonds_matured` | float | Face value of bonds matured this month (0 if none) |
 | `cpi_index` | float | Consumer price index (basket of goods 0–7, base = 1.0 at generation) |
 | `inflation_rate` | float | Annualized month-over-month inflation: `(cpi_new/cpi_old)^12 − 1` |
-| `policy_rate` | float | Central bank policy rate propagated from World (Taylor Rule) |
+| `policy_rate` | float | Country-local central bank policy rate (Taylor Rule); world charts use a derived population-weighted aggregate instead |
 
 **Invariant check:** `total_money_supply ≈ household_cash_total + company_cash_total + bank_reserve_balance + treasury_balance` (small floating-point drift expected).
 

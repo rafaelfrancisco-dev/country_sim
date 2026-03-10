@@ -83,6 +83,7 @@ impl World {
         // Accumulators for deposit/loan rates weighted by population.
         let mut weighted_deposit_sum = 0.0_f64;
         let mut weighted_loan_sum = 0.0_f64;
+        let mut weighted_policy_sum = 0.0_f64;
         let mut total_population_f64 = 0.0_f64;
 
         for (country_idx, country) in self.countries.iter().enumerate() {
@@ -130,17 +131,19 @@ impl World {
             homeownership_rate_sum += country.homeownership_rate();
             housing_vacancy_rate_sum += country.housing_vacancy_rate();
             total_population_f64 += pop;
+            weighted_policy_sum += country.policy_rate() * pop;
             weighted_deposit_sum += country.deposit_rate() * pop;
             weighted_loan_sum += country.bank_loan_rate() * pop;
         }
 
-        let (deposit_rate, loan_rate) = if total_population_f64 > 0.0 {
+        let (policy_rate, deposit_rate, loan_rate) = if total_population_f64 > 0.0 {
             (
+                weighted_policy_sum / total_population_f64,
                 weighted_deposit_sum / total_population_f64,
                 weighted_loan_sum / total_population_f64,
             )
         } else {
-            (0.0, 0.0)
+            (0.0, 0.0, 0.0)
         };
 
         MetricPoint {
@@ -169,7 +172,7 @@ impl World {
             monthly_essential_debt_spending,
             cpi_index: cpi_index_sum / n,
             inflation_rate: inflation_rate_sum / n,
-            policy_rate: self.policy_rate,
+            policy_rate,
             deposit_rate,
             loan_rate,
             monthly_savings_interest_paid,

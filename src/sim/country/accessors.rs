@@ -42,10 +42,6 @@ impl Country {
         self.policy_rate
     }
 
-    pub(crate) fn set_policy_rate(&mut self, rate: f64) {
-        self.policy_rate = rate;
-    }
-
     pub fn stock_market(&self) -> &StockMarket {
         &self.stock_market
     }

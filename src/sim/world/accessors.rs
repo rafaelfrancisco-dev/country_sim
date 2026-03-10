@@ -12,10 +12,6 @@ impl World {
 
     pub fn new_with_generation_seed(countries: Vec<Country>, generation_seed: u64) -> Self {
         let country_count = countries.len();
-        let initial_policy_rate = countries
-            .first()
-            .map(|c| c.sim_params.monetary.neutral_policy_rate)
-            .unwrap_or(0.04);
 
         let tariff_rates_by_good = Self::build_tariff_rates_from_countries(&countries);
         let mut world = Self {
@@ -23,7 +19,7 @@ impl World {
             generation_seed,
             countries,
             paused: false,
-            policy_rate: initial_policy_rate,
+            policy_rate: 0.0,
             world_history: VecDeque::with_capacity(HISTORY_LIMIT),
             country_history: vec![VecDeque::with_capacity(HISTORY_LIMIT); country_count],
             bank_history: std::collections::HashMap::new(),
@@ -36,6 +32,7 @@ impl World {
             tariff_rates_by_good,
             goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
         };
+        world.refresh_policy_rate_aggregate();
         world.refresh_monthly_export_caches();
         world.capture_snapshot();
         world
@@ -58,7 +55,7 @@ impl World {
     }
 
     pub fn policy_rate(&self) -> f64 {
-        self.policy_rate
+        self.population_weighted_policy_rate()
     }
 
     pub fn countries(&self) -> &[Country] {
