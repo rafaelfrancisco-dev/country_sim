@@ -526,7 +526,7 @@ The stock market runs once per day after the goods market. Each country's market
    - One order type per stock per slot; order size bounded by `max_order_fraction_of_float`
 4. **Bank maker orders**: For each listed symbol the bank quotes:
    - Bid at `last_price × (1 − maker_spread_bps / 20000)` — limited by equity headroom
-   - Ask at `last_price × (1 + maker_spread_bps / 20000)` — size scaled up by `(exposure / budget).min(5)` when bank is over its equity budget (pressure selling)
+   - Ask at `last_price × (1 + maker_spread_bps / 20000)` — when `cross_country_bank_investing_enabled` only the *excess* above the per-symbol target holding is offered; when over-exposed (`exposure > budget`) the full inventory is offered at scaled size `(exposure / budget).min(5)` (pressure selling)
 5. **Price-time priority matching**: Buys sorted descending by limit, sells ascending. Fill at midpoint clamped to `[prev_close × (1 − max_daily_price_move_pct), prev_close × (1 + max_daily_price_move_pct)]`.
 6. **Settlement (strict, zero-synthetic)**:
    - Person buy: `cash_balance -= cost`, shares increase
@@ -537,6 +537,7 @@ The stock market runs once per day after the goods market. Each country's market
 
 ### Monthly Stock Events
 - **Margin calls** (step 6 of month-end): if a borrower cannot cover their loan payment, pledged shares are force-liquidated at `last_price × (1 − margin_liquidation_discount)`. Bank pays (reserve decreases) and receives shares. Person receives proceeds in cash.
+- **Bank equity investing** (monthly, `process_cross_country_bank_stock_investing`): every bank invests up to `cross_country_bank_invest_fraction_monthly × reserve_balance` per month across all tradeable securities (domestic and foreign), capped by the `bank_max_equity_reserve_fraction` headroom. Each purchase is a private placement at `last_price`: bank reserve decreases, company cash increases, and both `shares_outstanding` and `free_float_shares` increase by the purchased shares (preserving the share-conservation invariant). Banks stop buying a given security once they hold the per-symbol target (`bank_equity_budget / num_symbols / last_price` shares).
 - **Secondary offerings** (step 11): listed companies with `consecutive_missed_loan_payments >= secondary_offering_missed_payment_trigger` may raise equity capital by issuing up to `shares_outstanding × secondary_offering_max_dilution` new shares at `last_price × (1 − secondary_offering_discount)`. Retail + bank subscribers provide cash; `shares_outstanding` and `free_float_shares` increase by shares allocated; proceeds go to company cash. Emits `StockSecondaryOffering` event (`[SEC]` log tag).
 - **Dividends** (step 24): profitable companies with sufficient runway pay `dividend_payout_ratio` of profit. Household recipients pay 15% withholding; bank receives gross dividend to reserve. Each payment is recorded in a 12-slot ring buffer (`monthly_dps`, `dps_cursor`) on `ListedEquity`; the cursor advances at month end via `reset_mtd_trackers`, evicting the oldest month. The trailing 12-month sum (`trailing_annual_dps`) is capitalised at an 8% required return and added to the P/S-based fundamental anchor in the daily order-generation step, so dividend-paying stocks attract incremental buy pressure and sustain a higher equilibrium price.
 
@@ -556,6 +557,8 @@ For every listed company: `Σ person_holdings + bank_holdings == free_float_shar
 | `max_order_fraction_of_float` | 0.05 | Max order size as fraction of float |
 | `investor_cash_reserve_ratio` | 0.30 | Cash kept liquid before buying |
 | `bank_max_equity_reserve_fraction` | 0.15 | Bank equity cap (fraction of reserve) |
+| `cross_country_bank_investing_enabled` | true | Enable monthly bank equity investing |
+| `cross_country_bank_invest_fraction_monthly` | 0.02 | Fraction of reserves invested monthly across all listed equities |
 | `secondary_offering_missed_payment_trigger` | 1 | Consecutive missed loan payments before secondary offering |
 | `secondary_offering_discount` | 0.10 | Discount to last price for secondary offering shares |
 | `secondary_offering_max_dilution` | 0.15 | Max new shares as fraction of shares outstanding |

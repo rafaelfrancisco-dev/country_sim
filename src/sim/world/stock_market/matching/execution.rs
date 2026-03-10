@@ -174,16 +174,10 @@ fn append_bank_market_maker_orders(
     params: &crate::sim::params::StockMarketParams,
     scratch: &mut WorldStockScratch,
 ) {
-    let Some(country) = world
-        .countries()
-        .iter()
-        .find(|country| country.id() == country_id)
-    else {
+    let Some(country) = world.countries().iter().find(|c| c.id() == country_id) else {
         return;
     };
-    let stock_bank_id = country
-        .stock_market_bank_id()
-        .unwrap_or(country.primary_bank().id);
+    let stock_bank_id = country.stock_market_bank_id().unwrap_or(country.primary_bank().id);
     let Some(bank) = country.bank_by_id(stock_bank_id) else {
         return;
     };
@@ -242,7 +236,19 @@ fn append_bank_market_maker_orders(
         };
         let ask_cap = ((context.max_order_by_float as f64 * pressure_multiplier).floor() as u64)
             .max(context.max_order_by_float);
-        let ask_shares = bank_inventory.min(ask_cap);
+        // When investing mode is active only offer excess above the per-symbol target for
+        // sale; when over-exposed sell everything to reduce risk.
+        let target_per_symbol = if params.cross_country_bank_investing_enabled
+            && exposure_ratio <= 1.0
+            && bank_equity_budget > 0.0
+            && context.last_price > 0.0
+            && !symbol_contexts.is_empty()
+        {
+            (bank_equity_budget / symbol_contexts.len() as f64 / context.last_price) as u64
+        } else {
+            0
+        };
+        let ask_shares = bank_inventory.saturating_sub(target_per_symbol).min(ask_cap);
         if ask_shares > 0 {
             scratch.push_sell(
                 symbol_idx,

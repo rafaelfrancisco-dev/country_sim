@@ -187,12 +187,11 @@ Finish and deepen the international finance layer.
 Why this matters:
 
 - foreign household deposits exist already
-- cross-border bank equity investing is still a stub
+- cross-border bank equity investing is implemented (monthly private-placement at last price, target-holding sell discipline)
 - this is a natural path to capital flight, contagion, and sovereign-risk dynamics
 
 Suggested scope:
 
-- implement foreign bank equity allocation
 - track valuation gains/losses on foreign exposures
 - add sovereign-risk and bank-country-risk pricing
 - add capital controls and deposit-insurance credibility effects
