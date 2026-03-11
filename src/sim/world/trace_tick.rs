@@ -1,6 +1,6 @@
 use super::{Country, World};
 use crate::sim::country::DAYS_PER_MONTH;
-use crate::sim::trace::{CountryDailyTrace, CountryMonthlyTrace, DayTraceRow, duration_ms};
+use crate::sim::trace::{duration_ms, CountryDailyTrace, CountryMonthlyTrace, DayTraceRow};
 use rayon::prelude::*;
 use std::time::Instant;
 
@@ -98,8 +98,7 @@ impl WorldTickHooks for TraceWorldTickHooks {
     }
 
     fn run_monthly_rate_update(&mut self, world: &mut World) {
-        self.world_monthly_rate_update_ms =
-            Self::timed(|| world.update_policy_rate_and_propagate());
+        self.world_monthly_rate_update_ms = Self::timed(|| world.update_country_policy_rates());
     }
 
     fn run_monthly_capture_snapshot(&mut self, world: &mut World) {
