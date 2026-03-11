@@ -107,9 +107,9 @@ The `▶` marker highlights the currently focused row. Up to five saves are show
 
 ## Schema Version
 
-The schema version is stored in `save_metadata.schema_version` (currently `2`). Loading a file with a mismatched schema version returns an error and does not attempt deserialization. This prevents silent corruption from version mismatches.
+The schema version is stored in `save_metadata.schema_version` (currently `3`). Loading a file with a mismatched schema version returns an error and does not attempt deserialization. This prevents silent corruption from version mismatches.
 
-Version `2` is intentionally incompatible with version `1`. Older save files that used the legacy `world_json` snapshot table are rejected with a schema-mismatch error instead of being migrated implicitly.
+Version `3` is intentionally incompatible with earlier layouts. In addition to the normalized relational tables introduced after the legacy `world_json` snapshot format, the current schema persists the UI-facing `last_completed_month_*` snapshot fields so save/load round-trips preserve last-month detail panels exactly.
 
 ---
 

@@ -7,18 +7,18 @@ use crate::sim::{
     essentials::Household,
     good::GOODS_COUNT,
     person::{
-        ESSENTIAL_STOCK_SLOT_COUNT, EducationTrack, EmploymentStatus, ForeignDeposit,
-        HabilitationLevel, HousingStatus, Person, SUPERFICIAL_GOOD_SLOT_COUNT,
+        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
+        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
     },
     world::{BankMetricPoint, MetricPoint},
 };
 
 use super::super::{
-    PersistenceError,
     dto::{
         BankMetricPointDto, CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
         MetricPointDto, PersonDto,
     },
+    PersistenceError,
 };
 
 pub(super) fn metric_point_from_dto(p: MetricPointDto) -> MetricPoint {
@@ -187,6 +187,29 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         last_mint_inflation_shortfall: dto.last_mint_inflation_shortfall,
         last_mint_unemployment_gap: dto.last_mint_unemployment_gap,
         last_mint_fraction: dto.last_mint_fraction,
+        last_completed_month_tax_collected: dto.last_completed_month_tax_collected,
+        last_completed_month_household_spending: dto.last_completed_month_household_spending,
+        last_completed_month_tariff_collected: dto.last_completed_month_tariff_collected,
+        last_completed_month_gov_spending: dto.last_completed_month_gov_spending,
+        last_completed_month_budget_balance: dto.last_completed_month_budget_balance,
+        last_completed_month_coupon_paid: dto.last_completed_month_coupon_paid,
+        last_completed_month_bonds_issued: dto.last_completed_month_bonds_issued,
+        last_completed_month_bonds_matured: dto.last_completed_month_bonds_matured,
+        last_completed_month_savings_interest_paid: dto.last_completed_month_savings_interest_paid,
+        last_completed_month_fx_net_flow_base: dto.last_completed_month_fx_net_flow_base,
+        last_completed_month_rent_collected: dto.last_completed_month_rent_collected,
+        last_completed_month_mortgage_payments: dto.last_completed_month_mortgage_payments,
+        last_completed_month_home_purchases: dto.last_completed_month_home_purchases,
+        last_completed_month_foreclosures: dto.last_completed_month_foreclosures,
+        last_completed_month_unmet_need_events: dto.last_completed_month_unmet_need_events,
+        last_completed_month_severe_unmet_need_events: dto
+            .last_completed_month_severe_unmet_need_events,
+        last_completed_month_chronic_unmet_need_count: dto
+            .last_completed_month_chronic_unmet_need_count,
+        last_completed_month_essential_debt_spending: dto
+            .last_completed_month_essential_debt_spending,
+        last_completed_month_hires_total: dto.last_completed_month_hires_total,
+        last_completed_month_money_minted: dto.last_completed_month_money_minted,
         policy_rate: dto.policy_rate,
         fx_rate_local_per_base: dto.fx_rate_local_per_base,
         fx_reserves_base: dto.fx_reserves_base,
@@ -361,6 +384,16 @@ pub(super) fn person_from_dto(dto: PersonDto) -> Person {
         last_month_savings_interest: dto.last_month_savings_interest,
         last_month_rent_paid: dto.last_month_rent_paid,
         last_month_mortgage_payment: dto.last_month_mortgage_payment,
+        last_completed_month_spending: dto.last_completed_month_spending,
+        last_completed_month_goods_spending: dto.last_completed_month_goods_spending,
+        last_completed_month_imported_goods_spending: dto
+            .last_completed_month_imported_goods_spending,
+        last_completed_month_goods_units_bought: dto.last_completed_month_goods_units_bought,
+        last_completed_month_loan_payment: dto.last_completed_month_loan_payment,
+        last_completed_month_new_loan: dto.last_completed_month_new_loan,
+        last_completed_month_savings_interest: dto.last_completed_month_savings_interest,
+        last_completed_month_rent_paid: dto.last_completed_month_rent_paid,
+        last_completed_month_mortgage_payment: dto.last_completed_month_mortgage_payment,
         housing,
         months_unemployed: dto.months_unemployed,
         months_on_benefits: dto.months_on_benefits,

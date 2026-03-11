@@ -145,8 +145,8 @@ All housing events belong to `EventCategory::Housing` and can be filtered in the
 ## UI
 
 - **Charts tab page 4**: Housing Price Index, Homeownership Rate, Monthly Rent, Vacancy Rate, Monthly Home Purchases, Monthly Foreclosures, Mortgage Rate, Rent/Price Ratio.
-- **Country details**: Housing Market section showing price index, rent, stock breakdown, vacancy rate, homeownership rate, and MTD purchase/foreclosure/payment totals.
-- **Person details**: Housing status, mortgage balance/payment/rate/months remaining, missed payments (if any), landlord name for renters, MTD rent and mortgage payment amounts.
+- **Country details**: Housing Market section showing price index, rent, stock breakdown, vacancy rate, homeownership rate, last-month purchase/foreclosure totals, last-month mortgage and rent totals, and current MTD mortgage payments.
+- **Person details**: Housing status, mortgage balance/payment/rate/months remaining, missed payments (if any), landlord name for renters, and last-month rent and mortgage payment amounts.
 
 ## Money Invariants
 

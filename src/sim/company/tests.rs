@@ -25,11 +25,9 @@ fn default_companies_offer_multiple_job_types() {
     let companies = build_default_companies("A", 2);
 
     assert_eq!(companies.len(), 2);
-    assert!(
-        companies
-            .iter()
-            .all(|company| company.offered_job_types.len() > 1)
-    );
+    assert!(companies
+        .iter()
+        .all(|company| company.offered_job_types.len() > 1));
 }
 
 #[test]

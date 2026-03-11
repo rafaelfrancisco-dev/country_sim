@@ -140,26 +140,32 @@ pub(in crate::components::simulation) fn country_details_lines(
             money(country.money_supply_gap(), currency_symbol)
         ),
         format!(
-            "MTD Tax Collected: {}",
-            money(country.monthly_tax_collected(), currency_symbol)
+            "Last Month Tax Collected: {}",
+            money(
+                country.last_completed_month_tax_collected(),
+                currency_symbol
+            )
         ),
         format!("FX Rate Index: {:.4}", country.fx_rate_local_per_base()),
         fx_reserves_detail_line(world, ui.selected_country),
         format!("FX Pressure: {:.2}", country.fx_pressure()),
         format!(
-            "MTD FX Net Flow: {}",
+            "Last Month FX Net Flow: {}",
             money(
-                country.monthly_fx_net_flow_base() * country.fx_rate_local_per_base(),
+                country.last_completed_month_fx_net_flow_base * country.fx_rate_local_per_base(),
                 currency_symbol
             )
         ),
         format!(
-            "MTD Gov Spending: {}",
-            money(country.monthly_gov_spending(), currency_symbol)
+            "Last Month Gov Spending: {}",
+            money(country.last_completed_month_gov_spending(), currency_symbol)
         ),
         format!(
-            "MTD Budget Balance: {}",
-            money(country.monthly_budget_balance(), currency_symbol)
+            "Last Month Budget Balance: {}",
+            money(
+                country.last_completed_month_budget_balance(),
+                currency_symbol
+            )
         ),
         format!(
             "Monetized Debt: {}",
@@ -178,16 +184,19 @@ pub(in crate::components::simulation) fn country_details_lines(
             country.bond_months_to_maturity()
         ),
         format!(
-            "MTD Coupon Paid: {}",
-            money(country.monthly_coupon_paid(), currency_symbol)
+            "Last Month Coupon Paid: {}",
+            money(country.last_completed_month_coupon_paid(), currency_symbol)
         ),
         format!(
-            "MTD Bonds Issued: {}",
-            money(country.monthly_bonds_issued(), currency_symbol)
+            "Last Month Bonds Issued: {}",
+            money(country.last_completed_month_bonds_issued(), currency_symbol)
         ),
         format!(
-            "MTD Bonds Matured: {}",
-            money(country.monthly_bonds_matured(), currency_symbol)
+            "Last Month Bonds Matured: {}",
+            money(
+                country.last_completed_month_bonds_matured(),
+                currency_symbol
+            )
         ),
         "Monetary Operations:".to_string(),
         if country.last_mint_inflation_shortfall() == 0.0
@@ -205,8 +214,8 @@ pub(in crate::components::simulation) fn country_details_lines(
             || country.last_mint_unemployment_gap() != 0.0
         {
             format!(
-                "  MTD Minted:     {} (+{:.3}% of supply)",
-                money(country.monthly_money_minted(), currency_symbol),
+                "  Last Month Minted:     {} (+{:.3}% of supply)",
+                money(country.last_completed_month_money_minted(), currency_symbol),
                 country.last_mint_fraction() * 100.0
             )
         } else {
@@ -227,14 +236,20 @@ pub(in crate::components::simulation) fn country_details_lines(
         format!("Bank Loan Rate: {:.2}%", country.bank_loan_rate() * 100.0),
         format!("Deposit Rate:  {:.2}%", country.deposit_rate() * 100.0),
         format!(
-            "MTD Svgs Int:  {}",
-            money(country.monthly_savings_interest_paid(), currency_symbol)
+            "Last Month Svgs Int:  {}",
+            money(
+                country.last_completed_month_savings_interest_paid(),
+                currency_symbol
+            )
         ),
         String::new(),
         "Trade & Tariffs:".to_string(),
         format!(
-            "MTD Household Spending: {}",
-            money(country.monthly_household_spending(), currency_symbol)
+            "Last Month Household Spending: {}",
+            money(
+                country.last_completed_month_household_spending(),
+                currency_symbol
+            )
         ),
         format!(
             "MTD Imports / Exports: {} / {}",
@@ -284,13 +299,30 @@ pub(in crate::components::simulation) fn country_details_lines(
             country.homeownership_rate() * 100.0
         ),
         format!(
-            "MTD Purchases / Foreclosures: {} / {}",
-            compact_count(country.monthly_home_purchases() as f64),
-            compact_count(country.monthly_foreclosures() as f64)
+            "Last Month Purchases / Foreclosures: {} / {}",
+            compact_count(country.last_completed_month_home_purchases() as f64),
+            compact_count(country.last_completed_month_foreclosures() as f64)
         ),
         format!(
-            "MTD Rent Collected: {}",
-            money(country.monthly_rent_collected(), currency_symbol)
+            "Last Month Rent Collected: {}",
+            money(
+                country.last_completed_month_rent_collected(),
+                currency_symbol
+            )
+        ),
+        format!(
+            "Last Month Mortgage Payments: {}",
+            money(
+                country.last_completed_month_mortgage_payments(),
+                currency_symbol
+            )
+        ),
+        format!(
+            "Last Month Tariffs Collected: {}",
+            money(
+                country.last_completed_month_tariff_collected(),
+                currency_symbol
+            )
         ),
         format!(
             "MTD Mortgage Payments: {}",
@@ -314,24 +346,27 @@ pub(in crate::components::simulation) fn country_details_lines(
         String::new(),
         "Social Pressure:".to_string(),
         format!(
-            "MTD Unmet Need Events: {}",
-            compact_count(country.monthly_unmet_need_events as f64)
+            "Last Month Unmet Need Events: {}",
+            compact_count(country.last_completed_month_unmet_need_events as f64)
         ),
         format!(
-            "MTD Severe Unmet Events: {}",
-            compact_count(country.monthly_severe_unmet_need_events as f64)
+            "Last Month Severe Unmet Events: {}",
+            compact_count(country.last_completed_month_severe_unmet_need_events as f64)
         ),
         format!(
-            "MTD Chronic Unmet People: {}",
-            compact_count(country.monthly_chronic_unmet_need_count as f64)
+            "Last Month Chronic Unmet People: {}",
+            compact_count(country.last_completed_month_chronic_unmet_need_count as f64)
         ),
         format!(
-            "MTD Essential Debt Spending: {}",
-            money(country.monthly_essential_debt_spending, currency_symbol)
+            "Last Month Essential Debt Spending: {}",
+            money(
+                country.last_completed_month_essential_debt_spending,
+                currency_symbol
+            )
         ),
         format!(
-            "MTD Hires: {}",
-            compact_count(country.monthly_hires_total as f64)
+            "Last Month Hires: {}",
+            compact_count(country.last_completed_month_hires_total as f64)
         ),
         format!(
             "Last Day Births / Deaths: {} / {}",

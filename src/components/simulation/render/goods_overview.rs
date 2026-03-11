@@ -1,14 +1,14 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{
         Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Table, Wrap,
     },
+    Frame,
 };
 
-use super::super::{Simulation, theme};
+use super::super::{theme, Simulation};
 use crate::components::simulation::snapshot::{GoodsTabSnapshot, RunningSnapshot};
 use crate::components::simulation::ui_state::SelectionFocus;
 
@@ -230,7 +230,7 @@ impl Simulation {
                     Cell::from(row.sold_units.clone()),
                     Cell::from(row.export_units.clone()),
                     Cell::from(row.est_daily_demand_units.clone()),
-                    Cell::from(row.est_mtd_demand_units.clone()),
+                    Cell::from(row.est_last_month_demand_units.clone()),
                 ])
                 .style(style)
             })
@@ -254,11 +254,11 @@ impl Simulation {
             "Prods",
             "Avg Price",
             "Inv",
-            "MTD Prod",
-            "MTD Sold",
+            "Last Mo Prod",
+            "Last Mo Sold",
             "Export",
             "Daily Dem",
-            "MTD Dem",
+            "Last Mo Dem",
         ])
         .style(
             Style::default()
@@ -271,11 +271,11 @@ impl Simulation {
             Constraint::Length(5),
             Constraint::Length(10),
             Constraint::Length(7),
-            Constraint::Length(8),
-            Constraint::Length(8),
+            Constraint::Length(11),
+            Constraint::Length(11),
             Constraint::Length(8),
             Constraint::Length(9),
-            Constraint::Length(9),
+            Constraint::Length(11),
         ];
 
         frame.render_widget(

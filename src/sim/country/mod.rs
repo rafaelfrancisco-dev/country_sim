@@ -19,6 +19,7 @@ use rayon::prelude::*;
 
 mod accessors;
 mod accessors_fx;
+mod accessors_last_month;
 mod banking;
 mod daily;
 mod essential_economy;
@@ -93,6 +94,26 @@ pub struct Country {
     pub(crate) last_mint_inflation_shortfall: f64,
     pub(crate) last_mint_unemployment_gap: f64,
     pub(crate) last_mint_fraction: f64,
+    pub(crate) last_completed_month_tax_collected: f64,
+    pub(crate) last_completed_month_household_spending: f64,
+    pub(crate) last_completed_month_tariff_collected: f64,
+    pub(crate) last_completed_month_gov_spending: f64,
+    pub(crate) last_completed_month_budget_balance: f64,
+    pub(crate) last_completed_month_coupon_paid: f64,
+    pub(crate) last_completed_month_bonds_issued: f64,
+    pub(crate) last_completed_month_bonds_matured: f64,
+    pub(crate) last_completed_month_savings_interest_paid: f64,
+    pub(crate) last_completed_month_fx_net_flow_base: f64,
+    pub(crate) last_completed_month_rent_collected: f64,
+    pub(crate) last_completed_month_mortgage_payments: f64,
+    pub(crate) last_completed_month_home_purchases: u32,
+    pub(crate) last_completed_month_foreclosures: u32,
+    pub(crate) last_completed_month_unmet_need_events: u64,
+    pub(crate) last_completed_month_severe_unmet_need_events: u64,
+    pub(crate) last_completed_month_chronic_unmet_need_count: u64,
+    pub(crate) last_completed_month_essential_debt_spending: f64,
+    pub(crate) last_completed_month_hires_total: u64,
+    pub(crate) last_completed_month_money_minted: f64,
     pub(crate) policy_rate: f64,
     pub(crate) fx_rate_local_per_base: f64,
     pub(crate) fx_reserves_base: f64,

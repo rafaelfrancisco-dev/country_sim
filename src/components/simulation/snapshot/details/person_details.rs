@@ -84,20 +84,23 @@ pub(in crate::components::simulation) fn person_details_lines(
             money(person.last_completed_month_net_pay, currency_symbol)
         ),
         format!(
-            "MTD Spending: {}",
-            money(person.last_month_spending, currency_symbol)
+            "Last Month Spending: {}",
+            money(person.last_completed_month_spending, currency_symbol)
         ),
         format!(
-            "MTD Loan Payment: {}",
-            money(person.last_month_loan_payment, currency_symbol)
+            "Last Month Loan Payment: {}",
+            money(person.last_completed_month_loan_payment, currency_symbol)
         ),
         format!(
-            "MTD New Loan: {}",
-            money(person.last_month_new_loan, currency_symbol)
+            "Last Month New Loan: {}",
+            money(person.last_completed_month_new_loan, currency_symbol)
         ),
         format!(
-            "MTD Svgs Int: {}",
-            money(person.last_month_savings_interest, currency_symbol)
+            "Last Month Svgs Int: {}",
+            money(
+                person.last_completed_month_savings_interest,
+                currency_symbol
+            )
         ),
         String::new(),
         "Housing:".to_string(),
@@ -136,31 +139,37 @@ pub(in crate::components::simulation) fn person_details_lines(
         _ => {}
     }
 
-    if person.last_month_rent_paid > 0.0 {
+    if person.last_completed_month_rent_paid > 0.0 {
         lines.push(format!(
-            "MTD Rent Paid: {}",
-            money(person.last_month_rent_paid, currency_symbol)
+            "Last Month Rent Paid: {}",
+            money(person.last_completed_month_rent_paid, currency_symbol)
         ));
     }
-    if person.last_month_mortgage_payment > 0.0 {
+    if person.last_completed_month_mortgage_payment > 0.0 {
         lines.push(format!(
-            "MTD Mortgage Payment: {}",
-            money(person.last_month_mortgage_payment, currency_symbol)
+            "Last Month Mortgage Payment: {}",
+            money(
+                person.last_completed_month_mortgage_payment,
+                currency_symbol
+            )
         ));
     }
 
     lines.push(String::new());
     lines.push(format!(
-        "MTD Goods Spending: {}",
-        money(person.last_month_goods_spending, currency_symbol)
+        "Last Month Goods Spending: {}",
+        money(person.last_completed_month_goods_spending, currency_symbol)
     ));
     lines.push(format!(
-        "MTD Imported Goods Spending: {}",
-        money(person.last_month_imported_goods_spending, currency_symbol)
+        "Last Month Imported Goods Spending: {}",
+        money(
+            person.last_completed_month_imported_goods_spending,
+            currency_symbol
+        )
     ));
     lines.push(format!(
-        "MTD Goods Units Bought: {}",
-        person.last_month_goods_units_bought
+        "Last Month Goods Units Bought: {}",
+        person.last_completed_month_goods_units_bought
     ));
     lines.push(format!(
         "Needs Met: {}",

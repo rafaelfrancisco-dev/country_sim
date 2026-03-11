@@ -158,7 +158,7 @@ pub(in crate::components::simulation) fn production_demand_rows(
         return Vec::new();
     };
 
-    let day_in_month = world.day % DAYS_PER_MONTH + 1;
+    let _day_in_month = world.day % DAYS_PER_MONTH + 1;
     let aggregates = goods_production_demand_aggregates(country);
     common_goods()
         .iter()
@@ -175,7 +175,7 @@ pub(in crate::components::simulation) fn production_demand_rows(
             };
             let est_daily_demand =
                 country.population() as f64 * good.monthly_demand_factor.max(0.0) / 30.0;
-            let est_mtd_demand = est_daily_demand * day_in_month as f64;
+            let est_last_month_demand = est_daily_demand * 30.0;
 
             GoodsProductionDemandRowSnapshot {
                 good: good.name.to_string(),
@@ -186,7 +186,7 @@ pub(in crate::components::simulation) fn production_demand_rows(
                 sold_units: compact_count(aggregate.sold_units),
                 export_units: compact_count(aggregate.export_units),
                 est_daily_demand_units: compact_count(est_daily_demand),
-                est_mtd_demand_units: compact_count(est_mtd_demand),
+                est_last_month_demand_units: compact_count(est_last_month_demand),
             }
         })
         .collect()
@@ -205,11 +205,13 @@ fn goods_production_demand_aggregates(
         row.inventory_units = row.inventory_units.saturating_add(company.inventory_units);
         row.produced_units = row
             .produced_units
-            .saturating_add(company.last_month_units_produced);
-        row.sold_units = row.sold_units.saturating_add(company.last_month_units_sold);
+            .saturating_add(company.last_completed_month_units_produced);
+        row.sold_units = row
+            .sold_units
+            .saturating_add(company.last_completed_month_units_sold);
         row.export_units = row
             .export_units
-            .saturating_add(company.last_month_export_units_sold);
+            .saturating_add(company.last_completed_month_export_units_sold);
     }
     aggregates
 }

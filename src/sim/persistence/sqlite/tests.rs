@@ -256,6 +256,7 @@ fn rich_world_dto() -> WorldDto {
             realized_pnl_mtd: 88.0,
             dividends_mtd: 9.5,
             last_completed_month_dividends: 12.0,
+            last_completed_month_realized_pnl: 77.0,
         },
     )]);
     country0.stock_market.bank_portfolio = PortfolioDto {
@@ -269,6 +270,7 @@ fn rich_world_dto() -> WorldDto {
         realized_pnl_mtd: 15.0,
         dividends_mtd: 1.5,
         last_completed_month_dividends: 2.5,
+        last_completed_month_realized_pnl: 6.5,
     };
     country0.stock_market.listed = HashMap::from([(
         company0.id.to_string(),

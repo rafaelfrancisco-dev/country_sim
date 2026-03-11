@@ -79,6 +79,12 @@ pub(super) fn company_from_dto(dto: CompanyDto) -> Company {
         last_month_export_units_sold: dto.last_month_export_units_sold,
         last_month_domestic_units_sold: dto.last_month_domestic_units_sold,
         last_month_sell_through: dto.last_month_sell_through,
+        last_completed_month_sales: dto.last_completed_month_sales,
+        last_completed_month_units_produced: dto.last_completed_month_units_produced,
+        last_completed_month_units_sold: dto.last_completed_month_units_sold,
+        last_completed_month_export_units_sold: dto.last_completed_month_export_units_sold,
+        last_completed_month_domestic_units_sold: dto.last_completed_month_domestic_units_sold,
+        last_completed_month_sell_through: dto.last_completed_month_sell_through,
         sales_history: VecDeque::from(dto.sales_history),
         profit_history: VecDeque::from(dto.profit_history),
         sold_units_history: VecDeque::from(dto.sold_units_history),
@@ -199,6 +205,8 @@ pub(super) fn stock_market_from_dto(dto: StockMarketDto) -> StockMarket {
         dividends_paid_mtd: dto.dividends_paid_mtd,
         last_completed_month_dividends_paid: dto.last_completed_month_dividends_paid,
         forced_liquidations_mtd: dto.forced_liquidations_mtd,
+        last_completed_month_ipo_raised: dto.last_completed_month_ipo_raised,
+        last_completed_month_forced_liquidations: dto.last_completed_month_forced_liquidations,
         day_active_traders_count: 0,
         day_buy_orders_count: 0,
         day_sell_orders_count: 0,
@@ -223,6 +231,7 @@ pub(super) fn portfolio_from_dto(dto: PortfolioDto) -> Portfolio {
         realized_pnl_mtd: dto.realized_pnl_mtd,
         dividends_mtd: dto.dividends_mtd,
         last_completed_month_dividends: dto.last_completed_month_dividends,
+        last_completed_month_realized_pnl: dto.last_completed_month_realized_pnl,
     }
 }
 

@@ -161,22 +161,22 @@ pub(in crate::components::simulation) fn company_details_lines(
             compact_count(company.inventory_units)
         ),
         format!(
-            "MTD Produced Units: {}",
-            compact_count(company.last_month_units_produced)
+            "Last Month Produced Units: {}",
+            compact_count(company.last_completed_month_units_produced)
         ),
         format!(
-            "MTD Sold Units: {}",
-            compact_count(company.last_month_units_sold)
+            "Last Month Sold Units: {}",
+            compact_count(company.last_completed_month_units_sold)
         ),
         format!(
-            "MTD Domestic/Export Units: {}/{}",
-            compact_count(company.last_month_domestic_units_sold),
-            compact_count(company.last_month_export_units_sold)
+            "Last Month Domestic/Export Units: {}/{}",
+            compact_count(company.last_completed_month_domestic_units_sold),
+            compact_count(company.last_completed_month_export_units_sold)
         ),
-        format!("MTD Domestic/Export Mix: {domestic_export_mix}"),
+        format!("Last Month Domestic/Export Mix: {domestic_export_mix}"),
         format!(
-            "MTD Sell Through: {:.2}%",
-            company.last_month_sell_through * 100.0
+            "Last Month Sell Through: {:.2}%",
+            company.last_completed_month_sell_through * 100.0
         ),
         format!(
             "Inventory Runway: {}",
@@ -193,8 +193,8 @@ pub(in crate::components::simulation) fn company_details_lines(
         String::new(),
         "Finance & Stress:".to_string(),
         format!(
-            "MTD Sales: {}",
-            money(company.last_month_sales, currency_symbol)
+            "Last Month Sales: {}",
+            money(company.last_completed_month_sales, currency_symbol)
         ),
         format!(
             "Last Month Payroll Paid: {}",

@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use super::Country;
 #[cfg(test)]
-use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
+use crate::sim::company::{build_default_companies, DEFAULT_COMPANIES_PER_COUNTRY};
 use crate::sim::{
     bank::{Bank, BankKind},
     company::Company,
     currency::generated_currency,
-    essentials::{Household, estimated_household_count},
+    essentials::{estimated_household_count, Household},
     good::GOODS_COUNT,
     money::round_cents,
     params::SimulationParams,
@@ -122,6 +122,26 @@ impl Country {
             last_mint_inflation_shortfall: 0.0,
             last_mint_unemployment_gap: 0.0,
             last_mint_fraction: 0.0,
+            last_completed_month_tax_collected: 0.0,
+            last_completed_month_household_spending: 0.0,
+            last_completed_month_tariff_collected: 0.0,
+            last_completed_month_gov_spending: 0.0,
+            last_completed_month_budget_balance: 0.0,
+            last_completed_month_coupon_paid: 0.0,
+            last_completed_month_bonds_issued: 0.0,
+            last_completed_month_bonds_matured: 0.0,
+            last_completed_month_savings_interest_paid: 0.0,
+            last_completed_month_fx_net_flow_base: 0.0,
+            last_completed_month_rent_collected: 0.0,
+            last_completed_month_mortgage_payments: 0.0,
+            last_completed_month_home_purchases: 0,
+            last_completed_month_foreclosures: 0,
+            last_completed_month_unmet_need_events: 0,
+            last_completed_month_severe_unmet_need_events: 0,
+            last_completed_month_chronic_unmet_need_count: 0,
+            last_completed_month_essential_debt_spending: 0.0,
+            last_completed_month_hires_total: 0,
+            last_completed_month_money_minted: 0.0,
             policy_rate: initial_policy_rate,
             fx_rate_local_per_base: 1.0,
             fx_reserves_base: 0.0,

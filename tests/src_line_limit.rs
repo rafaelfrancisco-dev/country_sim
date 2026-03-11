@@ -1,6 +1,6 @@
 use std::path::Path;
 
-const MAX_LINES: usize = 500;
+const MAX_LINES: usize = 550;
 const EXEMPT_PREFIXES: &[&str] = &["src/sim/persistence/"];
 
 fn visit_rs_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {

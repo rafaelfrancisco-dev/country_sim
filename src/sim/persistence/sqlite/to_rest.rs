@@ -110,6 +110,8 @@ pub(super) fn stock_market_to_dto(sm: &StockMarket) -> StockMarketDto {
         dividends_paid_mtd: sm.dividends_paid_mtd,
         last_completed_month_dividends_paid: sm.last_completed_month_dividends_paid,
         forced_liquidations_mtd: sm.forced_liquidations_mtd,
+        last_completed_month_ipo_raised: sm.last_completed_month_ipo_raised,
+        last_completed_month_forced_liquidations: sm.last_completed_month_forced_liquidations,
     }
 }
 
@@ -129,6 +131,7 @@ pub(super) fn portfolio_to_dto(p: &Portfolio) -> PortfolioDto {
         realized_pnl_mtd: p.realized_pnl_mtd,
         dividends_mtd: p.dividends_mtd,
         last_completed_month_dividends: p.last_completed_month_dividends,
+        last_completed_month_realized_pnl: p.last_completed_month_realized_pnl,
     }
 }
 

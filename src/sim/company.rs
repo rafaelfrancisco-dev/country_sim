@@ -2,8 +2,8 @@ use std::{collections::VecDeque, sync::Arc};
 
 use super::{
     bank::{BankId, LoanAccount},
-    good::{GoodId, common_goods, good_by_id},
-    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
+    good::{common_goods, good_by_id, GoodId},
+    job::{common_job_types, job_by_id, salary_for_job, JobTypeId},
     money::round_cents,
     params::{CompanyGrowthParams, GoodsMarketParams, LaborDemandParams},
 };
@@ -66,6 +66,12 @@ pub struct Company {
     pub last_month_export_units_sold: u32,
     pub last_month_domestic_units_sold: u32,
     pub last_month_sell_through: f64,
+    pub last_completed_month_sales: f64,
+    pub last_completed_month_units_produced: u32,
+    pub last_completed_month_units_sold: u32,
+    pub last_completed_month_export_units_sold: u32,
+    pub last_completed_month_domestic_units_sold: u32,
+    pub last_completed_month_sell_through: f64,
     pub sales_history: VecDeque<f64>,
     pub profit_history: VecDeque<f64>,
     pub sold_units_history: VecDeque<u32>,
@@ -132,6 +138,12 @@ impl Company {
             last_month_export_units_sold: 0,
             last_month_domestic_units_sold: 0,
             last_month_sell_through: 0.0,
+            last_completed_month_sales: 0.0,
+            last_completed_month_units_produced: 0,
+            last_completed_month_units_sold: 0,
+            last_completed_month_export_units_sold: 0,
+            last_completed_month_domestic_units_sold: 0,
+            last_completed_month_sell_through: 0.0,
             sales_history: VecDeque::with_capacity(3),
             profit_history: VecDeque::with_capacity(PROFIT_HISTORY_WINDOW),
             sold_units_history: VecDeque::with_capacity(COMPANY_HISTORY_WINDOW),
@@ -223,11 +235,17 @@ impl Company {
         self.monthly_payroll_budget = 0.0;
         self.last_completed_month_payroll_paid = self.last_month_payroll_paid;
         self.last_month_payroll_paid = 0.0;
+        self.last_completed_month_sales = self.last_month_sales;
         self.last_month_sales = 0.0;
         self.last_completed_month_profit = self.last_month_profit;
         self.last_completed_month_loan_payment = self.last_month_loan_payment;
         self.last_completed_month_new_loan = self.last_month_new_loan;
         self.last_completed_month_savings_interest = self.last_month_savings_interest;
+        self.last_completed_month_units_produced = self.last_month_units_produced;
+        self.last_completed_month_units_sold = self.last_month_units_sold;
+        self.last_completed_month_export_units_sold = self.last_month_export_units_sold;
+        self.last_completed_month_domestic_units_sold = self.last_month_domestic_units_sold;
+        self.last_completed_month_sell_through = self.last_month_sell_through;
         self.last_month_loan_payment = 0.0;
         self.last_month_new_loan = 0.0;
         self.last_month_savings_interest = 0.0;

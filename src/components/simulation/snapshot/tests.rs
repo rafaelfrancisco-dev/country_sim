@@ -3,13 +3,13 @@ use std::{collections::VecDeque, sync::Arc};
 use super::*;
 use crate::components::simulation::ui_state::{DetailsView, GoodsMainPage};
 use crate::sim::{
-    GameCommand, GameEngine, GamePhase,
     company::Company,
     country::Country,
     event::{EntityKind, IpoReason, SimEvent},
     person::Person,
     runtime::SimulationMode,
     world::World,
+    GameCommand, GameEngine, GamePhase,
 };
 
 fn runtime_stats() -> RuntimeStatsSnapshot {
@@ -104,7 +104,7 @@ fn inactive_tabs_skip_heavy_data() {
 
 #[test]
 fn charts_snapshot_uses_doctor_label_for_education_track() {
-    use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
+    use crate::sim::person::{EducationTrack, EmploymentStatus, DAYS_PER_YEAR};
     let doctor = Person::new_with_profile(
         1,
         EmploymentStatus::Unemployed,
@@ -234,15 +234,15 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     let mut water_a = Company::new(1, "Water Works A".to_string(), vec![], 0);
     water_a.unit_price = 10.0;
     water_a.inventory_units = 30;
-    water_a.last_month_units_produced = 40;
-    water_a.last_month_units_sold = 35;
-    water_a.last_month_export_units_sold = 5;
+    water_a.last_completed_month_units_produced = 40;
+    water_a.last_completed_month_units_sold = 35;
+    water_a.last_completed_month_export_units_sold = 5;
     let mut water_b = Company::new(2, "Water Works B".to_string(), vec![], 0);
     water_b.unit_price = 20.0;
     water_b.inventory_units = 5;
-    water_b.last_month_units_produced = 10;
-    water_b.last_month_units_sold = 8;
-    water_b.last_month_export_units_sold = 2;
+    water_b.last_completed_month_units_produced = 10;
+    water_b.last_completed_month_units_sold = 8;
+    water_b.last_completed_month_export_units_sold = 2;
     let mut food = Company::new(3, "Food Co".to_string(), vec![], 1);
     food.unit_price = 12.0;
     food.inventory_units = 9;
@@ -287,7 +287,7 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     assert_eq!(water_row.sold_units, "43");
     assert_eq!(water_row.export_units, "7");
     assert_eq!(water_row.est_daily_demand_units, "2");
-    assert_eq!(water_row.est_mtd_demand_units, "22");
+    assert_eq!(water_row.est_last_month_demand_units, "66");
     let medicine_row = goods_tab
         .production_demand_rows
         .iter()

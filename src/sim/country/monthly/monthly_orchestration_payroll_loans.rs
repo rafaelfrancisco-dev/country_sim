@@ -142,6 +142,27 @@ impl Country {
     }
 
     pub(crate) fn reset_month_trackers(&mut self) {
+        self.last_completed_month_tax_collected = self.monthly_tax_collected;
+        self.last_completed_month_household_spending = self.monthly_household_spending;
+        self.last_completed_month_tariff_collected = self.monthly_tariff_collected;
+        self.last_completed_month_gov_spending = self.monthly_gov_spending;
+        self.last_completed_month_budget_balance = self.monthly_budget_balance;
+        self.last_completed_month_coupon_paid = self.monthly_coupon_paid;
+        self.last_completed_month_bonds_issued = self.monthly_bonds_issued;
+        self.last_completed_month_bonds_matured = self.monthly_bonds_matured;
+        self.last_completed_month_savings_interest_paid = self.monthly_savings_interest_paid;
+        self.last_completed_month_fx_net_flow_base = self.monthly_fx_net_flow_base;
+        self.last_completed_month_rent_collected = self.monthly_rent_collected;
+        self.last_completed_month_mortgage_payments = self.monthly_mortgage_payments;
+        self.last_completed_month_home_purchases = self.monthly_home_purchases;
+        self.last_completed_month_foreclosures = self.monthly_foreclosures;
+        self.last_completed_month_essential_debt_spending = self.monthly_essential_debt_spending;
+        self.last_completed_month_hires_total = self.monthly_hires_total;
+        self.last_completed_month_unmet_need_events = self.monthly_unmet_need_events;
+        self.last_completed_month_severe_unmet_need_events = self.monthly_severe_unmet_need_events;
+        self.last_completed_month_chronic_unmet_need_count = self.monthly_chronic_unmet_need_count;
+        self.last_completed_month_money_minted = self.monthly_money_minted;
+
         self.monthly_tax_collected = 0.0;
         self.monthly_corporate_tax_collected = 0.0;
         self.monthly_gdp = 0.0;

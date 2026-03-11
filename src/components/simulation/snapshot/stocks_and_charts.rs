@@ -1,5 +1,5 @@
 use super::*;
-use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
+use crate::sim::person::{EducationTrack, EmploymentStatus, DAYS_PER_YEAR};
 use crate::sim::world::MetricPoint;
 
 #[path = "stocks_and_charts_format.rs"]
@@ -275,16 +275,19 @@ pub(in crate::components::simulation) fn build_stock_tab_data(
             )
         ),
         format!(
-            "MTD IPO Raised: {}",
-            money(market.ipo_raised_mtd, currency_symbol)
+            "Last Month IPO Raised: {}",
+            money(market.last_completed_month_ipo_raised, currency_symbol)
         ),
         format!(
             "Last Month Dividends Paid: {}",
             money(market.last_completed_month_dividends_paid, currency_symbol)
         ),
         format!(
-            "MTD Forced Liquidations: {}",
-            money(market.forced_liquidations_mtd, currency_symbol)
+            "Last Month Forced Liquidations: {}",
+            money(
+                market.last_completed_month_forced_liquidations,
+                currency_symbol
+            )
         ),
     ];
 
@@ -423,8 +426,8 @@ pub(in crate::components::simulation) fn person_stock_holdings_lines(
             money(total_value, currency_symbol)
         ),
         format!(
-            "MTD Realized PnL: {}",
-            money(portfolio.realized_pnl_mtd, currency_symbol)
+            "Last Month Realized PnL: {}",
+            money(portfolio.last_completed_month_realized_pnl, currency_symbol)
         ),
         format!(
             "Last Month Dividends: {}",

@@ -31,7 +31,7 @@ mod to;
 mod to_rest;
 mod write;
 
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 
 pub struct SqliteSeaOrmSaveRepository {
     db_dir: PathBuf,
@@ -199,7 +199,7 @@ fn world_to_dto(world: &World) -> WorldDto {
                 .collect()
         })
         .collect();
-    let bank_history = world
+    let mut bank_history: Vec<_> = world
         .bank_history
         .iter()
         .map(|((country_idx, bank_id), points)| BankHistoryEntryDto {
@@ -208,6 +208,7 @@ fn world_to_dto(world: &World) -> WorldDto {
             points: points.iter().map(bank_metric_point_to_dto).collect(),
         })
         .collect();
+    bank_history.sort_by_key(|entry| (entry.country_idx, entry.bank_id));
     let event_log = world.event_log.iter().map(sim_event_to_dto).collect();
 
     WorldDto {

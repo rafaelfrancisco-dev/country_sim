@@ -1,7 +1,7 @@
 use super::{
     bank::{BankId, LoanAccount, MortgageAccount},
     essentials::STOCKABLE_ESSENTIAL_GOOD_IDS,
-    job::{JobTypeId, salary_for_job},
+    job::{salary_for_job, JobTypeId},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -150,6 +150,15 @@ pub struct Person {
     pub last_month_savings_interest: f64,
     pub last_month_rent_paid: f64,
     pub last_month_mortgage_payment: f64,
+    pub last_completed_month_spending: f64,
+    pub last_completed_month_goods_spending: f64,
+    pub last_completed_month_imported_goods_spending: f64,
+    pub last_completed_month_goods_units_bought: u32,
+    pub last_completed_month_loan_payment: f64,
+    pub last_completed_month_new_loan: f64,
+    pub last_completed_month_savings_interest: f64,
+    pub last_completed_month_rent_paid: f64,
+    pub last_completed_month_mortgage_payment: f64,
     pub housing: HousingStatus,
     /// Consecutive months this person has been unemployed (resets to 0 on employment).
     pub months_unemployed: u32,
@@ -221,6 +230,15 @@ impl Person {
             last_month_savings_interest: 0.0,
             last_month_rent_paid: 0.0,
             last_month_mortgage_payment: 0.0,
+            last_completed_month_spending: 0.0,
+            last_completed_month_goods_spending: 0.0,
+            last_completed_month_imported_goods_spending: 0.0,
+            last_completed_month_goods_units_bought: 0,
+            last_completed_month_loan_payment: 0.0,
+            last_completed_month_new_loan: 0.0,
+            last_completed_month_savings_interest: 0.0,
+            last_completed_month_rent_paid: 0.0,
+            last_completed_month_mortgage_payment: 0.0,
             housing: HousingStatus::Unhoused,
             months_unemployed: 0,
             months_on_benefits: 0,
@@ -455,6 +473,15 @@ impl Person {
         self.last_completed_month_gross_pay = self.last_month_gross_pay;
         self.last_completed_month_tax_paid = self.last_month_tax_paid;
         self.last_completed_month_net_pay = self.last_month_net_pay;
+        self.last_completed_month_spending = self.last_month_spending;
+        self.last_completed_month_goods_spending = self.last_month_goods_spending;
+        self.last_completed_month_imported_goods_spending = self.last_month_imported_goods_spending;
+        self.last_completed_month_goods_units_bought = self.last_month_goods_units_bought;
+        self.last_completed_month_loan_payment = self.last_month_loan_payment;
+        self.last_completed_month_new_loan = self.last_month_new_loan;
+        self.last_completed_month_savings_interest = self.last_month_savings_interest;
+        self.last_completed_month_rent_paid = self.last_month_rent_paid;
+        self.last_completed_month_mortgage_payment = self.last_month_mortgage_payment;
         self.last_month_gross_pay = 0.0;
         self.last_month_tax_paid = 0.0;
         self.last_month_net_pay = 0.0;

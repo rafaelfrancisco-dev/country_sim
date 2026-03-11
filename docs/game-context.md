@@ -126,7 +126,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   - education/habilitation
   - employment status
   - migration metadata and benefit-duration state
-  - housing status (Unhoused/Renter/Owner/Mortgaged), mortgage details, MTD rent/mortgage payments
+  - housing status (Unhoused/Renter/Owner/Mortgaged), mortgage details, last-month rent/mortgage payments
 
 ## Testing Focus
 - Person lifecycle and qualification progression.

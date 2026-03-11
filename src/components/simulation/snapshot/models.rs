@@ -97,7 +97,7 @@ pub(in crate::components::simulation) struct GoodsProductionDemandRowSnapshot {
     pub sold_units: String,
     pub export_units: String,
     pub est_daily_demand_units: String,
-    pub est_mtd_demand_units: String,
+    pub est_last_month_demand_units: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

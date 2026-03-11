@@ -30,6 +30,7 @@ pub struct Portfolio {
     pub realized_pnl_mtd: f64,
     pub dividends_mtd: f64,
     pub last_completed_month_dividends: f64,
+    pub last_completed_month_realized_pnl: f64,
 }
 
 impl Portfolio {
