@@ -159,34 +159,69 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
     let mut dto = blank_event_dto(kind, day);
 
     match event {
-        SimEvent::PopBirth { country_name, count, .. }
-        | SimEvent::PopDeath { country_name, count, .. } => {
+        SimEvent::PopBirth {
+            country_name,
+            count,
+            ..
+        }
+        | SimEvent::PopDeath {
+            country_name,
+            count,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.count = Some(*count);
         }
-        SimEvent::LoanEmitted { country_name, entity_kind, entity_id, principal, .. } => {
+        SimEvent::LoanEmitted {
+            country_name,
+            entity_kind,
+            entity_id,
+            principal,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.entity_kind = Some(entity_kind_to_code(entity_kind));
             dto.entity_id = Some(*entity_id);
             dto.principal = Some(*principal);
         }
-        SimEvent::LoanEnded { country_name, entity_kind, entity_id, .. } => {
+        SimEvent::LoanEnded {
+            country_name,
+            entity_kind,
+            entity_id,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.entity_kind = Some(entity_kind_to_code(entity_kind));
             dto.entity_id = Some(*entity_id);
         }
-        SimEvent::LoanWrittenOff { country_name, entity_id, principal_lost, .. } => {
+        SimEvent::LoanWrittenOff {
+            country_name,
+            entity_id,
+            principal_lost,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.entity_id = Some(*entity_id);
             dto.principal_lost = Some(*principal_lost);
         }
-        SimEvent::DebtDistress { country_name, entity_kind, entity_id, unpaid_amount, .. } => {
+        SimEvent::DebtDistress {
+            country_name,
+            entity_kind,
+            entity_id,
+            unpaid_amount,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.entity_kind = Some(entity_kind_to_code(entity_kind));
             dto.entity_id = Some(*entity_id);
             dto.unpaid_amount = Some(*unpaid_amount);
         }
-        SimEvent::GovTransfer { country_name, total_recipients, total_amount, .. } => {
+        SimEvent::GovTransfer {
+            country_name,
+            total_recipients,
+            total_amount,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.total_recipients = Some(*total_recipients);
             dto.total_amount = Some(*total_amount);
@@ -237,7 +272,13 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.bank_kind = Some(bank_kind_to_code(*kind));
             dto.seed_capital = Some(*seed_capital);
         }
-        SimEvent::BankRunStarted { country_name, bank_id, bank_name, health, .. } => {
+        SimEvent::BankRunStarted {
+            country_name,
+            bank_id,
+            bank_name,
+            health,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.bank_id = Some(*bank_id);
             dto.bank_name = Some(bank_name.to_string());
@@ -257,12 +298,22 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.requested = Some(*requested);
             dto.haircut_loss = Some(*haircut_loss);
         }
-        SimEvent::BankResolutionStarted { country_name, bank_id, treasury_support, .. } => {
+        SimEvent::BankResolutionStarted {
+            country_name,
+            bank_id,
+            treasury_support,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.bank_id = Some(*bank_id);
             dto.treasury_support = Some(*treasury_support);
         }
-        SimEvent::BankResolved { country_name, bank_id, bank_name, .. } => {
+        SimEvent::BankResolved {
+            country_name,
+            bank_id,
+            bank_name,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.bank_id = Some(*bank_id);
             dto.bank_name = Some(bank_name.to_string());
@@ -289,19 +340,36 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.migrated_loans = Some(*migrated_loans);
             dto.transferred_reserves = Some(*transferred_reserves);
         }
-        SimEvent::BankDepositHaircut { country_name, bank_id, entity_kind, entity_id, amount_lost, .. } => {
+        SimEvent::BankDepositHaircut {
+            country_name,
+            bank_id,
+            entity_kind,
+            entity_id,
+            amount_lost,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.bank_id = Some(*bank_id);
             dto.entity_kind = Some(entity_kind_to_code(entity_kind));
             dto.entity_id = Some(*entity_id);
             dto.amount_lost = Some(*amount_lost);
         }
-        SimEvent::CompanyWageCut { country_name, company_id, cut_rate, .. } => {
+        SimEvent::CompanyWageCut {
+            country_name,
+            company_id,
+            cut_rate,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.company_id = Some(*company_id);
             dto.cut_rate = Some(*cut_rate);
         }
-        SimEvent::CompanyLayoffs { country_name, company_id, laid_off_count, .. } => {
+        SimEvent::CompanyLayoffs {
+            country_name,
+            company_id,
+            laid_off_count,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.company_id = Some(*company_id);
             dto.laid_off_count = Some(*laid_off_count);
@@ -406,26 +474,51 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.secondary_raised = Some(*secondary_raised);
             dto.founder_payout_total = Some(*founder_payout_total);
         }
-        SimEvent::StockDividend { country_name, company_id, ticker, total_amount, per_share, .. } => {
+        SimEvent::StockDividend {
+            country_name,
+            company_id,
+            ticker,
+            total_amount,
+            per_share,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.company_id = Some(*company_id);
             dto.ticker = Some(ticker.to_string());
             dto.total_amount = Some(*total_amount);
             dto.per_share = Some(*per_share);
         }
-        SimEvent::StockMarginCall { country_name, person_id, shares_liquidated, proceeds, .. } => {
+        SimEvent::StockMarginCall {
+            country_name,
+            person_id,
+            shares_liquidated,
+            proceeds,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.person_id = Some(*person_id);
             dto.shares_liquidated = Some(*shares_liquidated);
             dto.proceeds = Some(*proceeds);
         }
-        SimEvent::StockDelisted { country_name, company_id, company_name, shares_wiped, .. } => {
+        SimEvent::StockDelisted {
+            country_name,
+            company_id,
+            company_name,
+            shares_wiped,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.company_id = Some(*company_id);
             dto.company_name = Some(company_name.to_string());
             dto.shares_wiped = Some(*shares_wiped);
         }
-        SimEvent::StockMarketClose { country_name, total_market_cap, total_turnover, listed_count, .. } => {
+        SimEvent::StockMarketClose {
+            country_name,
+            total_market_cap,
+            total_turnover,
+            listed_count,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.total_market_cap = Some(*total_market_cap);
             dto.total_turnover = Some(*total_turnover);
@@ -445,31 +538,63 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.inflation_rate = Some(*inflation_rate);
             dto.unemployment_rate = Some(*unemployment_rate);
         }
-        SimEvent::BondIssued { country_name, face_value, coupon_rate, .. } => {
+        SimEvent::BondIssued {
+            country_name,
+            face_value,
+            coupon_rate,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.face_value = Some(*face_value);
             dto.coupon_rate = Some(*coupon_rate);
         }
-        SimEvent::CouponPaid { country_name, total_coupon, .. } => {
+        SimEvent::CouponPaid {
+            country_name,
+            total_coupon,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.total_coupon = Some(*total_coupon);
         }
-        SimEvent::BondMatured { country_name, face_value, .. } => {
+        SimEvent::BondMatured {
+            country_name,
+            face_value,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.face_value = Some(*face_value);
         }
-        SimEvent::BondDefault { country_name, shortfall, monetized, .. } => {
+        SimEvent::BondDefault {
+            country_name,
+            shortfall,
+            monetized,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.shortfall = Some(*shortfall);
             dto.monetized = Some(*monetized);
         }
-        SimEvent::MoneyMinted { country_name, amount, inflation_shortfall, unemployment_gap, .. } => {
+        SimEvent::MoneyMinted {
+            country_name,
+            amount,
+            inflation_shortfall,
+            unemployment_gap,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.amount = Some(*amount);
             dto.inflation_shortfall = Some(*inflation_shortfall);
             dto.unemployment_gap = Some(*unemployment_gap);
         }
-        SimEvent::StockSecondaryOffering { country_name, company_id, ticker, shares_issued, price, total_raised, .. } => {
+        SimEvent::StockSecondaryOffering {
+            country_name,
+            company_id,
+            ticker,
+            shares_issued,
+            price,
+            total_raised,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.company_id = Some(*company_id);
             dto.ticker = Some(ticker.to_string());
@@ -543,32 +668,63 @@ pub(super) fn sim_event_to_dto(event: &SimEvent) -> SimEventDto {
             dto.reserve_gap = Some(*reserve_gap);
             dto.pressure = Some(*pressure);
         }
-        SimEvent::DisasterApplied { country_name, disaster_label, intensity_pct, summary, .. } => {
+        SimEvent::DisasterApplied {
+            country_name,
+            disaster_label,
+            intensity_pct,
+            summary,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.disaster_label = Some(disaster_label.to_string());
             dto.intensity_pct = Some(*intensity_pct);
             dto.summary = Some(summary.to_string());
         }
-        SimEvent::HomePurchased { country_name, person_id, price, .. } => {
+        SimEvent::HomePurchased {
+            country_name,
+            person_id,
+            price,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.person_id = Some(*person_id);
             dto.price = Some(*price);
         }
-        SimEvent::Foreclosure { country_name, person_id, principal_written_off, .. } => {
+        SimEvent::Foreclosure {
+            country_name,
+            person_id,
+            principal_written_off,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.person_id = Some(*person_id);
             dto.principal_written_off = Some(*principal_written_off);
         }
-        SimEvent::MortgagePaidOff { country_name, person_id, .. } => {
+        SimEvent::MortgagePaidOff {
+            country_name,
+            person_id,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.person_id = Some(*person_id);
         }
-        SimEvent::HousingPriceChanged { country_name, new_price_index, change_pct, .. } => {
+        SimEvent::HousingPriceChanged {
+            country_name,
+            new_price_index,
+            change_pct,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.new_price_index = Some(*new_price_index);
             dto.change_pct = Some(*change_pct);
         }
-        SimEvent::RentUnpaid { country_name, person_id, amount_due, amount_paid, .. } => {
+        SimEvent::RentUnpaid {
+            country_name,
+            person_id,
+            amount_due,
+            amount_paid,
+            ..
+        } => {
             dto.country_name = Some(country_name.to_string());
             dto.person_id = Some(*person_id);
             dto.amount_due = Some(*amount_due);

@@ -312,3 +312,33 @@ fn migration_cooldown_blocks_immediate_return_move() {
     assert_eq!(migrated.current_country_id, 2);
     assert_eq!(migrated.lifetime_migrations, 1);
 }
+
+#[test]
+fn migration_preserves_world_invariants_when_destination_ids_collide() {
+    let params = migration_params();
+    let source = configured_country(
+        1,
+        "A",
+        vec![employed_person(1, 0, 0, 200.0)],
+        params.clone(),
+    );
+    let mut destination = configured_country(
+        2,
+        "B",
+        vec![
+            employed_person(1, 0, 0, 100.0),
+            employed_person(2, 0, 1, 100.0),
+        ],
+        params,
+    );
+    destination.companies[0].add_opening_with_salary(0, 1, 4_500.0);
+
+    let mut world = World::new(vec![source, destination]);
+    world.process_cross_country_migration();
+
+    assert!(
+        world.validate_invariants().is_empty(),
+        "unexpected invariant violations: {:?}",
+        world.validate_invariants()
+    );
+}

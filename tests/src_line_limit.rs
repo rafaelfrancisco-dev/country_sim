@@ -29,7 +29,10 @@ fn src_rust_files_stay_under_line_limit() {
     let mut violations = Vec::new();
     for path in files {
         let path_str = path.to_string_lossy();
-        if EXEMPT_PREFIXES.iter().any(|prefix| path_str.starts_with(prefix)) {
+        if EXEMPT_PREFIXES
+            .iter()
+            .any(|prefix| path_str.starts_with(prefix))
+        {
             continue;
         }
         let Ok(content) = std::fs::read_to_string(&path) else {

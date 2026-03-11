@@ -8,9 +8,9 @@ use crate::sim::{
 };
 
 use super::super::dto::{
-    CompanyDto, CountryDto, CurrencySpecDto, EmploymentStatusDto, ForeignDepositDto,
-    FounderStakeDto, HousingStatusDto, JobOpeningDto, LoanAccountDto, MetricPointDto,
-    BankMetricPointDto, MortgageAccountDto, PersonDto, SimEventDto, SimulationParamsDto,
+    BankMetricPointDto, CompanyDto, CountryDto, CurrencySpecDto, EmploymentStatusDto,
+    ForeignDepositDto, FounderStakeDto, HousingStatusDto, JobOpeningDto, LoanAccountDto,
+    MetricPointDto, MortgageAccountDto, PersonDto, SimEventDto, SimulationParamsDto,
 };
 
 pub(super) fn metric_point_to_dto(p: &MetricPoint) -> MetricPointDto {
@@ -209,9 +209,13 @@ pub(super) fn person_to_dto(p: &Person) -> PersonDto {
             job_type_id,
             employer_company_id,
         },
-        EmploymentStatus::EmployedAtBank { job_type_id, bank_id } => {
-            EmploymentStatusDto::EmployedAtBank { job_type_id, bank_id }
-        }
+        EmploymentStatus::EmployedAtBank {
+            job_type_id,
+            bank_id,
+        } => EmploymentStatusDto::EmployedAtBank {
+            job_type_id,
+            bank_id,
+        },
     };
 
     let housing = match &p.housing {

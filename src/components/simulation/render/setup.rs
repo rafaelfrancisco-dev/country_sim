@@ -26,9 +26,22 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let saves_height = if setup.save_list.is_empty() { 0 } else { (setup.save_list.len().min(5) as u16) + 2 };
+        let saves_height = if setup.save_list.is_empty() {
+            0
+        } else {
+            (setup.save_list.len().min(5) as u16) + 2
+        };
 
-        let [intro, countries, thousands, seed, save_name_area, saves_area, status, help] = Layout::vertical([
+        let [
+            intro,
+            countries,
+            thousands,
+            seed,
+            save_name_area,
+            saves_area,
+            status,
+            help,
+        ] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
@@ -54,10 +67,18 @@ impl Simulation {
         let inactive_style = theme::muted_text();
 
         let field_style = |f: crate::sim::setup::SetupField| {
-            if setup.active_field == f { active_style } else { inactive_style }
+            if setup.active_field == f {
+                active_style
+            } else {
+                inactive_style
+            }
         };
         let field_border = |f: crate::sim::setup::SetupField| {
-            if setup.active_field == f { theme::active_border() } else { theme::neutral_border() }
+            if setup.active_field == f {
+                theme::active_border()
+            } else {
+                theme::neutral_border()
+            }
         };
 
         let country_style = field_style(crate::sim::setup::SetupField::CountryCount);
@@ -100,7 +121,9 @@ impl Simulation {
                     Block::default()
                         .title(" Thousands per Country ")
                         .borders(Borders::ALL)
-                        .border_style(field_border(crate::sim::setup::SetupField::ThousandsPerCountry))
+                        .border_style(field_border(
+                            crate::sim::setup::SetupField::ThousandsPerCountry,
+                        ))
                         .title_style(theme::primary_text()),
                 )
                 .style(thousand_style),
@@ -147,13 +170,21 @@ impl Simulation {
                 .iter()
                 .enumerate()
                 .map(|(i, desc)| {
-                    let selected_marker = if i == setup.selected_save_row && saves_focused { "▶ " } else { "  " };
+                    let selected_marker = if i == setup.selected_save_row && saves_focused {
+                        "▶ "
+                    } else {
+                        "  "
+                    };
                     let label = format!(
                         "{selected_marker}{} (day {}, seed {:#x})",
                         desc.save_name, desc.world_day, desc.generation_seed
                     );
                     let style = if i == setup.selected_save_row {
-                        if saves_focused { active_style } else { Style::default().fg(theme::TEXT_PRIMARY) }
+                        if saves_focused {
+                            active_style
+                        } else {
+                            Style::default().fg(theme::TEXT_PRIMARY)
+                        }
                     } else {
                         inactive_style
                     };
@@ -191,12 +222,18 @@ impl Simulation {
             ));
         }
         if let Some(persist_msg) = &setup.persistence_status {
-            let color = if persist_msg.starts_with("Load error") || persist_msg.starts_with("Save error") || persist_msg.starts_with("Save failed") {
+            let color = if persist_msg.starts_with("Load error")
+                || persist_msg.starts_with("Save error")
+                || persist_msg.starts_with("Save failed")
+            {
                 Color::Red
             } else {
                 Color::Green
             };
-            status_lines.push(Line::styled(persist_msg.clone(), Style::default().fg(color)));
+            status_lines.push(Line::styled(
+                persist_msg.clone(),
+                Style::default().fg(color),
+            ));
         }
         if status_lines.is_empty() {
             let default_status = if is_generating {

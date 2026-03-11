@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::sim::params::{
     AnnualWageRaiseParams, BankingSystemParams, CompanyDistressParams, CompanyFormationParams,
-    CompanyGrowthParams, DemographicParams, EducationParams, EssentialEconomyParams,
-    FiscalParams, GoodsMarketParams, GovernmentBackfillParams, HousingMarketParams, LaborChurnParams,
+    CompanyGrowthParams, DemographicParams, EducationParams, EssentialEconomyParams, FiscalParams,
+    GoodsMarketParams, GovernmentBackfillParams, HousingMarketParams, LaborChurnParams,
     LaborDemandParams, LaborMobilityParams, LaborParams, MigrationParams, MonetaryPolicyParams,
     SimulationParams, StockMarketParams, TaxPolicyParams,
 };

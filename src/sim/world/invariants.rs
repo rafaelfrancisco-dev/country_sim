@@ -41,6 +41,20 @@ impl super::World {
         }
 
         for country in &self.countries {
+            let mut seen_person_ids = std::collections::HashSet::new();
+            for person in &country.people {
+                if !seen_person_ids.insert(person.id) {
+                    violations.push(InvariantViolation {
+                        code: "duplicate_person_id",
+                        message: format!(
+                            "country {} contains duplicate person_id {}",
+                            country.id(),
+                            person.id
+                        ),
+                    });
+                }
+            }
+
             for violation in country.validate_money_invariants() {
                 violations.push(InvariantViolation {
                     code: violation.code,

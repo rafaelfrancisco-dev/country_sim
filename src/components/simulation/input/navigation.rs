@@ -24,7 +24,9 @@ impl Simulation {
 
         match key.code {
             KeyCode::Tab => return Some(SimulationCommand::Domain(GameCommand::SetupNextField)),
-            KeyCode::BackTab => return Some(SimulationCommand::Domain(GameCommand::SetupPrevField)),
+            KeyCode::BackTab => {
+                return Some(SimulationCommand::Domain(GameCommand::SetupPrevField));
+            }
             _ => {}
         }
 
@@ -32,14 +34,18 @@ impl Simulation {
         if active_field == SetupField::ExistingSaves {
             return match key.code {
                 KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'w') => {
-                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveListSelectPrev)))
+                    Some(SimulationCommand::Domain(GameCommand::Persist(
+                        PersistenceCommand::SaveListSelectPrev,
+                    )))
                 }
                 KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
-                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveListSelectNext)))
+                    Some(SimulationCommand::Domain(GameCommand::Persist(
+                        PersistenceCommand::SaveListSelectNext,
+                    )))
                 }
-                KeyCode::Enter => {
-                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::LoadSelectedSave)))
-                }
+                KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::Persist(
+                    PersistenceCommand::LoadSelectedSave,
+                ))),
                 _ => None,
             };
         }
@@ -47,11 +53,13 @@ impl Simulation {
         // When SaveName is focused, characters edit the save name.
         if active_field == SetupField::SaveName {
             return match key.code {
-                KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveNameBackspace))),
+                KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::Persist(
+                    PersistenceCommand::SaveNameBackspace,
+                ))),
                 KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::SetupSubmit)),
-                KeyCode::Char(c) if !c.is_control() => {
-                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveNameEditChar(c))))
-                }
+                KeyCode::Char(c) if !c.is_control() => Some(SimulationCommand::Domain(
+                    GameCommand::Persist(PersistenceCommand::SaveNameEditChar(c)),
+                )),
                 _ => None,
             };
         }
@@ -78,7 +86,9 @@ impl Simulation {
             KeyCode::Char(' ') => return Some(SimulationCommand::Domain(GameCommand::TogglePause)),
             // Shift+S → save current run
             KeyCode::Char('S') if key.modifiers == KeyModifiers::SHIFT => {
-                return Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveCurrentRun)));
+                return Some(SimulationCommand::Domain(GameCommand::Persist(
+                    PersistenceCommand::SaveCurrentRun,
+                )));
             }
             KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'n') => {
                 return Some(SimulationCommand::Domain(GameCommand::StepOneDay));

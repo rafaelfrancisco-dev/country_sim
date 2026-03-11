@@ -8,9 +8,13 @@ use rusqlite::Connection;
 
 use crate::sim::{
     bank::BankKind,
+    company::build_default_companies,
+    country::Country,
     event::{IpoReason, SimEvent},
     generator::{GenerationConfig, generate_countries},
+    params::SimulationParams,
     persistence::{PersistenceError, SaveRepository, dto::*},
+    person::Person,
     world::World,
 };
 
@@ -114,7 +118,10 @@ fn rich_world_dto() -> WorldDto {
     dto.bank_history = vec![BankHistoryEntryDto {
         country_idx: 0,
         bank_id: bank0_id,
-        points: vec![sample_bank_metric_point(1, 30.0), sample_bank_metric_point(2, 40.0)],
+        points: vec![
+            sample_bank_metric_point(1, 30.0),
+            sample_bank_metric_point(2, 40.0),
+        ],
     }];
 
     let country0 = &mut dto.countries[0];
@@ -184,8 +191,16 @@ fn rich_world_dto() -> WorldDto {
     company0.historical_ids = vec![company0.id.saturating_add(100)];
     company0.offered_job_types = vec![1, 2, 3];
     company0.open_positions = vec![
-        JobOpeningDto { job_type_id: 1, slots: 2, offered_monthly_salary: 4100.0 },
-        JobOpeningDto { job_type_id: 2, slots: 1, offered_monthly_salary: 5200.0 },
+        JobOpeningDto {
+            job_type_id: 1,
+            slots: 2,
+            offered_monthly_salary: 4100.0,
+        },
+        JobOpeningDto {
+            job_type_id: 2,
+            slots: 1,
+            offered_monthly_salary: 5200.0,
+        },
     ];
     company0.founder_stakes = vec![FounderStakeDto {
         person_id: person0_id,
@@ -278,8 +293,18 @@ fn rich_world_dto() -> WorldDto {
         },
     )]);
     country0.stock_market.daily_index_history = vec![
-        DailyIndexPointDto { day: 75, index_value: 1002.0, total_turnover: 22_000.0, bank_equity_exposure: 50_000.0 },
-        DailyIndexPointDto { day: 76, index_value: 1007.0, total_turnover: 24_000.0, bank_equity_exposure: 51_000.0 },
+        DailyIndexPointDto {
+            day: 75,
+            index_value: 1002.0,
+            total_turnover: 22_000.0,
+            bank_equity_exposure: 50_000.0,
+        },
+        DailyIndexPointDto {
+            day: 76,
+            index_value: 1007.0,
+            total_turnover: 24_000.0,
+            bank_equity_exposure: 51_000.0,
+        },
     ];
 
     dto.event_log = vec![
@@ -359,7 +384,13 @@ fn schema_creation_uses_normalized_tables_and_no_world_json() {
         .expect("sqlite_master query must succeed");
     assert_eq!(world_json_count, 0);
 
-    for table in ["save_metadata", "world_state", "countries", "country_sim_params", "events"] {
+    for table in [
+        "save_metadata",
+        "world_state",
+        "countries",
+        "country_sim_params",
+        "events",
+    ] {
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
@@ -377,7 +408,8 @@ fn repository_round_trip_preserves_generated_world() {
     let repo = SqliteSeaOrmSaveRepository::new(dir.clone());
     let world = sample_world();
 
-    repo.save_world("roundtrip", &world).expect("save must succeed");
+    repo.save_world("roundtrip", &world)
+        .expect("save must succeed");
     let loaded = repo.load_world("roundtrip").expect("load must succeed");
 
     assert_eq!(world_to_dto(&loaded), world_to_dto(&world));
@@ -417,7 +449,9 @@ fn repository_rejects_v1_schema_database() {
     )
     .expect("legacy schema should be creatable");
 
-    let err = repo.load_world("legacy").expect_err("v1 database must be rejected");
+    let err = repo
+        .load_world("legacy")
+        .expect_err("v1 database must be rejected");
     match err {
         PersistenceError::SchemaMismatch { expected, found } => {
             assert_eq!(expected, SCHEMA_VERSION);
@@ -425,6 +459,65 @@ fn repository_rejects_v1_schema_database() {
         }
         other => panic!("expected schema mismatch, got {other:?}"),
     }
+
+    std::fs::remove_dir_all(dir).expect("temp dir cleanup must succeed");
+}
+
+#[test]
+fn repository_can_save_same_slot_after_migration_with_colliding_person_ids() {
+    let dir = temp_dir("migration-save");
+    let repo = SqliteSeaOrmSaveRepository::new(dir.clone());
+
+    let mut params = SimulationParams::default();
+    params.migration.enabled = true;
+    params.migration.base_monthly_migration_rate = 1.0;
+    params.migration.destination_unemployment_guard = 0.25;
+    params.migration.irresistible_offer_salary_premium = 0.20;
+    params.migration.irresistible_offer_min_open_slots = 1;
+    params.migration.cash_buffer_required = 0.0;
+
+    let mut source_companies = build_default_companies("A", 4);
+    let mut destination_companies = build_default_companies("B", 4);
+    for company in &mut source_companies {
+        company.open_positions.clear();
+    }
+    for company in &mut destination_companies {
+        company.open_positions.clear();
+    }
+    destination_companies[0].add_opening_with_salary(0, 1, 4_500.0);
+
+    let source = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![Person::new(1, 0, 0, 11)],
+        source_companies,
+        0.0,
+        params.clone(),
+    );
+    let destination = Country::with_economy_and_params(
+        2,
+        "B".to_string(),
+        vec![Person::new(1, 0, 0, 21), Person::new(2, 0, 1, 22)],
+        destination_companies,
+        0.0,
+        params,
+    );
+
+    let mut world = World::new(vec![source, destination]);
+    world.process_cross_country_migration();
+
+    let destination_ids = world.countries()[1]
+        .people()
+        .iter()
+        .map(|person| person.id)
+        .collect::<Vec<_>>();
+    assert_eq!(destination_ids.len(), 3);
+    assert_eq!(destination_ids.iter().filter(|&&id| id == 1).count(), 1);
+
+    repo.save_world("migration-roundtrip", &world)
+        .expect("first save after migration must succeed");
+    repo.save_world("migration-roundtrip", &world)
+        .expect("second save after migration must succeed");
 
     std::fs::remove_dir_all(dir).expect("temp dir cleanup must succeed");
 }

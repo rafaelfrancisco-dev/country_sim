@@ -291,7 +291,9 @@ impl UiState {
 
     /// Returns the current persistence status only if it hasn't expired yet.
     pub fn persistence_status_if_fresh(&self, ttl: std::time::Duration) -> Option<&str> {
-        if let (Some(msg), Some(set_at)) = (&self.persistence_status, self.persistence_status_set_at) {
+        if let (Some(msg), Some(set_at)) =
+            (&self.persistence_status, self.persistence_status_set_at)
+        {
             if set_at.elapsed() < ttl {
                 return Some(msg.as_str());
             }

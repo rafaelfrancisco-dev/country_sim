@@ -25,10 +25,10 @@ mod metric_row;
 mod params_row;
 mod read;
 mod schema;
-mod to;
-mod to_rest;
 #[cfg(test)]
 mod tests;
+mod to;
+mod to_rest;
 mod write;
 
 const SCHEMA_VERSION: u32 = 2;
@@ -179,7 +179,11 @@ fn world_to_dto(world: &World) -> WorldDto {
     use self::to_rest::sim_event_to_dto;
 
     let countries = world.countries.iter().map(country_to_dto).collect();
-    let world_history = world.world_history.iter().map(metric_point_to_dto).collect();
+    let world_history = world
+        .world_history
+        .iter()
+        .map(metric_point_to_dto)
+        .collect();
     let country_history = world
         .country_history
         .iter()
@@ -231,8 +235,11 @@ fn world_from_dto(dto: WorldDto) -> Result<World, PersistenceError> {
         .map(country_from_dto)
         .collect::<Result<_, _>>()?;
 
-    let world_history: VecDeque<MetricPoint> =
-        dto.world_history.into_iter().map(metric_point_from_dto).collect();
+    let world_history: VecDeque<MetricPoint> = dto
+        .world_history
+        .into_iter()
+        .map(metric_point_from_dto)
+        .collect();
     let country_history: Vec<VecDeque<MetricPoint>> = dto
         .country_history
         .into_iter()
@@ -244,7 +251,9 @@ fn world_from_dto(dto: WorldDto) -> Result<World, PersistenceError> {
         .map(|source_map| {
             source_map
                 .into_iter()
-                .filter_map(|(key, values)| key.parse::<usize>().ok().map(|key| (key, values.into())))
+                .filter_map(|(key, values)| {
+                    key.parse::<usize>().ok().map(|key| (key, values.into()))
+                })
                 .collect()
         })
         .collect();

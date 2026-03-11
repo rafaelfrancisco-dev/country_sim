@@ -339,6 +339,7 @@ impl World {
         {
             let destination_country = &mut self.countries[dest_idx];
             transfer_person_loan_in(destination_country, &mut person, source_bank_transfer);
+            let migrated_person_id = assign_destination_person_id(destination_country, &mut person);
             person.current_country_id = destination_country.id();
             person.deposit_bank_id = destination_country.public_bank_id_or_first();
             person.record_migration(destination_country.id(), current_day);
@@ -356,7 +357,7 @@ impl World {
                     destination_country.push_pending_event(SimEvent::PersonMigratedForWork {
                         from_country_name: Arc::from(from_country_name),
                         to_country_name: Arc::from(to_country_name),
-                        person_id: plan.person_id,
+                        person_id: migrated_person_id,
                         job_type_id: assignment_job_type_id(work_assignment),
                         monthly_salary: assignment_salary(work_assignment),
                         day: current_day,
@@ -369,7 +370,7 @@ impl World {
                     destination_country.push_pending_event(SimEvent::PersonMigratedForDistress {
                         from_country_name: Arc::from(from_country_name),
                         to_country_name: Arc::from(to_country_name),
-                        person_id: plan.person_id,
+                        person_id: migrated_person_id,
                         months_unemployed: destination_country
                             .people
                             .last()
@@ -387,6 +388,34 @@ impl World {
         }
         Some((source_idx, dest_idx))
     }
+}
+
+fn assign_destination_person_id(
+    destination_country: &mut crate::sim::country::Country,
+    person: &mut Person,
+) -> u32 {
+    let person_id_in_use = destination_country
+        .people
+        .iter()
+        .any(|existing| existing.id == person.id);
+
+    if person_id_in_use {
+        let next_available_id = destination_country.next_person_id.max(
+            destination_country
+                .people
+                .iter()
+                .map(|existing| existing.id)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1),
+        );
+        person.id = next_available_id;
+    }
+
+    destination_country.next_person_id = destination_country
+        .next_person_id
+        .max(person.id.saturating_add(1));
+    person.id
 }
 
 fn habilitation_bucket(qualification: crate::sim::person::HabilitationLevel) -> usize {

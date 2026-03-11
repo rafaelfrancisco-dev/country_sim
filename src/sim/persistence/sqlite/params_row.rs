@@ -1,6 +1,6 @@
 use rusqlite::{Connection, params};
 
-use crate::sim::{params::{SimulationParams, SwitchCadence}};
+use crate::sim::params::{SimulationParams, SwitchCadence};
 use crate::sim::persistence::PersistenceError;
 
 use super::helpers::{bool_to_i64, i64_to_bool};
@@ -110,39 +110,61 @@ pub(super) fn load_country_sim_params(
                 },
                 migration: crate::sim::params::MigrationParams {
                     enabled: i64_to_bool(row.get("migration_enabled")?),
-                    long_term_unemployment_months: row.get("migration_long_term_unemployment_months")?,
-                    benefit_exhaustion_bonus_months: row.get("migration_benefit_exhaustion_bonus_months")?,
+                    long_term_unemployment_months: row
+                        .get("migration_long_term_unemployment_months")?,
+                    benefit_exhaustion_bonus_months: row
+                        .get("migration_benefit_exhaustion_bonus_months")?,
                     chronic_unmet_needs_months: row.get("migration_chronic_unmet_needs_months")?,
-                    base_monthly_migration_rate: row.get("migration_base_monthly_migration_rate")?,
-                    destination_unemployment_guard: row.get("migration_destination_unemployment_guard")?,
-                    irresistible_offer_salary_premium: row.get("migration_irresistible_offer_salary_premium")?,
-                    irresistible_offer_min_open_slots: row.get("migration_irresistible_offer_min_open_slots")?,
+                    base_monthly_migration_rate: row
+                        .get("migration_base_monthly_migration_rate")?,
+                    destination_unemployment_guard: row
+                        .get("migration_destination_unemployment_guard")?,
+                    irresistible_offer_salary_premium: row
+                        .get("migration_irresistible_offer_salary_premium")?,
+                    irresistible_offer_min_open_slots: row
+                        .get("migration_irresistible_offer_min_open_slots")?,
                     cash_buffer_required: row.get("migration_cash_buffer_required")?,
                     migration_cooldown_months: row.get("migration_migration_cooldown_months")?,
                 },
                 essentials: crate::sim::params::EssentialEconomyParams {
-                    water_monthly_units_per_person: row.get("essentials_water_monthly_units_per_person")?,
-                    food_monthly_units_per_person: row.get("essentials_food_monthly_units_per_person")?,
-                    electricity_household_base_units: row.get("essentials_electricity_household_base_units")?,
-                    electricity_monthly_units_per_person: row.get("essentials_electricity_monthly_units_per_person")?,
-                    medicine_monthly_units_per_person: row.get("essentials_medicine_monthly_units_per_person")?,
+                    water_monthly_units_per_person: row
+                        .get("essentials_water_monthly_units_per_person")?,
+                    food_monthly_units_per_person: row
+                        .get("essentials_food_monthly_units_per_person")?,
+                    electricity_household_base_units: row
+                        .get("essentials_electricity_household_base_units")?,
+                    electricity_monthly_units_per_person: row
+                        .get("essentials_electricity_monthly_units_per_person")?,
+                    medicine_monthly_units_per_person: row
+                        .get("essentials_medicine_monthly_units_per_person")?,
                     water_buffer_months: row.get("essentials_water_buffer_months")?,
                     food_buffer_months: row.get("essentials_food_buffer_months")?,
                     electricity_buffer_months: row.get("essentials_electricity_buffer_months")?,
                     medicine_buffer_months: row.get("essentials_medicine_buffer_months")?,
                     medicine_min_buffer_units: row.get("essentials_medicine_min_buffer_units")?,
-                    severe_unmet_share_threshold: row.get("essentials_severe_unmet_share_threshold")?,
-                    chronic_unmet_months_threshold: row.get("essentials_chronic_unmet_months_threshold")?,
-                    target_household_size: row.get::<_, i64>("essentials_target_household_size")? as usize,
-                    target_manufacturing_workers_per_initial_company: row.get("essentials_target_manufacturing_workers_per_initial_company")?,
-                    target_manufacturing_workers_per_backfill_company: row.get("essentials_target_manufacturing_workers_per_backfill_company")?,
+                    severe_unmet_share_threshold: row
+                        .get("essentials_severe_unmet_share_threshold")?,
+                    chronic_unmet_months_threshold: row
+                        .get("essentials_chronic_unmet_months_threshold")?,
+                    target_household_size: row.get::<_, i64>("essentials_target_household_size")?
+                        as usize,
+                    target_manufacturing_workers_per_initial_company: row
+                        .get("essentials_target_manufacturing_workers_per_initial_company")?,
+                    target_manufacturing_workers_per_backfill_company: row
+                        .get("essentials_target_manufacturing_workers_per_backfill_company")?,
                     production_staffing_buffer: row.get("essentials_production_staffing_buffer")?,
-                    initial_inventory_cover_months: row.get("essentials_initial_inventory_cover_months")?,
-                    shortage_unmet_share_trigger: row.get("essentials_shortage_unmet_share_trigger")?,
-                    shortage_severe_share_trigger: row.get("essentials_shortage_severe_share_trigger")?,
-                    shortage_inventory_cover_months_trigger: row.get("essentials_shortage_inventory_cover_months_trigger")?,
-                    shortage_target_months_of_cover: row.get("essentials_shortage_target_months_of_cover")?,
-                    max_backfill_companies_per_good_per_month: row.get("essentials_max_backfill_companies_per_good_per_month")?,
+                    initial_inventory_cover_months: row
+                        .get("essentials_initial_inventory_cover_months")?,
+                    shortage_unmet_share_trigger: row
+                        .get("essentials_shortage_unmet_share_trigger")?,
+                    shortage_severe_share_trigger: row
+                        .get("essentials_shortage_severe_share_trigger")?,
+                    shortage_inventory_cover_months_trigger: row
+                        .get("essentials_shortage_inventory_cover_months_trigger")?,
+                    shortage_target_months_of_cover: row
+                        .get("essentials_shortage_target_months_of_cover")?,
+                    max_backfill_companies_per_good_per_month: row
+                        .get("essentials_max_backfill_companies_per_good_per_month")?,
                 },
                 annual_wage_raise: crate::sim::params::AnnualWageRaiseParams {
                     enabled: i64_to_bool(row.get("annual_wage_raise_enabled")?),
@@ -158,49 +180,74 @@ pub(super) fn load_country_sim_params(
                 },
                 labor_demand: crate::sim::params::LaborDemandParams {
                     replacement_opening_rate: row.get("labor_demand_replacement_opening_rate")?,
-                    min_openings_per_active_company: row.get("labor_demand_min_openings_per_active_company")?,
+                    min_openings_per_active_company: row
+                        .get("labor_demand_min_openings_per_active_company")?,
                 },
                 company_growth: crate::sim::params::CompanyGrowthParams {
                     min_profitable_months: row.get("company_growth_min_profitable_months")?,
                     min_cash_reserve: row.get("company_growth_min_cash_reserve")?,
-                    payroll_reserve_multiplier: row.get("company_growth_payroll_reserve_multiplier")?,
+                    payroll_reserve_multiplier: row
+                        .get("company_growth_payroll_reserve_multiplier")?,
                     profit_per_opening: row.get("company_growth_profit_per_opening")?,
                     max_monthly_openings: row.get("company_growth_max_monthly_openings")?,
                 },
                 company_formation: crate::sim::params::CompanyFormationParams {
-                    min_founders_same_profession: row.get::<_, i64>("company_formation_min_founders_same_profession")? as usize,
+                    min_founders_same_profession: row
+                        .get::<_, i64>("company_formation_min_founders_same_profession")?
+                        as usize,
                     min_founders: row.get::<_, i64>("company_formation_min_founders")? as usize,
                     max_founders: row.get::<_, i64>("company_formation_max_founders")? as usize,
-                    allow_unemployed_founders: i64_to_bool(row.get("company_formation_allow_unemployed_founders")?),
-                    founder_personal_reserve_months: row.get("company_formation_founder_personal_reserve_months")?,
+                    allow_unemployed_founders: i64_to_bool(
+                        row.get("company_formation_allow_unemployed_founders")?,
+                    ),
+                    founder_personal_reserve_months: row
+                        .get("company_formation_founder_personal_reserve_months")?,
                     startup_runway_months: row.get("company_formation_startup_runway_months")?,
                     initial_openings_total: row.get("company_formation_initial_openings_total")?,
-                    initial_openings_founder_profession: row.get("company_formation_initial_openings_founder_profession")?,
+                    initial_openings_founder_profession: row
+                        .get("company_formation_initial_openings_founder_profession")?,
                     startup_openings_min: row.get("company_formation_startup_openings_min")?,
                     startup_openings_max: row.get("company_formation_startup_openings_max")?,
-                    startup_bank_loan_enabled: i64_to_bool(row.get("company_formation_startup_bank_loan_enabled")?),
-                    startup_bank_loan_max_fraction: row.get("company_formation_startup_bank_loan_max_fraction")?,
-                    startup_max_payroll_to_revenue: row.get("company_formation_startup_max_payroll_to_revenue")?,
-                    labor_slack_startup_trigger: row.get("company_formation_labor_slack_startup_trigger")?,
-                    necessity_startup_sales_floor: row.get("company_formation_necessity_startup_sales_floor")?,
+                    startup_bank_loan_enabled: i64_to_bool(
+                        row.get("company_formation_startup_bank_loan_enabled")?,
+                    ),
+                    startup_bank_loan_max_fraction: row
+                        .get("company_formation_startup_bank_loan_max_fraction")?,
+                    startup_max_payroll_to_revenue: row
+                        .get("company_formation_startup_max_payroll_to_revenue")?,
+                    labor_slack_startup_trigger: row
+                        .get("company_formation_labor_slack_startup_trigger")?,
+                    necessity_startup_sales_floor: row
+                        .get("company_formation_necessity_startup_sales_floor")?,
                     high_margin_threshold: row.get("company_formation_high_margin_threshold")?,
-                    max_startups_per_month: row.get::<_, Option<i64>>("company_formation_max_startups_per_month")?.map(|value| value as u16),
+                    max_startups_per_month: row
+                        .get::<_, Option<i64>>("company_formation_max_startups_per_month")?
+                        .map(|value| value as u16),
                 },
                 company_distress: crate::sim::params::CompanyDistressParams {
                     wage_cut_rate: row.get("company_distress_wage_cut_rate")?,
                     layoff_rate: row.get("company_distress_layoff_rate")?,
                     max_monthly_layoff_rate: row.get("company_distress_max_monthly_layoff_rate")?,
-                    loss_distress_month_threshold: row.get("company_distress_loss_distress_month_threshold")?,
-                    bankruptcy_min_loss_months: row.get("company_distress_bankruptcy_min_loss_months")?,
-                    countercyclical_layoff_unemployment_guard: row.get("company_distress_countercyclical_layoff_unemployment_guard")?,
-                    loss_trigger_wage_cut_rate: row.get("company_distress_loss_trigger_wage_cut_rate")?,
-                    loss_trigger_layoff_rate: row.get("company_distress_loss_trigger_layoff_rate")?,
-                    bankruptcy_missed_payment_threshold: row.get("company_distress_bankruptcy_missed_payment_threshold")?,
-                    min_wage_floor_ratio_to_catalog: row.get("company_distress_min_wage_floor_ratio_to_catalog")?,
+                    loss_distress_month_threshold: row
+                        .get("company_distress_loss_distress_month_threshold")?,
+                    bankruptcy_min_loss_months: row
+                        .get("company_distress_bankruptcy_min_loss_months")?,
+                    countercyclical_layoff_unemployment_guard: row
+                        .get("company_distress_countercyclical_layoff_unemployment_guard")?,
+                    loss_trigger_wage_cut_rate: row
+                        .get("company_distress_loss_trigger_wage_cut_rate")?,
+                    loss_trigger_layoff_rate: row
+                        .get("company_distress_loss_trigger_layoff_rate")?,
+                    bankruptcy_missed_payment_threshold: row
+                        .get("company_distress_bankruptcy_missed_payment_threshold")?,
+                    min_wage_floor_ratio_to_catalog: row
+                        .get("company_distress_min_wage_floor_ratio_to_catalog")?,
                 },
                 labor_mobility: crate::sim::params::LaborMobilityParams {
                     switch_raise_threshold: row.get("labor_mobility_switch_raise_threshold")?,
-                    switch_cadence: switch_cadence_from_i64(row.get("labor_mobility_switch_cadence")?),
+                    switch_cadence: switch_cadence_from_i64(
+                        row.get("labor_mobility_switch_cadence")?,
+                    ),
                 },
                 goods_market: crate::sim::params::GoodsMarketParams {
                     tariff_rate: row.get("goods_market_tariff_rate")?,
@@ -208,8 +255,10 @@ pub(super) fn load_country_sim_params(
                     min_margin_rate: row.get("goods_market_min_margin_rate")?,
                     price_raise_rate: row.get("goods_market_price_raise_rate")?,
                     price_cut_rate: row.get("goods_market_price_cut_rate")?,
-                    sell_through_raise_threshold: row.get("goods_market_sell_through_raise_threshold")?,
-                    sell_through_cut_threshold: row.get("goods_market_sell_through_cut_threshold")?,
+                    sell_through_raise_threshold: row
+                        .get("goods_market_sell_through_raise_threshold")?,
+                    sell_through_cut_threshold: row
+                        .get("goods_market_sell_through_cut_threshold")?,
                     excess_inventory_months: row.get("goods_market_excess_inventory_months")?,
                     excess_inventory_cut_rate: row.get("goods_market_excess_inventory_cut_rate")?,
                 },
@@ -232,58 +281,93 @@ pub(super) fn load_country_sim_params(
                     max_benefit_months: row.get("fiscal_max_benefit_months")?,
                     austerity_debt_gdp_threshold: row.get("fiscal_austerity_debt_gdp_threshold")?,
                     austerity_benefit_reduction: row.get("fiscal_austerity_benefit_reduction")?,
-                    austerity_corporate_tax_surcharge: row.get("fiscal_austerity_corporate_tax_surcharge")?,
+                    austerity_corporate_tax_surcharge: row
+                        .get("fiscal_austerity_corporate_tax_surcharge")?,
                 },
                 government_backfill: crate::sim::params::GovernmentBackfillParams {
                     enabled: i64_to_bool(row.get("government_backfill_enabled")?),
-                    essential_good_max_id_inclusive: row.get("government_backfill_essential_good_max_id_inclusive")?,
+                    essential_good_max_id_inclusive: row
+                        .get("government_backfill_essential_good_max_id_inclusive")?,
                     openings_total: row.get("government_backfill_openings_total")?,
-                    manufacturing_openings: row.get("government_backfill_manufacturing_openings")?,
+                    manufacturing_openings: row
+                        .get("government_backfill_manufacturing_openings")?,
                     runway_months: row.get("government_backfill_runway_months")?,
                     base_wage_multiplier: row.get("government_backfill_base_wage_multiplier")?,
-                    vacancy_escalation_rate: row.get("government_backfill_vacancy_escalation_rate")?,
+                    vacancy_escalation_rate: row
+                        .get("government_backfill_vacancy_escalation_rate")?,
                     max_wage_multiplier: row.get("government_backfill_max_wage_multiplier")?,
-                    switch_incentive_buffer: row.get("government_backfill_switch_incentive_buffer")?,
-                    public_utility_price_cap_multiplier: row.get("government_backfill_public_utility_price_cap_multiplier")?,
+                    switch_incentive_buffer: row
+                        .get("government_backfill_switch_incentive_buffer")?,
+                    public_utility_price_cap_multiplier: row
+                        .get("government_backfill_public_utility_price_cap_multiplier")?,
                 },
                 stock_market: crate::sim::params::StockMarketParams {
                     enabled: i64_to_bool(row.get("stock_market_enabled")?),
-                    daily_participant_cap: row.get::<_, i64>("stock_market_daily_participant_cap")? as usize,
-                    investor_cash_reserve_ratio: row.get("stock_market_investor_cash_reserve_ratio")?,
+                    daily_participant_cap: row
+                        .get::<_, i64>("stock_market_daily_participant_cap")?
+                        as usize,
+                    investor_cash_reserve_ratio: row
+                        .get("stock_market_investor_cash_reserve_ratio")?,
                     ipo_max_dilution: row.get("stock_market_ipo_max_dilution")?,
-                    ipo_initial_shares: row.get::<_, i64>("stock_market_ipo_initial_shares")? as u64,
+                    ipo_initial_shares: row.get::<_, i64>("stock_market_ipo_initial_shares")?
+                        as u64,
                     dividend_payout_ratio: row.get("stock_market_dividend_payout_ratio")?,
-                    dividend_min_runway_months: row.get("stock_market_dividend_min_runway_months")?,
-                    margin_liquidation_discount: row.get("stock_market_margin_liquidation_discount")?,
-                    bank_max_equity_reserve_fraction: row.get("stock_market_bank_max_equity_reserve_fraction")?,
-                    initial_listing_count: row.get::<_, i64>("stock_market_initial_listing_count")? as usize,
+                    dividend_min_runway_months: row
+                        .get("stock_market_dividend_min_runway_months")?,
+                    margin_liquidation_discount: row
+                        .get("stock_market_margin_liquidation_discount")?,
+                    bank_max_equity_reserve_fraction: row
+                        .get("stock_market_bank_max_equity_reserve_fraction")?,
+                    initial_listing_count: row
+                        .get::<_, i64>("stock_market_initial_listing_count")?
+                        as usize,
                     initial_float_fraction: row.get("stock_market_initial_float_fraction")?,
                     maker_spread_bps: row.get("stock_market_maker_spread_bps")?,
                     max_daily_price_move_pct: row.get("stock_market_max_daily_price_move_pct")?,
                     retail_noise_trade_prob: row.get("stock_market_retail_noise_trade_prob")?,
-                    max_order_fraction_of_float: row.get("stock_market_max_order_fraction_of_float")?,
-                    participant_population_fraction: row.get("stock_market_participant_population_fraction")?,
+                    max_order_fraction_of_float: row
+                        .get("stock_market_max_order_fraction_of_float")?,
+                    participant_population_fraction: row
+                        .get("stock_market_participant_population_fraction")?,
                     maker_bootstrap_reserve: row.get("stock_market_maker_bootstrap_reserve")?,
-                    ipo_min_company_age_months: row.get("stock_market_ipo_min_company_age_months")?,
-                    ipo_growth_min_profitable_months: row.get("stock_market_ipo_growth_min_profitable_months")?,
-                    ipo_growth_min_monthly_revenue: row.get("stock_market_ipo_growth_min_monthly_revenue")?,
-                    ipo_growth_min_cash_runway_months: row.get("stock_market_ipo_growth_min_cash_runway_months")?,
-                    ipo_growth_max_cash_runway_months: row.get("stock_market_ipo_growth_max_cash_runway_months")?,
-                    ipo_primary_raise_target_runway_months: row.get("stock_market_ipo_primary_raise_target_runway_months")?,
-                    ipo_founder_secondary_cap_fraction: row.get("stock_market_ipo_founder_secondary_cap_fraction")?,
+                    ipo_min_company_age_months: row
+                        .get("stock_market_ipo_min_company_age_months")?,
+                    ipo_growth_min_profitable_months: row
+                        .get("stock_market_ipo_growth_min_profitable_months")?,
+                    ipo_growth_min_monthly_revenue: row
+                        .get("stock_market_ipo_growth_min_monthly_revenue")?,
+                    ipo_growth_min_cash_runway_months: row
+                        .get("stock_market_ipo_growth_min_cash_runway_months")?,
+                    ipo_growth_max_cash_runway_months: row
+                        .get("stock_market_ipo_growth_max_cash_runway_months")?,
+                    ipo_primary_raise_target_runway_months: row
+                        .get("stock_market_ipo_primary_raise_target_runway_months")?,
+                    ipo_founder_secondary_cap_fraction: row
+                        .get("stock_market_ipo_founder_secondary_cap_fraction")?,
                     ipo_min_fill_ratio_growth: row.get("stock_market_ipo_min_fill_ratio_growth")?,
-                    ipo_min_fill_ratio_distress: row.get("stock_market_ipo_min_fill_ratio_distress")?,
-                    ipo_max_new_listings_per_month: row.get("stock_market_ipo_max_new_listings_per_month")?,
+                    ipo_min_fill_ratio_distress: row
+                        .get("stock_market_ipo_min_fill_ratio_distress")?,
+                    ipo_max_new_listings_per_month: row
+                        .get("stock_market_ipo_max_new_listings_per_month")?,
                     ipo_retry_cooldown_months: row.get("stock_market_ipo_retry_cooldown_months")?,
-                    retail_distress_sell_cash_threshold: row.get("stock_market_retail_distress_sell_cash_threshold")?,
-                    retail_take_profit_gain_threshold: row.get("stock_market_retail_take_profit_gain_threshold")?,
+                    retail_distress_sell_cash_threshold: row
+                        .get("stock_market_retail_distress_sell_cash_threshold")?,
+                    retail_take_profit_gain_threshold: row
+                        .get("stock_market_retail_take_profit_gain_threshold")?,
                     retail_random_sell_prob: row.get("stock_market_retail_random_sell_prob")?,
-                    secondary_offering_missed_payment_trigger: row.get("stock_market_secondary_offering_missed_payment_trigger")?,
-                    secondary_offering_discount: row.get("stock_market_secondary_offering_discount")?,
-                    secondary_offering_max_dilution: row.get("stock_market_secondary_offering_max_dilution")?,
-                    cross_country_bank_investing_enabled: i64_to_bool(row.get("stock_market_cross_country_bank_investing_enabled")?),
-                    cross_country_bank_invest_fraction_monthly: row.get("stock_market_cross_country_bank_invest_fraction_monthly")?,
-                    max_total_listings: row.get::<_, i64>("stock_market_max_total_listings")? as usize,
+                    secondary_offering_missed_payment_trigger: row
+                        .get("stock_market_secondary_offering_missed_payment_trigger")?,
+                    secondary_offering_discount: row
+                        .get("stock_market_secondary_offering_discount")?,
+                    secondary_offering_max_dilution: row
+                        .get("stock_market_secondary_offering_max_dilution")?,
+                    cross_country_bank_investing_enabled: i64_to_bool(
+                        row.get("stock_market_cross_country_bank_investing_enabled")?,
+                    ),
+                    cross_country_bank_invest_fraction_monthly: row
+                        .get("stock_market_cross_country_bank_invest_fraction_monthly")?,
+                    max_total_listings: row.get::<_, i64>("stock_market_max_total_listings")?
+                        as usize,
                 },
                 monetary: crate::sim::params::MonetaryPolicyParams {
                     target_inflation_rate: row.get("monetary_target_inflation_rate")?,
@@ -295,8 +379,10 @@ pub(super) fn load_country_sim_params(
                     rate_ceiling: row.get("monetary_rate_ceiling")?,
                     credit_spread: row.get("monetary_credit_spread")?,
                     sovereign_spread: row.get("monetary_sovereign_spread")?,
-                    bond_issuance_treasury_threshold: row.get("monetary_bond_issuance_treasury_threshold")?,
-                    bank_primary_dealer_fraction: row.get("monetary_bank_primary_dealer_fraction")?,
+                    bond_issuance_treasury_threshold: row
+                        .get("monetary_bond_issuance_treasury_threshold")?,
+                    bank_primary_dealer_fraction: row
+                        .get("monetary_bank_primary_dealer_fraction")?,
                     bond_maturity_months: row.get("monetary_bond_maturity_months")?,
                     bond_retail_top_n: row.get::<_, i64>("monetary_bond_retail_top_n")? as usize,
                     rate_change_event_threshold: row.get("monetary_rate_change_event_threshold")?,
@@ -307,7 +393,8 @@ pub(super) fn load_country_sim_params(
                     loan_appetite_strength: row.get("monetary_loan_appetite_strength")?,
                     loan_appetite_min: row.get("monetary_loan_appetite_min")?,
                     loan_appetite_max: row.get("monetary_loan_appetite_max")?,
-                    discretionary_spend_strength: row.get("monetary_discretionary_spend_strength")?,
+                    discretionary_spend_strength: row
+                        .get("monetary_discretionary_spend_strength")?,
                     discretionary_spend_min: row.get("monetary_discretionary_spend_min")?,
                     discretionary_spend_max: row.get("monetary_discretionary_spend_max")?,
                     expansion_strength: row.get("monetary_expansion_strength")?,
@@ -320,52 +407,77 @@ pub(super) fn load_country_sim_params(
                     sell_through_shift_strength: row.get("monetary_sell_through_shift_strength")?,
                     inflation_ema_alpha: row.get("monetary_inflation_ema_alpha")?,
                     mint_inflation_gap_weight: row.get("monetary_mint_inflation_gap_weight")?,
-                    mint_unemployment_gap_weight: row.get("monetary_mint_unemployment_gap_weight")?,
-                    mint_max_fraction_expected_supply: row.get("monetary_mint_max_fraction_expected_supply")?,
-                    mint_unemployment_inflation_cap_multiplier: row.get("monetary_mint_unemployment_inflation_cap_multiplier")?,
+                    mint_unemployment_gap_weight: row
+                        .get("monetary_mint_unemployment_gap_weight")?,
+                    mint_max_fraction_expected_supply: row
+                        .get("monetary_mint_max_fraction_expected_supply")?,
+                    mint_unemployment_inflation_cap_multiplier: row
+                        .get("monetary_mint_unemployment_inflation_cap_multiplier")?,
                 },
                 banking: crate::sim::params::BankingSystemParams {
                     deposit_target_ratio: row.get("banking_deposit_target_ratio")?,
                     wallet_buffer_months_person: row.get("banking_wallet_buffer_months_person")?,
-                    wallet_buffer_months_company: row.get("banking_wallet_buffer_months_company")?,
+                    wallet_buffer_months_company: row
+                        .get("banking_wallet_buffer_months_company")?,
                     deposit_insurance_cap: row.get("banking_deposit_insurance_cap")?,
                     uninsured_haircut_rate: row.get("banking_uninsured_haircut_rate")?,
                     run_health_threshold: row.get("banking_run_health_threshold")?,
                     run_withdraw_fraction: row.get("banking_run_withdraw_fraction")?,
                     run_switch_fraction: row.get("banking_run_switch_fraction")?,
                     public_bank_stability_bonus: row.get("banking_public_bank_stability_bonus")?,
-                    private_bank_failure_sensitivity: row.get("banking_private_bank_failure_sensitivity")?,
-                    run_min_uninsured_share_trigger: row.get("banking_run_min_uninsured_share_trigger")?,
+                    private_bank_failure_sensitivity: row
+                        .get("banking_private_bank_failure_sensitivity")?,
+                    run_min_uninsured_share_trigger: row
+                        .get("banking_run_min_uninsured_share_trigger")?,
                     resolution_liquidity_floor: row.get("banking_resolution_liquidity_floor")?,
-                    resolution_entry_consecutive_months: row.get("banking_resolution_entry_consecutive_months")?,
-                    resolution_exit_consecutive_months: row.get("banking_resolution_exit_consecutive_months")?,
+                    resolution_entry_consecutive_months: row
+                        .get("banking_resolution_entry_consecutive_months")?,
+                    resolution_exit_consecutive_months: row
+                        .get("banking_resolution_exit_consecutive_months")?,
                     run_intensity_decay_monthly: row.get("banking_run_intensity_decay_monthly")?,
                     terminal_resolution_months: row.get("banking_terminal_resolution_months")?,
-                    min_private_bank_founders: row.get::<_, i64>("banking_min_private_bank_founders")? as usize,
-                    min_founder_cash_after_contribution: row.get("banking_min_founder_cash_after_contribution")?,
-                    min_private_bank_seed_capital: row.get("banking_min_private_bank_seed_capital")?,
-                    min_private_seed_to_deposits_ratio: row.get("banking_min_private_seed_to_deposits_ratio")?,
-                    target_people_per_private_bank: row.get::<_, i64>("banking_target_people_per_private_bank")? as usize,
+                    min_private_bank_founders: row
+                        .get::<_, i64>("banking_min_private_bank_founders")?
+                        as usize,
+                    min_founder_cash_after_contribution: row
+                        .get("banking_min_founder_cash_after_contribution")?,
+                    min_private_bank_seed_capital: row
+                        .get("banking_min_private_bank_seed_capital")?,
+                    min_private_seed_to_deposits_ratio: row
+                        .get("banking_min_private_seed_to_deposits_ratio")?,
+                    target_people_per_private_bank: row
+                        .get::<_, i64>("banking_target_people_per_private_bank")?
+                        as usize,
                     max_new_banks_per_month: row.get("banking_max_new_banks_per_month")?,
-                    public_bank_recapitalize_amount: row.get("banking_public_bank_recapitalize_amount")?,
+                    public_bank_recapitalize_amount: row
+                        .get("banking_public_bank_recapitalize_amount")?,
                     public_health_floor: row.get("banking_public_health_floor")?,
-                    public_health_liquidity_weight: row.get("banking_public_health_liquidity_weight")?,
-                    public_health_capital_weight: row.get("banking_public_health_capital_weight")?,
-                    public_health_sovereign_support_weight: row.get("banking_public_health_sovereign_support_weight")?,
-                    cross_country_deposit_min_balance: row.get("banking_cross_country_deposit_min_balance")?,
-                    cross_country_deposit_rate_premium: row.get("banking_cross_country_deposit_rate_premium")?,
-                    cross_country_deposit_fraction: row.get("banking_cross_country_deposit_fraction")?,
-                    cross_country_deposit_distress_threshold: row.get("banking_cross_country_deposit_distress_threshold")?,
+                    public_health_liquidity_weight: row
+                        .get("banking_public_health_liquidity_weight")?,
+                    public_health_capital_weight: row
+                        .get("banking_public_health_capital_weight")?,
+                    public_health_sovereign_support_weight: row
+                        .get("banking_public_health_sovereign_support_weight")?,
+                    cross_country_deposit_min_balance: row
+                        .get("banking_cross_country_deposit_min_balance")?,
+                    cross_country_deposit_rate_premium: row
+                        .get("banking_cross_country_deposit_rate_premium")?,
+                    cross_country_deposit_fraction: row
+                        .get("banking_cross_country_deposit_fraction")?,
+                    cross_country_deposit_distress_threshold: row
+                        .get("banking_cross_country_deposit_distress_threshold")?,
                     bank_employee_job_types: [
                         row.get("banking_bank_employee_job_type_0")?,
                         row.get("banking_bank_employee_job_type_1")?,
                     ],
-                    bank_employees_per_deposit_unit: row.get("banking_bank_employees_per_deposit_unit")?,
+                    bank_employees_per_deposit_unit: row
+                        .get("banking_bank_employees_per_deposit_unit")?,
                     bank_min_employees: row.get("banking_bank_min_employees")?,
                     bank_max_employees: row.get("banking_bank_max_employees")?,
                     bank_wage_multiplier: row.get("banking_bank_wage_multiplier")?,
                     initial_private_banks: row.get("banking_initial_private_banks")?,
-                    private_bank_deposit_rate_bonus: row.get("banking_private_bank_deposit_rate_bonus")?,
+                    private_bank_deposit_rate_bonus: row
+                        .get("banking_private_bank_deposit_rate_bonus")?,
                 },
                 housing: crate::sim::params::HousingMarketParams {
                     mortgage_term_months: row.get("housing_mortgage_term_months")?,

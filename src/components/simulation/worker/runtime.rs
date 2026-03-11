@@ -5,12 +5,12 @@ use tokio::sync::mpsc::error::TryRecvError;
 use super::command_processor::apply_command;
 use super::export_pipeline::WorkerExportState;
 use super::health::mark_fatal;
+use super::health::push_event;
 use super::helpers::update_phase_flags;
 use super::scheduler::{should_self_tick_next, spawn_clock_thread};
 #[cfg(any(test, feature = "manual-harness"))]
 use super::snapshot_publisher::force_publish;
 use super::snapshot_publisher::publish_for_apply;
-use super::health::push_event;
 use super::types::{RuntimeStats, WorkerCommand, WorkerMsg};
 use super::*;
 
@@ -138,7 +138,9 @@ impl SimulationWorker {
                                 * 1_000.0;
 
                             // Intercept persistence commands before regular dispatch.
-                            let is_tick = if let WorkerCommand::Domain(GameCommand::Persist(pcmd)) = command.clone() {
+                            let is_tick = if let WorkerCommand::Domain(GameCommand::Persist(pcmd)) =
+                                command.clone()
+                            {
                                 apply_persistence_command(
                                     pcmd,
                                     &mut engine,
@@ -393,8 +395,8 @@ fn apply_persistence_command(
     repo: &Option<crate::sim::persistence::SqliteSeaOrmSaveRepository>,
     events: &Arc<Mutex<VecDeque<WorkerEvent>>>,
 ) {
-    use crate::sim::persistence::SaveRepository as _;
     use crate::sim::PersistenceCommand;
+    use crate::sim::persistence::SaveRepository as _;
 
     match pcmd {
         PersistenceCommand::SaveCurrentRun => {
@@ -426,7 +428,10 @@ fn apply_persistence_command(
                 }
                 Err(e) => {
                     ui_state.set_persistence_status(format!("Save error: {e}"));
-                    push_event(events, WorkerEvent::Warning(format!("persistence save error: {e}")));
+                    push_event(
+                        events,
+                        WorkerEvent::Warning(format!("persistence save error: {e}")),
+                    );
                 }
             }
             if !was_paused {
@@ -455,8 +460,9 @@ fn apply_persistence_command(
                 match r.list_saves() {
                     Ok(list) => {
                         ui_state.save_list = list;
-                        ui_state.selected_save_row =
-                            ui_state.selected_save_row.min(ui_state.save_list.len().saturating_sub(1));
+                        ui_state.selected_save_row = ui_state
+                            .selected_save_row
+                            .min(ui_state.save_list.len().saturating_sub(1));
                         ui_state.persistence_status = None;
                         ui_state.persistence_status_set_at = None;
                     }
@@ -471,7 +477,8 @@ fn apply_persistence_command(
                 ui_state.set_persistence_status("Load failed: repository unavailable".into());
                 return;
             };
-            let Some(descriptor) = ui_state.save_list.get(ui_state.selected_save_row).cloned() else {
+            let Some(descriptor) = ui_state.save_list.get(ui_state.selected_save_row).cloned()
+            else {
                 ui_state.set_persistence_status("No save selected".into());
                 return;
             };
@@ -484,7 +491,10 @@ fn apply_persistence_command(
                 }
                 Err(e) => {
                     ui_state.set_persistence_status(format!("Load error: {e}"));
-                    push_event(events, WorkerEvent::Warning(format!("persistence load error: {e}")));
+                    push_event(
+                        events,
+                        WorkerEvent::Warning(format!("persistence load error: {e}")),
+                    );
                 }
             }
         }

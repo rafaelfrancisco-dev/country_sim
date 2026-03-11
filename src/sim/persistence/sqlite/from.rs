@@ -7,8 +7,8 @@ use crate::sim::{
     essentials::Household,
     good::GOODS_COUNT,
     person::{
-        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
-        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
+        ESSENTIAL_STOCK_SLOT_COUNT, EducationTrack, EmploymentStatus, ForeignDeposit,
+        HabilitationLevel, HousingStatus, Person, SUPERFICIAL_GOOD_SLOT_COUNT,
     },
     world::{BankMetricPoint, MetricPoint},
 };
@@ -16,8 +16,8 @@ use crate::sim::{
 use super::super::{
     PersistenceError,
     dto::{
-        CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
-        MetricPointDto, BankMetricPointDto, PersonDto,
+        BankMetricPointDto, CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
+        MetricPointDto, PersonDto,
     },
 };
 
@@ -84,7 +84,10 @@ pub(super) fn bank_metric_point_from_dto(p: BankMetricPointDto) -> BankMetricPoi
 }
 
 pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceError> {
-    use super::from_rest::{bank_from_dto, company_from_dto, household_from_dto, sim_event_from_dto, stock_market_from_dto};
+    use super::from_rest::{
+        bank_from_dto, company_from_dto, household_from_dto, sim_event_from_dto,
+        stock_market_from_dto,
+    };
     use std::collections::HashMap;
 
     let currency = CurrencySpec {
@@ -224,19 +227,31 @@ pub(super) fn person_from_dto(dto: PersonDto) -> Person {
 
     let employment = match dto.employment {
         EmploymentStatusDto::Unemployed => EmploymentStatus::Unemployed,
-        EmploymentStatusDto::Employed { job_type_id, employer_company_id } => {
-            EmploymentStatus::Employed { job_type_id, employer_company_id }
-        }
-        EmploymentStatusDto::EmployedAtBank { job_type_id, bank_id } => {
-            EmploymentStatus::EmployedAtBank { job_type_id, bank_id }
-        }
+        EmploymentStatusDto::Employed {
+            job_type_id,
+            employer_company_id,
+        } => EmploymentStatus::Employed {
+            job_type_id,
+            employer_company_id,
+        },
+        EmploymentStatusDto::EmployedAtBank {
+            job_type_id,
+            bank_id,
+        } => EmploymentStatus::EmployedAtBank {
+            job_type_id,
+            bank_id,
+        },
     };
 
     let housing = match dto.housing {
         HousingStatusDto::Unhoused => HousingStatus::Unhoused,
-        HousingStatusDto::Renter { landlord_company_id, landlord_country_id } => {
-            HousingStatus::Renter { landlord_company_id, landlord_country_id }
-        }
+        HousingStatusDto::Renter {
+            landlord_company_id,
+            landlord_country_id,
+        } => HousingStatus::Renter {
+            landlord_company_id,
+            landlord_country_id,
+        },
         HousingStatusDto::Owner => HousingStatus::Owner,
         HousingStatusDto::Mortgaged { mortgage } => HousingStatus::Mortgaged {
             mortgage: MortgageAccount {
@@ -293,7 +308,11 @@ pub(super) fn person_from_dto(dto: PersonDto) -> Person {
     }
 
     let mut superficial_stock_consumption_carry = [0.0f32; SUPERFICIAL_GOOD_SLOT_COUNT];
-    for (i, v) in dto.superficial_stock_consumption_carry.into_iter().enumerate() {
+    for (i, v) in dto
+        .superficial_stock_consumption_carry
+        .into_iter()
+        .enumerate()
+    {
         if i < SUPERFICIAL_GOOD_SLOT_COUNT {
             superficial_stock_consumption_carry[i] = v;
         }

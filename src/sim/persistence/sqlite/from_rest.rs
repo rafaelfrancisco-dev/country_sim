@@ -1,11 +1,16 @@
-use std::{collections::{HashMap, VecDeque}, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 use crate::sim::{
     bank::{Bank, BankKind, BankStockPosition},
     company::Company,
     essentials::Household,
     event::{EntityKind, IpoReason, SimEvent},
-    stock_market::{DailyIndexPoint, ListedEquity, Portfolio, Position, StockMarket, StockSecurityId},
+    stock_market::{
+        DailyIndexPoint, ListedEquity, Portfolio, Position, StockMarket, StockSecurityId,
+    },
 };
 
 use super::super::dto::{
@@ -166,7 +171,11 @@ pub(super) fn stock_market_from_dto(dto: StockMarketDto) -> StockMarket {
     let listed: HashMap<u16, ListedEquity> = dto
         .listed
         .into_iter()
-        .filter_map(|(k, v)| k.parse::<u16>().ok().map(|ki| (ki, listed_equity_from_dto(v))))
+        .filter_map(|(k, v)| {
+            k.parse::<u16>()
+                .ok()
+                .map(|ki| (ki, listed_equity_from_dto(v)))
+        })
         .collect();
 
     let daily_index_history: VecDeque<DailyIndexPoint> = dto

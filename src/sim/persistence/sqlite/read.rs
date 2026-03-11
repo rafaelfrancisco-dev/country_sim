@@ -4,11 +4,10 @@ use rusqlite::{Connection, params};
 
 use crate::sim::persistence::PersistenceError;
 use crate::sim::persistence::dto::{
-    BankDto, BankHistoryEntryDto, BankJobOpeningDto, BankStockPositionDto, CompanyDto,
-    CountryDto, CurrencySpecDto, DailyIndexPointDto, EmploymentStatusDto, ForeignDepositDto,
-    FounderStakeDto, HouseholdDto, HousingStatusDto, JobOpeningDto, ListedEquityDto,
-    LoanAccountDto, MortgageAccountDto, PersonDto, PortfolioDto, PositionDto, StockMarketDto,
-    WorldDto,
+    BankDto, BankHistoryEntryDto, BankJobOpeningDto, BankStockPositionDto, CompanyDto, CountryDto,
+    CurrencySpecDto, DailyIndexPointDto, EmploymentStatusDto, ForeignDepositDto, FounderStakeDto,
+    HouseholdDto, HousingStatusDto, JobOpeningDto, ListedEquityDto, LoanAccountDto,
+    MortgageAccountDto, PersonDto, PortfolioDto, PositionDto, StockMarketDto, WorldDto,
 };
 
 use super::{
@@ -223,10 +222,19 @@ fn load_countries(conn: &Connection) -> Result<Vec<CountryDto>, PersistenceError
     Ok(countries)
 }
 
-fn load_tariff_rates(conn: &Connection, country_count: usize) -> Result<Vec<Vec<f64>>, PersistenceError> {
+fn load_tariff_rates(
+    conn: &Connection,
+    country_count: usize,
+) -> Result<Vec<Vec<f64>>, PersistenceError> {
     let mut stmt = conn.prepare("SELECT good_index, seller_country_index, tariff_rate FROM world_tariff_rates ORDER BY good_index, seller_country_index")?;
     let mut matrix: Vec<Vec<f64>> = Vec::new();
-    let rows = stmt.query_map([], |row| Ok((row.get::<_, i64>(0)? as usize, row.get::<_, i64>(1)? as usize, row.get::<_, f64>(2)?)))?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)? as usize,
+            row.get::<_, i64>(1)? as usize,
+            row.get::<_, f64>(2)?,
+        ))
+    })?;
     for row in rows {
         let (good_index, seller_country_index, tariff_rate) = row?;
         if matrix.len() <= good_index {
@@ -242,7 +250,10 @@ fn load_tariff_rates(conn: &Connection, country_count: usize) -> Result<Vec<Vec<
     Ok(matrix)
 }
 
-fn load_country_export_tariffs(conn: &Connection, country_id: u16) -> Result<Vec<f64>, PersistenceError> {
+fn load_country_export_tariffs(
+    conn: &Connection,
+    country_id: u16,
+) -> Result<Vec<f64>, PersistenceError> {
     load_real_series(
         conn,
         "SELECT tariff_rate FROM country_export_tariffs WHERE country_id=?1 ORDER BY good_index",
@@ -250,9 +261,14 @@ fn load_country_export_tariffs(conn: &Connection, country_id: u16) -> Result<Vec
     )
 }
 
-fn load_country_fx_reserves(conn: &Connection, country_id: u16) -> Result<HashMap<String, f64>, PersistenceError> {
+fn load_country_fx_reserves(
+    conn: &Connection,
+    country_id: u16,
+) -> Result<HashMap<String, f64>, PersistenceError> {
     let mut stmt = conn.prepare("SELECT source_country_index, reserve_amount FROM country_fx_reserves_by_source WHERE country_id=?1 ORDER BY source_country_index")?;
-    let rows = stmt.query_map([i64::from(country_id)], |row| Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, f64>(1)?)))?;
+    let rows = stmt.query_map([i64::from(country_id)], |row| {
+        Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, f64>(1)?))
+    })?;
     let mut map = HashMap::new();
     for row in rows {
         let (k, v) = row?;
@@ -261,9 +277,14 @@ fn load_country_fx_reserves(conn: &Connection, country_id: u16) -> Result<HashMa
     Ok(map)
 }
 
-fn load_country_fx_source_history(conn: &Connection, owner_country_index: usize) -> Result<HashMap<String, Vec<f64>>, PersistenceError> {
+fn load_country_fx_source_history(
+    conn: &Connection,
+    owner_country_index: usize,
+) -> Result<HashMap<String, Vec<f64>>, PersistenceError> {
     let mut stmt = conn.prepare("SELECT source_country_index, reserve_base FROM country_fx_source_history WHERE owner_country_index=?1 ORDER BY source_country_index, history_index")?;
-    let rows = stmt.query_map([owner_country_index as i64], |row| Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, f64>(1)?)))?;
+    let rows = stmt.query_map([owner_country_index as i64], |row| {
+        Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, f64>(1)?))
+    })?;
     let mut map: HashMap<String, Vec<f64>> = HashMap::new();
     for row in rows {
         let (source, value) = row?;
@@ -273,8 +294,12 @@ fn load_country_fx_source_history(conn: &Connection, owner_country_index: usize)
 }
 
 fn load_bank_history(conn: &Connection) -> Result<Vec<BankHistoryEntryDto>, PersistenceError> {
-    let mut stmt = conn.prepare("SELECT DISTINCT country_index, bank_id FROM bank_history ORDER BY country_index, bank_id")?;
-    let keys = stmt.query_map([], |row| Ok((row.get::<_, i64>(0)? as usize, row.get::<_, u16>(1)?)))?;
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT country_index, bank_id FROM bank_history ORDER BY country_index, bank_id",
+    )?;
+    let keys = stmt.query_map([], |row| {
+        Ok((row.get::<_, i64>(0)? as usize, row.get::<_, u16>(1)?))
+    })?;
     let mut entries = Vec::new();
     for key in keys {
         let (country_idx, bank_id) = key?;
@@ -283,12 +308,19 @@ fn load_bank_history(conn: &Connection) -> Result<Vec<BankHistoryEntryDto>, Pers
             "SELECT month, reserve, deposits, created_money, equity, run_intensity FROM bank_history WHERE country_index=?1 AND bank_id=?2 ORDER BY history_index",
             params![country_idx as i64, i64::from(bank_id)],
         )?;
-        entries.push(BankHistoryEntryDto { country_idx, bank_id, points });
+        entries.push(BankHistoryEntryDto {
+            country_idx,
+            bank_id,
+            points,
+        });
     }
     Ok(entries)
 }
 
-fn load_households(conn: &Connection, country_id: u16) -> Result<Vec<HouseholdDto>, PersistenceError> {
+fn load_households(
+    conn: &Connection,
+    country_id: u16,
+) -> Result<Vec<HouseholdDto>, PersistenceError> {
     let mut stmt = conn.prepare("SELECT household_id, member_count, sheltered FROM households WHERE country_id=?1 ORDER BY household_index")?;
     let rows = stmt.query_map([i64::from(country_id)], |row| {
         Ok(HouseholdDto {
@@ -355,15 +387,33 @@ fn load_people(conn: &Connection, country_id: u16) -> Result<Vec<PersonDto>, Per
     Ok(people)
 }
 
-fn load_employment(kind: i64, job_type_id: Option<u8>, company_id: Option<u16>, bank_id: Option<u16>) -> EmploymentStatusDto {
+fn load_employment(
+    kind: i64,
+    job_type_id: Option<u8>,
+    company_id: Option<u16>,
+    bank_id: Option<u16>,
+) -> EmploymentStatusDto {
     match kind {
-        1 => EmploymentStatusDto::Employed { job_type_id: job_type_id.unwrap_or(0), employer_company_id: company_id.unwrap_or(0) },
-        2 => EmploymentStatusDto::EmployedAtBank { job_type_id: job_type_id.unwrap_or(0), bank_id: bank_id.unwrap_or(0) },
+        1 => EmploymentStatusDto::Employed {
+            job_type_id: job_type_id.unwrap_or(0),
+            employer_company_id: company_id.unwrap_or(0),
+        },
+        2 => EmploymentStatusDto::EmployedAtBank {
+            job_type_id: job_type_id.unwrap_or(0),
+            bank_id: bank_id.unwrap_or(0),
+        },
         _ => EmploymentStatusDto::Unemployed,
     }
 }
 
-fn load_housing(conn: &Connection, country_id: u16, person_id: u32, kind: i64, landlord_company_id: Option<u16>, landlord_country_id: Option<u16>) -> Result<HousingStatusDto, PersistenceError> {
+fn load_housing(
+    conn: &Connection,
+    country_id: u16,
+    person_id: u32,
+    kind: i64,
+    landlord_company_id: Option<u16>,
+    landlord_country_id: Option<u16>,
+) -> Result<HousingStatusDto, PersistenceError> {
     Ok(match kind {
         1 => HousingStatusDto::Renter { landlord_company_id: landlord_company_id.unwrap_or(0), landlord_country_id: landlord_country_id.unwrap_or(0) },
         2 => HousingStatusDto::Owner,
@@ -511,7 +561,10 @@ fn load_banks(conn: &Connection, country_id: u16) -> Result<Vec<BankDto>, Persis
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
-fn load_stock_market(conn: &Connection, country_id: u16) -> Result<StockMarketDto, PersistenceError> {
+fn load_stock_market(
+    conn: &Connection,
+    country_id: u16,
+) -> Result<StockMarketDto, PersistenceError> {
     let (index_base, ipo_raised_mtd, dividends_paid_mtd, last_completed_month_dividends_paid, forced_liquidations_mtd, bank_portfolio_realized_pnl_mtd, bank_portfolio_dividends_mtd, bank_portfolio_last_completed_month_dividends) = conn.query_row(
         "SELECT index_base, ipo_raised_mtd, dividends_paid_mtd, last_completed_month_dividends_paid, forced_liquidations_mtd, bank_portfolio_realized_pnl_mtd, bank_portfolio_dividends_mtd, bank_portfolio_last_completed_month_dividends FROM country_stock_markets WHERE country_id=?1",
         [i64::from(country_id)],
@@ -546,7 +599,15 @@ fn load_stock_market(conn: &Connection, country_id: u16) -> Result<StockMarketDt
     let bank_portfolio = PortfolioDto {
         positions: {
             let mut stmt = conn.prepare("SELECT security_country_id, security_company_id, shares, avg_cost, pledged_shares FROM stock_market_bank_positions WHERE country_id=?1 ORDER BY position_index")?;
-            let rows = stmt.query_map([i64::from(country_id)], |r| Ok(PositionDto { security_country_id: r.get(0)?, security_company_id: r.get(1)?, shares: r.get::<_, i64>(2)? as u64, avg_cost: r.get(3)?, pledged_shares: r.get::<_, i64>(4)? as u64 }))?;
+            let rows = stmt.query_map([i64::from(country_id)], |r| {
+                Ok(PositionDto {
+                    security_country_id: r.get(0)?,
+                    security_company_id: r.get(1)?,
+                    shares: r.get::<_, i64>(2)? as u64,
+                    avg_cost: r.get(3)?,
+                    pledged_shares: r.get::<_, i64>(4)? as u64,
+                })
+            })?;
             rows.collect::<Result<Vec<_>, _>>()?
         },
         realized_pnl_mtd: bank_portfolio_realized_pnl_mtd,
@@ -587,7 +648,14 @@ fn load_stock_market(conn: &Connection, country_id: u16) -> Result<StockMarketDt
 
     let daily_index_history = {
         let mut stmt = conn.prepare("SELECT day, index_value, total_turnover, bank_equity_exposure FROM stock_market_daily_index_history WHERE country_id=?1 ORDER BY history_index")?;
-        let rows = stmt.query_map([i64::from(country_id)], |row| Ok(DailyIndexPointDto { day: row.get::<_, i64>(0)? as u64, index_value: row.get(1)?, total_turnover: row.get(2)?, bank_equity_exposure: row.get(3)? }))?;
+        let rows = stmt.query_map([i64::from(country_id)], |row| {
+            Ok(DailyIndexPointDto {
+                day: row.get::<_, i64>(0)? as u64,
+                index_value: row.get(1)?,
+                total_turnover: row.get(2)?,
+                bank_equity_exposure: row.get(3)?,
+            })
+        })?;
         rows.collect::<Result<Vec<_>, _>>()?
     };
 
