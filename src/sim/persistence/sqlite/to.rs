@@ -10,7 +10,7 @@ use crate::sim::{
 use super::super::dto::{
     CompanyDto, CountryDto, CurrencySpecDto, EmploymentStatusDto, ForeignDepositDto,
     FounderStakeDto, HousingStatusDto, JobOpeningDto, LoanAccountDto, MetricPointDto,
-    BankMetricPointDto, MortgageAccountDto, PersonDto, SimEventDto,
+    BankMetricPointDto, MortgageAccountDto, PersonDto, SimEventDto, SimulationParamsDto,
 };
 
 pub(super) fn metric_point_to_dto(p: &MetricPoint) -> MetricPointDto {
@@ -79,9 +79,6 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
     use super::to_rest::{bank_to_dto, household_to_dto, sim_event_to_dto, stock_market_to_dto};
     use std::collections::HashMap;
 
-    let sim_params_json = serde_json::to_string(&country.sim_params)
-        .unwrap_or_else(|_| "{}".to_string());
-
     let fx_reserves_by_source: HashMap<String, f64> = country
         .fx_reserves_by_source
         .iter()
@@ -112,7 +109,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         birth_carry: country.birth_carry,
         last_day_births: country.last_day_births,
         last_day_deaths: country.last_day_deaths,
-        sim_params_json,
+        sim_params: SimulationParamsDto::from(country.sim_params.clone()),
         treasury_balance: country.treasury_balance,
         treasury_bank_id: country.treasury_bank_id,
         monthly_tax_collected: country.monthly_tax_collected,

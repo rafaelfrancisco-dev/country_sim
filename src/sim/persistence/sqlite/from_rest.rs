@@ -4,7 +4,7 @@ use crate::sim::{
     bank::{Bank, BankKind, BankStockPosition},
     company::Company,
     essentials::Household,
-    event::SimEvent,
+    event::{EntityKind, IpoReason, SimEvent},
     stock_market::{DailyIndexPoint, ListedEquity, Portfolio, Position, StockMarket, StockSecurityId},
 };
 
@@ -247,204 +247,370 @@ pub(super) fn listed_equity_from_dto(dto: ListedEquityDto) -> ListedEquity {
 }
 
 pub(super) fn sim_event_from_dto(dto: SimEventDto) -> SimEvent {
-    // For round-trip, reconstruct events from payload.
-    // Simple approach: reconstruct from known fields using json Value.
-    // For events we can't reconstruct, fall back to a PopBirth placeholder.
-    let p = &dto.payload;
-    let get_str = |key: &str| -> Arc<str> {
-        p.get(key)
-            .and_then(|v| v.as_str())
-            .map(|s| Arc::from(s))
-            .unwrap_or_else(|| Arc::from(""))
-    };
-    let get_u64 = |key: &str| -> u64 {
-        p.get(key).and_then(|v| v.as_u64()).unwrap_or(0)
-    };
-    let get_u32 = |key: &str| -> u32 { get_u64(key) as u32 };
-    let get_u16 = |key: &str| -> u16 { get_u64(key) as u16 };
-    let get_u8 = |key: &str| -> u8 { get_u64(key) as u8 };
-    let get_f64 = |key: &str| -> f64 {
-        p.get(key).and_then(|v| v.as_f64()).unwrap_or(0.0)
-    };
-
     match dto.kind.as_str() {
         "PopBirth" => SimEvent::PopBirth {
-            country_name: get_str("country_name"),
-            count: get_u32("count"),
-            day: get_u64("day"),
+            country_name: opt_arc(dto.country_name),
+            count: dto.count.unwrap_or(0),
+            day: dto.day,
         },
         "PopDeath" => SimEvent::PopDeath {
-            country_name: get_str("country_name"),
-            count: get_u32("count"),
-            day: get_u64("day"),
+            country_name: opt_arc(dto.country_name),
+            count: dto.count.unwrap_or(0),
+            day: dto.day,
         },
-        "GovTransfer" => SimEvent::GovTransfer {
-            country_name: get_str("country_name"),
-            total_recipients: get_u32("total_recipients"),
-            total_amount: get_f64("total_amount"),
-            day: get_u64("day"),
+        "LoanEmitted" => SimEvent::LoanEmitted {
+            country_name: opt_arc(dto.country_name),
+            entity_kind: entity_kind_from_code(dto.entity_kind),
+            entity_id: dto.entity_id.unwrap_or(0),
+            principal: dto.principal.unwrap_or(0.0),
+            day: dto.day,
         },
-        "CompanyWageCut" => SimEvent::CompanyWageCut {
-            country_name: get_str("country_name"),
-            company_id: get_u16("company_id"),
-            cut_rate: get_f64("cut_rate"),
-            day: get_u64("day"),
-        },
-        "CompanyLayoffs" => SimEvent::CompanyLayoffs {
-            country_name: get_str("country_name"),
-            company_id: get_u16("company_id"),
-            laid_off_count: get_u16("laid_off_count"),
-            day: get_u64("day"),
-        },
-        "BondIssued" => SimEvent::BondIssued {
-            country_name: get_str("country_name"),
-            face_value: get_f64("face_value"),
-            coupon_rate: get_f64("coupon_rate"),
-            day: get_u64("day"),
-        },
-        "CouponPaid" => SimEvent::CouponPaid {
-            country_name: get_str("country_name"),
-            total_coupon: get_f64("total_coupon"),
-            day: get_u64("day"),
-        },
-        "BondMatured" => SimEvent::BondMatured {
-            country_name: get_str("country_name"),
-            face_value: get_f64("face_value"),
-            day: get_u64("day"),
-        },
-        "BondDefault" => SimEvent::BondDefault {
-            country_name: get_str("country_name"),
-            shortfall: get_f64("shortfall"),
-            monetized: get_f64("monetized"),
-            day: get_u64("day"),
-        },
-        "MoneyMinted" => SimEvent::MoneyMinted {
-            country_name: get_str("country_name"),
-            amount: get_f64("amount"),
-            inflation_shortfall: get_f64("inflation_shortfall"),
-            unemployment_gap: get_f64("unemployment_gap"),
-            day: get_u64("day"),
-        },
-        "RatePolicyChange" => SimEvent::RatePolicyChange {
-            country_name: get_str("country_name"),
-            new_rate: get_f64("new_rate"),
-            old_rate: get_f64("old_rate"),
-            inflation_rate: get_f64("inflation_rate"),
-            unemployment_rate: get_f64("unemployment_rate"),
-            day: get_u64("day"),
-        },
-        "FxRateChanged" => SimEvent::FxRateChanged {
-            country_name: get_str("country_name"),
-            currency_code: get_str("currency_code"),
-            old_rate: get_f64("old_rate"),
-            new_rate: get_f64("new_rate"),
-            pressure: get_f64("pressure"),
-            reserves_base: get_f64("reserves_base"),
-            day: get_u64("day"),
-        },
-        "FxReservePressure" => SimEvent::FxReservePressure {
-            country_name: get_str("country_name"),
-            currency_code: get_str("currency_code"),
-            reserves_base: get_f64("reserves_base"),
-            reserve_gap: get_f64("reserve_gap"),
-            pressure: get_f64("pressure"),
-            day: get_u64("day"),
-        },
-        "HomePurchased" => SimEvent::HomePurchased {
-            country_name: get_str("country_name"),
-            person_id: get_u32("person_id"),
-            price: get_f64("price"),
-            day: get_u64("day"),
-        },
-        "MortgagePaidOff" => SimEvent::MortgagePaidOff {
-            country_name: get_str("country_name"),
-            person_id: get_u32("person_id"),
-            day: get_u64("day"),
-        },
-        "HousingPriceChanged" => SimEvent::HousingPriceChanged {
-            country_name: get_str("country_name"),
-            new_price_index: get_f64("new_price_index"),
-            change_pct: get_f64("change_pct"),
-            day: get_u64("day"),
-        },
-        "RentUnpaid" => SimEvent::RentUnpaid {
-            country_name: get_str("country_name"),
-            person_id: get_u32("person_id"),
-            amount_due: get_f64("amount_due"),
-            amount_paid: get_f64("amount_paid"),
-            day: get_u64("day"),
-        },
-        "StockDividend" => SimEvent::StockDividend {
-            country_name: get_str("country_name"),
-            company_id: get_u16("company_id"),
-            ticker: get_str("ticker"),
-            total_amount: get_f64("total_amount"),
-            per_share: get_f64("per_share"),
-            day: get_u64("day"),
-        },
-        "StockMarginCall" => SimEvent::StockMarginCall {
-            country_name: get_str("country_name"),
-            person_id: get_u32("person_id"),
-            shares_liquidated: get_u64("shares_liquidated"),
-            proceeds: get_f64("proceeds"),
-            day: get_u64("day"),
-        },
-        "StockDelisted" => SimEvent::StockDelisted {
-            country_name: get_str("country_name"),
-            company_id: get_u16("company_id"),
-            company_name: get_str("company_name"),
-            shares_wiped: get_u64("shares_wiped"),
-            day: get_u64("day"),
-        },
-        "StockMarketClose" => SimEvent::StockMarketClose {
-            country_name: get_str("country_name"),
-            day: get_u64("day"),
-            total_market_cap: get_f64("total_market_cap"),
-            total_turnover: get_f64("total_turnover"),
-            listed_count: get_u64("listed_count") as usize,
-        },
-        "LaborChurnMonthly" => SimEvent::LaborChurnMonthly {
-            country_name: get_str("country_name"),
-            quits: get_u32("quits"),
-            retirements: get_u32("retirements"),
-            layoffs_non_distress: get_u32("layoffs_non_distress"),
-            replacement_openings: get_u32("replacement_openings"),
-            day: get_u64("day"),
-        },
-        "JobSwitched" => SimEvent::JobSwitched {
-            country_name: get_str("country_name"),
-            person_id: get_u32("person_id"),
-            from_company_id: get_u16("from_company_id"),
-            to_company_id: get_u16("to_company_id"),
-            monthly_salary: get_f64("monthly_salary"),
-            day: get_u64("day"),
-        },
-        "CompanyBankrupt" => SimEvent::CompanyBankrupt {
-            country_name: get_str("country_name"),
-            company_id: get_u16("company_id"),
-            company_name: get_str("company_name"),
-            laid_off_count: get_u16("laid_off_count"),
-            principal_written_off: get_f64("principal_written_off"),
-            day: get_u64("day"),
+        "LoanEnded" => SimEvent::LoanEnded {
+            country_name: opt_arc(dto.country_name),
+            entity_kind: entity_kind_from_code(dto.entity_kind),
+            entity_id: dto.entity_id.unwrap_or(0),
+            day: dto.day,
         },
         "LoanWrittenOff" => SimEvent::LoanWrittenOff {
-            country_name: get_str("country_name"),
-            entity_id: get_u32("entity_id"),
-            principal_lost: get_f64("principal_lost"),
-            day: get_u64("day"),
+            country_name: opt_arc(dto.country_name),
+            entity_id: dto.entity_id.unwrap_or(0),
+            principal_lost: dto.principal_lost.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "DebtDistress" => SimEvent::DebtDistress {
+            country_name: opt_arc(dto.country_name),
+            entity_kind: entity_kind_from_code(dto.entity_kind),
+            entity_id: dto.entity_id.unwrap_or(0),
+            unpaid_amount: dto.unpaid_amount.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "GovTransfer" => SimEvent::GovTransfer {
+            country_name: opt_arc(dto.country_name),
+            total_recipients: dto.total_recipients.unwrap_or(0),
+            total_amount: dto.total_amount.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "GovCompanyFunded" => SimEvent::GovCompanyFunded {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            produced_good_id: dto.produced_good_id.unwrap_or(0),
+            total_funding: dto.total_funding.unwrap_or(0.0),
+            treasury_funding: dto.treasury_funding.unwrap_or(0.0),
+            deficit_funding: dto.deficit_funding.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "CompanyFounded" => SimEvent::CompanyFounded {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            company_name: opt_arc(dto.company_name),
+            founders: dto.founders.unwrap_or(0),
+            job_type_id: dto.job_type_id.unwrap_or(0),
+            produced_good_id: dto.produced_good_id.unwrap_or(0),
+            day: dto.day,
+        },
+        "BankFounded" => SimEvent::BankFounded {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            bank_name: opt_arc(dto.bank_name),
+            kind: bank_kind_from_code(dto.bank_kind),
+            seed_capital: dto.seed_capital.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BankRunStarted" => SimEvent::BankRunStarted {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            bank_name: opt_arc(dto.bank_name),
+            health: dto.health.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BankRunWithdrawal" => SimEvent::BankRunWithdrawal {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            entities_affected: dto.entities_affected.unwrap_or(0),
+            requested: dto.requested.unwrap_or(0.0),
+            haircut_loss: dto.haircut_loss.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BankResolutionStarted" => SimEvent::BankResolutionStarted {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            treasury_support: dto.treasury_support.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BankResolved" => SimEvent::BankResolved {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            bank_name: opt_arc(dto.bank_name),
+            day: dto.day,
+        },
+        "BankClosed" => SimEvent::BankClosed {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            bank_name: opt_arc(dto.bank_name),
+            acquired_by_bank_id: dto.acquired_by_bank_id.unwrap_or(0),
+            acquired_by_bank_name: opt_arc(dto.acquired_by_bank_name),
+            migrated_depositors: dto.migrated_depositors.unwrap_or(0),
+            migrated_companies: dto.migrated_companies.unwrap_or(0),
+            migrated_loans: dto.migrated_loans.unwrap_or(0),
+            transferred_reserves: dto.transferred_reserves.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BankDepositHaircut" => SimEvent::BankDepositHaircut {
+            country_name: opt_arc(dto.country_name),
+            bank_id: dto.bank_id.unwrap_or(0),
+            entity_kind: entity_kind_from_code(dto.entity_kind),
+            entity_id: dto.entity_id.unwrap_or(0),
+            amount_lost: dto.amount_lost.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "CompanyWageCut" => SimEvent::CompanyWageCut {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            cut_rate: dto.cut_rate.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "CompanyLayoffs" => SimEvent::CompanyLayoffs {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            laid_off_count: dto.laid_off_count.unwrap_or(0),
+            day: dto.day,
+        },
+        "BondIssued" => SimEvent::BondIssued {
+            country_name: opt_arc(dto.country_name),
+            face_value: dto.face_value.unwrap_or(0.0),
+            coupon_rate: dto.coupon_rate.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "CouponPaid" => SimEvent::CouponPaid {
+            country_name: opt_arc(dto.country_name),
+            total_coupon: dto.total_coupon.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BondMatured" => SimEvent::BondMatured {
+            country_name: opt_arc(dto.country_name),
+            face_value: dto.face_value.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "BondDefault" => SimEvent::BondDefault {
+            country_name: opt_arc(dto.country_name),
+            shortfall: dto.shortfall.unwrap_or(0.0),
+            monetized: dto.monetized.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "MoneyMinted" => SimEvent::MoneyMinted {
+            country_name: opt_arc(dto.country_name),
+            amount: dto.amount.unwrap_or(0.0),
+            inflation_shortfall: dto.inflation_shortfall.unwrap_or(0.0),
+            unemployment_gap: dto.unemployment_gap.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "RatePolicyChange" => SimEvent::RatePolicyChange {
+            country_name: opt_arc(dto.country_name),
+            new_rate: dto.new_rate.unwrap_or(0.0),
+            old_rate: dto.old_rate.unwrap_or(0.0),
+            inflation_rate: dto.inflation_rate.unwrap_or(0.0),
+            unemployment_rate: dto.unemployment_rate.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "FxRateChanged" => SimEvent::FxRateChanged {
+            country_name: opt_arc(dto.country_name),
+            currency_code: opt_arc(dto.currency_code),
+            old_rate: dto.old_rate.unwrap_or(0.0),
+            new_rate: dto.new_rate.unwrap_or(0.0),
+            pressure: dto.pressure.unwrap_or(0.0),
+            reserves_base: dto.reserves_base.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "FxReservePressure" => SimEvent::FxReservePressure {
+            country_name: opt_arc(dto.country_name),
+            currency_code: opt_arc(dto.currency_code),
+            reserves_base: dto.reserves_base.unwrap_or(0.0),
+            reserve_gap: dto.reserve_gap.unwrap_or(0.0),
+            pressure: dto.pressure.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "HomePurchased" => SimEvent::HomePurchased {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            price: dto.price.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "Foreclosure" => SimEvent::Foreclosure {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            principal_written_off: dto.principal_written_off.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "MortgagePaidOff" => SimEvent::MortgagePaidOff {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            day: dto.day,
+        },
+        "HousingPriceChanged" => SimEvent::HousingPriceChanged {
+            country_name: opt_arc(dto.country_name),
+            new_price_index: dto.new_price_index.unwrap_or(0.0),
+            change_pct: dto.change_pct.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "RentUnpaid" => SimEvent::RentUnpaid {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            amount_due: dto.amount_due.unwrap_or(0.0),
+            amount_paid: dto.amount_paid.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "LaborChurnMonthly" => SimEvent::LaborChurnMonthly {
+            country_name: opt_arc(dto.country_name),
+            quits: dto.quits.unwrap_or(0),
+            retirements: dto.retirements.unwrap_or(0),
+            layoffs_non_distress: dto.layoffs_non_distress.unwrap_or(0),
+            replacement_openings: dto.replacement_openings.unwrap_or(0),
+            day: dto.day,
+        },
+        "JobSwitched" => SimEvent::JobSwitched {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            from_company_id: dto.from_company_id.unwrap_or(0),
+            to_company_id: dto.to_company_id.unwrap_or(0),
+            monthly_salary: dto.monthly_salary.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "PersonMigratedForWork" => SimEvent::PersonMigratedForWork {
+            from_country_name: opt_arc(dto.from_country_name),
+            to_country_name: opt_arc(dto.to_country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            job_type_id: dto.job_type_id.unwrap_or(0),
+            monthly_salary: dto.monthly_salary.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "PersonMigratedForDistress" => SimEvent::PersonMigratedForDistress {
+            from_country_name: opt_arc(dto.from_country_name),
+            to_country_name: opt_arc(dto.to_country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            months_unemployed: dto.months_unemployed.unwrap_or(0),
+            months_on_benefits: dto.months_on_benefits.unwrap_or(0),
+            day: dto.day,
+        },
+        "CompanyBankrupt" => SimEvent::CompanyBankrupt {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            company_name: opt_arc(dto.company_name),
+            laid_off_count: dto.laid_off_count.unwrap_or(0),
+            principal_written_off: dto.principal_written_off.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "StockIpo" => SimEvent::StockIpo {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            company_name: opt_arc(dto.company_name),
+            ticker: opt_arc(dto.ticker),
+            reason: ipo_reason_from_code(dto.ipo_reason),
+            shares_issued: dto.shares_issued.unwrap_or(0),
+            primary_shares_issued: dto.primary_shares_issued.unwrap_or(0),
+            secondary_shares_sold: dto.secondary_shares_sold.unwrap_or(0),
+            price_per_share: dto.price_per_share.unwrap_or(0.0),
+            total_raised: dto.total_raised.unwrap_or(0.0),
+            primary_raised: dto.primary_raised.unwrap_or(0.0),
+            secondary_raised: dto.secondary_raised.unwrap_or(0.0),
+            founder_payout_total: dto.founder_payout_total.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "StockDividend" => SimEvent::StockDividend {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            ticker: opt_arc(dto.ticker),
+            total_amount: dto.total_amount.unwrap_or(0.0),
+            per_share: dto.per_share.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "StockMarginCall" => SimEvent::StockMarginCall {
+            country_name: opt_arc(dto.country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            shares_liquidated: dto.shares_liquidated.unwrap_or(0),
+            proceeds: dto.proceeds.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "StockDelisted" => SimEvent::StockDelisted {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            company_name: opt_arc(dto.company_name),
+            shares_wiped: dto.shares_wiped.unwrap_or(0),
+            day: dto.day,
+        },
+        "StockMarketClose" => SimEvent::StockMarketClose {
+            country_name: opt_arc(dto.country_name),
+            day: dto.day,
+            total_market_cap: dto.total_market_cap.unwrap_or(0.0),
+            total_turnover: dto.total_turnover.unwrap_or(0.0),
+            listed_count: dto.listed_count.unwrap_or(0) as usize,
+        },
+        "StockSecondaryOffering" => SimEvent::StockSecondaryOffering {
+            country_name: opt_arc(dto.country_name),
+            company_id: dto.company_id.unwrap_or(0),
+            ticker: opt_arc(dto.ticker),
+            shares_issued: dto.shares_issued.unwrap_or(0),
+            price: dto.price.unwrap_or(0.0),
+            total_raised: dto.total_raised.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "ForeignDepositOpened" => SimEvent::ForeignDepositOpened {
+            home_country_name: opt_arc(dto.home_country_name),
+            foreign_country_name: opt_arc(dto.foreign_country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            bank_id: dto.bank_id.unwrap_or(0),
+            home_amount: dto.home_amount.unwrap_or(0.0),
+            foreign_amount: dto.foreign_amount.unwrap_or(0.0),
+            fx_rate_home_per_foreign: dto.fx_rate_home_per_foreign.unwrap_or(0.0),
+            annual_rate: dto.annual_rate.unwrap_or(0.0),
+            day: dto.day,
+        },
+        "ForeignDepositClosed" => SimEvent::ForeignDepositClosed {
+            home_country_name: opt_arc(dto.home_country_name),
+            foreign_country_name: opt_arc(dto.foreign_country_name),
+            person_id: dto.person_id.unwrap_or(0),
+            returned_home_amount: dto.returned_home_amount.unwrap_or(0.0),
+            returned_foreign_amount: dto.returned_foreign_amount.unwrap_or(0.0),
+            fx_rate_home_per_foreign: dto.fx_rate_home_per_foreign.unwrap_or(0.0),
+            day: dto.day,
         },
         "DisasterApplied" => SimEvent::DisasterApplied {
-            country_name: get_str("country_name"),
-            disaster_label: get_str("disaster_label"),
-            intensity_pct: get_u8("intensity_pct"),
-            summary: get_str("summary"),
-            day: get_u64("day"),
+            country_name: opt_arc(dto.country_name),
+            disaster_label: opt_arc(dto.disaster_label),
+            intensity_pct: dto.intensity_pct.unwrap_or(0),
+            summary: opt_arc(dto.summary),
+            day: dto.day,
         },
-        // For remaining complex events, fall back to a simple placeholder
         _ => SimEvent::PopBirth {
             country_name: Arc::from("restored"),
             count: 0,
             day: 0,
         },
+    }
+}
+
+fn opt_arc(value: Option<String>) -> Arc<str> {
+    value.map(Arc::<str>::from).unwrap_or_else(|| Arc::from(""))
+}
+
+fn entity_kind_from_code(code: Option<u8>) -> EntityKind {
+    match code.unwrap_or(0) {
+        1 => EntityKind::Company,
+        2 => EntityKind::Country,
+        _ => EntityKind::Person,
+    }
+}
+
+fn bank_kind_from_code(code: Option<u8>) -> BankKind {
+    match code.unwrap_or(0) {
+        1 => BankKind::Private,
+        _ => BankKind::Public,
+    }
+}
+
+fn ipo_reason_from_code(code: Option<u8>) -> IpoReason {
+    match code.unwrap_or(0) {
+        1 => IpoReason::Growth,
+        2 => IpoReason::Distress,
+        _ => IpoReason::Seed,
     }
 }
