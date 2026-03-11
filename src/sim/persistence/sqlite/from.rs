@@ -218,6 +218,7 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         cpi_index: dto.cpi_index,
         last_month_cpi_index: dto.last_month_cpi_index,
         monthly_inflation_rate: dto.monthly_inflation_rate,
+        smoothed_monthly_cpi_change: dto.smoothed_monthly_cpi_change,
         stock_market,
         export_tariffs_by_good,
         import_tariffs_by_good,

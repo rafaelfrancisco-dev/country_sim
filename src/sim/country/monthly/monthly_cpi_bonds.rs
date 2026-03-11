@@ -35,16 +35,28 @@ impl Country {
     }
 
     /// Recompute the CPI price index using the essential-goods basket (goods 0–7).
-    /// Updates `cpi_index`, `last_month_cpi_index`, and `monthly_inflation_rate`.
-    pub(super) fn recompute_cpi(&mut self) {
+    /// Updates `cpi_index`, `last_month_cpi_index`, `smoothed_monthly_cpi_change`, and `monthly_inflation_rate`.
+    pub(crate) fn recompute_cpi(&mut self) {
         let new_cpi = self.cpi_basket_index();
 
         let old_cpi = self.cpi_index;
         self.last_month_cpi_index = old_cpi;
         self.cpi_index = new_cpi;
         if old_cpi > 0.0 {
-            // Annualized month-over-month rate
-            let raw_annualized = (new_cpi / old_cpi).powf(12.0) - 1.0;
+            // Stage 1: Compute raw monthly change and apply pre-smoothing EMA
+            let raw_monthly_change = (new_cpi / old_cpi) - 1.0;
+            let monthly_alpha = self
+                .sim_params
+                .monetary
+                .cpi_monthly_change_ema_alpha
+                .clamp(0.0, 1.0);
+            self.smoothed_monthly_cpi_change = self.smoothed_monthly_cpi_change
+                + (raw_monthly_change - self.smoothed_monthly_cpi_change) * monthly_alpha;
+
+            // Stage 2: Annualize the smoothed monthly change
+            let raw_annualized = (1.0 + self.smoothed_monthly_cpi_change).powf(12.0) - 1.0;
+
+            // Stage 3: Apply existing EMA smoothing to annualized rate
             let alpha = self.sim_params.monetary.inflation_ema_alpha.clamp(0.0, 1.0);
             self.monthly_inflation_rate = self.monthly_inflation_rate
                 + (raw_annualized - self.monthly_inflation_rate) * alpha;

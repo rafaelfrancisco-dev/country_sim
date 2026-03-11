@@ -650,6 +650,7 @@ pub struct CountryDto {
     pub cpi_index: f64,
     pub last_month_cpi_index: f64,
     pub monthly_inflation_rate: f64,
+    pub smoothed_monthly_cpi_change: f64,
     pub stock_market: StockMarketDto,
     pub export_tariffs_by_good: Vec<f64>,
     pub import_tariffs_by_good: Vec<f64>,

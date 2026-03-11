@@ -186,6 +186,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         cpi_index: country.cpi_index,
         last_month_cpi_index: country.last_month_cpi_index,
         monthly_inflation_rate: country.monthly_inflation_rate,
+        smoothed_monthly_cpi_change: country.smoothed_monthly_cpi_change,
         stock_market,
         export_tariffs_by_good,
         import_tariffs_by_good,

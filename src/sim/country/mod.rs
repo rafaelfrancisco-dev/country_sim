@@ -124,6 +124,7 @@ pub struct Country {
     pub(crate) cpi_index: f64,
     pub(crate) last_month_cpi_index: f64,
     pub(crate) monthly_inflation_rate: f64,
+    pub(crate) smoothed_monthly_cpi_change: f64,
     pub(crate) stock_market: StockMarket,
     pub(crate) export_tariffs_by_good: [f64; GOODS_COUNT],
     pub(crate) import_tariffs_by_good: [f64; GOODS_COUNT],

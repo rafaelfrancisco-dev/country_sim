@@ -150,6 +150,7 @@ impl Country {
             cpi_index: 1.0,
             last_month_cpi_index: 1.0,
             monthly_inflation_rate: 0.0,
+            smoothed_monthly_cpi_change: 0.0,
             stock_market: StockMarket::new(),
             export_tariffs_by_good,
             import_tariffs_by_good,
@@ -187,6 +188,7 @@ impl Country {
         country.cpi_index = initial_cpi;
         country.last_month_cpi_index = initial_cpi;
         country.monthly_inflation_rate = 0.0;
+        country.smoothed_monthly_cpi_change = 0.0;
         country.recompute_company_headcounts();
         country.rebuild_households();
         country.recompute_aggregates();

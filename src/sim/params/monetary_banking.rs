@@ -76,8 +76,14 @@ pub struct MonetaryPolicyParams {
     /// Max monthly minted amount as a fraction of expected money supply.
     pub mint_max_fraction_expected_supply: f64,
     /// Multiplier on `target_inflation_rate` forming the hard cap: if
-    /// `monthly_inflation_rate > target * multiplier`, unemployment minting is zeroed.
+    /// `monthly_inflation_rate > target * multiplier`, unemployment minting is scaled down.
     pub mint_unemployment_inflation_cap_multiplier: f64,
+    /// Fraction of unemployment gap preserved even during inflation overshoot (0.0 = current behavior).
+    /// When inflation exceeds the cap, unemployment_gap is multiplied by this fraction instead of zeroing.
+    pub mint_unemployment_inflation_floor_fraction: f64,
+    /// EMA alpha for smoothing raw monthly CPI change before annualization (0.0 = fully smoothed, 1.0 = no smoothing).
+    /// Provides a first-stage dampening layer to reduce CPI volatility from the annualization step.
+    pub cpi_monthly_change_ema_alpha: f64,
 }
 
 impl Default for MonetaryPolicyParams {
@@ -120,6 +126,8 @@ impl Default for MonetaryPolicyParams {
             mint_unemployment_gap_weight: 0.10,
             mint_max_fraction_expected_supply: 0.01,
             mint_unemployment_inflation_cap_multiplier: 1.5,
+            mint_unemployment_inflation_floor_fraction: 0.0,
+            cpi_monthly_change_ema_alpha: 0.3,
         }
     }
 }

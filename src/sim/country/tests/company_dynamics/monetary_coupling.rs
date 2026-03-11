@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use super::*;
 use crate::sim::bank::{
-    DEFAULT_LOAN_TERM_MONTHS, DEFAULT_MAX_DEBT_TO_INCOME, max_principal_for_payment,
+    max_principal_for_payment, DEFAULT_LOAN_TERM_MONTHS, DEFAULT_MAX_DEBT_TO_INCOME,
 };
 
 fn make_employed_person(id: u32, company_id: u16, salary: f64, cash_balance: f64) -> Person {
@@ -269,12 +269,10 @@ fn auto_money_minting_skips_when_no_positive_inflation_or_unemployment_gap() {
     assert_eq!(country.monthly_money_minted, 0.0);
     assert_eq!(country.cumulative_money_minted, 0.0);
     assert!((country.expected_money_supply - expected_before).abs() <= 0.01);
-    assert!(
-        !country
-            .pending_events
-            .iter()
-            .any(|event| matches!(event, SimEvent::MoneyMinted { .. }))
-    );
+    assert!(!country
+        .pending_events
+        .iter()
+        .any(|event| matches!(event, SimEvent::MoneyMinted { .. })));
 }
 
 #[test]
@@ -297,8 +295,8 @@ fn unemployment_minting_is_blocked_when_inflation_exceeds_cap() {
     params.monetary.deposit_spread = 1.0;
     params.monetary.target_inflation_rate = 0.02;
     params.monetary.mint_unemployment_inflation_cap_multiplier = 1.5; // cap at 3%
-    // Disable bank recapitalization so it doesn't create spurious bank-created money
-    // that would inflate expected_money_supply independently of minting.
+                                                                      // Disable bank recapitalization so it doesn't create spurious bank-created money
+                                                                      // that would inflate expected_money_supply independently of minting.
     params.banking.public_bank_recapitalize_amount = f64::MAX;
 
     // 1 employed + 1 unemployed → 50% unemployment → large unemployment gap
@@ -416,4 +414,204 @@ fn local_taylor_rule_uses_natural_unemployment_without_labor_force() {
     );
 
     assert!((country.policy_unemployment_rate() - 0.06).abs() < f64::EPSILON);
+}
+
+#[test]
+fn stagflation_allows_partial_unemployment_minting_with_floor_fraction() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.mint_inflation_gap_weight = 0.0;
+    params.monetary.mint_unemployment_gap_weight = 1.0;
+    params.monetary.mint_max_fraction_expected_supply = 0.05;
+    params.monetary.deposit_spread = 1.0;
+    params.monetary.target_inflation_rate = 0.02;
+    params.monetary.mint_unemployment_inflation_cap_multiplier = 1.5;
+    params.monetary.mint_unemployment_inflation_floor_fraction = 0.25;
+    params.banking.public_bank_recapitalize_amount = f64::MAX;
+
+    let people = vec![
+        make_employed_person(1, 0, 3_000.0, 10_000.0),
+        make_unemployed_person(2, 10_000.0),
+    ];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+    country.monthly_inflation_rate = 0.10;
+
+    country.process_month_end();
+
+    assert!(
+        country.monthly_money_minted > 0.0,
+        "with floor_fraction=0.25, minting should occur during stagflation; got {}",
+        country.monthly_money_minted
+    );
+    assert!(
+        country.last_mint_unemployment_gap > 0.0,
+        "unemployment gap should be non-zero with floor fraction"
+    );
+}
+
+#[test]
+fn cpi_smoothing_dampens_volatility() {
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.inflation_ema_alpha = 0.5;
+    params.monetary.cpi_monthly_change_ema_alpha = 0.3;
+
+    let companies = build_default_companies("A", 1);
+    let people = vec![make_employed_person(1, 0, 3_000.0, 10_000.0)];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+
+    // Initialize CPI values
+    country.cpi_index = 1.0;
+    country.last_month_cpi_index = 1.0;
+    country.smoothed_monthly_cpi_change = 0.0;
+    country.monthly_inflation_rate = 0.0;
+
+    // Simulate a large CPI increase (2% in one month)
+    country.last_month_cpi_index = 1.0;
+    country.cpi_index = 1.02;
+    country.process_month_end();
+
+    let first_inflation = country.monthly_inflation_rate;
+    assert!(
+        first_inflation > 0.0,
+        "inflation should be positive after CPI increase"
+    );
+
+    let first_smoothed = country.smoothed_monthly_cpi_change;
+
+    // Simulate a large CPI decrease back to baseline
+    country.last_month_cpi_index = country.cpi_index;
+    country.cpi_index = 1.0;
+    country.process_month_end();
+
+    let second_inflation = country.monthly_inflation_rate;
+
+    // Two-stage smoothing should prevent extreme volatility
+    assert!(
+        second_inflation < first_inflation * 2.0,
+        "two-stage smoothing should dampen volatility; first={}, second={}",
+        first_inflation,
+        second_inflation
+    );
+    assert!(
+        country.smoothed_monthly_cpi_change.abs() < first_smoothed.abs(),
+        "smoothed monthly change should be dampened"
+    );
+}
+
+#[test]
+fn cpi_two_stage_smoothing_dampens_volatility() {
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.labor_demand.replacement_opening_rate = 0.0;
+    params.labor_demand.min_openings_per_active_company = 0;
+    params.monetary.inflation_ema_alpha = 0.5;
+    params.monetary.cpi_monthly_change_ema_alpha = 0.3;
+
+    let companies = build_default_companies("A", 1);
+    let people = vec![make_employed_person(1, 0, 3_000.0, 10_000.0)];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+
+    country.cpi_index = 1.0;
+    country.last_month_cpi_index = 1.0;
+    country.smoothed_monthly_cpi_change = 0.0;
+    country.monthly_inflation_rate = 0.0;
+
+    country.last_month_cpi_index = 1.0;
+    country.cpi_index = 1.02;
+    country.process_month_end();
+
+    let first_inflation = country.monthly_inflation_rate;
+    assert!(
+        first_inflation > 0.0,
+        "inflation should be positive after CPI increase"
+    );
+
+    let first_smoothed = country.smoothed_monthly_cpi_change;
+
+    country.last_month_cpi_index = country.cpi_index;
+    country.cpi_index = 1.0;
+    country.process_month_end();
+
+    let second_inflation = country.monthly_inflation_rate;
+
+    assert!(
+        second_inflation < first_inflation * 2.0,
+        "two-stage smoothing should dampen volatility; first={}, second={}",
+        first_inflation,
+        second_inflation
+    );
+    assert!(
+        country.smoothed_monthly_cpi_change.abs() < first_smoothed.abs(),
+        "smoothed monthly change should be dampened"
+    );
+}
+
+#[test]
+fn cpi_smoothing_dampens_volatility() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.monetary.cpi_monthly_change_ema_alpha = 0.3;
+    params.monetary.inflation_ema_alpha = 0.35;
+
+    let people = vec![make_employed_person(1, 0, 3_000.0, 10_000.0)];
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 100_000.0, params);
+
+    country.cpi_index = 1.0;
+    country.last_month_cpi_index = 1.0;
+    country.smoothed_monthly_cpi_change = 0.0;
+    country.monthly_inflation_rate = 0.0;
+
+    country.cpi_index = 1.02;
+    country.last_month_cpi_index = 1.0;
+    country.recompute_cpi();
+
+    let first_inflation = country.monthly_inflation_rate;
+    assert!(
+        first_inflation > 0.0,
+        "inflation should be positive after CPI increase"
+    );
+
+    let first_smoothed = country.smoothed_monthly_cpi_change;
+
+    country.last_month_cpi_index = country.cpi_index;
+    country.cpi_index = 1.0;
+    country.recompute_cpi();
+
+    let second_inflation = country.monthly_inflation_rate;
+
+    assert!(
+        second_inflation < first_inflation * 2.0,
+        "two-stage smoothing should dampen volatility; first={}, second={}",
+        first_inflation,
+        second_inflation
+    );
+    assert!(
+        country.smoothed_monthly_cpi_change.abs() < first_smoothed.abs(),
+        "smoothed monthly change should be dampened"
+    );
 }

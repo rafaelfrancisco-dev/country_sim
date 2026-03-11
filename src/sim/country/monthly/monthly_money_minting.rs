@@ -10,7 +10,7 @@ impl Country {
         let inflation_overshoot_threshold =
             monetary.target_inflation_rate * monetary.mint_unemployment_inflation_cap_multiplier;
         let unemployment_gap = if self.monthly_inflation_rate > inflation_overshoot_threshold {
-            0.0
+            raw_unemployment_gap * monetary.mint_unemployment_inflation_floor_fraction
         } else {
             raw_unemployment_gap
         };
