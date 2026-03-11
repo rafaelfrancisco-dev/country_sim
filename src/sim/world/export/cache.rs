@@ -120,7 +120,7 @@ impl Default for CountryMonthlyExportCache {
 }
 
 impl World {
-    pub(in crate::sim::world) fn refresh_monthly_export_caches(&mut self) {
+    pub(crate) fn refresh_monthly_export_caches(&mut self) {
         let mut caches = Vec::with_capacity(self.countries.len());
         for country in &self.countries {
             caches.push(build_country_export_cache(self, country));

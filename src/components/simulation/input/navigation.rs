@@ -1,11 +1,11 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
     components::simulation::{
         RunningInputState, Simulation, SimulationCommand, hotkeys,
         ui_state::{DetailsView, GoodsMainPage, RunningTab, SelectionFocus},
     },
-    sim::{GameCommand, UiCommand},
+    sim::{GameCommand, PersistenceCommand, UiCommand},
 };
 
 impl Simulation {
@@ -13,9 +13,51 @@ impl Simulation {
         &self,
         key: KeyEvent,
     ) -> Option<SimulationCommand> {
+        use crate::components::simulation::snapshot::SnapshotPhase;
+        use crate::sim::setup::SetupField;
+
+        // Read the active field from the last snapshot to route input correctly.
+        let active_field = match &self.last_snapshot.phase {
+            SnapshotPhase::Setup(s) => s.active_field,
+            _ => SetupField::CountryCount,
+        };
+
         match key.code {
-            KeyCode::Tab => Some(SimulationCommand::Domain(GameCommand::SetupNextField)),
-            KeyCode::BackTab => Some(SimulationCommand::Domain(GameCommand::SetupPrevField)),
+            KeyCode::Tab => return Some(SimulationCommand::Domain(GameCommand::SetupNextField)),
+            KeyCode::BackTab => return Some(SimulationCommand::Domain(GameCommand::SetupPrevField)),
+            _ => {}
+        }
+
+        // When ExistingSaves is focused, w/s navigate the list and Enter loads.
+        if active_field == SetupField::ExistingSaves {
+            return match key.code {
+                KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'w') => {
+                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveListSelectPrev)))
+                }
+                KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'s') => {
+                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveListSelectNext)))
+                }
+                KeyCode::Enter => {
+                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::LoadSelectedSave)))
+                }
+                _ => None,
+            };
+        }
+
+        // When SaveName is focused, characters edit the save name.
+        if active_field == SetupField::SaveName {
+            return match key.code {
+                KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveNameBackspace))),
+                KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::SetupSubmit)),
+                KeyCode::Char(c) if !c.is_control() => {
+                    Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveNameEditChar(c))))
+                }
+                _ => None,
+            };
+        }
+
+        // Default field input routing.
+        match key.code {
             KeyCode::Backspace => Some(SimulationCommand::Domain(GameCommand::SetupBackspace)),
             KeyCode::Enter => Some(SimulationCommand::Domain(GameCommand::SetupSubmit)),
             KeyCode::Char(c) if !c.is_control() => {
@@ -34,6 +76,10 @@ impl Simulation {
             KeyCode::Tab => return Some(SimulationCommand::Ui(UiCommand::NextTab)),
             KeyCode::BackTab => return Some(SimulationCommand::Ui(UiCommand::PrevTab)),
             KeyCode::Char(' ') => return Some(SimulationCommand::Domain(GameCommand::TogglePause)),
+            // Shift+S → save current run
+            KeyCode::Char('S') if key.modifiers == KeyModifiers::SHIFT => {
+                return Some(SimulationCommand::Domain(GameCommand::Persist(PersistenceCommand::SaveCurrentRun)));
+            }
             KeyCode::Char(c) if key.modifiers.is_empty() && c.eq_ignore_ascii_case(&'n') => {
                 return Some(SimulationCommand::Domain(GameCommand::StepOneDay));
             }

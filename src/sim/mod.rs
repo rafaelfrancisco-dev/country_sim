@@ -15,6 +15,7 @@ pub mod manual_harness;
 pub mod money;
 pub mod names;
 pub mod params;
+pub mod persistence;
 pub mod person;
 pub mod runtime;
 pub mod setup;
@@ -30,6 +31,6 @@ pub use disaster::{
     ALL_DISASTER_KINDS, DISASTER_INTENSITY_LEVELS, DISASTER_KIND_COUNT, DisasterKind,
     DisasterRequest,
 };
-pub use engine::{CountryPolicyOverrides, GameCommand, GameEngine, GamePhase};
+pub use engine::{CountryPolicyOverrides, GameCommand, GameEngine, GamePhase, PersistenceCommand};
 pub use runtime::SimulationMode;
 pub use ui_command::UiCommand;

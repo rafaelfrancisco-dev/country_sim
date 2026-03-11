@@ -7,7 +7,7 @@ pub use fiscal::{
 };
 pub use monetary_banking::{BankingSystemParams, MonetaryPolicyParams};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DemographicParams {
     pub births_per_1000_per_year: f64,
 }
@@ -49,7 +49,7 @@ impl DemographicParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EducationParams {
     pub basic_only_share: f64,
     pub high_school_share: f64,
@@ -87,7 +87,7 @@ impl EducationParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LaborParams {
     pub baseline_unemployment_rate: f64,
     pub seek_base: f64,
@@ -121,7 +121,7 @@ impl LaborParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LaborDemandParams {
     /// Baseline monthly opening target as a fraction of current company headcount.
     pub replacement_opening_rate: f64,
@@ -138,7 +138,7 @@ impl Default for LaborDemandParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompanyGrowthParams {
     pub min_profitable_months: u8,
     pub min_cash_reserve: f64,
@@ -159,7 +159,7 @@ impl Default for CompanyGrowthParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompanyFormationParams {
     pub min_founders_same_profession: usize,
     pub min_founders: usize,
@@ -204,7 +204,7 @@ impl Default for CompanyFormationParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompanyDistressParams {
     pub wage_cut_rate: f64,
     pub layoff_rate: f64,
@@ -235,12 +235,12 @@ impl Default for CompanyDistressParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SwitchCadence {
     MonthlyOnce,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LaborMobilityParams {
     pub switch_raise_threshold: f64,
     pub switch_cadence: SwitchCadence,
@@ -255,7 +255,7 @@ impl Default for LaborMobilityParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AnnualWageRaiseParams {
     pub enabled: bool,
     pub cadence_months: u8,
@@ -276,7 +276,7 @@ impl Default for AnnualWageRaiseParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LaborChurnParams {
     /// Monthly quit probability applied to employed workers.
     pub quit_rate_monthly: f64,
@@ -310,7 +310,7 @@ impl LaborChurnParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MigrationParams {
     pub enabled: bool,
     pub long_term_unemployment_months: u32,
@@ -341,7 +341,7 @@ impl Default for MigrationParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GoodsMarketParams {
     pub tariff_rate: f64,
     pub worker_effort_per_month: f64,
@@ -370,7 +370,7 @@ impl Default for GoodsMarketParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TaxPolicyParams {
     pub bracket_1_max: f64,
     pub bracket_2_max: f64,
@@ -402,7 +402,7 @@ impl Default for TaxPolicyParams {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct SimulationParams {
     pub demographic: DemographicParams,
     pub education: EducationParams,

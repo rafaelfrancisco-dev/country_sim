@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use super::{
     BankMetricPoint, Country, HISTORY_LIMIT, MetricPoint, MonthlyExportData, SimEvent, World,
@@ -96,6 +96,47 @@ impl World {
 
     pub(crate) fn push_export_row(&mut self, row: MonthlyExportData) {
         self.export_queue.push(row);
+    }
+
+    /// Construct a `World` from deserialized persistence data.
+    /// Sets ephemeral cache fields to defaults and calls the required
+    /// post-construction refresh methods.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new_for_persistence(
+        day: u64,
+        generation_seed: u64,
+        countries: Vec<Country>,
+        paused: bool,
+        policy_rate: f64,
+        world_history: VecDeque<MetricPoint>,
+        country_history: Vec<VecDeque<MetricPoint>>,
+        country_fx_source_history: Vec<BTreeMap<usize, VecDeque<f64>>>,
+        bank_history: HashMap<(usize, u16), VecDeque<BankMetricPoint>>,
+        event_log: VecDeque<SimEvent>,
+        tariff_rates_by_good: Vec<Vec<f64>>,
+    ) -> Self {
+        let mut world = Self {
+            day,
+            generation_seed,
+            countries,
+            paused,
+            policy_rate,
+            world_history,
+            country_history,
+            country_fx_source_history,
+            bank_history,
+            event_log,
+            export_queue: Vec::new(),
+            export_queue_active: false,
+            stock_country_export_queue: Vec::new(),
+            stock_equity_export_queue: Vec::new(),
+            monthly_export_caches: Vec::new(),
+            tariff_rates_by_good,
+            goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
+        };
+        world.refresh_monthly_export_caches();
+        world.refresh_policy_rate_aggregate();
+        world
     }
 
     #[cfg(test)]

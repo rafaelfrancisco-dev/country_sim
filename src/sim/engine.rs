@@ -14,6 +14,25 @@ pub enum GamePhase {
     Running(World),
 }
 
+/// Commands for the persistence subsystem (save/load).
+#[derive(Debug, Clone, PartialEq)]
+pub enum PersistenceCommand {
+    /// Save the current running world.
+    SaveCurrentRun,
+    /// Setup mode: type a character into the save-name field.
+    SaveNameEditChar(char),
+    /// Setup mode: backspace in the save-name field.
+    SaveNameBackspace,
+    /// Setup mode: select previous save in the list.
+    SaveListSelectPrev,
+    /// Setup mode: select next save in the list.
+    SaveListSelectNext,
+    /// Setup mode: refresh the save list from disk.
+    SaveListRefresh,
+    /// Setup mode: load the currently selected save.
+    LoadSelectedSave,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum GameCommand {
     SetupEditChar(char),
@@ -32,6 +51,8 @@ pub enum GameCommand {
         requests: Vec<DisasterRequest>,
     },
     Tick,
+    /// Persistence commands (save/load).
+    Persist(PersistenceCommand),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -205,6 +226,19 @@ impl GameEngine {
         }
     }
 
+    /// Returns a reference to the running world if in Running phase.
+    pub fn running_world(&self) -> Option<&World> {
+        match &self.phase {
+            GamePhase::Setup(_) => None,
+            GamePhase::Running(world) => Some(world),
+        }
+    }
+
+    /// Replaces the running world with a new one (used for load).
+    pub fn replace_running_world(&mut self, world: World) {
+        self.phase = GamePhase::Running(world);
+    }
+
     pub fn apply(&mut self, command: GameCommand) -> ApplyOutcome {
         match &mut self.phase {
             GamePhase::Setup(setup_form) => {
@@ -251,7 +285,13 @@ impl GameEngine {
                 let result = setup_form.validate();
                 return setup_form.apply_validation_result(result);
             }
-            _ => {}
+            // Persistence commands and running-phase commands are no-ops during setup.
+            GameCommand::TogglePause
+            | GameCommand::StepOneDay
+            | GameCommand::Tick
+            | GameCommand::UpdateCountryPolicy { .. }
+            | GameCommand::ApplyDisasters { .. }
+            | GameCommand::Persist(_) => {}
         }
 
         None
@@ -327,7 +367,14 @@ impl GameEngine {
             } => {
                 apply_disaster_requests(world, country_idx, &requests);
             }
-            _ => {}
+            // Persistence commands are handled by the worker, not here.
+            // Setup commands are no-ops in running phase.
+            GameCommand::SetupEditChar(_)
+            | GameCommand::SetupBackspace
+            | GameCommand::SetupNextField
+            | GameCommand::SetupPrevField
+            | GameCommand::SetupSubmit
+            | GameCommand::Persist(_) => {}
         }
     }
 

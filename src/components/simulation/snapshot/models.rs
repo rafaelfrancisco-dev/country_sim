@@ -28,6 +28,10 @@ pub(in crate::components::simulation) struct SetupSnapshot {
     pub validation_error: Option<String>,
     pub memory_warning: Option<String>,
     pub is_generating: bool,
+    pub save_name_input: String,
+    pub save_list: Vec<crate::sim::persistence::SaveDescriptor>,
+    pub selected_save_row: usize,
+    pub persistence_status: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -168,6 +172,7 @@ pub(in crate::components::simulation) struct RunningCoreSnapshot {
     pub events_search_active: bool,
     pub company_workers_scroll: usize,
     pub bank_depositors_scroll: usize,
+    pub persistence_status: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

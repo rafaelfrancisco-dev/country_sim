@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StockMarketParams {
     pub enabled: bool,
     /// Max participants sampled per day per country.

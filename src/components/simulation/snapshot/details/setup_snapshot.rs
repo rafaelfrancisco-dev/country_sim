@@ -13,6 +13,10 @@ impl SetupSnapshot {
             validation_error: setup.validation_error.clone(),
             memory_warning: setup.memory_warning.clone(),
             is_generating,
+            save_name_input: String::new(),
+            save_list: Vec::new(),
+            selected_save_row: 0,
+            persistence_status: None,
         }
     }
 }

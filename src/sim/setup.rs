@@ -17,6 +17,8 @@ pub enum SetupField {
     CountryCount,
     ThousandsPerCountry,
     GenerationSeed,
+    SaveName,
+    ExistingSaves,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,6 +74,8 @@ impl SetupForm {
             {
                 self.generation_seed_input.push(input);
             }
+            // SaveName and ExistingSaves: editing handled by PersistenceCommand, not here.
+            SetupField::SaveName | SetupField::ExistingSaves => return,
             _ => return,
         }
         self.refresh_memory_warning();
@@ -89,6 +93,8 @@ impl SetupForm {
             SetupField::GenerationSeed => {
                 self.generation_seed_input.pop();
             }
+            // SaveName and ExistingSaves: handled by PersistenceCommand.
+            SetupField::SaveName | SetupField::ExistingSaves => {}
         }
         self.refresh_memory_warning();
     }
@@ -97,15 +103,19 @@ impl SetupForm {
         self.active_field = match self.active_field {
             SetupField::CountryCount => SetupField::ThousandsPerCountry,
             SetupField::ThousandsPerCountry => SetupField::GenerationSeed,
-            SetupField::GenerationSeed => SetupField::CountryCount,
+            SetupField::GenerationSeed => SetupField::SaveName,
+            SetupField::SaveName => SetupField::ExistingSaves,
+            SetupField::ExistingSaves => SetupField::CountryCount,
         };
     }
 
     pub fn prev_field(&mut self) {
         self.active_field = match self.active_field {
-            SetupField::CountryCount => SetupField::GenerationSeed,
+            SetupField::CountryCount => SetupField::ExistingSaves,
             SetupField::ThousandsPerCountry => SetupField::CountryCount,
             SetupField::GenerationSeed => SetupField::ThousandsPerCountry,
+            SetupField::SaveName => SetupField::GenerationSeed,
+            SetupField::ExistingSaves => SetupField::SaveName,
         };
     }
 

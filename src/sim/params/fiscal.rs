@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FiscalParams {
     pub unemployment_benefit_rate: f64,
     pub median_income_reference: f64,
@@ -29,7 +29,7 @@ impl FiscalParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EssentialEconomyParams {
     pub water_monthly_units_per_person: f32,
     pub food_monthly_units_per_person: f32,
@@ -84,7 +84,7 @@ impl Default for EssentialEconomyParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GovernmentBackfillParams {
     pub enabled: bool,
     pub essential_good_max_id_inclusive: u8,
@@ -115,7 +115,7 @@ impl Default for GovernmentBackfillParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct HousingMarketParams {
     pub mortgage_term_months: u16,
     pub mortgage_down_payment_rate: f64,

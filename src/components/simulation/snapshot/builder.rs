@@ -22,7 +22,12 @@ impl UiSnapshot {
     ) -> Self {
         let phase = match phase {
             GamePhase::Setup(setup) => {
-                SnapshotPhase::Setup(Box::new(SetupSnapshot::from_setup_form(setup, false)))
+                let mut setup_snapshot = SetupSnapshot::from_setup_form(setup, false);
+                setup_snapshot.save_name_input = ui_state.save_name.clone();
+                setup_snapshot.save_list = ui_state.save_list.clone();
+                setup_snapshot.selected_save_row = ui_state.selected_save_row;
+                setup_snapshot.persistence_status = ui_state.persistence_status.clone();
+                SnapshotPhase::Setup(Box::new(setup_snapshot))
             }
             GamePhase::Running(world) => SnapshotPhase::Running(Box::new(
                 Self::running_from_world(world, ui_state, runtime_stats),
@@ -302,6 +307,7 @@ impl UiSnapshot {
                 events_search_active: ui.events_search_active,
                 company_workers_scroll: ui.company_workers_scroll,
                 bank_depositors_scroll: ui.bank_depositors_scroll,
+                persistence_status: ui.persistence_status.clone(),
             },
             tab,
         }

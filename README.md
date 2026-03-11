@@ -4,6 +4,20 @@
 
 A toy app...
 
+## Save / Load
+
+The simulation supports saving and loading full world state to/from SQLite `.db` files stored beside the executable.
+
+**Save while running:** press `Shift+S`. The active save name is shown in the status bar (defaults to a random `save-<hex8>` slug set at setup).
+
+**Load a previous save:** on the setup screen, Tab to **Existing Saves**, use `w`/`s` to pick a save, and press `Enter`.
+
+**Change the save name:** Tab to the **Save Name** field on the setup screen before starting, or type a new name there.
+
+See [docs/persistence.md](docs/persistence.md) for full details on file layout, schema versioning, and the DTO serialization layer.
+
+---
+
 ## CSV Export
 Pass `--export-csv <DIR>` at startup to write one row per country per completed month to four CSV files in `<DIR>`:
 
@@ -92,6 +106,7 @@ See [docs/csv-export.md](docs/csv-export.md) for full column schemas and usage e
 - [Demographics and labor model](docs/demographics-labor-model.md)
 - [Benchmarking protocol](docs/benchmarking.md)
 - [CSV export](docs/csv-export.md)
+- [Save / Load persistence](docs/persistence.md)
 - [Short-run banking diagnostics (2026-03-05)](docs/short-run-diagnostics-2026-03-05.md)
 
 ## Benchmarking

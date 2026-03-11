@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MonetaryPolicyParams {
     /// Annual CPI inflation target (2% = 0.02).
     pub target_inflation_rate: f64,
@@ -124,7 +124,7 @@ impl Default for MonetaryPolicyParams {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BankingSystemParams {
     pub deposit_target_ratio: f64,
     pub wallet_buffer_months_person: f64,

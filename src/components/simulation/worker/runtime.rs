@@ -10,6 +10,7 @@ use super::scheduler::{should_self_tick_next, spawn_clock_thread};
 #[cfg(any(test, feature = "manual-harness"))]
 use super::snapshot_publisher::force_publish;
 use super::snapshot_publisher::publish_for_apply;
+use super::health::push_event;
 use super::types::{RuntimeStats, WorkerCommand, WorkerMsg};
 use super::*;
 
@@ -58,6 +59,25 @@ impl SimulationWorker {
                 let mut last_snapshot_published_at = Instant::now();
                 let mut export_state = WorkerExportState::new(export_csv);
                 let mut self_tick_next = false;
+
+                // Initialise persistence repository rooted next to the executable.
+                let repo = std::env::current_exe()
+                    .ok()
+                    .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+                    .map(crate::sim::persistence::SqliteSeaOrmSaveRepository::new);
+
+                // Generate a random default save name.
+                use rand::Rng as _;
+                let slug = format!("save-{:08x}", rand::thread_rng().r#gen::<u32>());
+                ui_state.save_name = slug;
+
+                // Eagerly load the save list so the setup screen shows existing saves immediately.
+                if let Some(ref r) = repo {
+                    use crate::sim::persistence::SaveRepository as _;
+                    if let Ok(list) = r.list_saves() {
+                        ui_state.save_list = list;
+                    }
+                }
 
                 'worker: loop {
                     if worker_shutdown.load(Ordering::Acquire) {
@@ -117,13 +137,25 @@ impl SimulationWorker {
                                 .as_secs_f64()
                                 * 1_000.0;
 
-                            let is_tick = apply_command(
-                                command,
-                                &mut engine,
-                                &mut ui_state,
-                                &worker_sim_mode_state,
-                                &worker_events,
-                            );
+                            // Intercept persistence commands before regular dispatch.
+                            let is_tick = if let WorkerCommand::Domain(GameCommand::Persist(pcmd)) = command.clone() {
+                                apply_persistence_command(
+                                    pcmd,
+                                    &mut engine,
+                                    &mut ui_state,
+                                    &repo,
+                                    &worker_events,
+                                );
+                                false
+                            } else {
+                                apply_command(
+                                    command,
+                                    &mut engine,
+                                    &mut ui_state,
+                                    &worker_sim_mode_state,
+                                    &worker_events,
+                                )
+                            };
 
                             update_phase_flags(
                                 &engine,
@@ -352,4 +384,110 @@ fn panic_payload_to_message(payload: Box<dyn std::any::Any + Send>) -> String {
         return message.clone();
     }
     "unknown panic payload".to_string()
+}
+
+fn apply_persistence_command(
+    pcmd: crate::sim::PersistenceCommand,
+    engine: &mut GameEngine,
+    ui_state: &mut UiState,
+    repo: &Option<crate::sim::persistence::SqliteSeaOrmSaveRepository>,
+    events: &Arc<Mutex<VecDeque<WorkerEvent>>>,
+) {
+    use crate::sim::persistence::SaveRepository as _;
+    use crate::sim::PersistenceCommand;
+
+    match pcmd {
+        PersistenceCommand::SaveCurrentRun => {
+            let Some(r) = repo else {
+                ui_state.persistence_status = Some("Save failed: repository unavailable".into());
+                return;
+            };
+            let Some(world) = engine.running_world() else {
+                ui_state.persistence_status = Some("Save failed: not running".into());
+                return;
+            };
+            let was_paused = world.paused;
+            // Pause temporarily while saving (engine owns the pause toggle).
+            if !was_paused {
+                engine.apply(GameCommand::TogglePause);
+            }
+            let save_name = ui_state
+                .active_save_name
+                .clone()
+                .unwrap_or_else(|| ui_state.save_name.clone());
+            match r.save_world(&save_name, engine.running_world().unwrap()) {
+                Ok(()) => {
+                    ui_state.active_save_name = Some(save_name.clone());
+                    ui_state.persistence_status =
+                        Some(format!("Saved to '{save_name}'"));
+                    // Refresh list so newly-created save shows up.
+                    if let Ok(list) = r.list_saves() {
+                        ui_state.save_list = list;
+                    }
+                }
+                Err(e) => {
+                    ui_state.persistence_status = Some(format!("Save error: {e}"));
+                    push_event(events, WorkerEvent::Warning(format!("persistence save error: {e}")));
+                }
+            }
+            if !was_paused {
+                engine.apply(GameCommand::TogglePause);
+            }
+        }
+
+        PersistenceCommand::SaveNameEditChar(c) => {
+            ui_state.save_name.push(c);
+        }
+        PersistenceCommand::SaveNameBackspace => {
+            ui_state.save_name.pop();
+        }
+        PersistenceCommand::SaveListSelectPrev => {
+            if ui_state.selected_save_row > 0 {
+                ui_state.selected_save_row -= 1;
+            }
+        }
+        PersistenceCommand::SaveListSelectNext => {
+            if ui_state.selected_save_row + 1 < ui_state.save_list.len() {
+                ui_state.selected_save_row += 1;
+            }
+        }
+        PersistenceCommand::SaveListRefresh => {
+            if let Some(r) = repo {
+                match r.list_saves() {
+                    Ok(list) => {
+                        ui_state.save_list = list;
+                        ui_state.selected_save_row =
+                            ui_state.selected_save_row.min(ui_state.save_list.len().saturating_sub(1));
+                        ui_state.persistence_status = None;
+                    }
+                    Err(e) => {
+                        ui_state.persistence_status = Some(format!("List error: {e}"));
+                    }
+                }
+            }
+        }
+        PersistenceCommand::LoadSelectedSave => {
+            let Some(r) = repo else {
+                ui_state.persistence_status = Some("Load failed: repository unavailable".into());
+                return;
+            };
+            let Some(descriptor) = ui_state.save_list.get(ui_state.selected_save_row).cloned() else {
+                ui_state.persistence_status = Some("No save selected".into());
+                return;
+            };
+            ui_state.persistence_status = Some(format!("Loading '{}'…", descriptor.save_name));
+            match r.load_world(&descriptor.save_name) {
+                Ok(world) => {
+                    engine.replace_running_world(world);
+                    ui_state.active_save_name = Some(descriptor.save_name.clone());
+                    ui_state.persistence_status =
+                        Some(format!("Loaded '{}'", descriptor.save_name));
+                }
+                Err(e) => {
+                    ui_state.persistence_status = Some(format!("Load error: {e}"));
+                    push_event(events, WorkerEvent::Warning(format!("persistence load error: {e}")));
+                }
+            }
+        }
+    }
 }

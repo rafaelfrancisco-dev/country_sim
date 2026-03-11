@@ -2,8 +2,8 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use super::super::{Simulation, theme};
@@ -26,13 +26,17 @@ impl Simulation {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
-        let [intro, countries, thousands, seed, status, help] = Layout::vertical([
+        let saves_height = if setup.save_list.is_empty() { 0 } else { (setup.save_list.len().min(5) as u16) + 2 };
+
+        let [intro, countries, thousands, seed, save_name_area, saves_area, status, help] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Length(3),
-            Constraint::Min(3),
+            Constraint::Length(saves_height),
+            Constraint::Length(3),
+            Constraint::Min(2),
         ])
         .areas(inner);
 
@@ -49,23 +53,16 @@ impl Simulation {
             .add_modifier(Modifier::BOLD);
         let inactive_style = theme::muted_text();
 
-        let country_style = if setup.active_field == crate::sim::setup::SetupField::CountryCount {
-            active_style
-        } else {
-            inactive_style
+        let field_style = |f: crate::sim::setup::SetupField| {
+            if setup.active_field == f { active_style } else { inactive_style }
+        };
+        let field_border = |f: crate::sim::setup::SetupField| {
+            if setup.active_field == f { theme::active_border() } else { theme::neutral_border() }
         };
 
-        let thousand_style =
-            if setup.active_field == crate::sim::setup::SetupField::ThousandsPerCountry {
-                active_style
-            } else {
-                inactive_style
-            };
-        let seed_style = if setup.active_field == crate::sim::setup::SetupField::GenerationSeed {
-            active_style
-        } else {
-            inactive_style
-        };
+        let country_style = field_style(crate::sim::setup::SetupField::CountryCount);
+        let thousand_style = field_style(crate::sim::setup::SetupField::ThousandsPerCountry);
+        let seed_style = field_style(crate::sim::setup::SetupField::GenerationSeed);
 
         let country_text = if setup.country_count_input.is_empty() {
             "<enter number>".to_string()
@@ -90,13 +87,7 @@ impl Simulation {
                     Block::default()
                         .title(" Countries ")
                         .borders(Borders::ALL)
-                        .border_style(
-                            if setup.active_field == crate::sim::setup::SetupField::CountryCount {
-                                theme::active_border()
-                            } else {
-                                theme::neutral_border()
-                            },
-                        )
+                        .border_style(field_border(crate::sim::setup::SetupField::CountryCount))
                         .title_style(theme::primary_text()),
                 )
                 .style(country_style),
@@ -109,15 +100,7 @@ impl Simulation {
                     Block::default()
                         .title(" Thousands per Country ")
                         .borders(Borders::ALL)
-                        .border_style(
-                            if setup.active_field
-                                == crate::sim::setup::SetupField::ThousandsPerCountry
-                            {
-                                theme::active_border()
-                            } else {
-                                theme::neutral_border()
-                            },
-                        )
+                        .border_style(field_border(crate::sim::setup::SetupField::ThousandsPerCountry))
                         .title_style(theme::primary_text()),
                 )
                 .style(thousand_style),
@@ -130,18 +113,69 @@ impl Simulation {
                     Block::default()
                         .title(" Generation Seed ")
                         .borders(Borders::ALL)
-                        .border_style(
-                            if setup.active_field == crate::sim::setup::SetupField::GenerationSeed {
-                                theme::active_border()
-                            } else {
-                                theme::neutral_border()
-                            },
-                        )
+                        .border_style(field_border(crate::sim::setup::SetupField::GenerationSeed))
                         .title_style(theme::primary_text()),
                 )
                 .style(seed_style),
             seed,
         );
+
+        // Save Name field
+        let save_name_text = if setup.save_name_input.is_empty() {
+            "<enter save name>".to_string()
+        } else {
+            setup.save_name_input.clone()
+        };
+        frame.render_widget(
+            Paragraph::new(save_name_text)
+                .block(
+                    Block::default()
+                        .title(" Save Name ")
+                        .borders(Borders::ALL)
+                        .border_style(field_border(crate::sim::setup::SetupField::SaveName))
+                        .title_style(theme::primary_text()),
+                )
+                .style(field_style(crate::sim::setup::SetupField::SaveName)),
+            save_name_area,
+        );
+
+        // Existing Saves list
+        if !setup.save_list.is_empty() {
+            let saves_focused = setup.active_field == crate::sim::setup::SetupField::ExistingSaves;
+            let items: Vec<ListItem> = setup
+                .save_list
+                .iter()
+                .enumerate()
+                .map(|(i, desc)| {
+                    let selected_marker = if i == setup.selected_save_row && saves_focused { "▶ " } else { "  " };
+                    let label = format!(
+                        "{selected_marker}{} (day {}, seed {:#x})",
+                        desc.save_name, desc.world_day, desc.generation_seed
+                    );
+                    let style = if i == setup.selected_save_row {
+                        if saves_focused { active_style } else { Style::default().fg(theme::TEXT_PRIMARY) }
+                    } else {
+                        inactive_style
+                    };
+                    ListItem::new(Span::styled(label, style))
+                })
+                .collect();
+
+            let mut list_state = ListState::default();
+            list_state.select(Some(setup.selected_save_row));
+
+            frame.render_stateful_widget(
+                List::new(items).block(
+                    Block::default()
+                        .title(" Existing Saves ")
+                        .borders(Borders::ALL)
+                        .border_style(field_border(crate::sim::setup::SetupField::ExistingSaves))
+                        .title_style(theme::primary_text()),
+                ),
+                saves_area,
+                &mut list_state,
+            );
+        }
 
         let mut status_lines = Vec::new();
         if let Some(error) = &setup.validation_error {
@@ -155,6 +189,14 @@ impl Simulation {
                 warning.clone(),
                 Style::default().fg(Color::Yellow),
             ));
+        }
+        if let Some(persist_msg) = &setup.persistence_status {
+            let color = if persist_msg.starts_with("Load error") || persist_msg.starts_with("Save error") || persist_msg.starts_with("Save failed") {
+                Color::Red
+            } else {
+                Color::Green
+            };
+            status_lines.push(Line::styled(persist_msg.clone(), Style::default().fg(color)));
         }
         if status_lines.is_empty() {
             let default_status = if is_generating {
@@ -174,9 +216,10 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field  [0-9] edit numeric fields  [0-9/a-f/x/_] edit seed  [Backspace] erase  [Enter] start simulation",
+                "Keys: [Tab/Shift+Tab] change field  [0-9] edit  [Backspace] erase  [Enter] start (or load when Existing Saves focused)  [w/s] navigate saves  [Shift+S] save while running",
             )
-            .style(theme::muted_text()),
+            .style(theme::muted_text())
+            .wrap(Wrap { trim: true }),
             help,
         );
     }

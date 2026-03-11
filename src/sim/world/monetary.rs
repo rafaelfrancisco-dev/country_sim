@@ -18,7 +18,7 @@ impl World {
         }
     }
 
-    pub(super) fn refresh_policy_rate_aggregate(&mut self) {
+    pub(crate) fn refresh_policy_rate_aggregate(&mut self) {
         self.policy_rate = self.population_weighted_policy_rate();
     }
 }

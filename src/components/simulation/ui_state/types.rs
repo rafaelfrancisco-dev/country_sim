@@ -229,6 +229,12 @@ pub struct UiState {
     pub disaster_last_apply_status: Option<String>,
     pub country_policy_form: CountryPolicyFormState,
     pub currency_symbol: String,
+    // Persistence UI state (displayed on setup screen and running status bar)
+    pub save_name: String,
+    pub save_list: Vec<crate::sim::persistence::SaveDescriptor>,
+    pub selected_save_row: usize,
+    pub persistence_status: Option<String>,
+    pub active_save_name: Option<String>,
 }
 
 impl Default for UiState {
@@ -264,6 +270,11 @@ impl Default for UiState {
             disaster_last_apply_status: None,
             country_policy_form: CountryPolicyFormState::default(),
             currency_symbol: crate::sim::setup::DEFAULT_CURRENCY_SYMBOL.to_string(),
+            save_name: String::new(),
+            save_list: Vec::new(),
+            selected_save_row: 0,
+            persistence_status: None,
+            active_save_name: None,
         }
     }
 }
