@@ -26,7 +26,9 @@ impl UiSnapshot {
                 setup_snapshot.save_name_input = ui_state.save_name.clone();
                 setup_snapshot.save_list = ui_state.save_list.clone();
                 setup_snapshot.selected_save_row = ui_state.selected_save_row;
-                setup_snapshot.persistence_status = ui_state.persistence_status.clone();
+                setup_snapshot.persistence_status = ui_state
+                    .persistence_status_if_fresh(std::time::Duration::from_secs(2))
+                    .map(str::to_owned);
                 SnapshotPhase::Setup(Box::new(setup_snapshot))
             }
             GamePhase::Running(world) => SnapshotPhase::Running(Box::new(
@@ -307,7 +309,9 @@ impl UiSnapshot {
                 events_search_active: ui.events_search_active,
                 company_workers_scroll: ui.company_workers_scroll,
                 bank_depositors_scroll: ui.bank_depositors_scroll,
-                persistence_status: ui.persistence_status.clone(),
+                persistence_status: ui
+                    .persistence_status_if_fresh(std::time::Duration::from_secs(2))
+                    .map(str::to_owned),
             },
             tab,
         }

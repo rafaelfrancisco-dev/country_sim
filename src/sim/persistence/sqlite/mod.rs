@@ -1,36 +1,21 @@
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     path::PathBuf,
-    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use rusqlite::{Connection, params};
 
 use crate::sim::{
-    bank::{Bank, BankKind, BankStockPosition, LoanAccount, MortgageAccount},
-    company::{Company, FounderStake},
     country::Country,
-    currency::CurrencySpec,
-    essentials::Household,
     event::SimEvent,
-    good::GOODS_COUNT,
-    person::{
-        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
-        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
-    },
-    stock_market::{DailyIndexPoint, ListedEquity, Portfolio, Position, StockMarket, StockSecurityId},
     world::{BankMetricPoint, MetricPoint, World},
 };
 
 use super::{
     PersistenceError, SaveDescriptor, SaveRepository,
     dto::{
-        BankDto, BankHistoryEntryDto, BankJobOpeningDto, BankMetricPointDto, BankStockPositionDto,
-        CompanyDto, CountryDto, CurrencySpecDto, DailyIndexPointDto, EmploymentStatusDto,
-        ForeignDepositDto, FounderStakeDto, HouseholdDto, HousingStatusDto, JobOpeningDto,
-        ListedEquityDto, LoanAccountDto, MetricPointDto, MortgageAccountDto, PersonDto,
-        PortfolioDto, PositionDto, SimEventDto, StockMarketDto, WorldDto,
+        BankHistoryEntryDto, CountryDto, MetricPointDto, SimEventDto, WorldDto,
     },
 };
 

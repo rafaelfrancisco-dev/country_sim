@@ -234,6 +234,7 @@ pub struct UiState {
     pub save_list: Vec<crate::sim::persistence::SaveDescriptor>,
     pub selected_save_row: usize,
     pub persistence_status: Option<String>,
+    pub persistence_status_set_at: Option<std::time::Instant>,
     pub active_save_name: Option<String>,
 }
 
@@ -274,7 +275,27 @@ impl Default for UiState {
             save_list: Vec::new(),
             selected_save_row: 0,
             persistence_status: None,
+            persistence_status_set_at: None,
             active_save_name: None,
         }
+    }
+}
+
+impl UiState {
+    /// Sets `persistence_status` and records the current time so the message
+    /// can be auto-expired after a short delay.
+    pub fn set_persistence_status(&mut self, msg: String) {
+        self.persistence_status = Some(msg);
+        self.persistence_status_set_at = Some(std::time::Instant::now());
+    }
+
+    /// Returns the current persistence status only if it hasn't expired yet.
+    pub fn persistence_status_if_fresh(&self, ttl: std::time::Duration) -> Option<&str> {
+        if let (Some(msg), Some(set_at)) = (&self.persistence_status, self.persistence_status_set_at) {
+            if set_at.elapsed() < ttl {
+                return Some(msg.as_str());
+            }
+        }
+        None
     }
 }

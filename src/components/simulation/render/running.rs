@@ -89,6 +89,10 @@ impl Simulation {
             ));
         }
 
+        if let Some(ref status) = world.persistence_status {
+            footer_text.push_str(&format!(" | Save: {status}"));
+        }
+
         frame.render_widget(
             Paragraph::new(footer_text)
                 .style(theme::muted_text())

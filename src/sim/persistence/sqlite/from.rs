@@ -16,7 +16,7 @@ use crate::sim::{
 use super::super::{
     PersistenceError,
     dto::{
-        CountryDto, EmploymentStatusDto, ForeignDepositDto, HousingStatusDto, LoanAccountDto,
+        CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
         MetricPointDto, BankMetricPointDto, PersonDto,
     },
 };

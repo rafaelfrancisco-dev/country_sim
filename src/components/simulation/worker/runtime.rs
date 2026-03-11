@@ -399,11 +399,11 @@ fn apply_persistence_command(
     match pcmd {
         PersistenceCommand::SaveCurrentRun => {
             let Some(r) = repo else {
-                ui_state.persistence_status = Some("Save failed: repository unavailable".into());
+                ui_state.set_persistence_status("Save failed: repository unavailable".into());
                 return;
             };
             let Some(world) = engine.running_world() else {
-                ui_state.persistence_status = Some("Save failed: not running".into());
+                ui_state.set_persistence_status("Save failed: not running".into());
                 return;
             };
             let was_paused = world.paused;
@@ -418,15 +418,14 @@ fn apply_persistence_command(
             match r.save_world(&save_name, engine.running_world().unwrap()) {
                 Ok(()) => {
                     ui_state.active_save_name = Some(save_name.clone());
-                    ui_state.persistence_status =
-                        Some(format!("Saved to '{save_name}'"));
+                    ui_state.set_persistence_status(format!("Saved to '{save_name}'"));
                     // Refresh list so newly-created save shows up.
                     if let Ok(list) = r.list_saves() {
                         ui_state.save_list = list;
                     }
                 }
                 Err(e) => {
-                    ui_state.persistence_status = Some(format!("Save error: {e}"));
+                    ui_state.set_persistence_status(format!("Save error: {e}"));
                     push_event(events, WorkerEvent::Warning(format!("persistence save error: {e}")));
                 }
             }
@@ -459,32 +458,32 @@ fn apply_persistence_command(
                         ui_state.selected_save_row =
                             ui_state.selected_save_row.min(ui_state.save_list.len().saturating_sub(1));
                         ui_state.persistence_status = None;
+                        ui_state.persistence_status_set_at = None;
                     }
                     Err(e) => {
-                        ui_state.persistence_status = Some(format!("List error: {e}"));
+                        ui_state.set_persistence_status(format!("List error: {e}"));
                     }
                 }
             }
         }
         PersistenceCommand::LoadSelectedSave => {
             let Some(r) = repo else {
-                ui_state.persistence_status = Some("Load failed: repository unavailable".into());
+                ui_state.set_persistence_status("Load failed: repository unavailable".into());
                 return;
             };
             let Some(descriptor) = ui_state.save_list.get(ui_state.selected_save_row).cloned() else {
-                ui_state.persistence_status = Some("No save selected".into());
+                ui_state.set_persistence_status("No save selected".into());
                 return;
             };
-            ui_state.persistence_status = Some(format!("Loading '{}'…", descriptor.save_name));
+            ui_state.set_persistence_status(format!("Loading '{}'…", descriptor.save_name));
             match r.load_world(&descriptor.save_name) {
                 Ok(world) => {
                     engine.replace_running_world(world);
                     ui_state.active_save_name = Some(descriptor.save_name.clone());
-                    ui_state.persistence_status =
-                        Some(format!("Loaded '{}'", descriptor.save_name));
+                    ui_state.set_persistence_status(format!("Loaded '{}'", descriptor.save_name));
                 }
                 Err(e) => {
-                    ui_state.persistence_status = Some(format!("Load error: {e}"));
+                    ui_state.set_persistence_status(format!("Load error: {e}"));
                     push_event(events, WorkerEvent::Warning(format!("persistence load error: {e}")));
                 }
             }

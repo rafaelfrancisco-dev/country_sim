@@ -3,7 +3,6 @@ use crate::sim::{
     company::Company,
     country::Country,
     currency::CurrencySpec,
-    event::SimEvent,
     person::{EducationTrack, EmploymentStatus, HabilitationLevel, HousingStatus, Person},
     world::{BankMetricPoint, MetricPoint},
 };

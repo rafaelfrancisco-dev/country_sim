@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-pub(super) const GLOBAL_RUNNING_HINT: &str = "[Tab/Shift+Tab] switch tab  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [q] quit";
+pub(super) const GLOBAL_RUNNING_HINT: &str = "[Tab/Shift+Tab] switch tab  [Space] pause/resume  [n] step day (paused)  [m] toggle sim mode  [Shift+S] save  [q] quit";
 
 pub(super) fn is_char(key: KeyEvent, expected: char) -> bool {
     match key.code {

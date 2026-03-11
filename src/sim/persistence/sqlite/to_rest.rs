@@ -1,11 +1,10 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::sim::{
     bank::Bank,
     essentials::Household,
     event::SimEvent,
-    stock_market::{DailyIndexPoint, ListedEquity, Portfolio, StockMarket},
+    stock_market::{ListedEquity, Portfolio, StockMarket},
 };
 
 use super::super::dto::{
