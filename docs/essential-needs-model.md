@@ -25,6 +25,8 @@ Stockable essentials no longer rely on a sampled same-day purchase to decide whe
 - During the month, buyers purchase toward:
   - their monthly requirement
   - plus a bounded safety buffer
+- The goods-market runtime now releases that refill demand gradually across the month instead of exposing the full monthly deficit on day 1.
+- Release timing is deterministic but staggered per buyer/good slot, which smooths company sell-through and avoids first-day sales cliffs when many households share the same stock target.
 - At month-end, stock is compared against the month’s required amount.
 - Remaining stock carries into the next month.
 

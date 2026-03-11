@@ -68,6 +68,7 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
   - `consume_superficial_stock_daily`: outer `par_iter_mut` over countries; sequential inner person loop. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
   - `GoodsMarketDayCache` is now a persistent world-owned runtime cache rather than a fresh per-day build. Supplier topology and quote templates are invalidated separately, while daily work only resets cursors and sparse active-demand state.
   - Stockable essentials maintain persistent per-person deficit/target state. The daily round-robin path activates only buyers with non-zero deficit for the current good instead of sweeping the full population for every essential.
+  - Stockable-essential demand is released incrementally over the month with a deterministic per-buyer phase offset, so replenishment remains month-complete without synchronizing the whole population onto the first trading day.
   - `process_good_round_robin` (×9 goods): prepares sparse active buyers for that good, plans intents in parallel, then applies them in deterministic order. Fairness remains round-robin by seller, but the hot path now scales with active buyers rather than total population.
   - `adjust_dynamic_country_tariffs`: outer `par_iter_mut` over countries; sequential work within each country.
   - `recompute_aggregates`: runs `par_iter_mut` over all countries after the goods market completes.
@@ -120,7 +121,7 @@ Step 8 must precede step 9 so that monthly accumulators are readable, and preced
 
 ### Essential-Need Scoring
 - Stockable essentials (water, food, electricity, medicine) no longer mark monthly unmet directly from a failed daily purchase.
-- Daily goods-market passes buy toward a monthly requirement plus a bounded buffer.
+- Daily goods-market passes buy toward a monthly requirement plus a bounded buffer, but that refill deficit is exposed gradually over the month rather than all at once on day 1.
 - Month-end scoring classifies:
   - broad unmet (`any unmet`)
   - severe unmet (large remaining shortfall)

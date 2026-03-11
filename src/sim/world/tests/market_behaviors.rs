@@ -70,6 +70,38 @@ fn essentials_can_push_cash_negative_and_are_tracked_as_essential_debt_spending(
 }
 
 #[test]
+fn stockable_essential_sales_are_released_gradually_over_the_month() {
+    let people = (0..100)
+        .map(|idx| unemployed_person(idx as u32 + 1, 1_000.0))
+        .collect::<Vec<_>>();
+    let mut companies = vec![Company::new(0, "Water".to_string(), vec![0, 5], 0)];
+    companies[0].inventory_units = 10_000;
+    companies[0].unit_price = 1.0;
+    companies[0].cash_balance = 1_000.0;
+
+    let country = Country::with_economy(0, "A".to_string(), people, companies, 101_000.0);
+    let mut world = World::new(vec![country]);
+
+    world.tick_day();
+    let sold_after_day_1 = world.countries[0].companies[0].last_month_units_sold;
+
+    for _ in 1..10 {
+        world.tick_day();
+    }
+    let sold_after_day_10 = world.countries[0].companies[0].last_month_units_sold;
+
+    for _ in 10..29 {
+        world.tick_day();
+    }
+    let sold_after_day_29 = world.countries[0].companies[0].last_month_units_sold;
+
+    assert!(sold_after_day_1 > 0);
+    assert!(sold_after_day_10 > sold_after_day_1);
+    assert!(sold_after_day_29 > sold_after_day_10);
+    assert!(sold_after_day_1 < sold_after_day_29);
+}
+
+#[test]
 fn non_essentials_respect_discretionary_budget_cap() {
     let mut companies = vec![Company::new(0, "Fun".to_string(), vec![0, 5], 14)];
     companies[0].inventory_units = 20;

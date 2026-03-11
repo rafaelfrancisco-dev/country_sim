@@ -1,6 +1,6 @@
 use super::{Country, World};
 use crate::sim::country::DAYS_PER_MONTH;
-use crate::sim::trace::{duration_ms, CountryDailyTrace, CountryMonthlyTrace, DayTraceRow};
+use crate::sim::trace::{CountryDailyTrace, CountryMonthlyTrace, DayTraceRow, duration_ms};
 use rayon::prelude::*;
 use std::time::Instant;
 
