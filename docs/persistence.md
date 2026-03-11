@@ -67,7 +67,7 @@ Key tables:
 | Group | Tables |
 |-------|--------|
 | Save metadata | `save_metadata`, `world_state`, `world_tariff_rates` |
-| Countries | `countries`, `country_sim_params`, `country_export_tariffs`, `country_fx_reserves_by_source` |
+| Countries | `countries`, `country_sim_params`, `country_export_tariffs`, `country_import_tariffs`, `country_fx_reserves_by_source` |
 | People | `people`, `person_loans`, `person_mortgages`, `person_foreign_deposits`, `person_essential_stock`, `person_superficial_stock`, `person_superficial_carry` |
 | Companies | `companies`, `company_open_positions`, `company_offered_job_types`, `company_founder_stakes`, `company_historical_ids`, `company_sales_history`, `company_profit_history`, `company_sold_units_history`, `company_employee_count_history`, `company_price_history`, `company_loan_payment_history`, `company_cash_balance_history`, `company_loans` |
 | Banks | `banks`, `bank_open_positions`, `bank_stock_positions` |
@@ -78,7 +78,7 @@ Key tables:
 
 The schema stores the same snapshot content as before, but as typed rows and columns:
 
-- `World`: day, seed, paused flag, policy rate, tariff matrix
+- `World`: day, seed, paused flag, policy rate, export tariff matrix
 - `Country[]`: fiscal, monetary, FX, housing, bond, and tracker fields
 - `SimulationParams`: flattened typed row in `country_sim_params`
 - `Person[]` per country: employment, cash, debt, housing, stock, education, migration history

@@ -38,12 +38,8 @@ pub(in crate::components::simulation) fn country_details_lines(
 
     let trade_balance =
         country.monthly_goods_export_revenue() - country.monthly_goods_import_spending();
-    let avg_export_tariff = if country.export_tariffs_by_good().is_empty() {
-        0.0
-    } else {
-        country.export_tariffs_by_good().iter().sum::<f64>()
-            / country.export_tariffs_by_good().len() as f64
-    };
+    let avg_export_tariff = country.export_tariffs_by_good().iter().sum::<f64>()
+        / country.export_tariffs_by_good().len() as f64;
     let (max_tariff_good_id, max_export_tariff) = country
         .export_tariffs_by_good()
         .iter()
@@ -52,6 +48,17 @@ pub(in crate::components::simulation) fn country_details_lines(
         .map(|(good_idx, tariff)| (good_idx as u8, *tariff))
         .unwrap_or((0, 0.0));
     let max_tariff_good_label = good_by_id(max_tariff_good_id).map_or("Unknown", |good| good.name);
+    let avg_import_tariff = country.import_tariffs_by_good().iter().sum::<f64>()
+        / country.import_tariffs_by_good().len() as f64;
+    let (max_import_tariff_good_id, max_import_tariff) = country
+        .import_tariffs_by_good()
+        .iter()
+        .enumerate()
+        .max_by(|(_, lhs), (_, rhs)| lhs.partial_cmp(rhs).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(good_idx, tariff)| (good_idx as u8, *tariff))
+        .unwrap_or((0, 0.0));
+    let max_import_tariff_good_label =
+        good_by_id(max_import_tariff_good_id).map_or("Unknown", |good| good.name);
 
     let market_cap = country.stock_market().total_market_cap();
     let index_value = country.stock_market().index_value();
@@ -239,13 +246,19 @@ pub(in crate::components::simulation) fn country_details_lines(
             money(trade_balance, currency_symbol)
         ),
         format!(
-            "MTD Tariffs Collected: {}",
-            money(country.monthly_tariff_collected(), currency_symbol)
+            "MTD Export Tariffs: {} / Import: {}",
+            money(country.monthly_tariff_collected(), currency_symbol),
+            money(country.monthly_import_tariff_collected(), currency_symbol)
         ),
         format!("Average Export Tariff: {:.2}%", avg_export_tariff * 100.0),
         format!(
             "Max Export Tariff: {:.2}% ({max_tariff_good_label})",
             max_export_tariff * 100.0
+        ),
+        format!("Average Import Tariff: {:.2}%", avg_import_tariff * 100.0),
+        format!(
+            "Max Import Tariff: {:.2}% ({max_import_tariff_good_label})",
+            max_import_tariff * 100.0
         ),
         String::new(),
         "Housing Market:".to_string(),

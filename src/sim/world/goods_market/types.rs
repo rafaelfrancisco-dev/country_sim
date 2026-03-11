@@ -12,7 +12,10 @@ pub(in crate::sim::world) struct SellerQuote {
     pub(in crate::sim::world) seller_country_idx: usize,
     pub(in crate::sim::world) seller_company_idx: usize,
     pub(in crate::sim::world) base_price_cents: i64,
+    /// Export tariff — revenue goes to the seller's treasury.
     pub(in crate::sim::world) tariff_cents: i64,
+    /// Import tariff — revenue goes to the buyer's treasury.
+    pub(in crate::sim::world) import_tariff_cents: i64,
     pub(in crate::sim::world) landed_price_cents: i64,
 }
 
@@ -28,7 +31,10 @@ pub(in crate::sim::world) struct QuoteTemplate {
     pub(in crate::sim::world) seller_country_idx: usize,
     pub(in crate::sim::world) seller_company_idx: usize,
     pub(in crate::sim::world) base_price_cents: i64,
+    /// Export tariff — revenue goes to the seller's treasury.
     pub(in crate::sim::world) tariff_cents: i64,
+    /// Import tariff — revenue goes to the buyer's treasury.
+    pub(in crate::sim::world) import_tariff_cents: i64,
     pub(in crate::sim::world) landed_price_cents: i64,
 }
 

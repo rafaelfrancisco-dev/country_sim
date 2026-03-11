@@ -46,6 +46,7 @@ const TABLES_TO_CLEAR: &[&str] = &[
     "households",
     "country_fx_reserves_by_source",
     "country_export_tariffs",
+    "country_import_tariffs",
     "country_sim_params",
     "countries",
     "world_tariff_rates",

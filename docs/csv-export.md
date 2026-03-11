@@ -33,8 +33,8 @@ Fiscal and monetary state per country per month.
 | `country_name` | string | Country name |
 | `population` | integer | Total living persons |
 | `treasury_balance` | float | Government treasury cash balance |
-| `monthly_tax_collected` | float | Income + tariff tax collected this month |
-| `monthly_tariff_collected` | float | Import tariff revenue this month |
+| `monthly_tax_collected` | float | Income tax collected this month |
+| `monthly_tariff_collected` | float | Export tariff revenue collected this month (goods sold abroad; revenue stays in seller's treasury) |
 | `monthly_gov_spending` | float | Unemployment benefits + basic-needs transfers paid this month |
 | `monthly_budget_balance` | float | `monthly_tax_collected − monthly_gov_spending` |
 | `gov_debt` | float | Cumulative deficit-funded government spending |

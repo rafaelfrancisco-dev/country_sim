@@ -218,7 +218,7 @@ fn production_uses_only_manufacturing_workers() {
 }
 
 #[test]
-fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_unmet() {
+fn tariff_increases_for_exported_good_when_low_stock_or_need_unmet() {
     let mut params = SimulationParams::default();
     params.goods_market.tariff_rate = 0.0;
 
@@ -261,6 +261,51 @@ fn tariff_increases_for_exported_good_when_domestic_stock_is_depleted_and_need_u
 }
 
 #[test]
+fn tariff_increases_when_exported_good_has_low_stock_even_without_unmet_needs() {
+    let mut params = SimulationParams::default();
+    params.goods_market.tariff_rate = 0.0;
+
+    // Country A: expensive supplier (no unmet need pressure)
+    let mut country_a_companies = vec![Company::new(0, "A Water".to_string(), vec![0, 5], 0)];
+    country_a_companies[0].inventory_units = 50;
+    country_a_companies[0].unit_price = 50.0;
+    country_a_companies[0].cash_balance = 1_000.0;
+
+    // Country B: exports with low stock (inventory < half of last month domestic sales)
+    let mut country_b_companies = vec![Company::new(0, "B Water".to_string(), vec![0, 5], 0)];
+    country_b_companies[0].last_month_export_units_sold = 1;
+    country_b_companies[0].last_month_domestic_units_sold = 100;
+    country_b_companies[0].inventory_units = 40; // < 100/2 = 50 → low stock
+    country_b_companies[0].unit_price = 10.0;
+    country_b_companies[0].cash_balance = 1_000.0;
+
+    let country_a = Country::with_economy_and_params(
+        0,
+        "A".to_string(),
+        vec![unemployed_person(1, 300.0)],
+        country_a_companies,
+        1_300.0,
+        params.clone(),
+    );
+    let country_b = Country::with_economy_and_params(
+        1,
+        "B".to_string(),
+        vec![unemployed_person(2, 300.0)],
+        country_b_companies,
+        1_300.0,
+        params,
+    );
+    // No unmet needs set — tariff should still rise due to low_stock
+
+    let mut world = World::new(vec![country_a, country_b]);
+    let before = world.countries[1].export_tariffs_by_good[0];
+    world.adjust_dynamic_country_tariffs();
+    let after = world.countries[1].export_tariffs_by_good[0];
+
+    assert!(after > before, "tariff should rise when stock < half of domestic sales: before={before}, after={after}");
+}
+
+#[test]
 fn goods_purchase_keeps_incremental_aggregates_aligned_with_full_recompute() {
     let mut buyer_country = Country::with_economy(
         0,
@@ -288,6 +333,7 @@ fn goods_purchase_keeps_incremental_aggregates_aligned_with_full_recompute() {
         seller_company_idx: 0,
         base_price_cents: 1_000,
         tariff_cents: 200,
+        import_tariff_cents: 0,
         landed_price_cents: 1_200,
     };
 

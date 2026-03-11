@@ -614,6 +614,7 @@ pub struct CountryDto {
     pub monthly_inflation_rate: f64,
     pub stock_market: StockMarketDto,
     pub export_tariffs_by_good: Vec<f64>,
+    pub import_tariffs_by_good: Vec<f64>,
     pub pending_events: Vec<SimEventDto>,
     pub initial_money_supply: f64,
     pub household_cash_total: f64,

@@ -56,6 +56,8 @@ impl Country {
             .saturating_add(1);
         let mut export_tariffs_by_good = [0.0; GOODS_COUNT];
         export_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
+        let mut import_tariffs_by_good = [0.0; GOODS_COUNT];
+        import_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
         let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
         let name: Arc<str> = name.into();
         let currency = generated_currency(id, 0);
@@ -82,6 +84,7 @@ impl Country {
             monthly_corporate_tax_collected: 0.0,
             monthly_household_spending: 0.0,
             monthly_tariff_collected: 0.0,
+            monthly_import_tariff_collected: 0.0,
             monthly_goods_import_spending: 0.0,
             monthly_goods_import_spending_base: 0.0,
             monthly_goods_export_revenue: 0.0,
@@ -129,6 +132,7 @@ impl Country {
             monthly_inflation_rate: 0.0,
             stock_market: StockMarket::new(),
             export_tariffs_by_good,
+            import_tariffs_by_good,
             pending_events: Vec::new(),
             initial_money_supply: round_cents(initial_money_supply),
             household_cash_total: 0.0,

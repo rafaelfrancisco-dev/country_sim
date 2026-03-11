@@ -191,6 +191,7 @@ fn load_countries(conn: &Connection) -> Result<Vec<CountryDto>, PersistenceError
             monthly_inflation_rate: row.get(62)?,
             stock_market: load_stock_market(conn, country_id)?,
             export_tariffs_by_good: load_country_export_tariffs(conn, country_id)?,
+            import_tariffs_by_good: load_country_import_tariffs(conn, country_id)?,
             pending_events: load_events(conn, "country", i64::from(country_id))?,
             initial_money_supply: row.get(63)?,
             household_cash_total: row.get(64)?,
@@ -257,6 +258,17 @@ fn load_country_export_tariffs(
     load_real_series(
         conn,
         "SELECT tariff_rate FROM country_export_tariffs WHERE country_id=?1 ORDER BY good_index",
+        [i64::from(country_id)],
+    )
+}
+
+fn load_country_import_tariffs(
+    conn: &Connection,
+    country_id: u16,
+) -> Result<Vec<f64>, PersistenceError> {
+    load_real_series(
+        conn,
+        "SELECT tariff_rate FROM country_import_tariffs WHERE country_id=?1 ORDER BY good_index",
         [i64::from(country_id)],
     )
 }

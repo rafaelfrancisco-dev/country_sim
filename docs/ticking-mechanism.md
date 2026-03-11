@@ -100,9 +100,15 @@ At each 30-day boundary, the shared world tick pipeline runs the following steps
 1. `Country::process_month_end` (parallel) — payroll, taxes, stockable-essential month-end scoring, gov spending, housing settlement, chronic unmet scoring, loan repayments, company decisions; pushes events to `country.pending_events`
 2. `process_cross_market_stock_dividends` + stale-position cleanup — pays dividends to local and foreign holders using the listing country's cash/tax rules and removes holdings in delisted securities
 3. `process_cross_country_deposits`
-4. `adjust_dynamic_country_tariffs` — world-level tariff adjustment:
-   - tariff steps up when a good is exported while domestic stock is depleted and unmet need exists
-   - otherwise tariff mean-reverts toward the baseline tariff rate
+4. `adjust_dynamic_country_tariffs` — world-level tariff adjustment per country:
+   - **Export tariff** (set by selling country, revenue to seller's treasury):
+     - steps up when a good is exported AND (domestic stock is low OR domestic unmet need exists)
+     - otherwise mean-reverts toward the baseline tariff rate
+   - **Import tariff** (set by buying country, revenue to buyer's treasury):
+     - steps up when domestic stock exceeds twice the amount sold domestically (excess supply)
+     - steps down toward baseline when domestic unmet need exists
+     - otherwise mean-reverts toward the baseline tariff rate
+   - Both tariffs are additive: landed price = base price + export tariff + import tariff
 5. `update_policy_rate` per country — updates each country's local policy rate before history capture; world history derives a population-weighted aggregate
 6. `refresh_monthly_export_caches` — updates country-level monthly/export aggregates and cached bank-derived metrics while month-close data is still live
 7. `capture_snapshot` — records `MetricPoint` into the rolling history window

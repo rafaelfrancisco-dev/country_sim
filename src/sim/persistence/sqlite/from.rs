@@ -114,6 +114,12 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
             export_tariffs_by_good[i] = v;
         }
     }
+    let mut import_tariffs_by_good = [0.0_f64; GOODS_COUNT];
+    for (i, v) in dto.import_tariffs_by_good.into_iter().enumerate() {
+        if i < GOODS_COUNT {
+            import_tariffs_by_good[i] = v;
+        }
+    }
 
     let pending_events = dto
         .pending_events
@@ -143,6 +149,7 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         monthly_corporate_tax_collected: dto.monthly_corporate_tax_collected,
         monthly_household_spending: dto.monthly_household_spending,
         monthly_tariff_collected: dto.monthly_tariff_collected,
+        monthly_import_tariff_collected: 0.0,
         monthly_goods_import_spending: dto.monthly_goods_import_spending,
         monthly_goods_import_spending_base: dto.monthly_goods_import_spending_base,
         monthly_goods_export_revenue: dto.monthly_goods_export_revenue,
@@ -190,6 +197,7 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         monthly_inflation_rate: dto.monthly_inflation_rate,
         stock_market,
         export_tariffs_by_good,
+        import_tariffs_by_good,
         pending_events,
         initial_money_supply: dto.initial_money_supply,
         household_cash_total: dto.household_cash_total,

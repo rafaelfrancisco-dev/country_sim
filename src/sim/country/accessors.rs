@@ -90,10 +90,8 @@ impl Country {
         self.monthly_household_spending
     }
 
-    pub fn monthly_tariff_collected(&self) -> f64 {
-        self.monthly_tariff_collected
-    }
-
+    pub fn monthly_tariff_collected(&self) -> f64 { self.monthly_tariff_collected }
+    pub fn monthly_import_tariff_collected(&self) -> f64 { self.monthly_import_tariff_collected }
     pub fn monthly_tax_collected(&self) -> f64 {
         self.monthly_tax_collected
     }
@@ -217,9 +215,8 @@ impl Country {
     pub fn monthly_migrants_for_distress(&self) -> u64 {
         self.monthly_migrants_for_distress
     }
-    pub fn export_tariffs_by_good(&self) -> &[f64; GOODS_COUNT] {
-        &self.export_tariffs_by_good
-    }
+    pub fn export_tariffs_by_good(&self) -> &[f64; GOODS_COUNT] { &self.export_tariffs_by_good }
+    pub fn import_tariffs_by_good(&self) -> &[f64; GOODS_COUNT] { &self.import_tariffs_by_good }
     pub fn pending_events(&self) -> &[SimEvent] {
         &self.pending_events
     }

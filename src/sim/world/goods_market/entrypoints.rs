@@ -219,6 +219,7 @@ impl World {
     pub(in crate::sim::world) fn adjust_dynamic_country_tariffs(&mut self) {
         self.countries.par_iter_mut().for_each(|country| {
             let mut exported_units_by_good = [0_u32; GOODS_COUNT];
+            let mut domestic_sold_by_good = [0_u32; GOODS_COUNT];
             let mut inventory_by_good = [0_u32; GOODS_COUNT];
             let mut unmet_need_by_good = [false; GOODS_COUNT];
             let baseline_tariff = country
@@ -235,6 +236,8 @@ impl World {
 
                 exported_units_by_good[good_idx] = exported_units_by_good[good_idx]
                     .saturating_add(company.last_month_export_units_sold);
+                domestic_sold_by_good[good_idx] = domestic_sold_by_good[good_idx]
+                    .saturating_add(company.last_month_domestic_units_sold);
                 inventory_by_good[good_idx] =
                     inventory_by_good[good_idx].saturating_add(company.inventory_units);
             }
@@ -251,10 +254,13 @@ impl World {
 
             for good_idx in 0..GOODS_COUNT {
                 let exported = exported_units_by_good[good_idx] > 0;
-                let depleted_domestic_stock = inventory_by_good[good_idx] == 0;
+                // Low stock: inventory covers less than half a month of domestic demand.
+                let low_stock =
+                    inventory_by_good[good_idx] < domestic_sold_by_good[good_idx].saturating_div(2);
                 let unmet_domestic_need = unmet_need_by_good[good_idx];
 
-                if exported && depleted_domestic_stock && unmet_domestic_need {
+                // Export tariff: rises when exporting AND domestic supply is tight.
+                if exported && (low_stock || unmet_domestic_need) {
                     country.export_tariffs_by_good[good_idx] =
                         (country.export_tariffs_by_good[good_idx] + DYNAMIC_TARIFF_INCREASE_STEP)
                             .min(MAX_DYNAMIC_TARIFF_RATE);
@@ -265,6 +271,36 @@ impl World {
                             (current - DYNAMIC_TARIFF_DECREASE_STEP).max(baseline_tariff);
                     } else if current < baseline_tariff {
                         country.export_tariffs_by_good[good_idx] =
+                            (current + DYNAMIC_TARIFF_DECREASE_STEP).min(baseline_tariff);
+                    }
+                }
+
+                // Import tariff: rises to protect domestic industry when there is excess stock
+                // (foreign goods crowding out local producers); falls when needs go unmet.
+                let excess_domestic_stock =
+                    inventory_by_good[good_idx] > domestic_sold_by_good[good_idx].saturating_mul(2);
+                if unmet_domestic_need {
+                    // Consumers need more goods — lower barriers to allow cheaper imports.
+                    let current = country.import_tariffs_by_good[good_idx];
+                    if current > baseline_tariff {
+                        country.import_tariffs_by_good[good_idx] =
+                            (current - DYNAMIC_TARIFF_INCREASE_STEP).max(baseline_tariff);
+                    } else if current < baseline_tariff {
+                        country.import_tariffs_by_good[good_idx] =
+                            (current + DYNAMIC_TARIFF_INCREASE_STEP).min(baseline_tariff);
+                    }
+                } else if excess_domestic_stock {
+                    // Domestic producers are sitting on excess inventory — raise import barriers.
+                    country.import_tariffs_by_good[good_idx] =
+                        (country.import_tariffs_by_good[good_idx] + DYNAMIC_TARIFF_INCREASE_STEP)
+                            .min(MAX_DYNAMIC_TARIFF_RATE);
+                } else {
+                    let current = country.import_tariffs_by_good[good_idx];
+                    if current > baseline_tariff {
+                        country.import_tariffs_by_good[good_idx] =
+                            (current - DYNAMIC_TARIFF_DECREASE_STEP).max(baseline_tariff);
+                    } else if current < baseline_tariff {
+                        country.import_tariffs_by_good[good_idx] =
                             (current + DYNAMIC_TARIFF_DECREASE_STEP).min(baseline_tariff);
                     }
                 }
@@ -317,6 +353,23 @@ impl World {
         rates_by_good
     }
 
+    pub(crate) fn build_import_tariff_rates_from_countries(
+        countries: &[crate::sim::country::Country],
+    ) -> Vec<Vec<f64>> {
+        let country_count = countries.len();
+        let mut rates_by_good = vec![vec![0.0; country_count]; GOODS_COUNT];
+        for (buyer_country_idx, country) in countries.iter().enumerate() {
+            for (good_idx, rates) in rates_by_good.iter_mut().enumerate().take(GOODS_COUNT) {
+                rates[buyer_country_idx] = country
+                    .import_tariffs_by_good
+                    .get(good_idx)
+                    .copied()
+                    .unwrap_or(0.0);
+            }
+        }
+        rates_by_good
+    }
+
     pub(in crate::sim::world) fn rebuild_tariff_matrix_in_place(&mut self) {
         let country_count = self.countries.len();
         if self.tariff_rates_by_good.len() != GOODS_COUNT {
@@ -332,6 +385,25 @@ impl World {
             for (seller_country_idx, country) in self.countries.iter().enumerate() {
                 rates[seller_country_idx] = country
                     .export_tariffs_by_good
+                    .get(good_idx)
+                    .copied()
+                    .unwrap_or(0.0);
+            }
+        }
+
+        if self.import_tariff_rates_by_good.len() != GOODS_COUNT {
+            self.import_tariff_rates_by_good = vec![vec![0.0; country_count]; GOODS_COUNT];
+        }
+        for (good_idx, rates) in self
+            .import_tariff_rates_by_good
+            .iter_mut()
+            .enumerate()
+            .take(GOODS_COUNT)
+        {
+            rates.resize(country_count, 0.0);
+            for (buyer_country_idx, country) in self.countries.iter().enumerate() {
+                rates[buyer_country_idx] = country
+                    .import_tariffs_by_good
                     .get(good_idx)
                     .copied()
                     .unwrap_or(0.0);

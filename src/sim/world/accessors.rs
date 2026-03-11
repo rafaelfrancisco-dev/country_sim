@@ -14,6 +14,8 @@ impl World {
         let country_count = countries.len();
 
         let tariff_rates_by_good = Self::build_tariff_rates_from_countries(&countries);
+        let import_tariff_rates_by_good =
+            Self::build_import_tariff_rates_from_countries(&countries);
         let mut world = Self {
             day: 0,
             generation_seed,
@@ -31,6 +33,7 @@ impl World {
             stock_equity_export_queue: Vec::new(),
             monthly_export_caches: Vec::new(),
             tariff_rates_by_good,
+            import_tariff_rates_by_good,
             goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
         };
         world.initialize_fx_state();
@@ -115,6 +118,8 @@ impl World {
         event_log: VecDeque<SimEvent>,
         tariff_rates_by_good: Vec<Vec<f64>>,
     ) -> Self {
+        let import_tariff_rates_by_good =
+            Self::build_import_tariff_rates_from_countries(&countries);
         let mut world = Self {
             day,
             generation_seed,
@@ -132,6 +137,7 @@ impl World {
             stock_equity_export_queue: Vec::new(),
             monthly_export_caches: Vec::new(),
             tariff_rates_by_good,
+            import_tariff_rates_by_good,
             goods_runtime: super::goods_market::GoodsMarketDayCache::default(),
         };
         world.refresh_monthly_export_caches();

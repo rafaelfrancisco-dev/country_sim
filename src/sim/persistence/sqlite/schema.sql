@@ -371,6 +371,13 @@ CREATE TABLE IF NOT EXISTS country_export_tariffs (
     PRIMARY KEY (country_id, good_index)
 );
 
+CREATE TABLE IF NOT EXISTS country_import_tariffs (
+    country_id INTEGER NOT NULL REFERENCES countries(country_id) ON DELETE CASCADE,
+    good_index INTEGER NOT NULL,
+    tariff_rate REAL NOT NULL,
+    PRIMARY KEY (country_id, good_index)
+);
+
 CREATE TABLE IF NOT EXISTS country_fx_reserves_by_source (
     country_id INTEGER NOT NULL REFERENCES countries(country_id) ON DELETE CASCADE,
     source_country_index INTEGER NOT NULL,

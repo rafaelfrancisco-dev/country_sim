@@ -86,6 +86,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         .collect();
 
     let export_tariffs_by_good: Vec<f64> = country.export_tariffs_by_good.to_vec();
+    let import_tariffs_by_good: Vec<f64> = country.import_tariffs_by_good.to_vec();
     let pending_events: Vec<SimEventDto> = country
         .pending_events
         .iter()
@@ -163,6 +164,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         monthly_inflation_rate: country.monthly_inflation_rate,
         stock_market,
         export_tariffs_by_good,
+        import_tariffs_by_good,
         pending_events,
         initial_money_supply: country.initial_money_supply,
         household_cash_total: country.household_cash_total,

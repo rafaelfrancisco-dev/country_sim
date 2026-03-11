@@ -148,6 +148,7 @@ impl Country {
         // austerity_active is NOT reset here — persists until recomputed at start of next month
         self.monthly_household_spending = 0.0;
         self.monthly_tariff_collected = 0.0;
+        self.monthly_import_tariff_collected = 0.0;
         self.monthly_goods_import_spending = 0.0;
         self.monthly_goods_import_spending_base = 0.0;
         self.monthly_goods_export_revenue = 0.0;

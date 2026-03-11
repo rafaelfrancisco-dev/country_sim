@@ -7,9 +7,14 @@ impl World {
         good_id: GoodId,
         supplier_refs: &[SupplierRef],
         tariff_rates_by_good: &[Vec<f64>],
+        import_tariff_rates_by_good: &[Vec<f64>],
     ) -> Vec<Vec<QuoteTemplate>> {
         let country_count = self.countries.len();
         let tariff_rates_by_seller = tariff_rates_by_good
+            .get(good_id as usize)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let import_tariff_rates_by_buyer = import_tariff_rates_by_good
             .get(good_id as usize)
             .map(Vec::as_slice)
             .unwrap_or(&[]);
@@ -18,23 +23,32 @@ impl World {
                 let mut templates = supplier_refs
                     .iter()
                     .map(|supplier| {
-                        let tariff_cents = if supplier.seller_country_idx == buyer_country_idx {
-                            0
-                        } else {
-                            let tariff_rate = tariff_rates_by_seller
-                                .get(supplier.seller_country_idx)
-                                .copied()
-                                .unwrap_or(0.0);
-                            to_cents(from_cents(supplier.base_price_cents) * tariff_rate)
-                        };
-                        let landed_price_cents =
-                            supplier.base_price_cents.saturating_add(tariff_cents);
+                        let (tariff_cents, import_tariff_cents) =
+                            if supplier.seller_country_idx == buyer_country_idx {
+                                (0, 0)
+                            } else {
+                                let export_rate = tariff_rates_by_seller
+                                    .get(supplier.seller_country_idx)
+                                    .copied()
+                                    .unwrap_or(0.0);
+                                let import_rate = import_tariff_rates_by_buyer
+                                    .get(buyer_country_idx)
+                                    .copied()
+                                    .unwrap_or(0.0);
+                                let base = from_cents(supplier.base_price_cents);
+                                (to_cents(base * export_rate), to_cents(base * import_rate))
+                            };
+                        let landed_price_cents = supplier
+                            .base_price_cents
+                            .saturating_add(tariff_cents)
+                            .saturating_add(import_tariff_cents);
 
                         QuoteTemplate {
                             seller_country_idx: supplier.seller_country_idx,
                             seller_company_idx: supplier.seller_company_idx,
                             base_price_cents: supplier.base_price_cents,
                             tariff_cents,
+                            import_tariff_cents,
                             landed_price_cents,
                         }
                     })
@@ -89,6 +103,7 @@ impl World {
                 quote.landed_price_cents,
                 true,
             );
+            Self::apply_tariff_to_importer(buyer_country, quote.import_tariff_cents);
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
@@ -112,6 +127,7 @@ impl World {
                 quote.landed_price_cents,
                 true,
             );
+            Self::apply_tariff_to_importer(buyer_country, quote.import_tariff_cents);
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
                 quote.seller_company_idx,
@@ -207,6 +223,20 @@ impl World {
         let amount = from_cents(tariff_cents);
         country.monthly_tariff_collected = round_cents(country.monthly_tariff_collected + amount);
         country.adjust_treasury_balance_cents(tariff_cents);
+    }
+
+    pub(in crate::sim::world) fn apply_tariff_to_importer(
+        country: &mut crate::sim::country::Country,
+        import_tariff_cents: i64,
+    ) {
+        if import_tariff_cents <= 0 {
+            return;
+        }
+
+        let amount = from_cents(import_tariff_cents);
+        country.monthly_import_tariff_collected =
+            round_cents(country.monthly_import_tariff_collected + amount);
+        country.adjust_treasury_balance_cents(import_tariff_cents);
     }
 
     pub(in crate::sim::world) fn fill_suppliers_by_good(

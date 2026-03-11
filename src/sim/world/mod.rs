@@ -96,9 +96,12 @@ pub struct World {
     pub(crate) stock_country_export_queue: Vec<StockDailyCountryExportData>,
     pub(crate) stock_equity_export_queue: Vec<StockDailyEquityExportData>,
     monthly_export_caches: Vec<export::CountryMonthlyExportCache>,
-    /// Tariff rate lookup table: `tariff_rates_by_good[good_idx][seller_country_idx]`.
+    /// Export tariff lookup table: `tariff_rates_by_good[good_idx][seller_country_idx]`.
     /// Rebuilt in-place by `rebuild_tariff_matrix_in_place()` after tariff changes.
     pub(crate) tariff_rates_by_good: Vec<Vec<f64>>,
+    /// Import tariff lookup table: `import_tariff_rates_by_good[good_idx][buyer_country_idx]`.
+    /// Rebuilt in-place by `rebuild_tariff_matrix_in_place()` after tariff changes.
+    pub(crate) import_tariff_rates_by_good: Vec<Vec<f64>>,
     goods_runtime: goods_market::GoodsMarketDayCache,
 }
 

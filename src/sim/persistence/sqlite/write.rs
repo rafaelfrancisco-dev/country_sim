@@ -126,6 +126,12 @@ fn insert_country(
         country.id,
         &country.export_tariffs_by_good,
     )?;
+    insert_simple_pairs(
+        conn,
+        "country_import_tariffs",
+        country.id,
+        &country.import_tariffs_by_good,
+    )?;
     insert_map_pairs(
         conn,
         "country_fx_reserves_by_source",

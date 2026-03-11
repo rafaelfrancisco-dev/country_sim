@@ -236,7 +236,6 @@ impl SimulationWorker {
                                 &worker_phase_is_running,
                                 &worker_world_is_paused,
                             );
-
                             let mode_after = SimulationMode::from_atomic_u8(
                                 worker_sim_mode_state.load(Ordering::Acquire),
                             );
@@ -344,7 +343,6 @@ impl SimulationWorker {
             }
             return Err(WorkerError::CHANNEL_CLOSED);
         }
-
         Ok(())
     }
 

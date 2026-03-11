@@ -127,6 +127,7 @@ impl GoodsMarketDayCache {
                     good_idx as GoodId,
                     &self.suppliers_by_good[good_idx],
                     &world.tariff_rates_by_good,
+                    &world.import_tariff_rates_by_good,
                 );
             }
             self.quote_signature = quote_signature;
@@ -221,6 +222,7 @@ impl GoodsMarketDayCache {
                     seller_company_idx: template.seller_company_idx,
                     base_price_cents: template.base_price_cents,
                     tariff_cents: template.tariff_cents,
+                    import_tariff_cents: template.import_tariff_cents,
                     landed_price_cents: template.landed_price_cents,
                 });
             }
@@ -454,6 +456,16 @@ fn quote_signature(world: &World) -> u64 {
                 ((good_idx as u64) << 48)
                     ^ ((seller_country_idx as u64) << 24)
                     ^ (to_cents(*rate * 10_000.0) as u64),
+            );
+        }
+    }
+    for (good_idx, import_rates) in world.import_tariff_rates_by_good.iter().enumerate() {
+        for (buyer_country_idx, rate) in import_rates.iter().enumerate() {
+            signature ^= hash64(
+                ((good_idx as u64) << 48)
+                    ^ ((buyer_country_idx as u64) << 24)
+                    ^ (to_cents(*rate * 10_000.0) as u64)
+                    ^ 0x8000_0000_0000_0000, // distinguish import from export
             );
         }
     }
