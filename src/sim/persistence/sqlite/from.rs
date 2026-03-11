@@ -87,9 +87,6 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
     use super::from_rest::{bank_from_dto, company_from_dto, household_from_dto, sim_event_from_dto, stock_market_from_dto};
     use std::collections::HashMap;
 
-    let sim_params: crate::sim::params::SimulationParams = serde_json::from_str(&dto.sim_params_json)
-        .map_err(|e| PersistenceError::Deserialization(format!("sim_params: {e}")))?;
-
     let currency = CurrencySpec {
         code: Arc::from(dto.currency.code.as_str()),
         name: Arc::from(dto.currency.name.as_str()),
@@ -136,7 +133,7 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         birth_carry: dto.birth_carry,
         last_day_births: dto.last_day_births,
         last_day_deaths: dto.last_day_deaths,
-        sim_params,
+        sim_params: dto.sim_params.into(),
         treasury_balance: dto.treasury_balance,
         treasury_bank_id: dto.treasury_bank_id,
         monthly_tax_collected: dto.monthly_tax_collected,

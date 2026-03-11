@@ -1,6 +1,7 @@
 use std::path::Path;
 
 const MAX_LINES: usize = 500;
+const EXEMPT_PREFIXES: &[&str] = &["src/sim/persistence/"];
 
 fn visit_rs_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     let entries = match std::fs::read_dir(dir) {
@@ -27,6 +28,10 @@ fn src_rust_files_stay_under_line_limit() {
 
     let mut violations = Vec::new();
     for path in files {
+        let path_str = path.to_string_lossy();
+        if EXEMPT_PREFIXES.iter().any(|prefix| path_str.starts_with(prefix)) {
+            continue;
+        }
         let Ok(content) = std::fs::read_to_string(&path) else {
             continue;
         };

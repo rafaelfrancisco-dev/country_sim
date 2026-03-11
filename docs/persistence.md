@@ -60,26 +60,36 @@ Save files are written to the same directory as the executable:
   ...
 ```
 
-Each `.db` file is a self-contained SQLite database with two tables:
+Each `.db` file is a self-contained SQLite database with a normalized relational schema. There is no JSON in the database.
 
-| Table | Content |
-|-------|---------|
-| `save_metadata` | Save name, schema version, timestamps, seed, day, country count |
-| `world_json` | Full world state serialized as a single JSON blob |
+Key tables:
 
-The JSON blob is a snapshot of all simulation state at the moment `Shift+S` was pressed:
+| Group | Tables |
+|-------|--------|
+| Save metadata | `save_metadata`, `world_state`, `world_tariff_rates` |
+| Countries | `countries`, `country_sim_params`, `country_export_tariffs`, `country_fx_reserves_by_source` |
+| People | `people`, `person_loans`, `person_mortgages`, `person_foreign_deposits`, `person_essential_stock`, `person_superficial_stock`, `person_superficial_carry` |
+| Companies | `companies`, `company_open_positions`, `company_offered_job_types`, `company_founder_stakes`, `company_historical_ids`, `company_sales_history`, `company_profit_history`, `company_sold_units_history`, `company_employee_count_history`, `company_price_history`, `company_loan_payment_history`, `company_cash_balance_history`, `company_loans` |
+| Banks | `banks`, `bank_open_positions`, `bank_stock_positions` |
+| Households | `households` |
+| Stock market | `country_stock_markets`, `stock_market_person_portfolios`, `stock_market_person_positions`, `stock_market_bank_positions`, `stock_market_listed_equities`, `stock_market_equity_price_history`, `stock_market_equity_volume_history`, `stock_market_equity_market_cap_history`, `stock_market_equity_monthly_dps`, `stock_market_daily_index_history` |
+| Histories | `world_history`, `country_history`, `country_fx_source_history`, `bank_history` |
+| Events | `events` |
+
+The schema stores the same snapshot content as before, but as typed rows and columns:
 
 - `World`: day, seed, paused flag, policy rate, tariff matrix
-- `Country[]`: all fiscal, monetary, FX, housing, bond, and tracker fields
-- `Person[]` per country: employment, cash, loan, housing, stock, education, migration history
-- `Company[]` per country: financials, history ring-buffers, open positions, founder stakes
+- `Country[]`: fiscal, monetary, FX, housing, bond, and tracker fields
+- `SimulationParams`: flattened typed row in `country_sim_params`
+- `Person[]` per country: employment, cash, debt, housing, stock, education, migration history
+- `Company[]` per country: financials, ring-buffer histories, open positions, founder stakes
 - `Bank[]` per country: reserve, deposits, equity, run/resolution state, stock positions
 - `Household[]` per country: membership and shelter state
-- `StockMarket` per country: portfolios, listings, order-book history
+- `StockMarket` per country: portfolios, listings, equity histories, daily index history
 - `world_history` / `country_history`: rolling 120-month metric snapshots
 - `bank_history`: per-bank reserve/deposit/equity time series
 - `country_fx_source_history`: per-source FX reserve history
-- `event_log`: recent simulation events
+- `events`: both world event log and country pending events, stored as typed rows with nullable variant columns
 
 ---
 
@@ -97,15 +107,17 @@ The `▶` marker highlights the currently focused row. Up to five saves are show
 
 ## Schema Version
 
-The schema version is stored in `save_metadata.schema_version` (currently `1`). Loading a file with a mismatched schema version returns an error and does not attempt deserialization. This prevents silent corruption from version mismatches.
+The schema version is stored in `save_metadata.schema_version` (currently `2`). Loading a file with a mismatched schema version returns an error and does not attempt deserialization. This prevents silent corruption from version mismatches.
+
+Version `2` is intentionally incompatible with version `1`. Older save files that used the legacy `world_json` snapshot table are rejected with a schema-mismatch error instead of being migrated implicitly.
 
 ---
 
 ## Technical Notes
 
-- **DTO layer**: domain structs are not given `Serialize`/`Deserialize` derives. A separate mirror layer in `src/sim/persistence/dto.rs` maps domain types to plain data structs for serialization. This keeps simulation internals free of serde coupling.
+- **DTO layer**: domain structs are not given `Serialize`/`Deserialize` derives. A separate mirror layer in `src/sim/persistence/dto.rs` maps domain types to plain data structs used by the relational reader/writer. This keeps simulation internals free of persistence coupling.
 - **Reconstruction**: on load, `Country::rebuild_person_runtime()` re-indexes all employment and portfolio caches from the raw person data. Ephemeral runtime state (`CountryRuntime`, `GoodsMarketDayCache`) is rebuilt from scratch.
-- **Fixed-size arrays**: Rust arrays (`[f32; N]`, `[u16; N]`) are serialized as `Vec` in the DTO and reconstructed with a bounds-checked copy on load.
-- **Numeric map keys**: `HashMap<u32, …>` and `HashMap<u16, …>` keys are serialized as `String` (JSON requires string keys) and parsed back with `key.parse::<T>().ok()` on load.
-- **Events**: `SimEvent` is serialized as `{ kind: "TypeName", payload: { … } }`. Known variants are reconstructed from the payload on load; unrecognized kinds fall back to a neutral `PopBirth { count: 0 }` placeholder so future schema additions do not break loading older saves.
-- **Source modules**: `src/sim/persistence/` — `mod.rs`, `error.rs`, `repository.rs`, `dto.rs`, `sqlite/mod.rs`, `sqlite/to.rs`, `sqlite/to_rest.rs`, `sqlite/from.rs`, `sqlite/from_rest.rs`.
+- **Fixed-size arrays**: Rust arrays (`[f32; N]`, `[u16; N]`) are stored as row-per-slot tables and reconstructed with a bounds-checked copy on load.
+- **Numeric map keys**: runtime `HashMap<u32, …>` and `HashMap<u16, …>` DTO keys are still normalized into ordered row sets in SQLite and parsed back into numeric keys on load.
+- **Events**: `SimEvent` variants are stored in one `events` table with `event_kind` plus nullable typed columns for variant-specific fields. Unknown kinds still fall back to a neutral `PopBirth { count: 0 }` placeholder during reconstruction.
+- **Source modules**: `src/sim/persistence/` — `mod.rs`, `error.rs`, `repository.rs`, `dto.rs`, `sqlite/mod.rs`, `sqlite/schema.rs`, `sqlite/schema.sql`, `sqlite/write.rs`, `sqlite/read.rs`, `sqlite/params_row.rs`, `sqlite/event_row.rs`, `sqlite/metric_row.rs`.

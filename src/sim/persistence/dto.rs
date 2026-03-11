@@ -2,7 +2,15 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use crate::sim::params::{
+    AnnualWageRaiseParams, BankingSystemParams, CompanyDistressParams, CompanyFormationParams,
+    CompanyGrowthParams, DemographicParams, EducationParams, EssentialEconomyParams,
+    FiscalParams, GoodsMarketParams, GovernmentBackfillParams, HousingMarketParams, LaborChurnParams,
+    LaborDemandParams, LaborMobilityParams, LaborParams, MigrationParams, MonetaryPolicyParams,
+    SimulationParams, StockMarketParams, TaxPolicyParams,
+};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LoanAccountDto {
     pub debt_balance: f64,
     pub created_principal_outstanding: f64,
@@ -13,7 +21,7 @@ pub struct LoanAccountDto {
     pub lender_bank_id: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MortgageAccountDto {
     pub principal_balance: f64,
     pub original_principal: f64,
@@ -26,7 +34,7 @@ pub struct MortgageAccountDto {
     pub collateral_value: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum HousingStatusDto {
     Unhoused,
@@ -40,7 +48,7 @@ pub enum HousingStatusDto {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum EmploymentStatusDto {
     Unemployed,
@@ -54,7 +62,7 @@ pub enum EmploymentStatusDto {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ForeignDepositDto {
     pub country_id: u16,
     pub bank_id: u16,
@@ -63,7 +71,7 @@ pub struct ForeignDepositDto {
     pub opening_fx_rate_home_per_foreign: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PersonDto {
     pub id: u32,
     pub birth_country_id: u16,
@@ -110,21 +118,21 @@ pub struct PersonDto {
     pub foreign_deposit: Option<ForeignDepositDto>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JobOpeningDto {
     pub job_type_id: u8,
     pub slots: u16,
     pub offered_monthly_salary: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FounderStakeDto {
     pub person_id: u32,
     pub shares_owned: u64,
     pub cash_contributed: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompanyDto {
     pub id: u16,
     pub historical_ids: Vec<u16>,
@@ -179,14 +187,14 @@ pub struct CompanyDto {
     pub last_month_rent_revenue: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BankJobOpeningDto {
     pub job_type_id: u8,
     pub slots: u16,
     pub offered_monthly_salary: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BankStockPositionDto {
     pub security_country_id: u16,
     pub security_company_id: u16,
@@ -194,7 +202,7 @@ pub struct BankStockPositionDto {
     pub avg_cost: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BankDto {
     pub id: u16,
     pub name: String,
@@ -223,14 +231,14 @@ pub struct BankDto {
     pub stock_positions: Vec<BankStockPositionDto>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HouseholdDto {
     pub id: u32,
     pub member_count: u16,
     pub sheltered: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MetricPointDto {
     pub month: u64,
     pub fx_rate_local_per_base: f64,
@@ -280,7 +288,7 @@ pub struct MetricPointDto {
     pub monthly_migrants_for_distress: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BankMetricPointDto {
     pub month: u64,
     pub reserve: f64,
@@ -290,7 +298,7 @@ pub struct BankMetricPointDto {
     pub run_intensity: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionDto {
     pub security_country_id: u16,
     pub security_company_id: u16,
@@ -299,7 +307,7 @@ pub struct PositionDto {
     pub pledged_shares: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PortfolioDto {
     pub positions: Vec<PositionDto>,
     pub realized_pnl_mtd: f64,
@@ -307,7 +315,7 @@ pub struct PortfolioDto {
     pub last_completed_month_dividends: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ListedEquityDto {
     pub company_id: u16,
     pub current_company_id: u16,
@@ -328,7 +336,7 @@ pub struct ListedEquityDto {
     pub dps_cursor: u8,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DailyIndexPointDto {
     pub day: u64,
     pub index_value: f64,
@@ -336,7 +344,7 @@ pub struct DailyIndexPointDto {
     pub bank_equity_exposure: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StockMarketDto {
     /// key = person_id as string
     pub person_portfolios: HashMap<String, PortfolioDto>,
@@ -351,20 +359,195 @@ pub struct StockMarketDto {
     pub forced_liquidations_mtd: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimEventDto {
     pub kind: String,
-    pub payload: serde_json::Value,
+    pub day: u64,
+    pub entity_kind: Option<u8>,
+    pub bank_kind: Option<u8>,
+    pub ipo_reason: Option<u8>,
+    pub country_name: Option<String>,
+    pub from_country_name: Option<String>,
+    pub to_country_name: Option<String>,
+    pub home_country_name: Option<String>,
+    pub foreign_country_name: Option<String>,
+    pub currency_code: Option<String>,
+    pub company_name: Option<String>,
+    pub bank_name: Option<String>,
+    pub acquired_by_bank_name: Option<String>,
+    pub ticker: Option<String>,
+    pub disaster_label: Option<String>,
+    pub summary: Option<String>,
+    pub count: Option<u32>,
+    pub entity_id: Option<u32>,
+    pub person_id: Option<u32>,
+    pub company_id: Option<u16>,
+    pub bank_id: Option<u16>,
+    pub acquired_by_bank_id: Option<u16>,
+    pub from_company_id: Option<u16>,
+    pub to_company_id: Option<u16>,
+    pub produced_good_id: Option<u8>,
+    pub founders: Option<u16>,
+    pub job_type_id: Option<u8>,
+    pub intensity_pct: Option<u8>,
+    pub months_unemployed: Option<u32>,
+    pub months_on_benefits: Option<u32>,
+    pub total_recipients: Option<u32>,
+    pub entities_affected: Option<u32>,
+    pub migrated_depositors: Option<u32>,
+    pub migrated_companies: Option<u32>,
+    pub migrated_loans: Option<u32>,
+    pub quits: Option<u32>,
+    pub retirements: Option<u32>,
+    pub layoffs_non_distress: Option<u32>,
+    pub replacement_openings: Option<u32>,
+    pub laid_off_count: Option<u16>,
+    pub listed_count: Option<u64>,
+    pub shares_issued: Option<u64>,
+    pub primary_shares_issued: Option<u64>,
+    pub secondary_shares_sold: Option<u64>,
+    pub shares_liquidated: Option<u64>,
+    pub shares_wiped: Option<u64>,
+    pub principal: Option<f64>,
+    pub principal_lost: Option<f64>,
+    pub unpaid_amount: Option<f64>,
+    pub total_amount: Option<f64>,
+    pub total_funding: Option<f64>,
+    pub treasury_funding: Option<f64>,
+    pub deficit_funding: Option<f64>,
+    pub seed_capital: Option<f64>,
+    pub health: Option<f64>,
+    pub requested: Option<f64>,
+    pub haircut_loss: Option<f64>,
+    pub treasury_support: Option<f64>,
+    pub amount_lost: Option<f64>,
+    pub cut_rate: Option<f64>,
+    pub monthly_salary: Option<f64>,
+    pub principal_written_off: Option<f64>,
+    pub price_per_share: Option<f64>,
+    pub total_raised: Option<f64>,
+    pub primary_raised: Option<f64>,
+    pub secondary_raised: Option<f64>,
+    pub founder_payout_total: Option<f64>,
+    pub per_share: Option<f64>,
+    pub proceeds: Option<f64>,
+    pub total_market_cap: Option<f64>,
+    pub total_turnover: Option<f64>,
+    pub new_rate: Option<f64>,
+    pub old_rate: Option<f64>,
+    pub inflation_rate: Option<f64>,
+    pub unemployment_rate: Option<f64>,
+    pub face_value: Option<f64>,
+    pub coupon_rate: Option<f64>,
+    pub total_coupon: Option<f64>,
+    pub shortfall: Option<f64>,
+    pub monetized: Option<f64>,
+    pub amount: Option<f64>,
+    pub inflation_shortfall: Option<f64>,
+    pub unemployment_gap: Option<f64>,
+    pub price: Option<f64>,
+    pub home_amount: Option<f64>,
+    pub foreign_amount: Option<f64>,
+    pub fx_rate_home_per_foreign: Option<f64>,
+    pub annual_rate: Option<f64>,
+    pub returned_home_amount: Option<f64>,
+    pub returned_foreign_amount: Option<f64>,
+    pub reserves_base: Option<f64>,
+    pub reserve_gap: Option<f64>,
+    pub pressure: Option<f64>,
+    pub new_price_index: Option<f64>,
+    pub change_pct: Option<f64>,
+    pub amount_due: Option<f64>,
+    pub amount_paid: Option<f64>,
+    pub transferred_reserves: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CurrencySpecDto {
     pub code: String,
     pub name: String,
     pub symbol: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SimulationParamsDto {
+    pub demographic: DemographicParams,
+    pub education: EducationParams,
+    pub labor: LaborParams,
+    pub migration: MigrationParams,
+    pub essentials: EssentialEconomyParams,
+    pub annual_wage_raise: AnnualWageRaiseParams,
+    pub labor_churn: LaborChurnParams,
+    pub labor_demand: LaborDemandParams,
+    pub company_growth: CompanyGrowthParams,
+    pub company_formation: CompanyFormationParams,
+    pub company_distress: CompanyDistressParams,
+    pub labor_mobility: LaborMobilityParams,
+    pub goods_market: GoodsMarketParams,
+    pub tax: TaxPolicyParams,
+    pub fiscal: FiscalParams,
+    pub government_backfill: GovernmentBackfillParams,
+    pub stock_market: StockMarketParams,
+    pub monetary: MonetaryPolicyParams,
+    pub banking: BankingSystemParams,
+    pub housing: HousingMarketParams,
+}
+
+impl From<SimulationParams> for SimulationParamsDto {
+    fn from(value: SimulationParams) -> Self {
+        Self {
+            demographic: value.demographic,
+            education: value.education,
+            labor: value.labor,
+            migration: value.migration,
+            essentials: value.essentials,
+            annual_wage_raise: value.annual_wage_raise,
+            labor_churn: value.labor_churn,
+            labor_demand: value.labor_demand,
+            company_growth: value.company_growth,
+            company_formation: value.company_formation,
+            company_distress: value.company_distress,
+            labor_mobility: value.labor_mobility,
+            goods_market: value.goods_market,
+            tax: value.tax,
+            fiscal: value.fiscal,
+            government_backfill: value.government_backfill,
+            stock_market: value.stock_market,
+            monetary: value.monetary,
+            banking: value.banking,
+            housing: value.housing,
+        }
+    }
+}
+
+impl From<SimulationParamsDto> for SimulationParams {
+    fn from(value: SimulationParamsDto) -> Self {
+        Self {
+            demographic: value.demographic,
+            education: value.education,
+            labor: value.labor,
+            migration: value.migration,
+            essentials: value.essentials,
+            annual_wage_raise: value.annual_wage_raise,
+            labor_churn: value.labor_churn,
+            labor_demand: value.labor_demand,
+            company_growth: value.company_growth,
+            company_formation: value.company_formation,
+            company_distress: value.company_distress,
+            labor_mobility: value.labor_mobility,
+            goods_market: value.goods_market,
+            tax: value.tax,
+            fiscal: value.fiscal,
+            government_backfill: value.government_backfill,
+            stock_market: value.stock_market,
+            monetary: value.monetary,
+            banking: value.banking,
+            housing: value.housing,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CountryDto {
     pub id: u16,
     pub name: String,
@@ -376,7 +559,7 @@ pub struct CountryDto {
     pub birth_carry: f64,
     pub last_day_births: u32,
     pub last_day_deaths: u32,
-    pub sim_params_json: String,
+    pub sim_params: SimulationParamsDto,
     pub treasury_balance: f64,
     pub treasury_bank_id: Option<u16>,
     pub monthly_tax_collected: f64,
@@ -458,7 +641,7 @@ pub struct CountryDto {
     pub households: Vec<HouseholdDto>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorldDto {
     pub day: u64,
     pub generation_seed: u64,
@@ -474,7 +657,7 @@ pub struct WorldDto {
     pub event_log: Vec<SimEventDto>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BankHistoryEntryDto {
     pub country_idx: usize,
     pub bank_id: u16,
