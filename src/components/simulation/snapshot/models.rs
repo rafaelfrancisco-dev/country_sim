@@ -75,6 +75,8 @@ pub(in crate::components::simulation) struct CompanyRowSnapshot {
     pub export_sold: String,
     pub domestic_export_split: String,
     pub sales: String,
+    pub profit: String,
+    pub is_profitable: bool,
     pub is_selected: bool,
     pub is_even: bool,
 }

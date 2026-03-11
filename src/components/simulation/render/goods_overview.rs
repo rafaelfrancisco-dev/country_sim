@@ -1,14 +1,14 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{
         Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Table, Wrap,
     },
+    Frame,
 };
 
-use super::super::{Simulation, theme};
+use super::super::{theme, Simulation};
 use crate::components::simulation::snapshot::{GoodsTabSnapshot, RunningSnapshot};
 use crate::components::simulation::ui_state::SelectionFocus;
 
@@ -42,20 +42,21 @@ impl Simulation {
         world: &RunningSnapshot,
         tab: &GoodsTabSnapshot,
     ) {
-        let avg_label = format!("Avg {}", world.currency_symbol);
+        let avg_label = format!("Avg(M) {}", world.currency_symbol);
         let header = Row::new([
             Cell::from("ID"),
             Cell::from("Company"),
             Cell::from("Good"),
-            Cell::from("Price"),
+            Cell::from("Price(M)"),
             Cell::from(avg_label),
-            Cell::from("Inv"),
-            Cell::from("Prod"),
-            Cell::from("Sold"),
+            Cell::from("Inv(D)"),
+            Cell::from("Prod(M)"),
+            Cell::from("Sold(M)"),
             Cell::from("Tot Sold"),
-            Cell::from("Export"),
-            Cell::from("D/X"),
-            Cell::from("Sales"),
+            Cell::from("Export(M)"),
+            Cell::from("D/X(M)"),
+            Cell::from("Sales(M)"),
+            Cell::from("Profit(M)"),
         ])
         .style(
             Style::default()
@@ -79,7 +80,7 @@ impl Simulation {
             .skip(view_scroll)
             .take(visible_height)
             .map(|company| {
-                let style =
+                let base_style =
                     if company.is_selected && world.selection_focus == SelectionFocus::Company {
                         Style::default()
                             .fg(theme::TEXT_PRIMARY)
@@ -93,21 +94,27 @@ impl Simulation {
                             .bg(Color::Rgb(23, 31, 48))
                     };
 
+                let profit_style = if company.is_profitable {
+                    base_style.fg(Color::Green)
+                } else {
+                    base_style.fg(Color::Red)
+                };
+
                 Row::new([
-                    Cell::from(company.company_id.clone()),
-                    Cell::from(company.name.clone()),
-                    Cell::from(company.good.clone()),
-                    Cell::from(company.price.clone()),
-                    Cell::from(company.avg_price.clone()),
-                    Cell::from(company.inventory.clone()),
-                    Cell::from(company.produced.clone()),
-                    Cell::from(company.sold.clone()),
-                    Cell::from(company.total_sold.clone()),
-                    Cell::from(company.export_sold.clone()),
-                    Cell::from(company.domestic_export_split.clone()),
-                    Cell::from(company.sales.clone()),
+                    Cell::from(company.company_id.clone()).style(base_style),
+                    Cell::from(company.name.clone()).style(base_style),
+                    Cell::from(company.good.clone()).style(base_style),
+                    Cell::from(company.price.clone()).style(base_style),
+                    Cell::from(company.avg_price.clone()).style(base_style),
+                    Cell::from(company.inventory.clone()).style(base_style),
+                    Cell::from(company.produced.clone()).style(base_style),
+                    Cell::from(company.sold.clone()).style(base_style),
+                    Cell::from(company.total_sold.clone()).style(base_style),
+                    Cell::from(company.export_sold.clone()).style(base_style),
+                    Cell::from(company.domestic_export_split.clone()).style(base_style),
+                    Cell::from(company.sales.clone()).style(base_style),
+                    Cell::from(company.profit.clone()).style(profit_style),
                 ])
-                .style(style)
             });
 
         let widths = [
@@ -115,13 +122,15 @@ impl Simulation {
             Constraint::Length(18),
             Constraint::Length(18),
             Constraint::Length(9),
-            Constraint::Length(9),
+            Constraint::Length(11),
             Constraint::Length(7),
-            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(10),
-            Constraint::Length(12),
+            Constraint::Length(10),
+            Constraint::Length(10),
         ];
 
         let start = if total_rows == 0 { 0 } else { view_scroll + 1 };
@@ -252,13 +261,13 @@ impl Simulation {
         let header = Row::new([
             "Good",
             "Prods",
-            "Avg Price",
-            "Inv",
-            "Last Mo Prod",
-            "Last Mo Sold",
-            "Export",
-            "Daily Dem",
-            "Last Mo Dem",
+            "Avg Price(M)",
+            "Inv(D)",
+            "Last Mo Prod(M)",
+            "Last Mo Sold(M)",
+            "Export(M)",
+            "Daily Dem(D)",
+            "Last Mo Dem(M)",
         ])
         .style(
             Style::default()
@@ -269,13 +278,13 @@ impl Simulation {
         let widths = [
             Constraint::Min(16),
             Constraint::Length(5),
-            Constraint::Length(10),
+            Constraint::Length(13),
             Constraint::Length(7),
-            Constraint::Length(11),
-            Constraint::Length(11),
-            Constraint::Length(8),
-            Constraint::Length(9),
-            Constraint::Length(11),
+            Constraint::Length(15),
+            Constraint::Length(15),
+            Constraint::Length(10),
+            Constraint::Length(12),
+            Constraint::Length(14),
         ];
 
         frame.render_widget(

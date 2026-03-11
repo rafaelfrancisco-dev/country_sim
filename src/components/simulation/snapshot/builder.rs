@@ -181,6 +181,7 @@ impl UiSnapshot {
                             money(avg, currency_symbol)
                         };
 
+                        let is_profitable = company.last_completed_month_profit > 0.0;
                         company_rows.push(CompanyRowSnapshot {
                             company_id: company.id.to_string(),
                             name: company.name.to_string(),
@@ -202,6 +203,8 @@ impl UiSnapshot {
                                 company.last_completed_month_export_units_sold
                             ),
                             sales: money(company.last_completed_month_sales, currency_symbol),
+                            profit: money(company.last_completed_month_profit, currency_symbol),
+                            is_profitable,
                             is_selected: row_idx == selected_abs,
                             is_even: row_idx.is_multiple_of(2),
                         });
