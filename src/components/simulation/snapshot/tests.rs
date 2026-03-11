@@ -299,6 +299,52 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
 }
 
 #[test]
+fn goods_company_rows_use_completed_month_sales_metrics() {
+    let people = vec![Person::new(1, 30, 0, 101)];
+    let mut company = Company::new(1, "Water Works".to_string(), vec![], 0);
+    company.unit_price = 10.0;
+    company.inventory_units = 30;
+    company.last_month_units_produced = 999;
+    company.last_month_units_sold = 888;
+    company.last_month_export_units_sold = 777;
+    company.last_month_domestic_units_sold = 111;
+    company.last_month_sales = 8_888.0;
+    company.last_completed_month_units_produced = 40;
+    company.last_completed_month_units_sold = 35;
+    company.last_completed_month_export_units_sold = 5;
+    company.last_completed_month_domestic_units_sold = 30;
+    company.last_completed_month_sales = 350.0;
+    company.sold_units_history = VecDeque::from(vec![12, 35]);
+
+    let country = Country::with_economy(1, "A".to_string(), people, vec![company], 0.0);
+    let world = World::new(vec![country]);
+    let expected_currency = world
+        .country(0)
+        .expect("country")
+        .currency_symbol()
+        .to_string();
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Goods,
+            goods_main_page: GoodsMainPage::Companies,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
+        panic!("goods tab payload expected");
+    };
+    let row = goods_tab.company_rows.first().expect("company row");
+
+    assert_eq!(row.produced, "40");
+    assert_eq!(row.sold, "35");
+    assert_eq!(row.total_sold, "47");
+    assert_eq!(row.export_sold, "5");
+    assert_eq!(row.domestic_export_split, "30/5");
+    assert_eq!(row.sales, format!("{expected_currency}350.00"));
+}
+
+#[test]
 fn person_related_events_apply_shared_filter_and_country_scope() {
     let mut world = World::new(vec![
         Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),

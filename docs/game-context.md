@@ -100,6 +100,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - `Goods`: company and goods market table + company details
   - Goods list mode has two top-level pages:
     - page 1: company table + goods summary
+      - company rows show completed-month production/sales metrics, while the summary panel keeps its month-to-date country aggregates
     - page 2: per-good production/demand overview for the selected country
   - Company details pages:
     - page 1: company overview

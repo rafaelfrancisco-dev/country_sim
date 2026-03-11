@@ -188,18 +188,20 @@ impl UiSnapshot {
                             price: money(company.unit_price, currency_symbol),
                             avg_price,
                             inventory: compact_count(company.inventory_units),
-                            produced: compact_count(company.last_month_units_produced),
-                            sold: compact_count(company.last_month_units_sold),
+                            produced: compact_count(company.last_completed_month_units_produced),
+                            sold: compact_count(company.last_completed_month_units_sold),
                             total_sold: compact_count(
                                 company.sold_units_history.iter().sum::<u32>(),
                             ),
-                            export_sold: compact_count(company.last_month_export_units_sold),
+                            export_sold: compact_count(
+                                company.last_completed_month_export_units_sold,
+                            ),
                             domestic_export_split: format!(
                                 "{}/{}",
-                                company.last_month_domestic_units_sold,
-                                company.last_month_export_units_sold
+                                company.last_completed_month_domestic_units_sold,
+                                company.last_completed_month_export_units_sold
                             ),
-                            sales: money(company.last_month_sales, currency_symbol),
+                            sales: money(company.last_completed_month_sales, currency_symbol),
                             is_selected: row_idx == selected_abs,
                             is_even: row_idx.is_multiple_of(2),
                         });
