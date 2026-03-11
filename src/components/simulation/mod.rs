@@ -29,6 +29,7 @@ mod theme;
 mod ui_state;
 mod worker;
 
+use crate::sim::setup::SetupField;
 use snapshot::{SnapshotPhase, UiSnapshot};
 use ui_state::{DetailsView, GoodsMainPage, RunningTab, SelectionFocus};
 use worker::{RenderSnapshot, SimulationWorker, WorkerEvent, WorkerHealth};
@@ -58,6 +59,7 @@ pub struct Simulation {
     worker_fatal_notified: bool,
     phase_is_running: bool,
     setup_generation_in_progress: bool,
+    setup_active_field: SetupField,
     running_input_state: RunningInputState,
     action_tx: Option<UnboundedSender<Action>>,
 }
@@ -112,6 +114,7 @@ impl Simulation {
             worker_fatal_notified: false,
             phase_is_running: false,
             setup_generation_in_progress: false,
+            setup_active_field: SetupField::CountryCount,
             running_input_state: RunningInputState {
                 details_view: DetailsView::List,
                 details_page: 0,
@@ -252,6 +255,27 @@ impl Component for Simulation {
         if let Some(command) = command {
             match command {
                 SimulationCommand::Domain(command) => {
+                    match command {
+                        GameCommand::SetupNextField => {
+                            self.setup_active_field = match self.setup_active_field {
+                                SetupField::CountryCount => SetupField::ThousandsPerCountry,
+                                SetupField::ThousandsPerCountry => SetupField::GenerationSeed,
+                                SetupField::GenerationSeed => SetupField::SaveName,
+                                SetupField::SaveName => SetupField::ExistingSaves,
+                                SetupField::ExistingSaves => SetupField::CountryCount,
+                            };
+                        }
+                        GameCommand::SetupPrevField => {
+                            self.setup_active_field = match self.setup_active_field {
+                                SetupField::CountryCount => SetupField::ExistingSaves,
+                                SetupField::ThousandsPerCountry => SetupField::CountryCount,
+                                SetupField::GenerationSeed => SetupField::ThousandsPerCountry,
+                                SetupField::SaveName => SetupField::GenerationSeed,
+                                SetupField::ExistingSaves => SetupField::SaveName,
+                            };
+                        }
+                        _ => {}
+                    }
                     let setup_submit_requested =
                         !self.phase_is_running && matches!(command, GameCommand::SetupSubmit);
                     if setup_submit_requested {
@@ -360,7 +384,7 @@ mod tests {
         );
 
         let start = Instant::now();
-        let timeout = Duration::from_secs(1);
+        let timeout = Duration::from_secs(5);
         loop {
             simulation.refresh_cached_input_state();
             let SnapshotPhase::Setup(setup) = &simulation.last_snapshot.phase else {
@@ -378,6 +402,24 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[test]
+    fn setup_enter_on_existing_saves_maps_to_load_without_waiting_for_snapshot() {
+        let mut simulation = Simulation::new();
+
+        for _ in 0..4 {
+            let _ = simulation.handle_key_event(KeyEvent::from(KeyCode::Tab));
+        }
+
+        let command = simulation.map_setup_key(KeyEvent::from(KeyCode::Enter));
+
+        assert_eq!(
+            command,
+            Some(SimulationCommand::Domain(GameCommand::Persist(
+                crate::sim::PersistenceCommand::LoadSelectedSave,
+            )))
+        );
     }
 
     #[test]

@@ -253,7 +253,7 @@ impl Simulation {
 
         frame.render_widget(
             Paragraph::new(
-                "Keys: [Tab/Shift+Tab] change field  [0-9] edit  [Backspace] erase  [Enter] start (or load when Existing Saves focused)  [w/s] navigate saves  [Shift+S] save while running",
+                "Keys: [Tab/Shift+Tab] change field  [0-9] edit  [Backspace] erase  [Enter] start (or load when Existing Saves focused)  [w/s] navigate saves",
             )
             .style(theme::muted_text())
             .wrap(Wrap { trim: true }),

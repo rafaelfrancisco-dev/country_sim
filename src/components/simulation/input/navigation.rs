@@ -13,14 +13,9 @@ impl Simulation {
         &self,
         key: KeyEvent,
     ) -> Option<SimulationCommand> {
-        use crate::components::simulation::snapshot::SnapshotPhase;
         use crate::sim::setup::SetupField;
 
-        // Read the active field from the last snapshot to route input correctly.
-        let active_field = match &self.last_snapshot.phase {
-            SnapshotPhase::Setup(s) => s.active_field,
-            _ => SetupField::CountryCount,
-        };
+        let active_field = self.setup_active_field;
 
         match key.code {
             KeyCode::Tab => return Some(SimulationCommand::Domain(GameCommand::SetupNextField)),
