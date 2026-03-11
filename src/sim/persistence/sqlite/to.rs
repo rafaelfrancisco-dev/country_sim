@@ -162,7 +162,8 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         last_completed_month_coupon_paid: country.last_completed_month_coupon_paid,
         last_completed_month_bonds_issued: country.last_completed_month_bonds_issued,
         last_completed_month_bonds_matured: country.last_completed_month_bonds_matured,
-        last_completed_month_savings_interest_paid: country.last_completed_month_savings_interest_paid,
+        last_completed_month_savings_interest_paid: country
+            .last_completed_month_savings_interest_paid,
         last_completed_month_fx_net_flow_base: country.last_completed_month_fx_net_flow_base,
         last_completed_month_rent_collected: country.last_completed_month_rent_collected,
         last_completed_month_mortgage_payments: country.last_completed_month_mortgage_payments,
@@ -329,7 +330,8 @@ pub(super) fn person_to_dto(p: &Person) -> PersonDto {
         last_month_mortgage_payment: p.last_month_mortgage_payment,
         last_completed_month_spending: p.last_completed_month_spending,
         last_completed_month_goods_spending: p.last_completed_month_goods_spending,
-        last_completed_month_imported_goods_spending: p.last_completed_month_imported_goods_spending,
+        last_completed_month_imported_goods_spending: p
+            .last_completed_month_imported_goods_spending,
         last_completed_month_goods_units_bought: p.last_completed_month_goods_units_bought,
         last_completed_month_loan_payment: p.last_completed_month_loan_payment,
         last_completed_month_new_loan: p.last_completed_month_new_loan,

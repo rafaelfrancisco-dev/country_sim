@@ -302,7 +302,10 @@ fn tariff_increases_when_exported_good_has_low_stock_even_without_unmet_needs() 
     world.adjust_dynamic_country_tariffs();
     let after = world.countries[1].export_tariffs_by_good[0];
 
-    assert!(after > before, "tariff should rise when stock < half of domestic sales: before={before}, after={after}");
+    assert!(
+        after > before,
+        "tariff should rise when stock < half of domestic sales: before={before}, after={after}"
+    );
 }
 
 #[test]

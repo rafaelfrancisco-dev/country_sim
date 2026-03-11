@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use super::Country;
 #[cfg(test)]
-use crate::sim::company::{build_default_companies, DEFAULT_COMPANIES_PER_COUNTRY};
+use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
 use crate::sim::{
     bank::{Bank, BankKind},
     company::Company,
     currency::generated_currency,
-    essentials::{estimated_household_count, Household},
+    essentials::{Household, estimated_household_count},
     good::GOODS_COUNT,
     money::round_cents,
     params::SimulationParams,

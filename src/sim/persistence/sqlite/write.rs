@@ -9,11 +9,11 @@ use crate::sim::persistence::dto::{
 };
 
 use super::{
+    SCHEMA_VERSION,
     helpers::{
         bool_to_i64, execute_rows, insert_indexed_integer_series, insert_indexed_real_series,
     },
     params_row::insert_country_sim_params,
-    SCHEMA_VERSION,
 };
 
 pub(super) fn save_snapshot(

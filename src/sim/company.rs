@@ -2,8 +2,8 @@ use std::{collections::VecDeque, sync::Arc};
 
 use super::{
     bank::{BankId, LoanAccount},
-    good::{common_goods, good_by_id, GoodId},
-    job::{common_job_types, job_by_id, salary_for_job, JobTypeId},
+    good::{GoodId, common_goods, good_by_id},
+    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
     money::round_cents,
     params::{CompanyGrowthParams, GoodsMarketParams, LaborDemandParams},
 };
@@ -333,7 +333,9 @@ impl Company {
 
     pub fn recompute_profitability(&mut self) {
         self.last_month_profit = round_cents(
-            self.last_month_sales - self.last_month_payroll_paid - self.last_month_loan_payment,
+            self.last_month_sales + self.last_month_rent_revenue
+                - self.last_month_payroll_paid
+                - self.last_month_loan_payment,
         );
         if self.last_month_profit > 0.0 {
             self.consecutive_profitable_months =

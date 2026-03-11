@@ -3,13 +3,13 @@ use std::{collections::VecDeque, sync::Arc};
 use super::*;
 use crate::components::simulation::ui_state::{DetailsView, GoodsMainPage};
 use crate::sim::{
+    GameCommand, GameEngine, GamePhase,
     company::Company,
     country::Country,
     event::{EntityKind, IpoReason, SimEvent},
     person::Person,
     runtime::SimulationMode,
     world::World,
-    GameCommand, GameEngine, GamePhase,
 };
 
 fn runtime_stats() -> RuntimeStatsSnapshot {
@@ -104,7 +104,7 @@ fn inactive_tabs_skip_heavy_data() {
 
 #[test]
 fn charts_snapshot_uses_doctor_label_for_education_track() {
-    use crate::sim::person::{EducationTrack, EmploymentStatus, DAYS_PER_YEAR};
+    use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
     let doctor = Person::new_with_profile(
         1,
         EmploymentStatus::Unemployed,

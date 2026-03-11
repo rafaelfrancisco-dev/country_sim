@@ -1,4 +1,4 @@
-use super::{round_cents, Bank, BankId, BankKind, Country, SimEvent, StockMarket, GOODS_COUNT};
+use super::{Bank, BankId, BankKind, Country, GOODS_COUNT, SimEvent, StockMarket, round_cents};
 use crate::sim::params::SimulationParams;
 
 impl Country {

@@ -25,9 +25,11 @@ fn default_companies_offer_multiple_job_types() {
     let companies = build_default_companies("A", 2);
 
     assert_eq!(companies.len(), 2);
-    assert!(companies
-        .iter()
-        .all(|company| company.offered_job_types.len() > 1));
+    assert!(
+        companies
+            .iter()
+            .all(|company| company.offered_job_types.len() > 1)
+    );
 }
 
 #[test]
@@ -82,6 +84,34 @@ fn price_raise_has_no_upper_clamp() {
     company.close_month(&market);
 
     assert!((company.unit_price - 24.38).abs() < 0.01);
+}
+
+#[test]
+fn recompute_profitability_includes_rent_revenue() {
+    let mut company = Company::new(1, "HousingCo".to_string(), vec![0, 1, 2], 2);
+    company.last_month_sales = 0.0;
+    company.last_month_rent_revenue = 50_000.0;
+    company.last_month_payroll_paid = 20_000.0;
+    company.last_month_loan_payment = 5_000.0;
+
+    company.recompute_profitability();
+
+    assert!((company.last_month_profit - 25_000.0).abs() < f64::EPSILON);
+    assert_eq!(company.consecutive_profitable_months, 1);
+    assert_eq!(company.consecutive_loss_months, 0);
+}
+
+#[test]
+fn recompute_profitability_sales_and_rent_combined() {
+    let mut company = Company::new(1, "MixedCo".to_string(), vec![0, 1, 2], 2);
+    company.last_month_sales = 100_000.0;
+    company.last_month_rent_revenue = 30_000.0;
+    company.last_month_payroll_paid = 80_000.0;
+    company.last_month_loan_payment = 10_000.0;
+
+    company.recompute_profitability();
+
+    assert!((company.last_month_profit - 40_000.0).abs() < f64::EPSILON);
 }
 
 #[test]

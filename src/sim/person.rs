@@ -1,7 +1,7 @@
 use super::{
     bank::{BankId, LoanAccount, MortgageAccount},
     essentials::STOCKABLE_ESSENTIAL_GOOD_IDS,
-    job::{salary_for_job, JobTypeId},
+    job::{JobTypeId, salary_for_job},
 };
 
 #[derive(Debug, Clone, PartialEq)]

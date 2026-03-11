@@ -39,7 +39,7 @@ fn company_related_events_preserve_matches_for_historical_company_ids() {
 
 #[test]
 fn company_workers_rows_include_tenure_and_sort_by_longest_tenure() {
-    use crate::sim::person::{EducationTrack, EmploymentStatus, DAYS_PER_YEAR};
+    use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
 
     let mut long_tenure = Person::new_with_profile(
         1,

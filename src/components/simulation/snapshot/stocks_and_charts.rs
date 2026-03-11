@@ -1,5 +1,5 @@
 use super::*;
-use crate::sim::person::{EducationTrack, EmploymentStatus, DAYS_PER_YEAR};
+use crate::sim::person::{DAYS_PER_YEAR, EducationTrack, EmploymentStatus};
 use crate::sim::world::MetricPoint;
 
 #[path = "stocks_and_charts_format.rs"]

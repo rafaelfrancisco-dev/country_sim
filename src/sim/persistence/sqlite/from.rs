@@ -7,18 +7,18 @@ use crate::sim::{
     essentials::Household,
     good::GOODS_COUNT,
     person::{
-        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
-        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
+        ESSENTIAL_STOCK_SLOT_COUNT, EducationTrack, EmploymentStatus, ForeignDeposit,
+        HabilitationLevel, HousingStatus, Person, SUPERFICIAL_GOOD_SLOT_COUNT,
     },
     world::{BankMetricPoint, MetricPoint},
 };
 
 use super::super::{
+    PersistenceError,
     dto::{
         BankMetricPointDto, CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
         MetricPointDto, PersonDto,
     },
-    PersistenceError,
 };
 
 pub(super) fn metric_point_from_dto(p: MetricPointDto) -> MetricPoint {
