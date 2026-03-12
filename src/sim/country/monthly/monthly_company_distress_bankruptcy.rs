@@ -248,6 +248,13 @@ impl Country {
                 company.open_positions.clear();
                 loan_slot = company.loan.take();
                 company.cash_balance = 0.0;
+                self.housing_stock_company_facility = self
+                    .housing_stock_company_facility
+                    .saturating_sub(company.facility_housing_units);
+                self.housing_stock_vacant = self
+                    .housing_stock_vacant
+                    .saturating_add(company.facility_housing_units);
+                company.facility_housing_units = 0;
             }
             if let Some(bank) = self.bank_by_id_mut(primary_bank_id) {
                 principal_written_off = bank.write_off_loan(&mut loan_slot);

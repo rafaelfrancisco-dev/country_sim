@@ -128,14 +128,16 @@ impl Country {
             let expected_total = self
                 .housing_stock_occupied_owned
                 .saturating_add(self.housing_stock_occupied_rented)
+                .saturating_add(self.housing_stock_company_facility)
                 .saturating_add(self.housing_stock_vacant);
             if total != expected_total {
                 violations.push(InvariantViolation {
                     code: "housing_stock_total_mismatch",
                     message: format!(
-                        "housing_stock_total {total} != owned {} + rented {} + vacant {} (= {expected_total})",
+                        "housing_stock_total {total} != owned {} + rented {} + facility {} + vacant {} (= {expected_total})",
                         self.housing_stock_occupied_owned,
                         self.housing_stock_occupied_rented,
+                        self.housing_stock_company_facility,
                         self.housing_stock_vacant,
                     ),
                 });

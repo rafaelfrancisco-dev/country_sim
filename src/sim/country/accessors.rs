@@ -482,6 +482,10 @@ impl Country {
         self.housing_stock_total
     }
 
+    pub fn housing_stock_company_facility(&self) -> u32 {
+        self.housing_stock_company_facility
+    }
+
     pub fn housing_stock_vacant(&self) -> u32 {
         self.housing_stock_vacant
     }

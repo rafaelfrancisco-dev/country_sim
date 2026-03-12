@@ -173,9 +173,9 @@ impl Simulation {
                     axis_format: AxisValueFormat::Money,
                 },
                 ChartSpec {
-                    title: "Bank Equity Exposure",
+                    title: "Company Input Spending",
                     color: Color::LightCyan,
-                    value_fn: Self::metric_stock_bank_equity_exposure,
+                    value_fn: Self::metric_company_input_spending,
                     axis_format: AxisValueFormat::Money,
                 },
             ],
@@ -205,9 +205,9 @@ impl Simulation {
                     axis_format: AxisValueFormat::Percent,
                 },
                 ChartSpec {
-                    title: "Monthly Home Purchases",
+                    title: "Company Facility Units",
                     color: Color::Cyan,
-                    value_fn: Self::metric_monthly_home_purchases,
+                    value_fn: Self::metric_company_facility_units,
                     axis_format: AxisValueFormat::Count,
                 },
                 ChartSpec {
@@ -373,10 +373,7 @@ impl Simulation {
         monthly_essential_debt_spending
     );
     metric_field_fn!(metric_stock_market_cap, stock_market_cap);
-    metric_field_fn!(
-        metric_stock_bank_equity_exposure,
-        stock_bank_equity_exposure
-    );
+    metric_field_fn!(metric_company_input_spending, company_input_spending);
     fn metric_deposit_rate_pct(point: &MetricPoint) -> f64 {
         point.deposit_rate * 100.0
     }
@@ -415,8 +412,8 @@ impl Simulation {
     fn metric_housing_vacancy_rate_pct(point: &MetricPoint) -> f64 {
         point.housing_vacancy_rate * 100.0
     }
+    metric_field_fn!(metric_company_facility_units, company_facility_units);
     metric_field_fn!(metric_monthly_foreclosures, monthly_foreclosures);
-    metric_field_fn!(metric_monthly_home_purchases, monthly_home_purchases);
     fn metric_rent_to_price_pct(point: &MetricPoint) -> f64 {
         if point.housing_price_index <= 0.0 {
             0.0

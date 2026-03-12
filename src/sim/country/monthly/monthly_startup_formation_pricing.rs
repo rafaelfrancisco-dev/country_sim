@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::{good::industry_job_types_for_good, job::job_by_id};
 
 mod labor_dynamics;
 
@@ -20,6 +21,10 @@ impl Country {
         ) else {
             return false;
         };
+        let allowed_job_types = industry_job_types_for_good(high_margin_good_id);
+        if !allowed_job_types.contains(&founder_job_id) {
+            return false;
+        }
 
         let mut founder_pool = self
             .people
@@ -95,10 +100,11 @@ impl Country {
             let mut opening_plan = Vec::with_capacity(openings_total as usize);
             opening_plan.push((founder_job_id, founder_openings, founder_salary));
 
-            let mixed_weighted_jobs = common_job_types()
+            let mixed_weighted_jobs = allowed_job_types
                 .iter()
-                .filter(|job| job.id != founder_job_id)
-                .map(|job| (job.id, job.assignment_weight))
+                .copied()
+                .filter(|job_id| *job_id != founder_job_id)
+                .filter_map(|job_id| job_by_id(job_id).map(|job| (job.id, job.assignment_weight)))
                 .collect::<Vec<_>>();
             for idx in 0..mixed_openings {
                 let seed = hash64(
@@ -163,10 +169,7 @@ impl Country {
         let mut startup = Company::new(
             company_id,
             company_name.clone(),
-            common_job_types()
-                .iter()
-                .map(|job| job.id)
-                .collect::<Vec<_>>(),
+            allowed_job_types.to_vec(),
             high_margin_good_id,
         );
         startup.deposit_bank_id = self
@@ -373,7 +376,33 @@ impl Country {
         let entrant_share = (1.0 / (incumbent_count + 1.0)).clamp(0.05, 0.25);
         let demand_proxy = round_cents(demand_units * market_price * entrant_share);
 
-        round_cents(observed_avg.max(demand_proxy))
+        let company_demand_proxy = self.company_input_demand_proxy_value(good_id, market_price);
+
+        round_cents(observed_avg.max(demand_proxy).max(company_demand_proxy))
+    }
+
+    fn company_input_demand_proxy_value(&self, input_good_id: u8, market_price: f64) -> f64 {
+        let total_required_units = self
+            .companies
+            .iter()
+            .map(|company| {
+                let required_per_unit = company
+                    .recipe_for_output_good()
+                    .units_required_for(input_good_id);
+                if required_per_unit == 0 {
+                    return 0.0;
+                }
+
+                let output_units = company
+                    .last_month_units_produced
+                    .max(company.last_completed_month_units_produced)
+                    .max(company.last_month_units_sold)
+                    .max(company.last_completed_month_units_sold);
+                f64::from(output_units) * f64::from(required_per_unit)
+            })
+            .sum::<f64>();
+
+        round_cents(total_required_units * market_price)
     }
 
     pub(super) fn pick_high_margin_good(&self, threshold: f64) -> Option<u8> {

@@ -50,3 +50,4 @@ Additive fields expose the refined signals:
 - Housing is not purchased through the daily round-robin goods market.
 - Month-end housing status uses household shelter plus rent/mortgage outcomes.
 - A household without adequate shelter marks housing unmet for its members.
+- Company facility housing is tracked separately and does not count as household occupancy.

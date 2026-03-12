@@ -1,13 +1,13 @@
 # Housing Market
 
-Housing (Good ID 2) is a **durable asset**, not a monthly consumable. It is managed entirely outside the round-robin goods market and has its own stock, ownership, rental, and mortgage pipeline.
+Housing (Good ID 2) is a **durable asset**, not a monthly consumable. It is managed entirely outside the round-robin goods market and has its own stock, ownership, rental, mortgage, and company-facility pipeline.
 
 ## Housing Stock Model
 
-The country maintains four counters that always satisfy the invariant:
+The country maintains four occupancy buckets that always satisfy the invariant:
 
 ```
-housing_stock_total == occupied_owned + occupied_rented + vacant
+housing_stock_total == occupied_owned + occupied_rented + company_facility + vacant
 ```
 
 | Field | Meaning |
@@ -15,9 +15,33 @@ housing_stock_total == occupied_owned + occupied_rented + vacant
 | `housing_stock_total` | All units ever built |
 | `housing_stock_occupied_owned` | Units owned outright or under mortgage |
 | `housing_stock_occupied_rented` | Units rented from a landlord company |
+| `housing_stock_company_facility` | Units allocated to company facilities |
 | `housing_stock_vacant` | Unoccupied units (price pressure falls when high) |
 
 Housing companies accumulate `inventory_units` from daily production. Each month, `process_housing_construction()` drains that inventory into the housing stock and assigns the new units as `rental_units_owned` on the producing company.
+
+## Company Facility Housing
+
+Housing is also used by companies as facility capacity, but this is tracked separately from household occupancy.
+
+- Facility demand is **not** purchased through the daily household goods market.
+- Each month, after new housing construction is drained into stock, companies compute a target facility requirement from employee count.
+- Missing facility units are drawn from `housing_stock_vacant`.
+- Surplus facility units are released back into vacancy.
+- Occupied facility units are charged monthly using `monthly_rent`.
+
+The company-side effect is:
+
+- `cash_balance` decreases
+- `last_month_facility_spending` increases
+- `facility_housing_units` updates
+
+The country-side effect is:
+
+- `housing_stock_company_facility` tracks occupied company units
+- household occupancy counters stay unchanged
+
+This separation keeps renter/owner invariants meaningful while still making housing an upstream company constraint.
 
 ## Person Housing Status
 

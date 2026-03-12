@@ -21,6 +21,7 @@ impl Country {
         self.process_government_spending();
         // Housing market (runs after payroll so people have income to pay rent/mortgages)
         self.process_housing_construction();
+        self.process_company_facility_housing();
         self.update_housing_price_index();
         self.collect_rent();
         self.collect_mortgage_payments();
@@ -73,6 +74,7 @@ impl Country {
         time_op!(self.evaluate_stockable_essential_needs());
         let gov_spending_ms = time_op!(self.process_government_spending());
         time_op!(self.process_housing_construction());
+        time_op!(self.process_company_facility_housing());
         time_op!(self.update_housing_price_index());
         time_op!(self.collect_rent());
         time_op!(self.collect_mortgage_payments());

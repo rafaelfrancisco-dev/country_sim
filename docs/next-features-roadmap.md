@@ -158,11 +158,24 @@ Likely touch points:
 
 Add intermediate goods, capital goods, and business investment.
 
+Status:
+
+- first pass implemented:
+  - static recipes for selected sectors
+  - upstream goods (`Raw Metals`, `Timber`, `Fuel`)
+  - company input purchasing before daily production
+  - sector-specific company job catalogs
+  - separate company facility housing demand
+- not implemented yet:
+  - capital goods
+  - capex-driven capacity expansion
+  - richer contract or substitution logic
+
 Why this matters:
 
-- the goods market is still dominated by household demand
-- there are no true supply chains, input shortages, or capex cycles yet
-- firms should consume inputs and invest to expand capacity rather than only reacting through staffing and cash
+- the goods market still lacks deeper capital and investment dynamics
+- the new recipe system is static and intentionally narrow
+- firms still need a richer expansion/capex loop beyond staffing and cash
 
 Suggested scope:
 

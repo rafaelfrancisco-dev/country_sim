@@ -29,6 +29,9 @@ pub(in crate::sim::world) const ESSENTIAL_ND_SLOT: [Option<usize>; GOODS_COUNT] 
     None,    // 12 Appliances
     None,    // 13 Cars
     None,    // 14 Entertainment
+    None,    // 15 Raw Metals
+    None,    // 16 Timber
+    None,    // 17 Fuel
 ];
 
 #[derive(Debug, Clone, PartialEq, Default)]

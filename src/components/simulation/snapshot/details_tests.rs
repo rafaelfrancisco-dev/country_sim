@@ -120,6 +120,9 @@ fn company_details_include_listing_and_financial_stress_metrics() {
     assert!(text.contains("Status & Market:"));
     assert!(text.contains("Listed: Yes"));
     assert!(text.contains("Ticker: ACO"));
+    assert!(text.contains("Production Readiness:"));
+    assert!(text.contains("Input Recipe: No material inputs"));
+    assert!(text.contains("Last Month Input Spend:"));
     assert!(text.contains("Consecutive Missed Loan Payments:"));
 }
 
@@ -139,6 +142,37 @@ fn company_details_show_last_completed_month_payroll_after_reset() {
 
     assert!(text.contains("Last Month Payroll Paid:"));
     assert!(text.contains(&money(1_200.0, currency_symbol)));
+}
+
+#[test]
+fn company_details_show_input_and_facility_operating_metrics() {
+    let people = vec![Person::new(1, 30, 0, 11)];
+    let mut company = crate::sim::company::Company::new(0, "Builder".to_string(), vec![], 2);
+    company.manufacturing_employee_count = 2;
+    company.facility_housing_units = 3;
+    company.last_month_input_spending = 450.0;
+    company.last_month_facility_spending = 125.0;
+    company.open_month();
+
+    let world = World::new(vec![Country::with_economy(
+        1,
+        "A".to_string(),
+        people,
+        vec![company],
+        0.0,
+    )]);
+    let ui = UiState {
+        active_tab: RunningTab::Goods,
+        details_view: DetailsView::Company,
+        ..UiState::default()
+    };
+    let text = company_details_lines(&world, &ui).join("\n");
+
+    assert!(text.contains("Input Recipe:"));
+    assert!(text.contains("Input Coverage:"));
+    assert!(text.contains("Facility Housing Units / Target:"));
+    assert!(text.contains("Last Month Input Spend:"));
+    assert!(text.contains("Last Month Facility Spend:"));
 }
 
 #[test]
@@ -172,6 +206,10 @@ fn country_details_include_structural_trade_market_and_social_sections() {
     assert!(text.contains("Trade & Tariffs:"));
     assert!(text.contains("Market Risk:"));
     assert!(text.contains("Social Pressure:"));
+    assert!(text.contains("facility"));
+    assert!(text.contains("Last Month Company Input Spending:"));
+    assert!(text.contains("MTD Imported Goods (Household / Company):"));
+    assert!(text.contains("Last Month Company Facility Spend:"));
 }
 
 #[test]

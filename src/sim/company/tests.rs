@@ -43,7 +43,7 @@ fn default_companies_cover_goods_catalog_with_default_count() {
     goods.dedup();
 
     assert_eq!(companies.len(), DEFAULT_COMPANIES_PER_COUNTRY as usize);
-    assert_eq!(goods.len(), 15);
+    assert_eq!(goods.len(), 18);
 }
 
 #[test]

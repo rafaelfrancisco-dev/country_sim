@@ -1,6 +1,6 @@
 use super::*;
 use crate::sim::{
-    bank::MortgageAccount, bank::payment_for, event::SimEvent, money::round_cents,
+    bank::MortgageAccount, bank::payment_for, event::SimEvent, money::round_cents, money::to_cents,
     person::HousingStatus,
 };
 
@@ -30,6 +30,63 @@ impl Country {
             self.monthly_housing_units_built =
                 self.monthly_housing_units_built.saturating_add(new_units);
         }
+    }
+
+    pub(super) fn process_company_facility_housing(&mut self) {
+        for company in &mut self.companies {
+            let target_units = company.target_facility_housing_units();
+            if company.facility_housing_units > target_units {
+                let released = company.facility_housing_units - target_units;
+                company.facility_housing_units = target_units;
+                self.housing_stock_company_facility =
+                    self.housing_stock_company_facility.saturating_sub(released);
+                self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(released);
+            }
+        }
+
+        for company in &mut self.companies {
+            let target_units = company.target_facility_housing_units();
+            let missing_units = target_units.saturating_sub(company.facility_housing_units);
+            if missing_units == 0 || self.housing_stock_vacant == 0 {
+                continue;
+            }
+
+            let acquired_units = missing_units.min(self.housing_stock_vacant);
+            company.facility_housing_units = company
+                .facility_housing_units
+                .saturating_add(acquired_units);
+            self.housing_stock_company_facility = self
+                .housing_stock_company_facility
+                .saturating_add(acquired_units);
+            self.housing_stock_vacant = self.housing_stock_vacant.saturating_sub(acquired_units);
+        }
+
+        if self.monthly_rent <= 0.0 {
+            return;
+        }
+
+        let mut treasury_delta_cents = 0_i64;
+        let mut company_delta_cents = 0_i64;
+        for company in &mut self.companies {
+            if company.facility_housing_units == 0 {
+                continue;
+            }
+
+            let due = round_cents(self.monthly_rent * f64::from(company.facility_housing_units));
+            let paid = round_cents(due.min(company.cash_balance.max(0.0)));
+            if paid <= 0.0 {
+                continue;
+            }
+
+            company.cash_balance = round_cents(company.cash_balance - paid);
+            company.last_month_facility_spending =
+                round_cents(company.last_month_facility_spending + paid);
+            company_delta_cents = company_delta_cents.saturating_sub(to_cents(paid));
+            treasury_delta_cents = treasury_delta_cents.saturating_add(to_cents(paid));
+        }
+
+        self.adjust_company_cash_total_cents(company_delta_cents);
+        self.adjust_treasury_balance_cents(treasury_delta_cents);
     }
 
     /// Adjust housing price index based on vacancy deviation from target.

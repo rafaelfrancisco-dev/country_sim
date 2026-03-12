@@ -139,6 +139,7 @@ pub struct Country {
     pub(crate) housing_stock_total: u32,
     pub(crate) housing_stock_occupied_owned: u32,
     pub(crate) housing_stock_occupied_rented: u32,
+    pub(crate) housing_stock_company_facility: u32,
     pub(crate) housing_stock_vacant: u32,
     pub(crate) housing_price_index: f64,
     pub(crate) monthly_rent: f64,

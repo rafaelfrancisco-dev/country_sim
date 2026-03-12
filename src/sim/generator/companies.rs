@@ -1,4 +1,5 @@
 use super::*;
+use crate::sim::good::industry_job_types_for_good;
 
 pub(super) fn derive_initial_company_count(
     population_per_country: u32,
@@ -93,10 +94,6 @@ pub(super) fn build_initial_companies(
         allocate_company_goods_dhondt(company_count, &target_counts)
     };
 
-    let available_job_ids = common_job_types()
-        .iter()
-        .map(|job| job.id)
-        .collect::<Vec<_>>();
     company_goods
         .into_iter()
         .enumerate()
@@ -104,7 +101,7 @@ pub(super) fn build_initial_companies(
             Company::new(
                 idx as u16,
                 format!("{country_name} Co {}", idx + 1),
-                available_job_ids.clone(),
+                industry_job_types_for_good(good_id).to_vec(),
                 good_id,
             )
         })

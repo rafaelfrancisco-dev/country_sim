@@ -15,15 +15,17 @@ fn generated_world_2x1k_360_days_housing_market_is_sane() {
         let total = country.housing_stock_total();
         let owned = country.housing_stock_occupied_owned;
         let rented = country.housing_stock_occupied_rented;
+        let facility = country.housing_stock_company_facility;
         let vacant = country.housing_stock_vacant;
         assert_eq!(
             total,
-            owned + rented + vacant,
-            "country {}: housing stock {} != owned {} + rented {} + vacant {}",
+            owned + rented + facility + vacant,
+            "country {}: housing stock {} != owned {} + rented {} + facility {} + vacant {}",
             country.name,
             total,
             owned,
             rented,
+            facility,
             vacant
         );
 

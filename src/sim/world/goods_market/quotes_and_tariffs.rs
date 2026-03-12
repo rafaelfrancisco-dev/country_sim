@@ -73,11 +73,27 @@ impl World {
         person_idx: usize,
         quote: SellerQuote,
     ) {
+        self.execute_goods_purchase_for_buyer(
+            GoodsBuyer::Person {
+                buyer_country_idx,
+                person_idx,
+            },
+            quote,
+        );
+    }
+
+    pub(in crate::sim::world) fn execute_goods_purchase_for_buyer(
+        &mut self,
+        buyer: GoodsBuyer,
+        quote: SellerQuote,
+    ) {
+        let buyer_country_idx = buyer.buyer_country_idx();
+
         if buyer_country_idx == quote.seller_country_idx {
             let Some(country) = self.countries.get_mut(buyer_country_idx) else {
                 return;
             };
-            Self::apply_purchase_to_buyer(country, person_idx, quote.landed_price_cents, false);
+            Self::apply_purchase_to_buyer(country, buyer, quote.landed_price_cents, false);
             Self::apply_sale_to_seller(
                 country,
                 quote.seller_company_idx,
@@ -100,12 +116,7 @@ impl World {
             let (left, right) = self.countries.split_at_mut(quote.seller_country_idx);
             let buyer_country = &mut left[buyer_country_idx];
             let seller_country = &mut right[0];
-            Self::apply_purchase_to_buyer(
-                buyer_country,
-                person_idx,
-                quote.landed_price_cents,
-                true,
-            );
+            Self::apply_purchase_to_buyer(buyer_country, buyer, quote.landed_price_cents, true);
             Self::apply_tariff_to_importer(buyer_country, quote.import_tariff_cents);
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
@@ -127,12 +138,7 @@ impl World {
             let (left, right) = self.countries.split_at_mut(buyer_country_idx);
             let seller_country = &mut left[quote.seller_country_idx];
             let buyer_country = &mut right[0];
-            Self::apply_purchase_to_buyer(
-                buyer_country,
-                person_idx,
-                quote.landed_price_cents,
-                true,
-            );
+            Self::apply_purchase_to_buyer(buyer_country, buyer, quote.landed_price_cents, true);
             Self::apply_tariff_to_importer(buyer_country, quote.import_tariff_cents);
             Self::apply_sale_to_seller_with_amount(
                 seller_country,
@@ -146,28 +152,50 @@ impl World {
 
     pub(in crate::sim::world) fn apply_purchase_to_buyer(
         country: &mut crate::sim::country::Country,
-        person_idx: usize,
+        buyer: GoodsBuyer,
         landed_price_cents: i64,
         imported: bool,
     ) {
         let amount = from_cents(landed_price_cents);
+        match buyer {
+            GoodsBuyer::Person { person_idx, .. } => {
+                if let Some(person) = country.people.get_mut(person_idx) {
+                    person.cash_balance = round_cents(person.cash_balance - amount);
+                    person.last_month_spending = round_cents(person.last_month_spending + amount);
+                    person.last_month_goods_spending =
+                        round_cents(person.last_month_goods_spending + amount);
+                    if imported {
+                        person.last_month_imported_goods_spending =
+                            round_cents(person.last_month_imported_goods_spending + amount);
+                    }
+                    person.last_month_goods_units_bought =
+                        person.last_month_goods_units_bought.saturating_add(1);
+                } else {
+                    return;
+                }
 
-        if let Some(person) = country.people.get_mut(person_idx) {
-            person.cash_balance = round_cents(person.cash_balance - amount);
-            person.last_month_spending = round_cents(person.last_month_spending + amount);
-            person.last_month_goods_spending =
-                round_cents(person.last_month_goods_spending + amount);
-            if imported {
-                person.last_month_imported_goods_spending =
-                    round_cents(person.last_month_imported_goods_spending + amount);
+                country.adjust_household_cash_total_cents(-landed_price_cents);
+                country.monthly_household_spending =
+                    round_cents(country.monthly_household_spending + amount);
             }
-            person.last_month_goods_units_bought =
-                person.last_month_goods_units_bought.saturating_add(1);
+            GoodsBuyer::Company {
+                company_idx,
+                input_good_id,
+                ..
+            } => {
+                if let Some(company) = country.companies.get_mut(company_idx) {
+                    company.cash_balance = round_cents(company.cash_balance - amount);
+                    company.last_month_input_spending =
+                        round_cents(company.last_month_input_spending + amount);
+                    company.add_input_inventory(input_good_id, 1);
+                } else {
+                    return;
+                }
+
+                country.adjust_company_cash_total_cents(-landed_price_cents);
+            }
         }
 
-        country.adjust_household_cash_total_cents(-landed_price_cents);
-        country.monthly_household_spending =
-            round_cents(country.monthly_household_spending + amount);
         if imported {
             country.monthly_goods_import_spending =
                 round_cents(country.monthly_goods_import_spending + amount);

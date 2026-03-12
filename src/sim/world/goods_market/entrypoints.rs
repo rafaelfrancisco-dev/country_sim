@@ -1,9 +1,12 @@
 use super::*;
+use crate::sim::{company::Company, params::GoodsMarketParams};
 
 impl World {
     pub(in crate::sim::world) fn run_daily_goods_economy(&mut self) {
-        self.produce_goods_daily();
         let mut goods_runtime = std::mem::take(&mut self.goods_runtime);
+        goods_runtime.prepare(self);
+        self.purchase_company_inputs_daily(&mut goods_runtime);
+        self.produce_goods_daily();
         self.consume_superficial_stock_daily(&mut goods_runtime);
         goods_runtime.prepare(self);
         self.process_global_goods_market(&mut goods_runtime);
@@ -23,21 +26,27 @@ impl World {
                 if good.effort_per_unit <= 0.0 {
                     continue;
                 }
-
-                if let Some(&last_sold) = company.sold_units_history.back()
-                    && last_sold > 0
-                {
-                    let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
-                    if months_of_inventory > market.excess_inventory_months {
-                        continue;
-                    }
+                if company_inventory_throttled(company, market) {
+                    continue;
                 }
 
                 company.production_effort_carry +=
                     company.manufacturing_employee_count as f64 * daily_effort_per_worker;
-                let produced = (company.production_effort_carry / good.effort_per_unit)
+                let target_units = (company.production_effort_carry / good.effort_per_unit)
                     .floor()
                     .max(0.0) as u32;
+                if target_units == 0 {
+                    continue;
+                }
+
+                let mut produced = 0_u32;
+                if company.recipe_for_output_good().inputs().count() == 0 {
+                    produced = target_units;
+                } else {
+                    while produced < target_units && company.consume_inputs_for_unit() {
+                        produced = produced.saturating_add(1);
+                    }
+                }
                 if produced == 0 {
                     continue;
                 }
@@ -48,6 +57,84 @@ impl World {
                     company.last_month_units_produced.saturating_add(produced);
             }
         });
+    }
+
+    pub(in crate::sim::world) fn purchase_company_inputs_daily(
+        &mut self,
+        day_cache: &mut GoodsMarketDayCache,
+    ) {
+        for buyer_country_idx in 0..self.countries.len() {
+            let market = self.countries[buyer_country_idx].sim_params.goods_market;
+            let daily_effort_per_worker = market.worker_effort_per_month / 30.0;
+            let company_count = self.countries[buyer_country_idx].companies.len();
+
+            for company_idx in 0..company_count {
+                let (produced_good_id, manufacturing_employee_count, effort_carry) = {
+                    let company = &self.countries[buyer_country_idx].companies[company_idx];
+                    (
+                        company.produced_good_id,
+                        company.manufacturing_employee_count,
+                        company.production_effort_carry,
+                    )
+                };
+
+                let Some(good) = common_goods().get(produced_good_id as usize) else {
+                    continue;
+                };
+                if good.effort_per_unit <= 0.0
+                    || company_inventory_throttled(
+                        &self.countries[buyer_country_idx].companies[company_idx],
+                        market,
+                    )
+                {
+                    continue;
+                }
+
+                let target_units = ((effort_carry
+                    + manufacturing_employee_count as f64 * daily_effort_per_worker)
+                    / good.effort_per_unit)
+                    .floor()
+                    .max(0.0) as u32;
+                if target_units == 0 {
+                    continue;
+                }
+
+                let recipe = self.countries[buyer_country_idx].companies[company_idx]
+                    .recipe_for_output_good()
+                    .inputs()
+                    .collect::<Vec<_>>();
+                for (input_good_id, required_per_unit) in recipe {
+                    let required_units = target_units.saturating_mul(u32::from(required_per_unit));
+                    while self.countries[buyer_country_idx].companies[company_idx]
+                        .input_inventory_units(input_good_id)
+                        < required_units
+                    {
+                        let Some(quote) = day_cache.current_cheapest_quote(
+                            self,
+                            input_good_id,
+                            buyer_country_idx,
+                        ) else {
+                            break;
+                        };
+                        let cash_cents = to_cents(
+                            self.countries[buyer_country_idx].companies[company_idx].cash_balance,
+                        );
+                        if cash_cents < quote.landed_price_cents {
+                            break;
+                        }
+
+                        self.execute_goods_purchase_for_buyer(
+                            GoodsBuyer::Company {
+                                buyer_country_idx,
+                                company_idx,
+                                input_good_id,
+                            },
+                            quote,
+                        );
+                    }
+                }
+            }
+        }
     }
 
     pub(in crate::sim::world) fn process_global_goods_market(
@@ -245,6 +332,9 @@ impl World {
             for person in &country.people {
                 for (good_idx, unmet) in unmet_need_by_good.iter_mut().enumerate().take(GOODS_COUNT)
                 {
+                    if good_idx >= u16::BITS as usize {
+                        continue;
+                    }
                     let bit = 1_u16 << (good_idx as u8);
                     if person.last_month_unmet_needs_mask & bit != 0 {
                         *unmet = true;
@@ -410,4 +500,14 @@ impl World {
             }
         }
     }
+}
+
+fn company_inventory_throttled(company: &Company, market: GoodsMarketParams) -> bool {
+    if let Some(&last_sold) = company.sold_units_history.back()
+        && last_sold > 0
+    {
+        let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
+        return months_of_inventory > market.excess_inventory_months;
+    }
+    false
 }

@@ -20,6 +20,32 @@ pub(in crate::sim::world) struct SellerQuote {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(in crate::sim::world) enum GoodsBuyer {
+    Person {
+        buyer_country_idx: usize,
+        person_idx: usize,
+    },
+    Company {
+        buyer_country_idx: usize,
+        company_idx: usize,
+        input_good_id: GoodId,
+    },
+}
+
+impl GoodsBuyer {
+    pub(in crate::sim::world) fn buyer_country_idx(self) -> usize {
+        match self {
+            Self::Person {
+                buyer_country_idx, ..
+            }
+            | Self::Company {
+                buyer_country_idx, ..
+            } => buyer_country_idx,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::sim::world) struct SupplierRef {
     pub(in crate::sim::world) seller_country_idx: usize,
     pub(in crate::sim::world) seller_company_idx: usize,

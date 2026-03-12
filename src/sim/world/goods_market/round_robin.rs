@@ -265,7 +265,10 @@ impl World {
                             // Apply buyer-side mutations (person cash + country aggregates).
                             World::apply_purchase_to_buyer(
                                 &mut self.countries[info.buyer_country_idx],
-                                info.person_idx,
+                                GoodsBuyer::Person {
+                                    buyer_country_idx: info.buyer_country_idx,
+                                    person_idx: info.person_idx,
+                                },
                                 info.landed_price_cents,
                                 info.imported,
                             );

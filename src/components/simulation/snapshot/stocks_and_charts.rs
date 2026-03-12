@@ -230,7 +230,9 @@ fn empty_pie_chart(title: impl Into<String>) -> PieChartData {
 pub(in crate::components::simulation) fn goods_mask_names(mask: u16) -> String {
     let names = common_goods()
         .iter()
-        .filter(|good| (mask & (1_u16 << good.id)) != 0)
+        .filter(|good| {
+            usize::from(good.id) < u16::BITS as usize && (mask & (1_u16 << good.id)) != 0
+        })
         .map(|good| good.name)
         .collect::<Vec<_>>();
 

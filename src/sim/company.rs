@@ -2,8 +2,11 @@ use std::{collections::VecDeque, sync::Arc};
 
 use super::{
     bank::{BankId, LoanAccount},
-    good::{GoodId, common_goods, good_by_id},
-    job::{JobTypeId, common_job_types, job_by_id, salary_for_job},
+    good::{
+        CompanyInputRecipe, GOODS_COUNT, GoodId, good_by_id, industry_job_types_for_good,
+        recipe_for_good,
+    },
+    job::{JobTypeId, job_by_id, salary_for_job},
     money::round_cents,
     params::{CompanyGrowthParams, GoodsMarketParams, LaborDemandParams},
 };
@@ -40,6 +43,8 @@ pub struct Company {
     pub employee_count: u32,
     pub manufacturing_employee_count: u32,
     pub inventory_units: u32,
+    pub input_inventory_units: [u32; GOODS_COUNT],
+    pub facility_housing_units: u32,
     pub unit_price: f64,
     pub wage_offer_multiplier: f64,
     pub consecutive_missed_loan_payments: u8,
@@ -51,6 +56,10 @@ pub struct Company {
     pub last_month_payroll_paid: f64,
     pub last_completed_month_payroll_paid: f64,
     pub last_month_sales: f64,
+    pub last_month_input_spending: f64,
+    pub last_completed_month_input_spending: f64,
+    pub last_month_facility_spending: f64,
+    pub last_completed_month_facility_spending: f64,
     pub last_month_profit: f64,
     pub last_completed_month_profit: f64,
     pub consecutive_profitable_months: u8,
@@ -98,6 +107,11 @@ impl Company {
         let default_price = good_by_id(produced_good_id)
             .map(|good| round_cents(good.base_unit_cost * 1.2))
             .unwrap_or(0.0);
+        let offered_job_types = if offered_job_types.is_empty() {
+            industry_job_types_for_good(produced_good_id).to_vec()
+        } else {
+            offered_job_types
+        };
 
         Self {
             id,
@@ -112,6 +126,8 @@ impl Company {
             employee_count: 0,
             manufacturing_employee_count: 0,
             inventory_units: 0,
+            input_inventory_units: [0; GOODS_COUNT],
+            facility_housing_units: 0,
             unit_price: default_price,
             wage_offer_multiplier: 1.0,
             consecutive_missed_loan_payments: 0,
@@ -123,6 +139,10 @@ impl Company {
             last_month_payroll_paid: 0.0,
             last_completed_month_payroll_paid: 0.0,
             last_month_sales: 0.0,
+            last_month_input_spending: 0.0,
+            last_completed_month_input_spending: 0.0,
+            last_month_facility_spending: 0.0,
+            last_completed_month_facility_spending: 0.0,
             last_month_profit: 0.0,
             last_completed_month_profit: 0.0,
             consecutive_profitable_months: 0,
@@ -164,6 +184,54 @@ impl Company {
         self.offered_job_types.contains(&job_id)
     }
 
+    pub fn industry_job_types(&self) -> &'static [JobTypeId] {
+        industry_job_types_for_good(self.produced_good_id)
+    }
+
+    pub fn recipe_for_output_good(&self) -> &'static CompanyInputRecipe {
+        recipe_for_good(self.produced_good_id)
+    }
+
+    pub fn input_inventory_units(&self, good_id: GoodId) -> u32 {
+        self.input_inventory_units
+            .get(good_id as usize)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub fn add_input_inventory(&mut self, good_id: GoodId, units: u32) {
+        if let Some(inventory) = self.input_inventory_units.get_mut(good_id as usize) {
+            *inventory = inventory.saturating_add(units);
+        }
+    }
+
+    pub fn can_produce_one_unit(&self) -> bool {
+        self.recipe_for_output_good()
+            .inputs()
+            .all(|(good_id, required)| self.input_inventory_units(good_id) >= u32::from(required))
+    }
+
+    pub fn consume_inputs_for_unit(&mut self) -> bool {
+        if !self.can_produce_one_unit() {
+            return false;
+        }
+
+        for (good_id, required) in self.recipe_for_output_good().inputs() {
+            if let Some(inventory) = self.input_inventory_units.get_mut(good_id as usize) {
+                *inventory = inventory.saturating_sub(u32::from(required));
+            }
+        }
+        true
+    }
+
+    pub fn target_facility_housing_units(&self) -> u32 {
+        if self.employee_count == 0 {
+            0
+        } else {
+            self.employee_count.div_ceil(12).max(1)
+        }
+    }
+
     pub fn remember_historical_id(&mut self, historical_id: u16) {
         if historical_id == self.id || self.historical_ids.contains(&historical_id) {
             return;
@@ -186,8 +254,11 @@ impl Company {
         slots: u16,
         offered_salary: f64,
     ) {
-        if slots == 0 || !self.supports_job(job_type_id) {
+        if slots == 0 {
             return;
+        }
+        if !self.supports_job(job_type_id) {
+            self.offered_job_types.push(job_type_id);
         }
 
         let offered_salary = round_cents(offered_salary.max(0.0));
@@ -237,6 +308,10 @@ impl Company {
         self.last_month_payroll_paid = 0.0;
         self.last_completed_month_sales = self.last_month_sales;
         self.last_month_sales = 0.0;
+        self.last_completed_month_input_spending = self.last_month_input_spending;
+        self.last_month_input_spending = 0.0;
+        self.last_completed_month_facility_spending = self.last_month_facility_spending;
+        self.last_month_facility_spending = 0.0;
         self.last_completed_month_profit = self.last_month_profit;
         self.last_completed_month_loan_payment = self.last_month_loan_payment;
         self.last_completed_month_new_loan = self.last_month_new_loan;
@@ -335,6 +410,8 @@ impl Company {
         self.last_month_profit = round_cents(
             self.last_month_sales + self.last_month_rent_revenue
                 - self.last_month_payroll_paid
+                - self.last_month_input_spending
+                - self.last_month_facility_spending
                 - self.last_month_loan_payment,
         );
         if self.last_month_profit > 0.0 {
@@ -458,62 +535,9 @@ impl Company {
         history.push_back(value);
     }
 }
-
-fn pick_weighted_job(seed: u64, weighted_jobs: &[(JobTypeId, u16)]) -> Option<JobTypeId> {
-    let total_weight: u64 = weighted_jobs
-        .iter()
-        .map(|(_, weight)| u64::from(*weight))
-        .sum();
-    if total_weight == 0 {
-        return weighted_jobs.first().map(|(job_id, _)| *job_id);
-    }
-
-    let mut roll = hash64(seed) % total_weight;
-    for (job_id, weight) in weighted_jobs {
-        let weight = u64::from(*weight);
-        if roll < weight {
-            return Some(*job_id);
-        }
-        roll -= weight;
-    }
-
-    weighted_jobs.last().map(|(job_id, _)| *job_id)
-}
-
-fn hash64(mut value: u64) -> u64 {
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
-}
-
-fn company_good_for_index(company_index: usize) -> GoodId {
-    let goods = common_goods();
-    if company_index < goods.len() {
-        return goods[company_index].id;
-    }
-
-    const EXTRA_GOOD_ROTATION: [GoodId; 9] = [1, 0, 3, 7, 8, 14, 5, 4, 6];
-    let offset = company_index - goods.len();
-    EXTRA_GOOD_ROTATION[offset % EXTRA_GOOD_ROTATION.len()]
-}
-
-pub fn build_default_companies(country_name: &str, count: u16) -> Vec<Company> {
-    let available_job_ids = common_job_types()
-        .iter()
-        .map(|job| job.id)
-        .collect::<Vec<_>>();
-
-    (0..count)
-        .map(|idx| {
-            Company::new(
-                idx,
-                format!("{country_name} Co {}", idx + 1),
-                available_job_ids.clone(),
-                company_good_for_index(idx as usize),
-            )
-        })
-        .collect()
-}
+mod helpers;
+pub use helpers::build_default_companies;
+use helpers::pick_weighted_job;
 
 #[cfg(test)]
 mod tests;

@@ -64,6 +64,11 @@ pub(in crate::components::simulation) fn country_details_lines(
     let index_value = country.stock_market().index_value();
     let bank_equity_exposure = world.market_bank_portfolio_value(country.id());
     let daily_turnover = country.stock_market().total_daily_turnover();
+    let last_month_company_input_spending = last_completed_company_input_spending(country);
+    let mtd_company_input_spending = company_input_spending_mtd(country);
+    let household_import_spending = household_import_spending_mtd(country);
+    let company_import_spending = company_import_spending_mtd(country);
+    let last_month_company_facility_spending = last_completed_company_facility_spending(country);
 
     vec![
         format!("Name: {}", country.name()),
@@ -252,7 +257,20 @@ pub(in crate::components::simulation) fn country_details_lines(
             )
         ),
         format!(
-            "MTD Imports / Exports: {} / {}",
+            "Last Month Company Input Spending: {}",
+            money(last_month_company_input_spending, currency_symbol)
+        ),
+        format!(
+            "MTD Company Input Spending: {}",
+            money(mtd_company_input_spending, currency_symbol)
+        ),
+        format!(
+            "MTD Imported Goods (Household / Company): {} / {}",
+            money(household_import_spending, currency_symbol),
+            money(company_import_spending, currency_symbol)
+        ),
+        format!(
+            "MTD Total Imports / Exports: {} / {}",
             money(country.monthly_goods_import_spending(), currency_symbol),
             money(country.monthly_goods_export_revenue(), currency_symbol)
         ),
@@ -286,8 +304,9 @@ pub(in crate::components::simulation) fn country_details_lines(
             money(country.monthly_rent(), currency_symbol)
         ),
         format!(
-            "Housing Stock: {} total / {} vacant",
+            "Housing Stock: {} total / {} facility / {} vacant",
             compact_count(country.housing_stock_total() as f64),
+            compact_count(country.housing_stock_company_facility() as f64),
             compact_count(country.housing_stock_vacant() as f64)
         ),
         format!(
@@ -309,6 +328,10 @@ pub(in crate::components::simulation) fn country_details_lines(
                 country.last_completed_month_rent_collected(),
                 currency_symbol
             )
+        ),
+        format!(
+            "Last Month Company Facility Spend: {}",
+            money(last_month_company_facility_spending, currency_symbol)
         ),
         format!(
             "Last Month Mortgage Payments: {}",

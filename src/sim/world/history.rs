@@ -68,6 +68,7 @@ impl World {
         let mut monthly_mint_fraction_sum = 0.0_f64;
         let mut monthly_goods_import_spending = 0.0_f64;
         let mut monthly_goods_export_revenue = 0.0_f64;
+        let mut company_input_spending = 0.0_f64;
         let mut monthly_unmet_need_events = 0.0_f64;
         let mut monthly_severe_unmet_need_events = 0.0_f64;
         let mut monthly_chronic_unmet_need_count = 0.0_f64;
@@ -89,6 +90,7 @@ impl World {
         let mut monthly_rent_sum = 0.0_f64;
         let mut homeownership_rate_sum = 0.0_f64;
         let mut housing_vacancy_rate_sum = 0.0_f64;
+        let mut company_facility_units = 0.0_f64;
         // Accumulators for deposit/loan rates weighted by population.
         let mut weighted_deposit_sum = 0.0_f64;
         let mut weighted_loan_sum = 0.0_f64;
@@ -132,6 +134,14 @@ impl World {
             monthly_mint_fraction_sum += country.last_mint_fraction();
             monthly_goods_import_spending += country.monthly_goods_import_spending_base();
             monthly_goods_export_revenue += country.monthly_goods_export_revenue_base();
+            company_input_spending += self.base_amount_from_local(
+                country_idx,
+                country
+                    .companies()
+                    .iter()
+                    .map(|company| company.last_month_input_spending)
+                    .sum::<f64>(),
+            );
             monthly_unmet_need_events += country.monthly_unmet_need_events() as f64;
             monthly_severe_unmet_need_events += country.monthly_severe_unmet_need_events() as f64;
             monthly_chronic_unmet_need_count += country.monthly_chronic_unmet_need_count() as f64;
@@ -164,6 +174,7 @@ impl World {
             monthly_rent_sum += country.monthly_rent();
             homeownership_rate_sum += country.homeownership_rate();
             housing_vacancy_rate_sum += country.housing_vacancy_rate();
+            company_facility_units += country.housing_stock_company_facility() as f64;
             total_population_f64 += pop;
             weighted_policy_sum += country.policy_rate() * pop;
             weighted_deposit_sum += country.deposit_rate() * pop;
@@ -207,6 +218,7 @@ impl World {
             monthly_mint_fraction: monthly_mint_fraction_sum / n,
             monthly_goods_import_spending,
             monthly_goods_export_revenue,
+            company_input_spending,
             monthly_unmet_need_events,
             monthly_severe_unmet_need_events,
             monthly_chronic_unmet_need_count,
@@ -224,6 +236,7 @@ impl World {
             monthly_rent: monthly_rent_sum / n,
             homeownership_rate: homeownership_rate_sum / n,
             housing_vacancy_rate: housing_vacancy_rate_sum / n,
+            company_facility_units,
             monthly_foreclosures,
             monthly_home_purchases,
             monthly_immigrants,
@@ -262,6 +275,11 @@ impl World {
             monthly_mint_fraction: country.last_mint_fraction(),
             monthly_goods_import_spending: country.monthly_goods_import_spending(),
             monthly_goods_export_revenue: country.monthly_goods_export_revenue(),
+            company_input_spending: country
+                .companies()
+                .iter()
+                .map(|company| company.last_month_input_spending)
+                .sum(),
             monthly_unmet_need_events: country.monthly_unmet_need_events() as f64,
             monthly_severe_unmet_need_events: country.monthly_severe_unmet_need_events() as f64,
             monthly_chronic_unmet_need_count: country.monthly_chronic_unmet_need_count() as f64,
@@ -282,6 +300,7 @@ impl World {
             monthly_rent: country.monthly_rent(),
             homeownership_rate: country.homeownership_rate(),
             housing_vacancy_rate: country.housing_vacancy_rate(),
+            company_facility_units: country.housing_stock_company_facility() as f64,
             monthly_foreclosures: country.monthly_foreclosures() as f64,
             monthly_home_purchases: country.monthly_home_purchases() as f64,
             monthly_immigrants: country.monthly_immigrants() as f64,

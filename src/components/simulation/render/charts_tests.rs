@@ -38,3 +38,19 @@ fn migration_page_exposes_country_flow_titles() {
     assert!(titles.contains(&"Outbound Migration"));
     assert!(titles.contains(&"Net Migration"));
 }
+
+#[test]
+fn inflation_page_includes_company_input_spending_chart() {
+    let titles = Simulation::chart_titles_for_page(2);
+
+    assert!(titles.contains(&"Company Input Spending"));
+    assert!(!titles.contains(&"Bank Equity Exposure"));
+}
+
+#[test]
+fn housing_page_includes_company_facility_units_chart() {
+    let titles = Simulation::chart_titles_for_page(4);
+
+    assert!(titles.contains(&"Company Facility Units"));
+    assert!(!titles.contains(&"Monthly Home Purchases"));
+}

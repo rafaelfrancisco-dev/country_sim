@@ -15,6 +15,8 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 >
 > Housing market mechanics (stock, rent, mortgages, price index) are documented in [housing-market.md](housing-market.md).
 >
+> Company input purchasing, recipes, and sector job catalogs are documented in [company-input-supply-chains.md](company-input-supply-chains.md).
+>
 > Tick architecture is documented in [ticking-mechanism.md](ticking-mechanism.md).
 
 ## Entity Model
@@ -36,8 +38,10 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   - `can_seek_job()` enforces education-track specific minimum working age.
 
 ### `Company`
-- Offers multiple existing job types.
+- Offers sector-specific job types based on the produced good.
 - Tracks open vacancies via `open_positions` with explicit offered salary.
+- Tracks input inventory separately from finished-goods inventory.
+- Tracks facility housing usage and associated monthly spending.
 - Tracks monthly profitability and profitable streaks.
 - Tracks trailing profit history for annual raise eligibility checks.
 - Can expand hiring only when profitability and reserve conditions are met.
@@ -60,7 +64,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   3. births using population-rate + carry model
   4. daily job-seeking and balanced hiring across company + bank vacancies
   5. aggregate recomputation
-- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing with resolution hysteresis**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), **housing construction drain, price index update, rent collection, mortgage payments, renter-to-owner transitions**, and close.
+- Monthly lifecycle (every 30 days): payroll/taxes, government spending, loan repayments, **private-bank run processing with resolution hysteresis**, per-bank savings interest, profitability recompute, annual market wage raises (cadence-gated), IPO/secondary/distress passes, labor flows (growth openings, startup formation, essential backfill, **bank formation**, job switching, churn), **housing construction drain, company facility-housing settlement, price index update, rent collection, mortgage payments, renter-to-owner transitions**, and close.
 - Monthly migration counters track in/out/work/distress flows after the world-level migration pass.
 - Maintains `next_startup_serial` so startup names remain unique across company removals.
 
@@ -77,6 +81,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
   - cross-country labor migration
   - cross-market stock dividends and stale-position cleanup for foreign holders
   - cross-country deposits
+- Daily goods-market passes now include both household demand and pre-production company input demand.
 
 See [managed-fx.md](./managed-fx.md) for the reserve-ownership and settlement model.
 

@@ -4,6 +4,7 @@ use crate::sim::essentials::{
     ESSENTIAL_GOOD_IDS, is_stockable_essential_good, production_capacity_units_for_workers,
     target_manufacturing_headcount_for_units,
 };
+use crate::sim::{good::industry_job_types_for_good, job::job_by_id};
 
 impl Country {
     pub(crate) fn private_bank_capacity_target(&self) -> usize {
@@ -223,10 +224,7 @@ impl Country {
         let mut company = Company::new(
             company_id,
             company_name.clone(),
-            common_job_types()
-                .iter()
-                .map(|job| job.id)
-                .collect::<Vec<_>>(),
+            industry_job_types_for_good(good_id).to_vec(),
             good_id,
         );
         company.deposit_bank_id = self.public_bank_id_or_first();
@@ -297,10 +295,12 @@ impl Country {
             company.inventory_units = seed_inventory_units.ceil().max(0.0) as u32;
         }
 
-        let mixed_weighted_jobs = common_job_types()
+        let mixed_weighted_jobs = company
+            .industry_job_types()
             .iter()
-            .filter(|job| job.id != MANUFACTURING_OPERATOR_JOB_ID)
-            .map(|job| (job.id, job.assignment_weight))
+            .copied()
+            .filter(|job_id| *job_id != MANUFACTURING_OPERATOR_JOB_ID)
+            .filter_map(|job_id| job_by_id(job_id).map(|job| (job.id, job.assignment_weight)))
             .collect::<Vec<_>>();
         for idx in 0..mixed_openings {
             let seed = hash64(

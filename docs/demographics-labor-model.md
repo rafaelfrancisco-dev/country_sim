@@ -72,6 +72,16 @@ Converted to daily with:
 - High School jobs: Office Clerk
 - Higher Learning jobs: Registered Nurse, Teacher, Software Developer
 
+Qualification is only one side of the match. Companies also expose sector-specific catalogs:
+
+- mine-like sectors: `Construction Worker`, `Driver`, `Manufacturing Operator`
+- timber/basic production: `Driver`, `Manufacturing Operator`, `Office Clerk`
+- housing: `Construction Worker`, `Driver`, `Office Clerk`
+- consumer and industrial manufacturing: `Manufacturing Operator`, `Driver`, `Office Clerk`
+- medicine: `Registered Nurse`, `Office Clerk`, `Driver`
+- education: `Teacher`, `Office Clerk`
+- internet/software: `Software Developer`, `Office Clerk`
+
 ### Daily Seek Probability
 For unemployed, eligible people:
 - `base = 0.010 + max(age - 18, 0) * 0.0003`
@@ -80,6 +90,7 @@ For unemployed, eligible people:
 
 ### Hiring Behavior
 - If a seeker passes seek probability, they attempt to match any open slot.
+- Slot must be offered by the target company's sector catalog.
 - Slot must satisfy habilitation requirement.
 - No interview failure model: a valid slot is accepted immediately.
 - On hire, the person contract salary is set from the opening offer.
@@ -158,9 +169,10 @@ Openings are distributed across existing offered job types weighted by each job'
 - Product gate:
   - prefer essential goods with strong observed sales
   - fallback to high-margin goods (`>= 25%`)
+  - founder profession must be allowed for the chosen sector
 - Viability gate:
   - payroll for the opening plan must be affordable vs expected revenue for the target good
-  - expected revenue blends observed sales with a demand proxy
+  - expected revenue blends observed sales with household demand and company-input demand proxies
 - Default opening-plan envelope is `3..8` and `max_startups_per_month` defaults to `8`.
 - Default affordability cap is tighter: `startup_max_payroll_to_revenue = 0.70`.
 - Funding stack:

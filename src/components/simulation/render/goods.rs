@@ -87,7 +87,7 @@ impl Simulation {
             _ => match world.goods_main_page {
                 GoodsMainPage::Companies => {
                     let [top, bottom] =
-                        Layout::vertical([Constraint::Length(8), Constraint::Min(10)]).areas(body);
+                        Layout::vertical([Constraint::Length(10), Constraint::Min(10)]).areas(body);
 
                     self.draw_goods_summary(frame, top, tab);
                     self.draw_goods_company_table(frame, bottom, world, tab);

@@ -273,7 +273,7 @@ fn goods_snapshot_builds_production_demand_rows_for_each_good() {
     let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
         panic!("goods tab payload expected");
     };
-    assert_eq!(goods_tab.total_goods_production_pages, 2);
+    assert_eq!(goods_tab.total_goods_production_pages, 3);
     assert_eq!(goods_tab.goods_production_page, 0);
     let water_row = goods_tab
         .production_demand_rows
@@ -342,6 +342,53 @@ fn goods_company_rows_use_completed_month_sales_metrics() {
     assert_eq!(row.export_sold, "5");
     assert_eq!(row.domestic_export_split, "30/5");
     assert_eq!(row.sales, format!("{expected_currency}350.00"));
+}
+
+#[test]
+fn goods_snapshot_models_company_input_demand_for_upstream_goods() {
+    let mut housing = Company::new(1, "Housing Co".to_string(), vec![], 2);
+    housing.manufacturing_employee_count = 1;
+
+    let mut world = World::new(vec![Country::with_economy(
+        1,
+        "A".to_string(),
+        Vec::new(),
+        vec![housing],
+        0.0,
+    )]);
+    world.countries[0].companies[0].manufacturing_employee_count = 1;
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Goods,
+            goods_main_page: GoodsMainPage::ProductionDemand,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Goods(goods_tab) = snapshot.tab else {
+        panic!("goods tab payload expected");
+    };
+    let timber_row = goods_tab
+        .production_demand_rows
+        .iter()
+        .find(|row| row.good == "Timber")
+        .expect("timber row");
+    let raw_metals_row = goods_tab
+        .production_demand_rows
+        .iter()
+        .find(|row| row.good == "Raw Metals")
+        .expect("raw metals row");
+
+    assert_eq!(timber_row.est_daily_demand_units, "1");
+    assert_eq!(timber_row.est_last_month_demand_units, "30");
+    assert_eq!(raw_metals_row.est_daily_demand_units, "1");
+    assert_eq!(raw_metals_row.est_last_month_demand_units, "30");
+    assert!(
+        goods_tab
+            .production_demand_summary_lines
+            .iter()
+            .any(|line| line.contains("Modeled Daily Demand (HH / Co):"))
+    );
 }
 
 #[test]

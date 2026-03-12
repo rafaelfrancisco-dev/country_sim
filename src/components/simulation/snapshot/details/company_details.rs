@@ -52,21 +52,27 @@ pub(in crate::components::simulation) fn company_details_lines(
     } else {
         0.0
     };
-    let inventory_runway_months = if company.last_month_units_sold > 0 {
-        company.inventory_units as f64 / company.last_month_units_sold as f64
+    let output_target_units = company_target_daily_output(country, company);
+    let production_readiness = production_readiness_label(country, company, output_target_units);
+    let recipe_description = recipe_description(company);
+    let input_coverage_description = input_coverage_description(company, output_target_units);
+    let inventory_runway_months = if company.last_completed_month_units_sold > 0 {
+        company.inventory_units as f64 / company.last_completed_month_units_sold as f64
     } else if company.inventory_units > 0 {
         f64::INFINITY
     } else {
         0.0
     };
     let domestic_export_total = company
-        .last_month_domestic_units_sold
-        .saturating_add(company.last_month_export_units_sold);
+        .last_completed_month_domestic_units_sold
+        .saturating_add(company.last_completed_month_export_units_sold);
     let domestic_export_mix = if domestic_export_total > 0 {
         format!(
             "{:.1}% / {:.1}%",
-            company.last_month_domestic_units_sold as f64 / domestic_export_total as f64 * 100.0,
-            company.last_month_export_units_sold as f64 / domestic_export_total as f64 * 100.0
+            company.last_completed_month_domestic_units_sold as f64 / domestic_export_total as f64
+                * 100.0,
+            company.last_completed_month_export_units_sold as f64 / domestic_export_total as f64
+                * 100.0
         )
     } else {
         "N/A".to_string()
@@ -157,8 +163,20 @@ pub(in crate::components::simulation) fn company_details_lines(
         "Operations:".to_string(),
         format!("Unit Price: {}", money(company.unit_price, currency_symbol)),
         format!(
-            "Inventory Units: {}",
+            "Output Inventory Units: {}",
             compact_count(company.inventory_units)
+        ),
+        format!(
+            "Daily Target Output: {}",
+            compact_count(output_target_units as f64)
+        ),
+        format!("Production Readiness: {production_readiness}"),
+        format!("Input Recipe: {recipe_description}"),
+        format!("Input Coverage: {input_coverage_description}"),
+        format!(
+            "Facility Housing Units / Target: {}/{}",
+            compact_count(company.facility_housing_units as f64),
+            compact_count(company.target_facility_housing_units() as f64)
         ),
         format!(
             "Last Month Produced Units: {}",
@@ -199,6 +217,17 @@ pub(in crate::components::simulation) fn company_details_lines(
         format!(
             "Last Month Payroll Paid: {}",
             money(company.last_completed_month_payroll_paid, currency_symbol)
+        ),
+        format!(
+            "Last Month Input Spend: {}",
+            money(company.last_completed_month_input_spending, currency_symbol)
+        ),
+        format!(
+            "Last Month Facility Spend: {}",
+            money(
+                company.last_completed_month_facility_spending,
+                currency_symbol
+            )
         ),
         format!(
             "Last Month Profit: {}",
@@ -243,4 +272,106 @@ pub(in crate::components::simulation) fn company_details_lines(
             }
         ),
     ]
+}
+
+fn company_target_daily_output(
+    country: &crate::sim::country::Country,
+    company: &crate::sim::company::Company,
+) -> u32 {
+    let Some(good) = good_by_id(company.produced_good_id) else {
+        return 0;
+    };
+    if good.effort_per_unit <= 0.0
+        || company.manufacturing_employee_count == 0
+        || company_output_inventory_throttled(country, company)
+    {
+        return 0;
+    }
+
+    let daily_effort_per_worker = country.sim_params().goods_market.worker_effort_per_month / 30.0;
+    ((company.production_effort_carry
+        + company.manufacturing_employee_count as f64 * daily_effort_per_worker)
+        / good.effort_per_unit)
+        .floor()
+        .max(0.0) as u32
+}
+
+fn production_readiness_label(
+    country: &crate::sim::country::Country,
+    company: &crate::sim::company::Company,
+    output_target_units: u32,
+) -> String {
+    if company.manufacturing_employee_count == 0 {
+        return "No manufacturing labor".to_string();
+    }
+    if company_output_inventory_throttled(country, company) {
+        return "Throttled by excess output inventory".to_string();
+    }
+    if output_target_units == 0 {
+        return "Insufficient labor effort carry for next unit".to_string();
+    }
+    if company.recipe_for_output_good().inputs().count() == 0 {
+        return "Ready (no material inputs required)".to_string();
+    }
+    if company.can_produce_one_unit() {
+        "Ready to produce".to_string()
+    } else {
+        "Waiting on material inputs".to_string()
+    }
+}
+
+fn recipe_description(company: &crate::sim::company::Company) -> String {
+    let inputs = company
+        .recipe_for_output_good()
+        .inputs()
+        .map(|(good_id, required)| {
+            let label = good_by_id(good_id).map_or("Unknown", |good| good.name);
+            format!("{label} x{required}")
+        })
+        .collect::<Vec<_>>();
+    if inputs.is_empty() {
+        "No material inputs".to_string()
+    } else {
+        inputs.join(", ")
+    }
+}
+
+fn input_coverage_description(
+    company: &crate::sim::company::Company,
+    output_target_units: u32,
+) -> String {
+    let inputs = company
+        .recipe_for_output_good()
+        .inputs()
+        .map(|(good_id, required_per_unit)| {
+            let required_units = output_target_units.saturating_mul(u32::from(required_per_unit));
+            let on_hand = company.input_inventory_units(good_id);
+            let label = good_by_id(good_id).map_or("Unknown", |good| good.name);
+            if required_units == 0 {
+                format!("{label}: {on_hand} on hand")
+            } else {
+                format!("{label}: {on_hand}/{required_units}")
+            }
+        })
+        .collect::<Vec<_>>();
+    if inputs.is_empty() {
+        "N/A".to_string()
+    } else {
+        inputs.join(" | ")
+    }
+}
+
+fn company_output_inventory_throttled(
+    country: &crate::sim::country::Country,
+    company: &crate::sim::company::Company,
+) -> bool {
+    let Some(&last_sold) = company.sold_units_history.back() else {
+        return false;
+    };
+    if last_sold == 0 {
+        return false;
+    }
+
+    let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
+    months_of_inventory > country.sim_params().goods_market.excess_inventory_months
 }

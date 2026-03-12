@@ -111,6 +111,7 @@ fn aggregate_history_matches_country_sums() {
             monthly_mint_fraction: 0.0,
             monthly_goods_import_spending: 0.0,
             monthly_goods_export_revenue: 0.0,
+            company_input_spending: 0.0,
             monthly_unmet_need_events: 0.0,
             monthly_severe_unmet_need_events: 0.0,
             monthly_chronic_unmet_need_count: 0.0,
@@ -128,6 +129,7 @@ fn aggregate_history_matches_country_sums() {
             monthly_rent: 0.0,
             homeownership_rate: 0.0,
             housing_vacancy_rate: 0.0,
+            company_facility_units: 0.0,
             monthly_foreclosures: 0.0,
             monthly_home_purchases: 0.0,
             monthly_immigrants: 0.0,
@@ -162,6 +164,7 @@ fn aggregate_history_matches_country_sums() {
                 + point.monthly_goods_import_spending,
             monthly_goods_export_revenue: acc.monthly_goods_export_revenue
                 + point.monthly_goods_export_revenue,
+            company_input_spending: acc.company_input_spending + point.company_input_spending,
             monthly_unmet_need_events: acc.monthly_unmet_need_events
                 + point.monthly_unmet_need_events,
             monthly_severe_unmet_need_events: acc.monthly_severe_unmet_need_events
@@ -185,6 +188,7 @@ fn aggregate_history_matches_country_sums() {
             monthly_rent: acc.monthly_rent + point.monthly_rent,
             homeownership_rate: acc.homeownership_rate + point.homeownership_rate,
             housing_vacancy_rate: acc.housing_vacancy_rate + point.housing_vacancy_rate,
+            company_facility_units: acc.company_facility_units + point.company_facility_units,
             monthly_foreclosures: acc.monthly_foreclosures + point.monthly_foreclosures,
             monthly_home_purchases: acc.monthly_home_purchases + point.monthly_home_purchases,
             monthly_immigrants: acc.monthly_immigrants + point.monthly_immigrants,

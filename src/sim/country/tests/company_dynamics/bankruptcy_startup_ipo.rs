@@ -79,14 +79,14 @@ fn startup_formation_creates_company_and_moves_founders() {
         let mut person = Person::new_with_profile(
             idx,
             EmploymentStatus::Employed {
-                job_type_id: 0,
+                job_type_id: 5,
                 employer_company_id: 0,
             },
             idx + 100,
             30 * DAYS_PER_YEAR,
             EducationTrack::HighSchool,
         );
-        person.set_employment_with_salary(0, 0, 3_200.0, 0);
+        person.set_employment_with_salary(0, 5, 3_900.0, 0);
         person.cash_balance = 100_000.0;
         people.push(person);
     }

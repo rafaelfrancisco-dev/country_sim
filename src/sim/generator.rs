@@ -138,22 +138,6 @@ fn build_job_selection_cache(
     rng: &mut DeterministicRng,
 ) -> JobSelectionCache {
     let jobs = common_job_types();
-    let mut job_ids_by_habilitation: [Vec<JobTypeId>; HABILITATION_BUCKETS] =
-        std::array::from_fn(|_| Vec::new());
-    let mut cumulative_weights_by_habilitation: [Vec<u64>; HABILITATION_BUCKETS] =
-        std::array::from_fn(|_| Vec::new());
-    let mut total_weights_by_habilitation = [0_u64; HABILITATION_BUCKETS];
-
-    for job in jobs {
-        let required_bucket = habilitation_bucket(job.required_habilitation);
-        for bucket in required_bucket..HABILITATION_BUCKETS {
-            total_weights_by_habilitation[bucket] = total_weights_by_habilitation[bucket]
-                .saturating_add(u64::from(job.assignment_weight));
-            job_ids_by_habilitation[bucket].push(job.id);
-            cumulative_weights_by_habilitation[bucket].push(total_weights_by_habilitation[bucket]);
-        }
-    }
-
     let hiring_weights = population::build_company_hiring_weights(companies, rng);
     let max_job_id = jobs.iter().map(|job| job.id as usize).max().unwrap_or(0);
     let mut employer_pickers = vec![EmployerPicker::default(); max_job_id.saturating_add(1)];
@@ -176,6 +160,25 @@ fn build_job_selection_cache(
         }
         picker.total_weight = cumulative;
         employer_pickers[job.id as usize] = picker;
+    }
+
+    let mut job_ids_by_habilitation: [Vec<JobTypeId>; HABILITATION_BUCKETS] =
+        std::array::from_fn(|_| Vec::new());
+    let mut cumulative_weights_by_habilitation: [Vec<u64>; HABILITATION_BUCKETS] =
+        std::array::from_fn(|_| Vec::new());
+    let mut total_weights_by_habilitation = [0_u64; HABILITATION_BUCKETS];
+
+    for job in jobs
+        .iter()
+        .filter(|job| employer_pickers[job.id as usize].total_weight > 0)
+    {
+        let required_bucket = habilitation_bucket(job.required_habilitation);
+        for bucket in required_bucket..HABILITATION_BUCKETS {
+            total_weights_by_habilitation[bucket] = total_weights_by_habilitation[bucket]
+                .saturating_add(u64::from(job.assignment_weight));
+            job_ids_by_habilitation[bucket].push(job.id);
+            cumulative_weights_by_habilitation[bucket].push(total_weights_by_habilitation[bucket]);
+        }
     }
 
     JobSelectionCache {

@@ -64,7 +64,8 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
   - Parallel intent/decision phases over chunked entities.
   - Sequential commit phases in stable index order when side effects touch shared state.
 - `World` goods market (`run_daily_goods_economy`) runs several parallel regions after country ticks complete:
-  - `produce_goods_daily`: outer `par_iter_mut` over countries; sequential inner company loop. Countries are fully independent.
+  - `purchase_company_inputs_daily`: sequential company-buy loop by country using the shared quote cache; companies buy recipe inputs before production.
+  - `produce_goods_daily`: outer `par_iter_mut` over countries; sequential inner company loop. Countries are fully independent. Production is gated by both labor effort and input inventory.
   - `consume_superficial_stock_daily`: outer `par_iter_mut` over countries; sequential inner person loop. Static per-slot daily usage is hoisted out of the loop. No cross-person state.
   - `GoodsMarketDayCache` is now a persistent world-owned runtime cache rather than a fresh per-day build. Supplier topology and quote templates are invalidated separately, while daily work only resets cursors and sparse active-demand state.
   - Stockable essentials maintain persistent per-person deficit/target state. The daily round-robin path activates only buyers with non-zero deficit for the current good instead of sweeping the full population for every essential.
@@ -98,7 +99,7 @@ Inside a single `World::tick_day`, country updates now run in parallel by determ
 ## Monthly Boundary Execution Order
 At each 30-day boundary, the shared world tick pipeline runs the following steps in order:
 
-1. `Country::process_month_end` (parallel) — payroll, taxes, stockable-essential month-end scoring, gov spending, housing settlement, chronic unmet scoring, loan repayments, company decisions; pushes events to `country.pending_events`
+1. `Country::process_month_end` (parallel) — payroll, taxes, stockable-essential month-end scoring, gov spending, housing settlement including company facility demand, chronic unmet scoring, loan repayments, company decisions; pushes events to `country.pending_events`
 2. `process_cross_market_stock_dividends` + stale-position cleanup — pays dividends to local and foreign holders using the listing country's cash/tax rules and removes holdings in delisted securities
 3. `process_cross_country_deposits`
 4. `adjust_dynamic_country_tariffs` — world-level tariff adjustment per country:
@@ -127,6 +128,7 @@ Step 8 must precede step 9 so that monthly accumulators are readable, and preced
   - severe unmet (large remaining shortfall)
   - chronic unmet (severe unmet sustained across consecutive months)
 - Housing is scored separately at month-end from household shelter status plus rent/mortgage outcomes, not from the round-robin goods market.
+- Company facility housing is also settled outside the round-robin goods market and uses a separate housing-stock counter from household occupancy.
 
 ## Trace/Non-Trace Drift Prevention
 - `World` now has a single internal tick pipeline (`tick_day_with_hooks`) and a hook trait (`WorldTickHooks`).

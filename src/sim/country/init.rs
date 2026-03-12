@@ -168,6 +168,7 @@ impl Country {
             housing_stock_total: 0,
             housing_stock_occupied_owned: 0,
             housing_stock_occupied_rented: 0,
+            housing_stock_company_facility: 0,
             housing_stock_vacant: 0,
             housing_price_index: 0.0,
             monthly_rent: 0.0,

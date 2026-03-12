@@ -1,5 +1,33 @@
 pub type GoodId = u8;
-pub const GOODS_COUNT: usize = 15;
+use super::job::JobTypeId;
+
+pub const GOODS_COUNT: usize = 18;
+pub const WATER_GOOD_ID: GoodId = 0;
+pub const FOOD_GOOD_ID: GoodId = 1;
+pub const HOUSING_GOOD_ID: GoodId = 2;
+pub const ELECTRICITY_GOOD_ID: GoodId = 3;
+pub const MEDICINE_GOOD_ID: GoodId = 4;
+pub const CLOTHING_GOOD_ID: GoodId = 5;
+pub const HYGIENE_PRODUCTS_GOOD_ID: GoodId = 6;
+pub const TRANSPORT_GOOD_ID: GoodId = 7;
+pub const INTERNET_GOOD_ID: GoodId = 8;
+pub const EDUCATION_SERVICES_GOOD_ID: GoodId = 9;
+pub const HOUSEHOLD_GOODS_GOOD_ID: GoodId = 10;
+pub const ELECTRONICS_GOOD_ID: GoodId = 11;
+pub const APPLIANCES_GOOD_ID: GoodId = 12;
+pub const CARS_GOOD_ID: GoodId = 13;
+pub const ENTERTAINMENT_GOOD_ID: GoodId = 14;
+pub const RAW_METALS_GOOD_ID: GoodId = 15;
+pub const TIMBER_GOOD_ID: GoodId = 16;
+pub const FUEL_GOOD_ID: GoodId = 17;
+
+const OFFICE_CLERK_JOB_ID: JobTypeId = 2;
+const DRIVER_JOB_ID: JobTypeId = 3;
+const CONSTRUCTION_WORKER_JOB_ID: JobTypeId = 4;
+const MANUFACTURING_OPERATOR_JOB_ID: JobTypeId = 5;
+const REGISTERED_NURSE_JOB_ID: JobTypeId = 7;
+const TEACHER_JOB_ID: JobTypeId = 8;
+const SOFTWARE_DEVELOPER_JOB_ID: JobTypeId = 9;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Good {
@@ -11,6 +39,46 @@ pub struct Good {
     pub base_unit_cost: f64,
     /// Durable goods (e.g. Housing) are managed outside the round-robin goods market.
     pub is_durable: bool,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct CompanyInputRecipe {
+    pub input_units_per_output: [u16; GOODS_COUNT],
+}
+
+impl CompanyInputRecipe {
+    pub fn units_required_for(self, good_id: GoodId) -> u16 {
+        self.input_units_per_output
+            .get(good_id as usize)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub fn inputs(self) -> impl Iterator<Item = (GoodId, u16)> {
+        self.input_units_per_output
+            .into_iter()
+            .enumerate()
+            .filter_map(|(good_idx, units)| {
+                if units == 0 {
+                    None
+                } else {
+                    Some((good_idx as GoodId, units))
+                }
+            })
+    }
+}
+
+const fn recipe(entries: &[(GoodId, u16)]) -> CompanyInputRecipe {
+    let mut input_units_per_output = [0_u16; GOODS_COUNT];
+    let mut idx = 0usize;
+    while idx < entries.len() {
+        let (good_id, units) = entries[idx];
+        input_units_per_output[good_id as usize] = units;
+        idx += 1;
+    }
+    CompanyInputRecipe {
+        input_units_per_output,
+    }
 }
 
 const COMMON_GOODS: [Good; GOODS_COUNT] = [
@@ -149,7 +217,82 @@ const COMMON_GOODS: [Good; GOODS_COUNT] = [
         base_unit_cost: 32.0,
         is_durable: false,
     },
+    Good {
+        id: 15,
+        name: "Raw Metals",
+        necessity_rank: 16,
+        effort_per_unit: 4.4,
+        monthly_demand_factor: 0.05,
+        base_unit_cost: 18.0,
+        is_durable: false,
+    },
+    Good {
+        id: 16,
+        name: "Timber",
+        necessity_rank: 17,
+        effort_per_unit: 3.8,
+        monthly_demand_factor: 0.06,
+        base_unit_cost: 15.0,
+        is_durable: false,
+    },
+    Good {
+        id: 17,
+        name: "Fuel",
+        necessity_rank: 18,
+        effort_per_unit: 4.1,
+        monthly_demand_factor: 0.08,
+        base_unit_cost: 20.0,
+        is_durable: false,
+    },
 ];
+
+const MATERIAL_FREE_RECIPE: CompanyInputRecipe = recipe(&[]);
+const COMPANY_INPUT_RECIPES: [CompanyInputRecipe; GOODS_COUNT] = [
+    MATERIAL_FREE_RECIPE,                                    // Water
+    MATERIAL_FREE_RECIPE,                                    // Food
+    recipe(&[(TIMBER_GOOD_ID, 1), (RAW_METALS_GOOD_ID, 1)]), // Housing
+    MATERIAL_FREE_RECIPE,                                    // Electricity
+    MATERIAL_FREE_RECIPE,                                    // Medicine
+    recipe(&[(TIMBER_GOOD_ID, 1)]),                          // Clothing
+    recipe(&[(FUEL_GOOD_ID, 1)]),                            // Hygiene Products
+    MATERIAL_FREE_RECIPE,                                    // Transport
+    MATERIAL_FREE_RECIPE,                                    // Internet
+    MATERIAL_FREE_RECIPE,                                    // Education Services
+    recipe(&[(TIMBER_GOOD_ID, 1), (FUEL_GOOD_ID, 1)]),       // Household Goods
+    recipe(&[(RAW_METALS_GOOD_ID, 1), (FUEL_GOOD_ID, 1)]),   // Electronics
+    recipe(&[(RAW_METALS_GOOD_ID, 2), (FUEL_GOOD_ID, 1)]),   // Appliances
+    recipe(&[(RAW_METALS_GOOD_ID, 3), (FUEL_GOOD_ID, 2)]),   // Cars
+    MATERIAL_FREE_RECIPE,                                    // Entertainment
+    MATERIAL_FREE_RECIPE,                                    // Raw Metals
+    MATERIAL_FREE_RECIPE,                                    // Timber
+    MATERIAL_FREE_RECIPE,                                    // Fuel
+];
+
+const MINE_JOBS: [JobTypeId; 3] = [
+    CONSTRUCTION_WORKER_JOB_ID,
+    DRIVER_JOB_ID,
+    MANUFACTURING_OPERATOR_JOB_ID,
+];
+const BASIC_PRODUCTION_JOBS: [JobTypeId; 3] = [
+    DRIVER_JOB_ID,
+    MANUFACTURING_OPERATOR_JOB_ID,
+    OFFICE_CLERK_JOB_ID,
+];
+const HOUSING_JOBS: [JobTypeId; 3] = [
+    CONSTRUCTION_WORKER_JOB_ID,
+    DRIVER_JOB_ID,
+    OFFICE_CLERK_JOB_ID,
+];
+const MANUFACTURING_JOBS: [JobTypeId; 3] = [
+    MANUFACTURING_OPERATOR_JOB_ID,
+    DRIVER_JOB_ID,
+    OFFICE_CLERK_JOB_ID,
+];
+const MEDICINE_JOBS: [JobTypeId; 3] = [REGISTERED_NURSE_JOB_ID, OFFICE_CLERK_JOB_ID, DRIVER_JOB_ID];
+const EDUCATION_JOBS: [JobTypeId; 2] = [TEACHER_JOB_ID, OFFICE_CLERK_JOB_ID];
+const INTERNET_JOBS: [JobTypeId; 2] = [SOFTWARE_DEVELOPER_JOB_ID, OFFICE_CLERK_JOB_ID];
+const TRANSPORT_JOBS: [JobTypeId; 2] = [DRIVER_JOB_ID, OFFICE_CLERK_JOB_ID];
+const ENTERTAINMENT_JOBS: [JobTypeId; 2] = [OFFICE_CLERK_JOB_ID, DRIVER_JOB_ID];
 
 pub fn common_goods() -> &'static [Good; GOODS_COUNT] {
     &COMMON_GOODS
@@ -159,13 +302,41 @@ pub fn good_by_id(id: GoodId) -> Option<&'static Good> {
     COMMON_GOODS.iter().find(|good| good.id == id)
 }
 
+pub fn recipe_for_good(good_id: GoodId) -> &'static CompanyInputRecipe {
+    COMPANY_INPUT_RECIPES
+        .get(good_id as usize)
+        .unwrap_or(&MATERIAL_FREE_RECIPE)
+}
+
+pub fn industry_job_types_for_good(good_id: GoodId) -> &'static [JobTypeId] {
+    match good_id {
+        RAW_METALS_GOOD_ID | FUEL_GOOD_ID => &MINE_JOBS,
+        TIMBER_GOOD_ID | WATER_GOOD_ID | FOOD_GOOD_ID | ELECTRICITY_GOOD_ID => {
+            &BASIC_PRODUCTION_JOBS
+        }
+        HOUSING_GOOD_ID => &HOUSING_JOBS,
+        CLOTHING_GOOD_ID
+        | HYGIENE_PRODUCTS_GOOD_ID
+        | HOUSEHOLD_GOODS_GOOD_ID
+        | ELECTRONICS_GOOD_ID
+        | APPLIANCES_GOOD_ID
+        | CARS_GOOD_ID => &MANUFACTURING_JOBS,
+        MEDICINE_GOOD_ID => &MEDICINE_JOBS,
+        EDUCATION_SERVICES_GOOD_ID => &EDUCATION_JOBS,
+        INTERNET_GOOD_ID => &INTERNET_JOBS,
+        TRANSPORT_GOOD_ID => &TRANSPORT_JOBS,
+        ENTERTAINMENT_GOOD_ID => &ENTERTAINMENT_JOBS,
+        _ => &[],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn exactly_fifteen_common_goods_exist() {
-        assert_eq!(common_goods().len(), 15);
+    fn exactly_eighteen_common_goods_exist() {
+        assert_eq!(common_goods().len(), 18);
     }
 
     #[test]
@@ -177,7 +348,7 @@ mod tests {
         ids.sort_unstable();
         ids.dedup();
 
-        assert_eq!(ids.len(), 15);
+        assert_eq!(ids.len(), 18);
     }
 
     #[test]
@@ -192,6 +363,53 @@ mod tests {
 
         assert_eq!(ranks, sorted);
         assert_eq!(ranks.first().copied(), Some(1));
-        assert_eq!(ranks.last().copied(), Some(15));
+        assert_eq!(ranks.last().copied(), Some(18));
+    }
+
+    #[test]
+    fn appended_upstream_goods_have_expected_ids() {
+        assert_eq!(
+            good_by_id(RAW_METALS_GOOD_ID).map(|good| good.name),
+            Some("Raw Metals")
+        );
+        assert_eq!(
+            good_by_id(TIMBER_GOOD_ID).map(|good| good.name),
+            Some("Timber")
+        );
+        assert_eq!(good_by_id(FUEL_GOOD_ID).map(|good| good.name), Some("Fuel"));
+    }
+
+    #[test]
+    fn downstream_goods_expose_expected_recipes() {
+        let housing_recipe = recipe_for_good(HOUSING_GOOD_ID);
+        assert_eq!(housing_recipe.units_required_for(TIMBER_GOOD_ID), 1);
+        assert_eq!(housing_recipe.units_required_for(RAW_METALS_GOOD_ID), 1);
+
+        let cars_recipe = recipe_for_good(CARS_GOOD_ID);
+        assert_eq!(cars_recipe.units_required_for(RAW_METALS_GOOD_ID), 3);
+        assert_eq!(cars_recipe.units_required_for(FUEL_GOOD_ID), 2);
+
+        let electricity_recipe = recipe_for_good(ELECTRICITY_GOOD_ID);
+        assert_eq!(electricity_recipe.inputs().count(), 0);
+    }
+
+    #[test]
+    fn industry_job_catalogs_are_sector_specific() {
+        assert_eq!(
+            industry_job_types_for_good(RAW_METALS_GOOD_ID),
+            &[
+                CONSTRUCTION_WORKER_JOB_ID,
+                DRIVER_JOB_ID,
+                MANUFACTURING_OPERATOR_JOB_ID
+            ]
+        );
+        assert_eq!(
+            industry_job_types_for_good(EDUCATION_SERVICES_GOOD_ID),
+            &[TEACHER_JOB_ID, OFFICE_CLERK_JOB_ID]
+        );
+        assert_eq!(
+            industry_job_types_for_good(INTERNET_GOOD_ID),
+            &[SOFTWARE_DEVELOPER_JOB_ID, OFFICE_CLERK_JOB_ID]
+        );
     }
 }

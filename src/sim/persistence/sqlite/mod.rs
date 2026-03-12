@@ -31,7 +31,7 @@ mod to;
 mod to_rest;
 mod write;
 
-const SCHEMA_VERSION: u32 = 4;
+const SCHEMA_VERSION: u32 = 5;
 
 pub struct SqliteSeaOrmSaveRepository {
     db_dir: PathBuf,

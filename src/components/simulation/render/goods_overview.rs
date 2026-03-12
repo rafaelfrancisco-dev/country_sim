@@ -49,7 +49,7 @@ impl Simulation {
             Cell::from("Good"),
             Cell::from("Price(M)"),
             Cell::from(avg_label),
-            Cell::from("Inv(D)"),
+            Cell::from("Out Inv(D)"),
             Cell::from("Prod(M)"),
             Cell::from("Sold(M)"),
             Cell::from("Tot Sold"),
@@ -123,7 +123,7 @@ impl Simulation {
             Constraint::Length(18),
             Constraint::Length(9),
             Constraint::Length(11),
-            Constraint::Length(7),
+            Constraint::Length(10),
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(8),
@@ -177,7 +177,7 @@ impl Simulation {
         tab: &GoodsTabSnapshot,
     ) -> String {
         let [summary_area, table_area] =
-            Layout::vertical([Constraint::Length(9), Constraint::Min(10)]).areas(body);
+            Layout::vertical([Constraint::Length(10), Constraint::Min(10)]).areas(body);
 
         self.draw_goods_production_summary(frame, summary_area, tab);
         self.draw_goods_production_table(frame, table_area, tab);
@@ -262,12 +262,12 @@ impl Simulation {
             "Good",
             "Prods",
             "Avg Price(M)",
-            "Inv(D)",
+            "Out Inv(D)",
             "Last Mo Prod(M)",
             "Last Mo Sold(M)",
             "Export(M)",
-            "Daily Dem(D)",
-            "Last Mo Dem(M)",
+            "Daily Total Dem*",
+            "Last Mo Total Dem*",
         ])
         .style(
             Style::default()
@@ -279,12 +279,12 @@ impl Simulation {
             Constraint::Min(16),
             Constraint::Length(5),
             Constraint::Length(13),
-            Constraint::Length(7),
+            Constraint::Length(10),
             Constraint::Length(15),
             Constraint::Length(15),
             Constraint::Length(10),
-            Constraint::Length(12),
-            Constraint::Length(14),
+            Constraint::Length(16),
+            Constraint::Length(17),
         ];
 
         frame.render_widget(

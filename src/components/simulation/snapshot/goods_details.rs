@@ -1,5 +1,6 @@
 use super::*;
 use crate::sim::country::DAYS_PER_MONTH;
+use crate::sim::{company::Company, country::Country};
 use std::cmp::Ordering;
 
 type CompanyHistorySeries = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>);
@@ -12,6 +13,18 @@ struct GoodAggregate {
     produced_units: u32,
     sold_units: u32,
     export_units: u32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(in crate::components::simulation) struct DemandEstimate {
+    household_daily_units: f64,
+    company_daily_units: f64,
+}
+
+impl DemandEstimate {
+    pub(in crate::components::simulation) fn total_daily_units(self) -> f64 {
+        self.household_daily_units + self.company_daily_units
+    }
 }
 
 pub(in crate::components::simulation) fn selected_company_histories(
@@ -39,6 +52,78 @@ pub(in crate::components::simulation) fn selected_company_histories(
     )
 }
 
+pub(in crate::components::simulation) fn company_input_spending_mtd(country: &Country) -> f64 {
+    country
+        .companies()
+        .iter()
+        .map(|company| company.last_month_input_spending)
+        .sum()
+}
+
+pub(in crate::components::simulation) fn last_completed_company_input_spending(
+    country: &Country,
+) -> f64 {
+    country
+        .companies()
+        .iter()
+        .map(|company| company.last_completed_month_input_spending)
+        .sum()
+}
+
+pub(in crate::components::simulation) fn last_completed_company_facility_spending(
+    country: &Country,
+) -> f64 {
+    country
+        .companies()
+        .iter()
+        .map(|company| company.last_completed_month_facility_spending)
+        .sum()
+}
+
+pub(in crate::components::simulation) fn household_import_spending_mtd(country: &Country) -> f64 {
+    country
+        .people()
+        .iter()
+        .map(|person| person.last_month_imported_goods_spending)
+        .sum()
+}
+
+pub(in crate::components::simulation) fn company_import_spending_mtd(country: &Country) -> f64 {
+    (country.monthly_goods_import_spending() - household_import_spending_mtd(country)).max(0.0)
+}
+
+pub(in crate::components::simulation) fn goods_modeled_demand_estimates(
+    country: &Country,
+) -> Vec<DemandEstimate> {
+    let mut estimates = common_goods()
+        .iter()
+        .map(|good| DemandEstimate {
+            household_daily_units: country.population() as f64
+                * good.monthly_demand_factor.max(0.0)
+                / DAYS_PER_MONTH as f64,
+            company_daily_units: 0.0,
+        })
+        .collect::<Vec<_>>();
+
+    for company in country.companies() {
+        let Some(target_units) = company_target_daily_output(country, company) else {
+            continue;
+        };
+        if target_units == 0 {
+            continue;
+        }
+
+        for (input_good_id, required_per_unit) in company.recipe_for_output_good().inputs() {
+            let Some(estimate) = estimates.get_mut(input_good_id as usize) else {
+                continue;
+            };
+            estimate.company_daily_units += target_units as f64 * f64::from(required_per_unit);
+        }
+    }
+
+    estimates
+}
+
 pub(in crate::components::simulation) fn country_goods_summary_lines(
     world: &World,
     ui: &UiState,
@@ -47,16 +132,23 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(
         return vec!["No country is currently selected.".to_string()];
     };
     let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
+    let company_input_spending = company_input_spending_mtd(country);
+    let household_import_spending = household_import_spending_mtd(country);
+    let total_import_spending = country.monthly_goods_import_spending();
+    let company_import_spending = company_import_spending_mtd(country);
 
     vec![
         format!("Country: {} (Month {})", country.name, country.month),
         format!(
-            "MTD Household Goods Spending: {}",
-            money(country.monthly_household_spending, currency_symbol)
+            "MTD Spend (Household / Inputs): {} / {}",
+            money(country.monthly_household_spending, currency_symbol),
+            money(company_input_spending, currency_symbol)
         ),
         format!(
-            "MTD Imported Goods Spending: {}",
-            money(country.monthly_goods_import_spending, currency_symbol)
+            "MTD Imports (Total / HH / Co): {} / {} / {}",
+            money(total_import_spending, currency_symbol),
+            money(household_import_spending, currency_symbol),
+            money(company_import_spending, currency_symbol)
         ),
         format!(
             "MTD Goods Export Revenue: {}",
@@ -71,15 +163,9 @@ pub(in crate::components::simulation) fn country_goods_summary_lines(
             money(country.monthly_essential_debt_spending, currency_symbol)
         ),
         format!(
-            "MTD Unmet Need Events: {}",
-            compact_count(country.monthly_unmet_need_events as f64)
-        ),
-        format!(
-            "MTD Severe Unmet Events: {}",
-            compact_count(country.monthly_severe_unmet_need_events as f64)
-        ),
-        format!(
-            "MTD Chronic Unmet People: {}",
+            "MTD Unmet / Severe / Chronic: {} / {} / {}",
+            compact_count(country.monthly_unmet_need_events as f64),
+            compact_count(country.monthly_severe_unmet_need_events as f64),
             compact_count(country.monthly_chronic_unmet_need_count as f64)
         ),
     ]
@@ -96,10 +182,16 @@ pub(in crate::components::simulation) fn production_demand_summary_lines(
     let day_in_month = world.day % DAYS_PER_MONTH + 1;
     let currency_symbol = normalized_currency_symbol(&ui.currency_symbol);
     let aggregates = goods_production_demand_aggregates(country);
-    let total_modeled_daily_demand = common_goods()
+    let demand_estimates = goods_modeled_demand_estimates(country);
+    let total_household_daily_demand = demand_estimates
         .iter()
-        .map(|good| country.population() as f64 * good.monthly_demand_factor.max(0.0) / 30.0)
+        .map(|estimate| estimate.household_daily_units)
         .sum::<f64>();
+    let total_company_daily_demand = demand_estimates
+        .iter()
+        .map(|estimate| estimate.company_daily_units)
+        .sum::<f64>();
+    let total_modeled_daily_demand = total_household_daily_demand + total_company_daily_demand;
     let total_modeled_mtd_demand = total_modeled_daily_demand * day_in_month as f64;
     let zero_producer_goods = aggregates
         .iter()
@@ -125,7 +217,12 @@ pub(in crate::components::simulation) fn production_demand_summary_lines(
         ),
         format!("Population: {}", compact_count(country.population() as f64)),
         format!(
-            "Modeled Daily Demand: {} units",
+            "Modeled Daily Demand (HH / Co): {} / {} units",
+            compact_count(total_household_daily_demand),
+            compact_count(total_company_daily_demand)
+        ),
+        format!(
+            "Modeled Total Daily Demand: {} units",
             compact_count(total_modeled_daily_demand)
         ),
         format!(
@@ -143,8 +240,9 @@ pub(in crate::components::simulation) fn production_demand_summary_lines(
             zero_producer_goods
         ),
         format!(
-            "Avg Local Household Spend: {}",
-            money(country.monthly_household_spending, currency_symbol)
+            "MTD Household / Company Spend: {} / {}",
+            money(country.monthly_household_spending, currency_symbol),
+            money(company_input_spending_mtd(country), currency_symbol)
         ),
     ]
 }
@@ -158,13 +256,14 @@ pub(in crate::components::simulation) fn production_demand_rows(
         return Vec::new();
     };
 
-    let _day_in_month = world.day % DAYS_PER_MONTH + 1;
     let aggregates = goods_production_demand_aggregates(country);
+    let demand_estimates = goods_modeled_demand_estimates(country);
     common_goods()
         .iter()
         .enumerate()
         .map(|(idx, good)| {
             let aggregate = aggregates.get(idx).copied().unwrap_or_default();
+            let demand_estimate = demand_estimates.get(idx).copied().unwrap_or_default();
             let avg_price = if aggregate.producer_count == 0 {
                 "N/A".to_string()
             } else {
@@ -173,8 +272,7 @@ pub(in crate::components::simulation) fn production_demand_rows(
                     currency_symbol,
                 )
             };
-            let est_daily_demand =
-                country.population() as f64 * good.monthly_demand_factor.max(0.0) / 30.0;
+            let est_daily_demand = demand_estimate.total_daily_units();
             let est_last_month_demand = est_daily_demand * 30.0;
 
             GoodsProductionDemandRowSnapshot {
@@ -214,6 +312,38 @@ fn goods_production_demand_aggregates(
             .saturating_add(company.last_completed_month_export_units_sold);
     }
     aggregates
+}
+
+fn company_target_daily_output(country: &Country, company: &Company) -> Option<u32> {
+    let good = good_by_id(company.produced_good_id)?;
+    if good.effort_per_unit <= 0.0
+        || company.manufacturing_employee_count == 0
+        || company_output_inventory_throttled(company, country)
+    {
+        return Some(0);
+    }
+
+    let daily_effort_per_worker =
+        country.sim_params().goods_market.worker_effort_per_month / DAYS_PER_MONTH as f64;
+    let target_units = ((company.production_effort_carry
+        + company.manufacturing_employee_count as f64 * daily_effort_per_worker)
+        / good.effort_per_unit)
+        .floor()
+        .max(0.0) as u32;
+
+    Some(target_units)
+}
+
+fn company_output_inventory_throttled(company: &Company, country: &Country) -> bool {
+    let Some(&last_sold) = company.sold_units_history.back() else {
+        return false;
+    };
+    if last_sold == 0 {
+        return false;
+    }
+
+    let months_of_inventory = company.inventory_units as f64 / last_sold as f64;
+    months_of_inventory > country.sim_params().goods_market.excess_inventory_months
 }
 
 pub(in crate::components::simulation) fn selected_company_worker_rows(

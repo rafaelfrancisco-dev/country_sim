@@ -577,8 +577,8 @@ fn insert_metric_points(
     country_index: Option<i64>,
     points: &[MetricPointDto],
 ) -> Result<(), PersistenceError> {
-    const METRIC_COLUMNS: &str = "history_index, month, fx_rate_local_per_base, fx_reserves_base, fx_net_flow_base, fx_pressure, population, total_money_supply, household_cash_total, company_cash_total, expected_money_supply, money_supply_gap, created_money_outstanding, bank_reserve, treasury_balance, budget_balance, monthly_tax_collected, monthly_gov_spending, gov_debt, monthly_money_minted, cumulative_money_minted, monthly_mint_fraction, monthly_goods_import_spending, monthly_goods_export_revenue, monthly_unmet_need_events, monthly_severe_unmet_need_events, monthly_chronic_unmet_need_count, monthly_essential_debt_spending, cpi_index, inflation_rate, policy_rate, deposit_rate, loan_rate, monthly_savings_interest_paid, bonds_outstanding, stock_market_cap, stock_bank_equity_exposure, housing_price_index, monthly_rent, homeownership_rate, housing_vacancy_rate, monthly_foreclosures, monthly_home_purchases, monthly_immigrants, monthly_emigrants, monthly_migrants_for_work, monthly_migrants_for_distress";
-    let parameter_count = if country_index.is_some() { 48 } else { 47 };
+    const METRIC_COLUMNS: &str = "history_index, month, fx_rate_local_per_base, fx_reserves_base, fx_net_flow_base, fx_pressure, population, total_money_supply, household_cash_total, company_cash_total, expected_money_supply, money_supply_gap, created_money_outstanding, bank_reserve, treasury_balance, budget_balance, monthly_tax_collected, monthly_gov_spending, gov_debt, monthly_money_minted, cumulative_money_minted, monthly_mint_fraction, monthly_goods_import_spending, monthly_goods_export_revenue, company_input_spending, monthly_unmet_need_events, monthly_severe_unmet_need_events, monthly_chronic_unmet_need_count, monthly_essential_debt_spending, cpi_index, inflation_rate, policy_rate, deposit_rate, loan_rate, monthly_savings_interest_paid, bonds_outstanding, stock_market_cap, stock_bank_equity_exposure, housing_price_index, monthly_rent, homeownership_rate, housing_vacancy_rate, company_facility_units, monthly_foreclosures, monthly_home_purchases, monthly_immigrants, monthly_emigrants, monthly_migrants_for_work, monthly_migrants_for_distress";
+    let parameter_count = if country_index.is_some() { 50 } else { 49 };
     let placeholders = (1..=parameter_count)
         .map(|i| format!("?{i}"))
         .collect::<Vec<_>>()
@@ -974,6 +974,7 @@ fn metric_row(country_index: Option<i64>, history_index: i64, p: &MetricPointDto
         Value::from(p.monthly_mint_fraction),
         Value::from(p.monthly_goods_import_spending),
         Value::from(p.monthly_goods_export_revenue),
+        Value::from(p.company_input_spending),
         Value::from(p.monthly_unmet_need_events),
         Value::from(p.monthly_severe_unmet_need_events),
         Value::from(p.monthly_chronic_unmet_need_count),
@@ -991,6 +992,7 @@ fn metric_row(country_index: Option<i64>, history_index: i64, p: &MetricPointDto
         Value::from(p.monthly_rent),
         Value::from(p.homeownership_rate),
         Value::from(p.housing_vacancy_rate),
+        Value::from(p.company_facility_units),
         Value::from(p.monthly_foreclosures),
         Value::from(p.monthly_home_purchases),
         Value::from(p.monthly_immigrants),
