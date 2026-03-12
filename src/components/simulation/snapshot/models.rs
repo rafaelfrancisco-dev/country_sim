@@ -281,11 +281,11 @@ pub(in crate::components::simulation) struct FxTabSnapshot {
     pub selected_fx_summary_lines: Vec<String>,
     pub pair_board_lines: Vec<String>,
     pub fx_rows: Vec<FxRowSnapshot>,
-    /// Per-source-currency breakdown of the selected country's reserves (current state).
+    /// Current reserve breakdown aggregated by currency for UI display.
     pub selected_reserves_breakdown: Vec<FxReserveEntry>,
     pub selected_fx_rate_history: Arc<[f64]>,
-    /// Per-source-currency reserves history: (currency_code, local-currency time series).
-    /// Sorted by source country index so colors are stable across renders.
+    /// Reserve history aggregated by currency: (currency_code, local-currency time series).
+    /// Sorted by currency index so colors are stable across renders.
     pub selected_fx_reserves_by_currency: Vec<(String, Arc<[f64]>)>,
     pub selected_fx_net_flow_history: Arc<[f64]>,
     pub selected_fx_pressure_history: Arc<[f64]>,

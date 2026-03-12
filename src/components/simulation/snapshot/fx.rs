@@ -1,6 +1,6 @@
 use super::*;
 use crate::sim::{country::Country, world::MetricPoint};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::BTreeMap};
 pub(in crate::components::simulation) fn build_fx_tab_snapshot(
     world: &World,
     ui: &UiState,
@@ -69,8 +69,8 @@ pub(in crate::components::simulation) fn build_fx_tab_snapshot(
 }
 
 /// Build per-currency reserves time series for the chart.
-/// Each entry is (currency_code, local-currency history) sorted by source country index.
-/// Historical base amounts are converted to local using the rate at each point.
+/// Historical source-country buckets are aggregated by shared currency so
+/// currency-union members show up as one series in the UI.
 fn build_reserves_currency_history(
     world: &World,
     selected_idx: usize,
@@ -80,27 +80,43 @@ fn build_reserves_currency_history(
         return Vec::new();
     };
 
-    src_hist
-        .iter()
-        .filter_map(|(&src_idx, series)| {
-            let src = world.countries().get(src_idx)?;
-            // Convert base amounts to local using the historical rate at each point.
-            let data: Arc<[f64]> = series
-                .iter()
-                .zip(
-                    selected_history
-                        .iter()
-                        .map(|p| p.fx_rate_local_per_base)
-                        .chain(std::iter::repeat(1.0)),
-                )
-                .map(|(&base_amt, rate)| base_amt * rate)
-                .collect::<Vec<_>>()
-                .into();
+    let mut by_currency: BTreeMap<usize, (String, Vec<f64>)> = BTreeMap::new();
+
+    for (&src_idx, series) in src_hist {
+        let Some(src) = world.countries().get(src_idx) else {
+            continue;
+        };
+
+        let converted = series
+            .iter()
+            .zip(
+                selected_history
+                    .iter()
+                    .map(|p| p.fx_rate_local_per_base)
+                    .chain(std::iter::repeat(1.0)),
+            )
+            .map(|(&base_amt, rate)| base_amt * rate)
+            .collect::<Vec<_>>();
+
+        let (_, aggregated) = by_currency
+            .entry(src.currency_idx())
+            .or_insert_with(|| (src.currency_code().to_string(), vec![0.0; converted.len()]));
+        if aggregated.len() < converted.len() {
+            aggregated.resize(converted.len(), 0.0);
+        }
+        for (amount, converted_amount) in aggregated.iter_mut().zip(converted.iter()) {
+            *amount += *converted_amount;
+        }
+    }
+
+    by_currency
+        .into_values()
+        .filter_map(|(currency_code, data)| {
             // Skip series that were always zero.
             if data.iter().all(|&v| v < 0.01) {
                 return None;
             }
-            Some((src.currency_code().to_string(), data))
+            Some((currency_code, Arc::from(data)))
         })
         .collect()
 }
@@ -111,22 +127,31 @@ fn build_reserves_breakdown(world: &World, selected_idx: usize) -> Vec<FxReserve
         return Vec::new();
     };
 
-    world
+    let mut by_currency: BTreeMap<usize, FxReserveEntry> = BTreeMap::new();
+
+    for (source_idx, source) in world
         .countries()
         .iter()
         .enumerate()
         .filter(|(source_idx, _)| *source_idx != selected_idx)
-        .map(|(source_idx, source)| FxReserveEntry {
-            currency_symbol: source.currency_symbol().to_string(),
-            currency_code: source.currency_code().to_string(),
-            amount_local: selected
-                .fx_reserves_by_source()
-                .get(&source_idx)
-                .copied()
-                .unwrap_or(0.0)
-                * source.fx_rate_local_per_base(),
-        })
-        .collect()
+    {
+        let amount_local = selected
+            .fx_reserves_by_source()
+            .get(&source_idx)
+            .copied()
+            .unwrap_or(0.0)
+            * source.fx_rate_local_per_base();
+        let entry = by_currency
+            .entry(source.currency_idx())
+            .or_insert_with(|| FxReserveEntry {
+                currency_symbol: source.currency_symbol().to_string(),
+                currency_code: source.currency_code().to_string(),
+                amount_local: 0.0,
+            });
+        entry.amount_local += amount_local;
+    }
+
+    by_currency.into_values().collect()
 }
 
 fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {

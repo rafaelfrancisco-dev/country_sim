@@ -3,15 +3,26 @@ use crate::components::simulation::snapshot::{
 };
 use crate::components::simulation::ui_state::{RunningTab, UiState};
 use crate::sim::{
-    GamePhase, country::Country, person::Person, runtime::SimulationMode, world::World,
+    GamePhase, country::Country, currency::CurrencySpec, person::Person, runtime::SimulationMode,
+    world::MetricPoint, world::World,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 fn sample_world_two_countries() -> World {
     World::new(vec![
         Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]),
         Country::new(2, "B".to_string(), vec![Person::new(2, 30, 0, 12)]),
     ])
+}
+
+fn sample_world_with_shared_foreign_currency() -> World {
+    let selected = Country::new(1, "A".to_string(), vec![Person::new(1, 30, 0, 11)]);
+    let mut foreign_a = Country::new(2, "B".to_string(), vec![Person::new(2, 30, 0, 12)]);
+    let mut foreign_b = Country::new(3, "C".to_string(), vec![Person::new(3, 30, 0, 13)]);
+    let shared_currency = CurrencySpec::new("EUR", "Euro", "€");
+    foreign_a.currency_spec = shared_currency.clone();
+    foreign_b.currency_spec = shared_currency;
+    World::new(vec![selected, foreign_a, foreign_b])
 }
 
 fn snapshot_from_world_with_ui(world: World, mut ui_state: UiState) -> RunningSnapshot {
@@ -170,4 +181,51 @@ fn fx_snapshot_includes_zero_value_foreign_lines() {
 
     assert_eq!(fx_tab.selected_reserves_breakdown.len(), 1);
     assert_eq!(fx_tab.selected_reserves_breakdown[0].amount_local, 0.0);
+}
+
+#[test]
+fn fx_snapshot_aggregates_shared_currency_reserves_and_history() {
+    let mut world = sample_world_with_shared_foreign_currency();
+    let history_template = world.country_history[0][0];
+    world.country_history[0] = VecDeque::from([
+        MetricPoint {
+            fx_rate_local_per_base: 2.0,
+            ..history_template
+        },
+        MetricPoint {
+            fx_rate_local_per_base: 4.0,
+            ..history_template
+        },
+    ]);
+    world.country_fx_source_history[0].insert(1, VecDeque::from([2.0, 3.0]));
+    world.country_fx_source_history[0].insert(2, VecDeque::from([5.0, 7.0]));
+
+    world.country_mut(1).unwrap().fx_rate_local_per_base = 2.0;
+    world.country_mut(2).unwrap().fx_rate_local_per_base = 2.0;
+    world.country_mut(0).unwrap().set_public_bank_fx_reserves(
+        25.0,
+        HashMap::from([(1, 10.0), (2, 15.0)]),
+        25.0,
+    );
+
+    let snapshot = snapshot_from_world_with_ui(
+        world,
+        UiState {
+            active_tab: RunningTab::Fx,
+            ..UiState::default()
+        },
+    );
+    let RunningTabSnapshot::Fx(fx_tab) = snapshot.tab else {
+        panic!("fx tab payload expected");
+    };
+
+    assert_eq!(fx_tab.selected_reserves_breakdown.len(), 1);
+    assert_eq!(fx_tab.selected_reserves_breakdown[0].currency_code, "EUR");
+    assert!((fx_tab.selected_reserves_breakdown[0].amount_local - 50.0).abs() < f64::EPSILON);
+    assert_eq!(fx_tab.selected_fx_reserves_by_currency.len(), 1);
+    assert_eq!(fx_tab.selected_fx_reserves_by_currency[0].0, "EUR");
+    assert_eq!(
+        fx_tab.selected_fx_reserves_by_currency[0].1.as_ref(),
+        [14.0, 40.0]
+    );
 }
