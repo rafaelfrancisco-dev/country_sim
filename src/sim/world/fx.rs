@@ -44,6 +44,11 @@ impl World {
             }
         }
 
+        // Pre-compute currency indices so the mutable loop below can reference them
+        // without a simultaneous immutable borrow of self.countries.
+        let currency_idx_by_pos: Vec<usize> =
+            self.countries.iter().map(|c| c.currency_idx).collect();
+
         for (country_idx, country) in self.countries.iter_mut().enumerate() {
             country.fx_rate_local_per_base = issuer_rates
                 .get(&country.currency_idx)
@@ -57,17 +62,21 @@ impl World {
             };
             country.fx_reserves_base = round_cents((supply_base * 0.20).max(5_000.0));
             country.fx_reserves_by_source.clear();
-            let foreign_currency_count = country_count.saturating_sub(1);
+            // Only hold reserves for countries that use a genuinely different currency.
+            // Holding reserves in your own shared currency is meaningless.
+            let own_currency_idx = country.currency_idx;
+            let foreign_currency_sources: Vec<usize> = (0..country_count)
+                .filter(|&src| {
+                    src != country_idx && currency_idx_by_pos[src] != own_currency_idx
+                })
+                .collect();
+            let foreign_currency_count = foreign_currency_sources.len();
             if foreign_currency_count > 0 {
                 let total_reserve_cents = to_cents(country.fx_reserves_base);
                 let share_cents = total_reserve_cents / foreign_currency_count as i64;
                 let mut remainder_cents = total_reserve_cents % foreign_currency_count as i64;
 
-                for source_idx in 0..country_count {
-                    if source_idx == country_idx {
-                        continue;
-                    }
-
+                for source_idx in foreign_currency_sources {
                     let mut amount_cents = share_cents;
                     if remainder_cents > 0 {
                         amount_cents += 1;

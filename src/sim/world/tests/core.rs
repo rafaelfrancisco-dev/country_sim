@@ -181,16 +181,41 @@ fn initial_fx_reserves_are_split_across_foreign_currencies_only() {
     ]);
 
     for country_idx in 0..world.country_count() {
+        let own_currency_idx = world.country(country_idx).unwrap().currency_idx();
+        let expected_foreign_count = (0..world.country_count())
+            .filter(|&src| {
+                src != country_idx
+                    && world.country(src).unwrap().currency_idx() != own_currency_idx
+            })
+            .count();
+
         let country = world.country(country_idx).unwrap();
         let reserves_by_source = country.fx_reserves_by_source();
         let attributed_total = round_cents(reserves_by_source.values().copied().sum::<f64>());
-        let mut reserve_slices = reserves_by_source.values().copied().collect::<Vec<_>>();
-        reserve_slices.sort_by(|left, right| left.total_cmp(right));
 
-        assert_eq!(reserves_by_source.len(), world.country_count() - 1);
+        // Only truly-foreign-currency countries should appear as reserve sources.
+        assert_eq!(reserves_by_source.len(), expected_foreign_count);
         assert!(!reserves_by_source.contains_key(&country_idx));
         assert_eq!(attributed_total, country.fx_reserves_base());
-        assert!((reserve_slices[0] - reserve_slices[1]).abs() <= 0.01);
+
+        // No same-currency partner should appear in the reserve breakdown.
+        for &src in reserves_by_source.keys() {
+            assert_ne!(
+                world.country(src).unwrap().currency_idx(),
+                own_currency_idx,
+                "country {country_idx} holds reserves from same-currency country {src}"
+            );
+        }
+
+        // When there are ≥2 foreign sources the slices should be balanced (within 1 cent).
+        if expected_foreign_count >= 2 {
+            let mut reserve_slices = reserves_by_source.values().copied().collect::<Vec<_>>();
+            reserve_slices.sort_by(|left, right| left.total_cmp(right));
+            assert!(
+                (reserve_slices[0] - reserve_slices.last().unwrap()).abs() <= 0.01,
+                "reserves not evenly split for country {country_idx}"
+            );
+        }
     }
 }
 
