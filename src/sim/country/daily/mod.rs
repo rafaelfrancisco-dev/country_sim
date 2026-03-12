@@ -392,12 +392,9 @@ impl Country {
                             let Some(company) = self.companies.get(company_idx) else {
                                 continue;
                             };
-                            if person
-                                .job_type_id()
-                                .is_some_and(|job_id| {
-                                    is_production_job_for_good(company.produced_good_id, job_id)
-                                })
-                            {
+                            if person.job_type_id().is_some_and(|job_id| {
+                                is_production_job_for_good(company.produced_good_id, job_id)
+                            }) {
                                 *manufacturing = manufacturing.saturating_add(1);
                             }
                         }
@@ -423,12 +420,9 @@ impl Country {
                 let company_idx = company_id as usize;
                 if let Some(company) = self.companies.get_mut(company_idx) {
                     company.employee_count = company.employee_count.saturating_add(1);
-                    if person
-                        .job_type_id()
-                        .is_some_and(|job_id| {
-                            is_production_job_for_good(company.produced_good_id, job_id)
-                        })
-                    {
+                    if person.job_type_id().is_some_and(|job_id| {
+                        is_production_job_for_good(company.produced_good_id, job_id)
+                    }) {
                         company.manufacturing_employee_count =
                             company.manufacturing_employee_count.saturating_add(1);
                     }

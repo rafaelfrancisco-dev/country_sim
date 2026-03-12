@@ -63,15 +63,14 @@ impl Country {
 
         let unemployment = self.labor_force_unemployment_rate();
         let pressure = (unemployment - formation.labor_slack_startup_trigger).max(0.0);
+        if pressure <= f64::EPSILON && formation.labor_slack_startup_trigger > 0.0 {
+            return;
+        }
         let dynamic_budget =
             1_u16.saturating_add(((pressure * labor_force as f64) / 100.0).round() as u16);
         let mut startup_budget = dynamic_budget.min(limit);
         if unemployment >= formation.labor_slack_startup_trigger + 0.03 {
             startup_budget = startup_budget.saturating_add(6).min(limit);
-        }
-
-        if pressure <= f64::EPSILON {
-            startup_budget = startup_budget.min(1);
         }
         startup_budget = ((startup_budget as f64) * self.expansion_multiplier())
             .round()

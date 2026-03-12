@@ -100,6 +100,7 @@ fn startup_formation_creates_company_and_moves_founders() {
         ..CompanyGrowthParams::default()
     };
     params.company_formation.max_startups_per_month = Some(1);
+    params.company_formation.labor_slack_startup_trigger = 0.0;
     params.labor_mobility.switch_raise_threshold = 10.0;
     params.government_backfill.enabled = false;
 
@@ -108,16 +109,14 @@ fn startup_formation_creates_company_and_moves_founders() {
     country.process_month_end();
     assert_eq!(country.companies.len(), 2);
     let startup_id = 1_u16;
+    assert!(country.people.iter().all(|person| {
+        person.employer_company_id() == Some(startup_id) && person.job_type_id() == Some(3)
+    }));
     assert!(
-        country
-            .people
-            .iter()
-            .all(|person| {
-                person.employer_company_id() == Some(startup_id)
-                    && person.job_type_id() == Some(3)
-            })
+        country.companies[startup_id as usize]
+            .open_positions
+            .is_empty()
     );
-    assert!(country.companies[startup_id as usize].open_positions.is_empty());
     assert!(
         !country.companies[startup_id as usize]
             .founder_stakes

@@ -443,8 +443,14 @@ mod tests {
 
     #[test]
     fn production_job_mapping_matches_sector_output_roles() {
-        assert_eq!(production_job_for_good(HOUSING_GOOD_ID), Some(CONSTRUCTION_WORKER_JOB_ID));
-        assert_eq!(production_job_for_good(MEDICINE_GOOD_ID), Some(REGISTERED_NURSE_JOB_ID));
+        assert_eq!(
+            production_job_for_good(HOUSING_GOOD_ID),
+            Some(CONSTRUCTION_WORKER_JOB_ID)
+        );
+        assert_eq!(
+            production_job_for_good(MEDICINE_GOOD_ID),
+            Some(REGISTERED_NURSE_JOB_ID)
+        );
         assert_eq!(
             production_job_for_good(EDUCATION_SERVICES_GOOD_ID),
             Some(TEACHER_JOB_ID)
@@ -453,7 +459,10 @@ mod tests {
             production_job_for_good(INTERNET_GOOD_ID),
             Some(SOFTWARE_DEVELOPER_JOB_ID)
         );
-        assert_eq!(production_job_for_good(TRANSPORT_GOOD_ID), Some(DRIVER_JOB_ID));
+        assert_eq!(
+            production_job_for_good(TRANSPORT_GOOD_ID),
+            Some(DRIVER_JOB_ID)
+        );
         assert_eq!(
             production_job_for_good(ENTERTAINMENT_GOOD_ID),
             Some(OFFICE_CLERK_JOB_ID)

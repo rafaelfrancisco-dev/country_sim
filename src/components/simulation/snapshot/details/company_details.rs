@@ -140,7 +140,10 @@ pub(in crate::components::simulation) fn company_details_lines(
             "Active Employees (People Registry): {}",
             compact_count(active_employee_count as f64)
         ),
-        format!("Production Employees: {}", company.manufacturing_employee_count),
+        format!(
+            "Production Employees: {}",
+            company.manufacturing_employee_count
+        ),
         format!(
             "Current Monthly Payroll (Employees): {}",
             money(active_monthly_payroll, currency_symbol)

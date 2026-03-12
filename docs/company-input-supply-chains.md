@@ -91,6 +91,7 @@ Company hiring is now industry-specific instead of drawing from the full global 
 Practical consequence:
 
 - generator-created companies only advertise jobs that fit their sector
+- generator-created companies that start without staff now seed openings with one production-role slot first, plus at most one support-role slot
 - startup formation is anchored on the selected good's designated production role rather than an arbitrary founder profession
 - public backfill companies also inherit sector-appropriate catalogs
 
@@ -136,13 +137,14 @@ Before production, each company estimates same-day potential output from:
 - accumulated production effort
 - per-good `effort_per_unit`
 
-It then buys missing recipe inputs through the same cheapest-supplier quote logic used by household buyers:
+It then buys missing recipe inputs through the same price-led quote logic used by household buyers:
 
 - landed price includes export and import tariffs
 - purchases can be domestic or cross-border
 - buyer cash comes from company cash, not person cash
 - seller sales and inventory depletion are credited exactly like household purchases
 - cross-border purchases still update import/export metrics and tariff collection
+- supplier choice rotates across a bounded set of near-cheapest in-stock quotes instead of concentrating all demand on the single cheapest seller
 
 The goods market now models buyers as either a person or a company so company demand does not overload the person-only path.
 
@@ -213,9 +215,11 @@ Startup targeting no longer relies only on household demand proxies.
 
 Expected revenue for a candidate good now blends:
 
-- observed sales by current producers
+- entrant-share observed sales by current producers
 - household demand proxy
 - company input-demand proxy derived from recipe usage by downstream sectors
+
+Startup pricing is also clamped to a labor-aware minimum viable unit price so new firms are not admitted at obviously loss-making price levels.
 
 This makes upstream goods like `Raw Metals`, `Timber`, and `Fuel` startable even when direct household demand is weak.
 

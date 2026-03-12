@@ -1,6 +1,19 @@
 use super::*;
 use crate::sim::person::HousingStatus;
 
+fn profitable_share(country: &Country) -> f64 {
+    if country.companies.is_empty() {
+        return 0.0;
+    }
+
+    let profitable = country
+        .companies
+        .iter()
+        .filter(|company| company.last_month_profit > 0.0)
+        .count();
+    profitable as f64 / country.companies.len() as f64
+}
+
 #[test]
 fn generated_world_2x1k_360_days_housing_market_is_sane() {
     let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 360, 2);
@@ -82,6 +95,29 @@ fn generated_world_2x1k_360_days_housing_market_is_sane() {
             ownership_rate >= 0.20 && ownership_rate <= 0.95,
             "country {}: homeownership_rate {ownership_rate:.3} out of range [0.20, 0.95]",
             country.name
+        );
+    }
+}
+
+#[test]
+#[ignore = "long-run profitability scenario (1095 days, 2 x 2k)"]
+fn generated_world_2x2k_1095_days_keeps_profitable_share_above_floor() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 2, 2_000, 1095, 4);
+    assert!(world.validate_invariants().is_empty());
+
+    for country in &world.countries {
+        let share = profitable_share(country);
+        assert!(
+            share >= 0.10,
+            "country {} profitable share too low: {:.2}% ({} / {})",
+            country.id,
+            share * 100.0,
+            country
+                .companies
+                .iter()
+                .filter(|company| company.last_month_profit > 0.0)
+                .count(),
+            country.companies.len()
         );
     }
 }

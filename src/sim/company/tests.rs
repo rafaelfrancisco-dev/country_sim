@@ -70,20 +70,32 @@ fn price_cut_with_excess_inventory_clamps_to_at_cost_floor() {
 
     company.close_month(&market);
 
-    assert!((company.unit_price - 6.0).abs() < 0.01);
+    let expected_floor = minimum_viable_unit_price(
+        company.produced_good_id,
+        market.worker_effort_per_month,
+        market.min_margin_rate,
+    );
+    assert!((company.unit_price - expected_floor).abs() < 0.01);
 }
 
 #[test]
 fn price_raise_has_no_upper_clamp() {
     let market = GoodsMarketParams::default();
     let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
-    company.unit_price = 23.9;
+    company.unit_price = 70.0;
     company.inventory_units = 0;
     company.last_month_units_sold = 100;
 
     company.close_month(&market);
 
-    assert!((company.unit_price - 24.38).abs() < 0.01);
+    assert!((company.unit_price - 71.4).abs() < 0.01);
+}
+
+#[test]
+fn minimum_viable_unit_price_includes_direct_production_labor() {
+    let price = minimum_viable_unit_price(0, 300.0, 0.0);
+
+    assert!((price - 62.88).abs() < 0.01);
 }
 
 #[test]

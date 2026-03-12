@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use super::*;
+use crate::sim::company::minimum_viable_unit_price;
 use crate::sim::job::salary_for_job;
 #[test]
 fn public_backfill_creation_clamps_price_to_dynamic_macro_cap() {
@@ -31,7 +32,12 @@ fn public_backfill_creation_clamps_price_to_dynamic_macro_cap() {
     let base_cost = crate::sim::good::good_by_id(0)
         .expect("water good should exist")
         .base_unit_cost;
-    let expected_cap = round_cents(base_cost * (4.0_f64 * 4.0_f64).sqrt() * 2.0);
+    let expected_cap =
+        round_cents(base_cost * (4.0_f64 * 4.0_f64).sqrt() * 2.0).max(minimum_viable_unit_price(
+            0,
+            country.sim_params.goods_market.worker_effort_per_month,
+            country.sim_params.goods_market.min_margin_rate,
+        ));
 
     assert!(created.unit_price <= expected_cap + 0.01);
     assert!(created.unit_price < 10_000.0);
@@ -71,7 +77,12 @@ fn monthly_close_clamps_public_utility_price_to_dynamic_macro_cap() {
     let base_cost = crate::sim::good::good_by_id(0)
         .expect("water good should exist")
         .base_unit_cost;
-    let expected_cap = round_cents(base_cost * (9.0_f64 * 4.0_f64).sqrt() * 2.0);
+    let expected_cap =
+        round_cents(base_cost * (9.0_f64 * 4.0_f64).sqrt() * 2.0).max(minimum_viable_unit_price(
+            0,
+            country.sim_params.goods_market.worker_effort_per_month,
+            country.sim_params.goods_market.min_margin_rate,
+        ));
     assert!(country.companies[0].unit_price <= expected_cap + 0.01);
 }
 

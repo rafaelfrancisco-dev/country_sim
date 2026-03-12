@@ -159,14 +159,15 @@ fn transport_startup_produces_output_in_first_operating_month() {
 
     assert_eq!(country.companies.len(), 2);
     assert_eq!(country.companies[1].produced_good_id, 7);
-    assert!(
-        country.people.iter().take(3).all(|person| {
-            person.employer_company_id() == Some(1) && person.job_type_id() == Some(3)
-        })
-    );
+    assert!(country.people.iter().take(3).all(|person| {
+        person.employer_company_id() == Some(1) && person.job_type_id() == Some(3)
+    }));
 
     let mut world = World::new(vec![country]);
-    world.countries[0].sim_params.company_formation.max_startups_per_month = Some(0);
+    world.countries[0]
+        .sim_params
+        .company_formation
+        .max_startups_per_month = Some(0);
     for _ in 0..30 {
         world.tick_day();
     }

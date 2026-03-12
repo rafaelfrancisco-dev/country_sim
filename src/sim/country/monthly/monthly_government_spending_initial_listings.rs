@@ -35,7 +35,11 @@ impl Country {
             let Some(good) = good_by_id(company.produced_good_id) else {
                 return;
             };
-            let min_price = round_cents(good.base_unit_cost * (1.0 + market.min_margin_rate));
+            let min_price = crate::sim::company::minimum_viable_unit_price(
+                company.produced_good_id,
+                market.worker_effort_per_month,
+                market.min_margin_rate,
+            );
             let dynamic_base_cost = round_cents(good.base_unit_cost * dynamic_base_index);
             let max_price = round_cents((dynamic_base_cost * cap_multiplier).max(min_price));
             let anchor_price = round_cents((min_price + max_price) * 0.5);

@@ -1,5 +1,8 @@
 use super::*;
-use crate::sim::good::{industry_job_types_for_good, production_job_for_good};
+use crate::sim::{
+    company::minimum_viable_unit_price,
+    good::{industry_job_types_for_good, production_job_for_good},
+};
 
 pub(super) fn derive_initial_company_count(
     population_per_country: u32,
@@ -190,12 +193,9 @@ pub(super) fn rebalance_essential_sector_workforce(
             let mut selected_person_idx = None;
             while let Some(&person_idx) = employed_candidates.get(candidate_cursor) {
                 candidate_cursor = candidate_cursor.saturating_add(1);
-                if people
-                    .get(person_idx)
-                    .is_some_and(|person| {
-                        job_is_eligible_for_habilitation(production_job_id, person.habilitation)
-                    })
-                {
+                if people.get(person_idx).is_some_and(|person| {
+                    job_is_eligible_for_habilitation(production_job_id, person.habilitation)
+                }) {
                     selected_person_idx = Some(person_idx);
                     break;
                 }
@@ -218,11 +218,19 @@ pub(super) fn seed_initial_company_openings(country: &mut Country) {
         if job_types.is_empty() {
             continue;
         }
-        let target_openings = 2_u16;
-        for (idx, &job_id) in job_types.iter().enumerate() {
-            let slots = if idx == 0 { target_openings } else { 1 };
-            let salary = salary_for_job(job_id);
-            company.add_opening_with_salary(job_id, slots, salary);
+        if let Some(production_job_id) = production_job_for_good(company.produced_good_id) {
+            company.add_opening_with_salary(
+                production_job_id,
+                1,
+                salary_for_job(production_job_id),
+            );
+        }
+
+        if let Some(&support_job_id) = job_types
+            .iter()
+            .find(|&&job_id| Some(job_id) != production_job_for_good(company.produced_good_id))
+        {
+            company.add_opening_with_salary(support_job_id, 1, salary_for_job(support_job_id));
         }
     }
 }
@@ -290,11 +298,15 @@ pub(super) fn randomize_company_prices(
     rng: &mut DeterministicRng,
 ) {
     for company in companies {
-        let Some(good) = good_by_id(company.produced_good_id) else {
+        if good_by_id(company.produced_good_id).is_none() {
             continue;
-        };
+        }
 
-        let min_price = good.base_unit_cost * (1.0 + sim_params.goods_market.min_margin_rate);
+        let min_price = minimum_viable_unit_price(
+            company.produced_good_id,
+            sim_params.goods_market.worker_effort_per_month,
+            sim_params.goods_market.min_margin_rate,
+        );
         let price_factor = 0.85 + 0.30 * rng.next_f64();
         let candidate = company.unit_price * price_factor;
         company.unit_price = round_cents(candidate.max(min_price));

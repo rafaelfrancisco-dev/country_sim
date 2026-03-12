@@ -7,6 +7,8 @@ use crate::sim::essentials::{
 
 /// Number of goods processed in the global round-robin (non-durable, id < SUPERFICIAL_GOOD_START_ID).
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_COUNT: usize = 9;
+const COMPETITIVE_QUOTE_BAND_BPS: i64 = 500;
+const MAX_COMPETITIVE_QUOTES: usize = 6;
 
 /// Good IDs processed in the global round-robin, in slot order.
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_IDS: [GoodId; ESSENTIAL_ND_GOOD_COUNT] =
@@ -221,25 +223,53 @@ impl GoodsMarketDayCache {
             .get_mut(good_id as usize)?
             .get_mut(buyer_country_idx)?;
 
-        while let Some(template) = buyer_templates.get(*cursor) {
-            if world
+        let mut candidate_indices = Vec::with_capacity(MAX_COMPETITIVE_QUOTES);
+        let mut price_limit = None;
+
+        for (idx, template) in buyer_templates.iter().enumerate() {
+            let in_stock = world
                 .countries
                 .get(template.seller_country_idx)
                 .and_then(|country| country.companies.get(template.seller_company_idx))
-                .is_some_and(|company| company.inventory_units > 0)
-            {
-                return Some(SellerQuote {
-                    seller_country_idx: template.seller_country_idx,
-                    seller_company_idx: template.seller_company_idx,
-                    base_price_cents: template.base_price_cents,
-                    tariff_cents: template.tariff_cents,
-                    import_tariff_cents: template.import_tariff_cents,
-                    landed_price_cents: template.landed_price_cents,
-                });
+                .is_some_and(|company| company.inventory_units > 0);
+            if !in_stock {
+                continue;
             }
-            *cursor = cursor.saturating_add(1);
+
+            let current_limit = price_limit.get_or_insert_with(|| {
+                template.landed_price_cents.saturating_add(
+                    (template
+                        .landed_price_cents
+                        .saturating_mul(COMPETITIVE_QUOTE_BAND_BPS)
+                        / 10_000)
+                        .max(1),
+                )
+            });
+            if template.landed_price_cents > *current_limit {
+                break;
+            }
+
+            candidate_indices.push(idx);
+            if candidate_indices.len() >= MAX_COMPETITIVE_QUOTES {
+                break;
+            }
         }
-        None
+
+        if candidate_indices.is_empty() {
+            return None;
+        }
+
+        let selected_idx = candidate_indices[*cursor % candidate_indices.len()];
+        *cursor = cursor.wrapping_add(1);
+        let template = buyer_templates.get(selected_idx)?;
+        Some(SellerQuote {
+            seller_country_idx: template.seller_country_idx,
+            seller_company_idx: template.seller_company_idx,
+            base_price_cents: template.base_price_cents,
+            tariff_cents: template.tariff_cents,
+            import_tariff_cents: template.import_tariff_cents,
+            landed_price_cents: template.landed_price_cents,
+        })
     }
 
     pub(in crate::sim::world) fn mark_superficial_zero_stock(

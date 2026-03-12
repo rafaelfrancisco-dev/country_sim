@@ -451,8 +451,11 @@ impl Country {
 
     pub(super) fn public_utility_price_bounds_for_good(&self, good_id: u8) -> Option<(f64, f64)> {
         let good = crate::sim::good::good_by_id(good_id)?;
-        let min_price =
-            round_cents(good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate));
+        let min_price = crate::sim::company::minimum_viable_unit_price(
+            good_id,
+            self.sim_params.goods_market.worker_effort_per_month,
+            self.sim_params.goods_market.min_margin_rate,
+        );
         let dynamic_base_cost =
             round_cents(good.base_unit_cost * self.public_utility_dynamic_base_index());
         let cap_multiplier = self

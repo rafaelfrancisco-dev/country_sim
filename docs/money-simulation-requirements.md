@@ -81,13 +81,17 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 
 ## Company Formation, Distress, and Bankruptcy
 - **Startup formation (monthly)**:
+  - startup formation is pressure-gated by labor slack:
+    - with the default positive trigger, no startups are attempted unless `unemployment > labor_slack_startup_trigger`
+    - setting `labor_slack_startup_trigger = 0` explicitly restores always-eligible startup formation for scenarios/tests
   - founder pool includes employed workers and qualified unemployed adults.
   - founder team size is bounded (`min_founders..max_founders`, default `3..6`).
   - founders keep a personal reserve (default `0.5` month of salary reference); low-cash unemployed founders can still participate when startup lending is enabled.
   - startups are selected by target good, then anchored on that good's designated production role.
   - founders are assigned directly into the productive role and count as the initial staffed team.
   - viability gate uses expected demand/revenue and a non-negative first-month operating-profit check:
-    - expected revenue blends observed good-level sales with a demand proxy
+    - startup pricing is clamped to a labor-aware minimum viable unit price, not just `base_unit_cost`
+    - expected revenue blends entrant-share observed sales with household demand and company-input demand proxies
     - founder payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
     - projected payroll, input spend, facility spend, and loan service must fit inside realizable first-month revenue
   - funding stack:
@@ -144,7 +148,8 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - New public companies:
   - start with `is_public_utility=true` and `is_essential_backfill=true`
   - initial unit price is clamped to `public_utility_price_bounds_for_good(good_id)`:
-    - `min_price = base_unit_cost × (1 + min_margin_rate)`
+    - `min_price = minimum_viable_unit_price(good_id, worker_effort_per_month, min_margin_rate)`
+    - `minimum_viable_unit_price` adds a direct-production labor allowance on top of `base_unit_cost`
     - `dynamic_base_index = sqrt(max(1, cpi_index) × max(1, expected_money_supply / initial_money_supply))`
     - `dynamic_base_cost = base_unit_cost × dynamic_base_index`
     - `max_price = dynamic_base_cost × max(1, public_utility_price_cap_multiplier)`
@@ -184,7 +189,9 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - Monthly household discretionary spending starts from a 5% to 15% base propensity of available cash, then is scaled by the monetary transmission multiplier:
   - low-rate regime => higher discretionary budget (households less conservative)
   - high-rate regime => lower discretionary budget (households more conservative)
-- Seller company is chosen within country companies.
+- Seller selection is price-led but not strict winner-take-all:
+  - buyers consider the current in-stock supplier set
+  - selection rotates across a bounded band of near-cheapest offers instead of sending all demand to the absolute cheapest seller
 
 ## Monetary Policy
 

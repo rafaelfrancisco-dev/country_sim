@@ -4,7 +4,7 @@ use super::{
     bank::{BankId, LoanAccount},
     good::{
         CompanyInputRecipe, GOODS_COUNT, GoodId, good_by_id, industry_job_types_for_good,
-        recipe_for_good,
+        production_job_for_good, recipe_for_good,
     },
     job::{JobTypeId, job_by_id, salary_for_job},
     money::round_cents,
@@ -14,6 +14,26 @@ use super::{
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
 const COMPANY_HISTORY_WINDOW: usize = 12;
 const PROFIT_HISTORY_WINDOW: usize = 12;
+const DIRECT_LABOR_OVERHEAD_MULTIPLIER: f64 = 1.75;
+
+pub fn minimum_viable_unit_price(
+    good_id: GoodId,
+    worker_effort_per_month: f64,
+    min_margin_rate: f64,
+) -> f64 {
+    let Some(good) = good_by_id(good_id) else {
+        return 0.0;
+    };
+
+    let direct_labor_cost = production_job_for_good(good_id)
+        .filter(|_| worker_effort_per_month > 0.0 && good.effort_per_unit > 0.0)
+        .map(|job_id| salary_for_job(job_id) * (good.effort_per_unit / worker_effort_per_month))
+        .unwrap_or(0.0);
+    let baseline_cost = good.base_unit_cost.max(0.0)
+        + direct_labor_cost.max(0.0) * DIRECT_LABOR_OVERHEAD_MULTIPLIER;
+
+    round_cents(baseline_cost * (1.0 + min_margin_rate.max(0.0)))
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct JobOpening {
@@ -104,9 +124,9 @@ impl Company {
         offered_job_types: Vec<JobTypeId>,
         produced_good_id: GoodId,
     ) -> Self {
-        let default_price = good_by_id(produced_good_id)
-            .map(|good| round_cents(good.base_unit_cost * 1.2))
-            .unwrap_or(0.0);
+        let market = GoodsMarketParams::default();
+        let default_price =
+            minimum_viable_unit_price(produced_good_id, market.worker_effort_per_month, 0.20);
         let offered_job_types = if offered_job_types.is_empty() {
             industry_job_types_for_good(produced_good_id).to_vec()
         } else {
@@ -346,7 +366,7 @@ impl Company {
         self.last_month_sell_through =
             self.last_month_units_sold as f64 / f64::from(available_units);
 
-        if let Some(good) = good_by_id(self.produced_good_id) {
+        if good_by_id(self.produced_good_id).is_some() {
             let mut next_price = self.unit_price;
             if self.last_month_sell_through >= market.sell_through_raise_threshold {
                 next_price *= 1.0 + market.price_raise_rate;
@@ -365,7 +385,11 @@ impl Company {
                 next_price *= 1.0 - market.excess_inventory_cut_rate;
             }
 
-            let min_price = good.base_unit_cost * (1.0 + market.min_margin_rate);
+            let min_price = minimum_viable_unit_price(
+                self.produced_good_id,
+                market.worker_effort_per_month,
+                market.min_margin_rate,
+            );
             self.unit_price = round_cents(next_price.max(min_price));
         }
 

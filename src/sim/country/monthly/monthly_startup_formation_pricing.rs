@@ -1,7 +1,6 @@
 use super::*;
-use crate::sim::good::{
-    industry_job_types_for_good, production_job_for_good, recipe_for_good,
-};
+use crate::sim::company::minimum_viable_unit_price;
+use crate::sim::good::{industry_job_types_for_good, production_job_for_good, recipe_for_good};
 
 mod labor_dynamics;
 
@@ -103,9 +102,11 @@ impl Country {
             .or(self.public_bank_id_or_first());
 
         let avg_price = self.average_price_for_good(target_good_id);
-        let margin_floor = good_by_id(target_good_id)
-            .map(|good| good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate))
-            .unwrap_or(0.0);
+        let margin_floor = minimum_viable_unit_price(
+            target_good_id,
+            self.sim_params.goods_market.worker_effort_per_month,
+            self.sim_params.goods_market.min_margin_rate,
+        );
         startup.unit_price = round_cents((avg_price * 0.95).max(margin_floor));
 
         let projected_input_cost = self.estimate_startup_monthly_input_cost(
@@ -136,15 +137,15 @@ impl Country {
             let shortfall = round_cents(required_capital - founder_required);
             let max_loan = round_cents(required_capital * startup_loan_fraction);
             let monthly_income_cap = round_cents(expected_revenue * debt_to_income_cap.max(0.0));
-            let principal_capacity = max_principal_for_payment(
-                monthly_income_cap,
-                loan_rate,
-                DEFAULT_LOAN_TERM_MONTHS,
-            );
+            let principal_capacity =
+                max_principal_for_payment(monthly_income_cap, loan_rate, DEFAULT_LOAN_TERM_MONTHS);
             desired_loan = round_cents(shortfall.min(max_loan).min(principal_capacity));
             if desired_loan > 0.0 {
-                projected_loan_payment =
-                    round_cents(payment_for(desired_loan, loan_rate, DEFAULT_LOAN_TERM_MONTHS));
+                projected_loan_payment = round_cents(payment_for(
+                    desired_loan,
+                    loan_rate,
+                    DEFAULT_LOAN_TERM_MONTHS,
+                ));
             }
         }
         if total_investable + desired_loan + 0.01 < required_capital {
@@ -349,25 +350,29 @@ impl Country {
             producers = producers.saturating_add(1);
         }
 
-        let observed_avg = if producers == 0 {
+        let observed_entrant_revenue = if producers == 0 {
             0.0
         } else {
-            round_cents(total_sales / f64::from(producers))
+            round_cents(total_sales / (f64::from(producers) + 1.0))
         };
 
         let Some(good) = good_by_id(good_id) else {
-            return observed_avg;
+            return observed_entrant_revenue;
         };
         let market_price = self
             .average_price_for_good(good_id)
-            .max(good.base_unit_cost);
+            .max(minimum_viable_unit_price(
+                good_id,
+                self.sim_params.goods_market.worker_effort_per_month,
+                self.sim_params.goods_market.min_margin_rate,
+            ));
         let active_population = self
             .people
             .iter()
             .filter(|person| person.can_seek_job())
             .count();
         if active_population == 0 {
-            return observed_avg;
+            return observed_entrant_revenue;
         }
         let demand_units = active_population as f64 * good.monthly_demand_factor.max(0.0);
         let incumbent_count = producers.max(1) as f64;
@@ -376,7 +381,11 @@ impl Country {
 
         let company_demand_proxy = self.company_input_demand_proxy_value(good_id, market_price);
 
-        round_cents(observed_avg.max(demand_proxy).max(company_demand_proxy))
+        round_cents(
+            observed_entrant_revenue
+                .max(demand_proxy)
+                .max(company_demand_proxy),
+        )
     }
 
     fn estimate_startup_monthly_output_units(&self, good_id: u8, staffed_workers: u32) -> f64 {
@@ -483,11 +492,11 @@ impl Country {
         }
 
         if count == 0 {
-            let min_price = good_by_id(good_id)
-                .map(|good| {
-                    good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate)
-                })
-                .unwrap_or(0.0);
+            let min_price = minimum_viable_unit_price(
+                good_id,
+                self.sim_params.goods_market.worker_effort_per_month,
+                self.sim_params.goods_market.min_margin_rate,
+            );
             return round_cents(min_price);
         }
 
