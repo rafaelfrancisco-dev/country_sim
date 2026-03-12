@@ -98,9 +98,10 @@ impl Country {
         }
 
         let company_id = company.id;
+        let listing_id = self.stock_market.next_listing_id(company_id);
         let security_id = crate::sim::stock_market::StockSecurityId {
             country_id: self.id,
-            company_id,
+            company_id: listing_id,
         };
         let company_name = company.name.clone();
         let monthly_revenue = company.average_monthly_revenue();
@@ -334,7 +335,7 @@ impl Country {
 
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
-            company_id,
+            listing_id,
             company_id,
             ticker.clone(),
             price_per_share,
@@ -343,11 +344,11 @@ impl Country {
         );
         let ticker = self
             .stock_market
-            .insert_listing_preserve_index(company_id, equity);
+            .insert_listing_preserve_index(listing_id, equity);
 
         // Expand free float to include retained founder shares (now freely tradeable).
         if total_retained_founder_shares > 0
-            && let Some(equity) = self.stock_market.listed.get_mut(&company_id)
+            && let Some(equity) = self.stock_market.listed.get_mut(&listing_id)
         {
             equity.free_float_shares = equity
                 .free_float_shares

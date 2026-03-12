@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use super::*;
+use crate::sim::person::HousingStatus;
 #[test]
 fn bankruptcy_physically_removes_company_and_remaps_employers() {
     let mut companies = build_default_companies("A", 2);
@@ -67,14 +68,131 @@ fn bankruptcy_physically_removes_company_and_remaps_employers() {
 }
 
 #[test]
+fn landlord_bankruptcy_transfers_renters_to_surviving_housing_company() {
+    let mut companies = build_default_companies("A", 2);
+    for company in &mut companies {
+        company.open_positions.clear();
+        company.produced_good_id = 2;
+    }
+    companies[0].cash_balance = 0.0;
+    companies[0].loan = Some(LoanAccount::new(5_000.0, 0.12, 12));
+    companies[0].consecutive_missed_loan_payments = 2;
+    companies[0].consecutive_loss_months = 6;
+    companies[0].rental_units_owned = 8;
+    companies[1].cash_balance = 100_000.0;
+    companies[1].rental_units_owned = 3;
+
+    let mut renter = Person::new_with_profile(
+        1,
+        EmploymentStatus::Unemployed,
+        111,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    renter.cash_balance = 5_000.0;
+    renter.housing = HousingStatus::Renter {
+        landlord_company_id: 0,
+        landlord_country_id: 1,
+    };
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params
+        .company_distress
+        .countercyclical_layoff_unemployment_guard = 1.1;
+    params.company_distress.bankruptcy_min_loss_months = 6;
+    params.company_distress.bankruptcy_missed_payment_threshold = 3;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![renter], companies, 0.0, params);
+    country.housing_stock_total = 1;
+    country.housing_stock_occupied_rented = 1;
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 1);
+    assert_eq!(
+        country.people[0].housing,
+        HousingStatus::Renter {
+            landlord_company_id: 0,
+            landlord_country_id: 1,
+        }
+    );
+    assert!(country.companies[0].rental_units_owned >= 8);
+    assert_eq!(country.housing_stock_occupied_rented, 1);
+}
+
+#[test]
+fn landlord_bankruptcy_creates_public_housing_landlord_when_none_survive() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].produced_good_id = 2;
+    companies[0].cash_balance = 0.0;
+    companies[0].loan = Some(LoanAccount::new(5_000.0, 0.12, 12));
+    companies[0].consecutive_missed_loan_payments = 2;
+    companies[0].consecutive_loss_months = 6;
+    companies[0].rental_units_owned = 4;
+
+    let mut renter = Person::new_with_profile(
+        1,
+        EmploymentStatus::Unemployed,
+        112,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    renter.cash_balance = 5_000.0;
+    renter.housing = HousingStatus::Renter {
+        landlord_company_id: 0,
+        landlord_country_id: 1,
+    };
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params
+        .company_distress
+        .countercyclical_layoff_unemployment_guard = 1.1;
+    params.company_distress.bankruptcy_min_loss_months = 6;
+    params.company_distress.bankruptcy_missed_payment_threshold = 3;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), vec![renter], companies, 0.0, params);
+    country.housing_stock_total = 1;
+    country.housing_stock_occupied_rented = 1;
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 1);
+    assert!(country.companies[0].is_public_utility);
+    assert_eq!(
+        country.people[0].housing,
+        HousingStatus::Renter {
+            landlord_company_id: 0,
+            landlord_country_id: 1,
+        }
+    );
+    assert!(country.companies[0].rental_units_owned >= 4);
+    assert_eq!(country.housing_stock_occupied_rented, 1);
+}
+
+#[test]
 fn startup_formation_creates_company_and_moves_founders() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].cash_balance = 1_000_000.0;
     companies[0].produced_good_id = 7;
     companies[0].unit_price = 220.0;
-    companies[0].last_month_sales = 120_000.0;
-    companies[0].last_month_profit = 55_000.0;
+    companies[0].last_month_sales = 240_000.0;
+    companies[0].last_month_profit = 120_000.0;
 
     let mut people = Vec::new();
     for idx in 0..5_u32 {
@@ -112,21 +230,73 @@ fn startup_formation_creates_company_and_moves_founders() {
     assert!(country.people.iter().all(|person| {
         person.employer_company_id() == Some(startup_id) && person.job_type_id() == Some(3)
     }));
+    let startup = &country.companies[startup_id as usize];
     assert!(
-        country.companies[startup_id as usize]
+        startup
             .open_positions
-            .is_empty()
+            .iter()
+            .any(|opening| opening.job_type_id == 3 && opening.slots > 0)
     );
-    assert!(
-        !country.companies[startup_id as usize]
-            .founder_stakes
-            .is_empty()
-    );
+    assert!(!startup.open_positions.is_empty());
+    assert!(!startup.founder_stakes.is_empty());
     assert!(
         country
             .pending_events
             .iter()
             .any(|event| matches!(event, SimEvent::CompanyFounded { .. }))
+    );
+}
+
+#[test]
+fn startup_formation_ignores_public_utility_profit_signal() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 1_000_000.0;
+    companies[0].is_public_utility = true;
+    companies[0].is_essential_backfill = true;
+    companies[0].produced_good_id = 7;
+    companies[0].unit_price = 220.0;
+    companies[0].last_month_sales = 240_000.0;
+    companies[0].last_month_profit = 120_000.0;
+
+    let mut people = Vec::new();
+    for idx in 0..5_u32 {
+        let mut person = Person::new_with_profile(
+            idx,
+            EmploymentStatus::Employed {
+                job_type_id: 3,
+                employer_company_id: 0,
+            },
+            idx + 100,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        person.set_employment_with_salary(0, 3, 3_700.0, 0);
+        person.cash_balance = 100_000.0;
+        people.push(person);
+    }
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.company_formation.max_startups_per_month = Some(1);
+    params.company_formation.labor_slack_startup_trigger = 0.0;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+    params.government_backfill.enabled = false;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 1);
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .all(|event| !matches!(event, SimEvent::CompanyFounded { .. }))
     );
 }
 
@@ -288,4 +458,161 @@ fn distress_ipo_keeps_secondary_zero() {
     let ipo = maybe_ipo.expect("checked above");
     assert!(matches!(ipo.0, IpoReason::Distress));
     assert_eq!(ipo.1, 0);
+}
+
+#[test]
+fn dormant_private_company_without_staff_or_openings_is_resolved() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 25_000.0;
+    companies[0].consecutive_loss_months = 3;
+    companies[0].last_month_sales = 0.0;
+    companies[0].last_month_units_produced = 0;
+    companies[0].last_completed_month_units_produced = 0;
+    companies[0].sales_history = VecDeque::from(vec![0.0, 0.0, 0.0]);
+
+    let people = vec![Person::new_with_profile(
+        1,
+        EmploymentStatus::Unemployed,
+        101,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    )];
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.company_distress.loss_distress_month_threshold = 2;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
+    country.process_month_end();
+
+    assert!(country.companies.is_empty());
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::CompanyBankrupt { .. }))
+    );
+}
+
+#[test]
+fn chronic_private_loss_company_with_no_runway_is_resolved() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].employee_count = 20;
+    companies[0].monthly_payroll_budget = 40_000.0;
+    companies[0].last_month_payroll_paid = 40_000.0;
+    companies[0].last_completed_month_payroll_paid = 40_000.0;
+    companies[0].cash_balance = 10_000.0;
+    companies[0].consecutive_loss_months = 18;
+    companies[0].last_month_profit = -25_000.0;
+    companies[0].profit_history = VecDeque::from(vec![-25_000.0; 6]);
+    companies[0].last_month_sales = 0.0;
+    companies[0].sales_history = VecDeque::from(vec![0.0, 0.0, 0.0]);
+
+    let mut worker = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        301,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker.set_employment_with_salary(0, 0, 2_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.company_distress.countercyclical_layoff_unemployment_guard = 1.1;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker],
+        companies,
+        0.0,
+        params,
+    );
+    country.process_month_end();
+
+    assert!(country.companies.is_empty());
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::CompanyBankrupt { .. }))
+    );
+}
+
+#[test]
+fn housing_landlord_with_rent_revenue_is_not_resolved_as_no_demand_loss_company() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].produced_good_id = 2;
+    companies[0].employee_count = 5;
+    companies[0].monthly_payroll_budget = 20_000.0;
+    companies[0].last_month_payroll_paid = 20_000.0;
+    companies[0].last_completed_month_payroll_paid = 20_000.0;
+    companies[0].cash_balance = 50_000.0;
+    companies[0].consecutive_loss_months = 18;
+    companies[0].last_month_profit = -1_000.0;
+    companies[0].profit_history = VecDeque::from(vec![-1_000.0; 6]);
+    companies[0].last_month_rent_revenue = 19_000.0;
+
+    let mut worker = Person::new_with_profile(
+        1,
+        EmploymentStatus::Employed {
+            job_type_id: 0,
+            employer_company_id: 0,
+        },
+        401,
+        30 * DAYS_PER_YEAR,
+        EducationTrack::HighSchool,
+    );
+    worker.set_employment_with_salary(0, 0, 4_000.0, 0);
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.company_formation.max_startups_per_month = Some(0);
+    params.government_backfill.enabled = false;
+    params.stock_market.enabled = false;
+    params.company_distress.countercyclical_layoff_unemployment_guard = 1.1;
+
+    let mut country = Country::with_economy_and_params(
+        1,
+        "A".to_string(),
+        vec![worker],
+        companies,
+        0.0,
+        params,
+    );
+    country.process_month_end();
+
+    assert_eq!(country.companies.len(), 1);
+    assert!(
+        country
+            .pending_events
+            .iter()
+            .all(|event| !matches!(event, SimEvent::CompanyBankrupt { .. }))
+    );
 }

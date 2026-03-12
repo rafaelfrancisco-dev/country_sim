@@ -8,13 +8,13 @@ use super::{
     },
     job::{JobTypeId, job_by_id, salary_for_job},
     money::round_cents,
-    params::{CompanyGrowthParams, GoodsMarketParams, LaborDemandParams},
+    params::GoodsMarketParams,
 };
 
 pub const DEFAULT_COMPANIES_PER_COUNTRY: u16 = 18;
 const COMPANY_HISTORY_WINDOW: usize = 12;
 const PROFIT_HISTORY_WINDOW: usize = 12;
-const DIRECT_LABOR_OVERHEAD_MULTIPLIER: f64 = 1.75;
+const DIRECT_LABOR_OVERHEAD_MULTIPLIER: f64 = 2.5;
 
 pub fn minimum_viable_unit_price(
     good_id: GoodId,
@@ -314,12 +314,31 @@ impl Company {
     }
 
     pub fn average_monthly_revenue(&self) -> f64 {
-        if self.sales_history.is_empty() {
-            return 0.0;
-        }
+        let average_sales = if self.sales_history.is_empty() {
+            0.0
+        } else {
+            let total: f64 = self.sales_history.iter().sum();
+            round_cents(total / self.sales_history.len() as f64)
+        };
 
-        let total: f64 = self.sales_history.iter().sum();
-        round_cents(total / self.sales_history.len() as f64)
+        if self.last_month_rent_revenue > 0.0 {
+            round_cents(average_sales + self.last_month_rent_revenue)
+        } else {
+            average_sales
+        }
+    }
+
+    pub fn last_month_total_revenue(&self) -> f64 {
+        round_cents(self.last_month_sales + self.last_month_rent_revenue)
+    }
+
+    pub fn last_month_operating_surplus(&self) -> f64 {
+        round_cents(
+            self.last_month_total_revenue()
+                - self.last_month_payroll_paid
+                - self.last_month_input_spending
+                - self.last_month_facility_spending,
+        )
     }
 
     pub fn open_month(&mut self) {
@@ -368,8 +387,23 @@ impl Company {
 
         if good_by_id(self.produced_good_id).is_some() {
             let mut next_price = self.unit_price;
+            let selling_at_loss = self.last_month_sales > 0.0 && self.last_month_profit <= 0.0;
+            let chronic_loss_seller =
+                self.last_month_sales > 0.0 && self.average_profit_over_months(3) < 0.0;
+            let loss_recovery_rate = if selling_at_loss && self.last_month_sales > 0.0 {
+                let recovery = (-self.last_month_profit / self.last_month_sales).clamp(0.0, 0.15);
+                if chronic_loss_seller {
+                    (recovery * 1.5).max(market.price_raise_rate).clamp(0.0, 0.25)
+                } else {
+                    recovery
+                }
+            } else {
+                0.0
+            };
             if self.last_month_sell_through >= market.sell_through_raise_threshold {
                 next_price *= 1.0 + market.price_raise_rate;
+            } else if selling_at_loss {
+                next_price *= 1.0 + loss_recovery_rate.max(market.price_raise_rate * 0.5);
             } else if self.last_month_sell_through <= market.sell_through_cut_threshold {
                 next_price *= 1.0 - market.price_cut_rate;
             }
@@ -381,7 +415,7 @@ impl Company {
             } else {
                 0.0
             };
-            if months_of_inventory > market.excess_inventory_months {
+            if months_of_inventory > market.excess_inventory_months && !selling_at_loss {
                 next_price *= 1.0 - market.excess_inventory_cut_rate;
             }
 
@@ -448,103 +482,6 @@ impl Company {
         }
     }
 
-    pub fn can_expand_hiring(&self, params: &CompanyGrowthParams, payroll_reference: f64) -> bool {
-        let required_cash = params
-            .min_cash_reserve
-            .max(payroll_reference * params.payroll_reserve_multiplier);
-        self.consecutive_profitable_months >= params.min_profitable_months
-            && self.cash_balance >= required_cash
-    }
-
-    pub fn average_profit_over_months(&self, months: usize) -> f64 {
-        if months == 0 || self.profit_history.len() < months {
-            return 0.0;
-        }
-
-        let total: f64 = self.profit_history.iter().rev().take(months).sum();
-        round_cents(total / months as f64)
-    }
-
-    pub fn open_positions_from_growth(
-        &mut self,
-        params: &CompanyGrowthParams,
-        month_seed: u64,
-    ) -> u16 {
-        if !self.can_expand_hiring(params, self.monthly_payroll_budget) {
-            return 0;
-        }
-
-        let growth_step = params.profit_per_opening.max(1.0);
-        let openings_to_add = ((self.last_month_profit / growth_step).floor() as i64 + 1)
-            .clamp(1, i64::from(params.max_monthly_openings)) as u16;
-
-        let weighted_jobs = self
-            .offered_job_types
-            .iter()
-            .filter_map(|job_id| job_by_id(*job_id).map(|job| (job.id, job.assignment_weight)))
-            .collect::<Vec<_>>();
-
-        if weighted_jobs.is_empty() {
-            return 0;
-        }
-
-        for idx in 0..openings_to_add {
-            let seed = month_seed ^ (u64::from(self.id) << 32) ^ u64::from(idx);
-            if let Some(job_id) = pick_weighted_job(seed, &weighted_jobs) {
-                self.add_opening(job_id, 1);
-            }
-        }
-
-        openings_to_add
-    }
-
-    pub fn ensure_baseline_openings(&mut self, demand: LaborDemandParams, month_seed: u64) -> u16 {
-        if self.employee_count == 0 {
-            return 0;
-        }
-        let recently_profitable =
-            self.last_month_profit > 0.0 || self.average_profit_over_months(3) > 0.0;
-        if !recently_profitable {
-            return 0;
-        }
-
-        let target_from_headcount = (self.employee_count as f64 * demand.replacement_opening_rate)
-            .ceil()
-            .max(0.0) as u16;
-        let target_openings = target_from_headcount.max(demand.min_openings_per_active_company);
-        if target_openings == 0 {
-            return 0;
-        }
-
-        let existing_slots: u16 = self
-            .open_positions
-            .iter()
-            .map(|opening| opening.slots)
-            .sum();
-        if existing_slots >= target_openings {
-            return 0;
-        }
-
-        let slots_to_add = target_openings - existing_slots;
-        let weighted_jobs = self
-            .offered_job_types
-            .iter()
-            .filter_map(|job_id| job_by_id(*job_id).map(|job| (job.id, job.assignment_weight)))
-            .collect::<Vec<_>>();
-        if weighted_jobs.is_empty() {
-            return 0;
-        }
-
-        for idx in 0..slots_to_add {
-            let seed = month_seed ^ (u64::from(self.id) << 32) ^ u64::from(idx) ^ 0x44aa_11cc;
-            if let Some(job_id) = pick_weighted_job(seed, &weighted_jobs) {
-                self.add_opening(job_id, 1);
-            }
-        }
-
-        slots_to_add
-    }
-
     fn push_history_f64(history: &mut VecDeque<f64>, value: f64, max_len: usize) {
         if history.len() >= max_len {
             history.pop_front();
@@ -559,6 +496,7 @@ impl Company {
         history.push_back(value);
     }
 }
+mod hiring;
 mod helpers;
 pub use helpers::build_default_companies;
 use helpers::pick_weighted_job;

@@ -353,6 +353,14 @@ impl StockMarket {
         assigned_ticker
     }
 
+    pub fn next_listing_id(&self, preferred_company_id: u16) -> u16 {
+        let mut candidate = preferred_company_id;
+        while self.listed.contains_key(&candidate) {
+            candidate = candidate.saturating_add(1);
+        }
+        candidate
+    }
+
     /// Called on bankruptcy: wipe all portfolio positions for `company_id`,
     /// remove from listings. Returns total shares wiped across all holders.
     pub fn delist_company(&mut self, country_id: u16, company_id: u16) -> u64 {

@@ -424,17 +424,7 @@ impl Country {
             return 0.0;
         }
 
-        let market_best = self
-            .market_best_private_opening_salary_for_job(job_id)
-            .max(catalog);
-        let switch_component = self
-            .sim_params
-            .labor_mobility
-            .switch_raise_threshold
-            .max(0.0)
-            + backfill.switch_incentive_buffer.max(0.0);
-        let switch_target = market_best * (1.0 + switch_component);
-        let base_offer = (catalog * backfill.base_wage_multiplier.max(0.0)).max(switch_target);
+        let base_offer = catalog * backfill.base_wage_multiplier.max(0.0);
         let cap = catalog * backfill.max_wage_multiplier.max(1.0);
         round_cents(base_offer.min(cap))
     }
@@ -458,7 +448,10 @@ impl Country {
         let escalation_multiplier = 1.0 + backfill.vacancy_escalation_rate.max(0.0);
         let mut updates: Vec<(usize, usize, f64)> = Vec::new();
         for (company_idx, company) in self.companies.iter().enumerate() {
-            if !company.is_public_utility || company.open_positions.is_empty() {
+            if !company.is_public_utility
+                || company.age_months == 0
+                || company.open_positions.is_empty()
+            {
                 continue;
             }
 
@@ -471,12 +464,7 @@ impl Country {
                 let market_best = self
                     .market_best_private_opening_salary_for_job(opening.job_type_id)
                     .max(catalog);
-                let switch_component = self
-                    .sim_params
-                    .labor_mobility
-                    .switch_raise_threshold
-                    .max(0.0)
-                    + backfill.switch_incentive_buffer.max(0.0);
+                let switch_component = backfill.switch_incentive_buffer.max(0.0);
                 let switch_target = market_best * (1.0 + switch_component);
                 let base_offer =
                     (catalog * backfill.base_wage_multiplier.max(0.0)).max(switch_target);

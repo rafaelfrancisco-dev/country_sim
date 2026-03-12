@@ -13,7 +13,6 @@ impl Country {
         let labor_unemployment = self.labor_force_unemployment_rate();
         let unemployment_guard = params.countercyclical_layoff_unemployment_guard.max(0.0);
         let layoff_blocked = labor_unemployment >= unemployment_guard;
-        let bankruptcy_blocked = labor_unemployment >= unemployment_guard;
         let miss_layoff_rate = params.layoff_rate.min(params.max_monthly_layoff_rate);
         let loss_layoff_rate = params
             .loss_trigger_layoff_rate
@@ -46,6 +45,12 @@ impl Country {
                             });
                         }
                     }
+                }
+                if self.should_resolve_dormant_private_company(company_idx)
+                    || self.should_resolve_staffed_private_no_demand_company(company_idx)
+                    || self.should_resolve_chronic_private_loss_company(company_idx)
+                {
+                    bankrupt_indices.push(company_idx);
                 }
                 continue;
             }
@@ -85,12 +90,6 @@ impl Country {
             }
 
             if misses >= params.bankruptcy_missed_payment_threshold {
-                if bankruptcy_blocked {
-                    self.companies[company_idx].consecutive_missed_loan_payments =
-                        params.bankruptcy_missed_payment_threshold.saturating_sub(1);
-                    continue;
-                }
-
                 let company = &self.companies[company_idx];
                 let has_capacity = self.company_has_extra_loan_capacity(company);
                 let deep_losses = loss_months >= params.bankruptcy_min_loss_months;
@@ -126,6 +125,102 @@ impl Country {
 
         if !bankrupt_indices.is_empty() {
             self.resolve_company_bankruptcies(bankrupt_indices);
+        }
+    }
+
+    fn should_resolve_dormant_private_company(&self, company_idx: usize) -> bool {
+        let params = self.sim_params.company_distress;
+        let Some(company) = self.companies.get(company_idx) else {
+            return false;
+        };
+        if company.is_public_utility {
+            return false;
+        }
+
+        let dormant_loss_threshold = params.loss_distress_month_threshold.max(3);
+        if company.consecutive_loss_months < dormant_loss_threshold {
+            return false;
+        }
+        if company.employee_count > 0 || !company.open_positions.is_empty() {
+            return false;
+        }
+        if company.last_month_total_revenue() > 0.0 || company.average_monthly_revenue() > 0.0 {
+            return false;
+        }
+        if company.last_month_units_produced > 0 || company.last_completed_month_units_produced > 0
+        {
+            return false;
+        }
+        if self.company_has_extra_loan_capacity(company) {
+            return false;
+        }
+
+        true
+    }
+
+    fn should_resolve_staffed_private_no_demand_company(&self, company_idx: usize) -> bool {
+        let params = self.sim_params.company_distress;
+        let Some(company) = self.companies.get(company_idx) else {
+            return false;
+        };
+        if company.is_public_utility || company.employee_count == 0 {
+            return false;
+        }
+
+        let staffed_no_demand_threshold = params.loss_distress_month_threshold.max(4);
+        if company.consecutive_loss_months < staffed_no_demand_threshold
+            || company.has_recent_realized_demand()
+            || company.last_month_total_revenue() > 0.0
+            || company.average_monthly_revenue() > 0.0
+            || self.company_has_extra_loan_capacity(company)
+        {
+            return false;
+        }
+
+        let payroll_reference = company
+            .monthly_payroll_budget
+            .max(company.last_month_payroll_paid)
+            .max(company.last_completed_month_payroll_paid);
+        if payroll_reference <= 0.0 {
+            return true;
+        }
+
+        let cash_runway_months = company.cash_balance.max(0.0) / payroll_reference;
+        cash_runway_months <= 2.0
+    }
+
+    fn should_resolve_chronic_private_loss_company(&self, company_idx: usize) -> bool {
+        let params = self.sim_params.company_distress;
+        let Some(company) = self.companies.get(company_idx) else {
+            return false;
+        };
+        if company.is_public_utility
+            || company.consecutive_loss_months < params.bankruptcy_min_loss_months
+            || company.average_profit_over_months(6) >= 0.0
+            || self.company_has_extra_loan_capacity(company)
+        {
+            return false;
+        }
+
+        let payroll_reference = company
+            .monthly_payroll_budget
+            .max(company.last_month_payroll_paid)
+            .max(company.last_completed_month_payroll_paid);
+        let cash_runway_months = if payroll_reference > 0.0 {
+            company.cash_balance.max(0.0) / payroll_reference
+        } else if company.cash_balance <= 0.0 {
+            0.0
+        } else {
+            f64::INFINITY
+        };
+        let no_recent_demand = !company.has_recent_realized_demand()
+            && company.last_month_total_revenue() <= 0.0
+            && company.average_monthly_revenue() <= 0.0;
+
+        if no_recent_demand {
+            cash_runway_months <= 3.0
+        } else {
+            cash_runway_months <= 1.0
         }
     }
 
@@ -296,6 +391,8 @@ impl Country {
             }
         }
 
+        self.transfer_bankrupt_landlord_tenancies(&removed);
+
         let old_companies = std::mem::take(&mut self.companies);
         let mut old_to_new_vec = vec![None::<u16>; old_companies.len()];
         self.companies = Vec::with_capacity(old_companies.len());
@@ -316,19 +413,62 @@ impl Country {
 
         for person in &mut self.people {
             let Some(old_company_id) = person.employer_company_id() else {
+                let mut evict_renter = false;
+                if let crate::sim::person::HousingStatus::Renter {
+                    landlord_company_id,
+                    landlord_country_id,
+                } = &mut person.housing
+                    && *landlord_country_id == self.id
+                {
+                    match old_to_new_vec
+                        .get(*landlord_company_id as usize)
+                        .copied()
+                        .flatten()
+                    {
+                        Some(new_company_id) => *landlord_company_id = new_company_id,
+                        None => evict_renter = true,
+                    }
+                }
+                if evict_renter {
+                    person.housing = crate::sim::person::HousingStatus::Unhoused;
+                    self.housing_stock_occupied_rented =
+                        self.housing_stock_occupied_rented.saturating_sub(1);
+                    self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
+                }
                 continue;
             };
-            match old_to_new_vec
-                .get(old_company_id as usize)
-                .copied()
-                .flatten()
-            {
+            match old_to_new_vec.get(old_company_id as usize).copied().flatten() {
                 Some(new_company_id) => person.remap_employer_company_id(new_company_id),
                 None => {
                     person.clear_employment();
                 }
             }
+
+            let mut evict_renter = false;
+            if let crate::sim::person::HousingStatus::Renter {
+                landlord_company_id,
+                landlord_country_id,
+            } = &mut person.housing
+                && *landlord_country_id == self.id
+            {
+                match old_to_new_vec
+                    .get(*landlord_company_id as usize)
+                    .copied()
+                    .flatten()
+                {
+                    Some(new_company_id) => *landlord_company_id = new_company_id,
+                    None => evict_renter = true,
+                }
+            }
+            if evict_renter {
+                person.housing = crate::sim::person::HousingStatus::Unhoused;
+                self.housing_stock_occupied_rented =
+                    self.housing_stock_occupied_rented.saturating_sub(1);
+                self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
+            }
         }
+
+        self.repair_renter_landlord_links();
 
         // Remap stock market company IDs to match compacted company vec
         if self.sim_params.stock_market.enabled {

@@ -12,6 +12,15 @@ fn average_monthly_revenue_uses_available_history() {
 }
 
 #[test]
+fn average_monthly_revenue_includes_current_rent_revenue() {
+    let mut company = Company::new(1, "Housing".to_string(), vec![0, 1, 2], 2);
+    company.sales_history = VecDeque::from(vec![10.0, 20.0, 40.0]);
+    company.last_month_rent_revenue = 50.0;
+
+    assert!((company.average_monthly_revenue() - 73.33).abs() < 0.01);
+}
+
+#[test]
 fn average_profit_over_months_requires_enough_history() {
     let mut company = Company::new(1, "Test".to_string(), vec![0, 1, 2], 1);
     company.profit_history = VecDeque::from(vec![10.0, 20.0, 40.0]);
@@ -53,11 +62,28 @@ fn growth_openings_require_profitability_and_reserve() {
     company.cash_balance = 200_000.0;
     company.monthly_payroll_budget = 50_000.0;
     company.last_month_profit = 180_000.0;
+    company.last_month_sales = 220_000.0;
+    company.last_month_units_sold = 400;
+    company.last_completed_month_units_sold = 380;
 
     let created = company.open_positions_from_growth(&CompanyGrowthParams::default(), 12);
 
     assert!(created > 0);
     assert!(!company.open_positions.is_empty());
+}
+
+#[test]
+fn growth_openings_do_not_expand_on_sub_threshold_profit() {
+    let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 2);
+    company.consecutive_profitable_months = 3;
+    company.cash_balance = 200_000.0;
+    company.monthly_payroll_budget = 50_000.0;
+    company.last_month_profit = 49_999.0;
+
+    let created = company.open_positions_from_growth(&CompanyGrowthParams::default(), 12);
+
+    assert_eq!(created, 0);
+    assert!(company.open_positions.is_empty());
 }
 
 #[test]
@@ -82,20 +108,35 @@ fn price_cut_with_excess_inventory_clamps_to_at_cost_floor() {
 fn price_raise_has_no_upper_clamp() {
     let market = GoodsMarketParams::default();
     let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
-    company.unit_price = 70.0;
+    company.unit_price = 110.0;
     company.inventory_units = 0;
     company.last_month_units_sold = 100;
 
     company.close_month(&market);
 
-    assert!((company.unit_price - 71.4).abs() < 0.01);
+    assert!((company.unit_price - 112.2).abs() < 0.01);
+}
+
+#[test]
+fn loss_making_seller_raises_price_instead_of_discounting_inventory() {
+    let market = GoodsMarketParams::default();
+    let mut company = Company::new(1, "T".to_string(), vec![0, 1, 2], 0);
+    company.unit_price = 100.0;
+    company.inventory_units = 200;
+    company.last_month_sales = 25_000.0;
+    company.last_month_profit = -2_500.0;
+    company.last_month_units_sold = 10;
+
+    company.close_month(&market);
+
+    assert!(company.unit_price > 100.0);
 }
 
 #[test]
 fn minimum_viable_unit_price_includes_direct_production_labor() {
     let price = minimum_viable_unit_price(0, 300.0, 0.0);
 
-    assert!((price - 62.88).abs() < 0.01);
+    assert!((price - 87.25).abs() < 0.01);
 }
 
 #[test]

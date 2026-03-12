@@ -128,7 +128,7 @@ fn monthly_close_applies_affordability_pressure_relief_to_public_utility_price()
 }
 
 #[test]
-fn public_backfill_openings_start_above_switch_threshold_when_not_capped() {
+fn public_backfill_openings_start_at_catalog_buffer_before_vacancy_escalation() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].add_opening_with_salary(5, 1, 5_000.0);
@@ -160,12 +160,9 @@ fn public_backfill_openings_start_above_switch_threshold_when_not_capped() {
         .find(|opening| opening.job_type_id == 5)
         .expect("manufacturing opening should exist");
     let catalog = salary_for_job(5);
-    let expected_switch_target = 5_000.0_f64 * (1.0 + 0.10 + 0.05);
-    let expected_cap = catalog * country.sim_params.government_backfill.max_wage_multiplier;
-    assert!(
-        (opening.offered_monthly_salary - f64::min(expected_switch_target, expected_cap)).abs()
-            < 0.01
-    );
+    let expected_switch_target =
+        catalog * country.sim_params.government_backfill.base_wage_multiplier;
+    assert!((opening.offered_monthly_salary - expected_switch_target).abs() < 0.01);
 }
 
 #[test]
@@ -205,7 +202,7 @@ fn public_backfill_wage_escalation_increases_and_respects_1_35x_cap() {
 }
 
 #[test]
-fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
+fn monthly_switch_does_not_move_worker_into_public_company_on_creation_month_without_full_raise() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].cash_balance = 500_000.0;
@@ -248,11 +245,10 @@ fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
     let employer_id = country.people[0]
         .employer_company_id()
         .expect("person should remain employed");
-    assert_ne!(employer_id, 0);
-    assert!(country.companies[employer_id as usize].is_public_utility);
-    assert!(country.people[0].monthly_salary() > 3_900.0);
+    assert_eq!(employer_id, 0);
+    assert_eq!(country.people[0].monthly_salary(), 3_900.0);
     assert!(
-        country
+        !country
             .pending_events
             .iter()
             .any(|event| matches!(event, SimEvent::JobSwitched { .. }))

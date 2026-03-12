@@ -226,7 +226,7 @@ impl Default for CompanyDistressParams {
             max_monthly_layoff_rate: 0.03,
             loss_distress_month_threshold: 2,
             bankruptcy_min_loss_months: 18,
-            countercyclical_layoff_unemployment_guard: 0.08,
+            countercyclical_layoff_unemployment_guard: 0.12,
             loss_trigger_wage_cut_rate: 0.06,
             loss_trigger_layoff_rate: 0.05,
             bankruptcy_missed_payment_threshold: 36,
@@ -367,7 +367,7 @@ impl Default for GoodsMarketParams {
         Self {
             tariff_rate: 0.15,
             worker_effort_per_month: 300.0,
-            min_margin_rate: 0.0,
+            min_margin_rate: 0.15,
             price_raise_rate: 0.02,
             price_cut_rate: 0.02,
             sell_through_raise_threshold: 0.90,

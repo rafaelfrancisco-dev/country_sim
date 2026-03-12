@@ -143,6 +143,8 @@ Opening count:
 - `openings_to_add = min(8, 1 + floor(last_month_profit / 50_000))`
 
 Openings are distributed across existing offered job types weighted by each job's assignment weight.
+Growth and baseline replacement openings also require recent realized demand (sales, sold units, or strong sell-through) so firms do not keep adding payroll into a demand vacuum. Public utilities are excluded from this generic private growth pass and instead expand only through the dedicated public backfill path.
+At month close, firms that are selling but posting losses also bias toward price recovery instead of mechanically discounting further on weak sell-through.
 
 ## Annual Market Wage Raises
 - A cadence-gated raise pass runs yearly by default (`cadence_months = 12`).
@@ -173,10 +175,11 @@ Openings are distributed across existing offered job types weighted by each job'
 - Founder role:
   - founders are selected for the chosen good's production role
   - founders are assigned directly into that productive role on company creation
-  - founders count as the initial staffed team rather than leaving duplicate founder-role vacancies behind
+  - founders count as the initial staffed team
+  - startups post at most one immediate production-role opening until they demonstrate real demand
 - Viability gate:
-  - founder payroll must fit under `startup_max_payroll_to_revenue`
-  - expected revenue blends observed sales with household demand and company-input demand proxies
+  - planned startup payroll must fit under `startup_max_payroll_to_revenue`
+  - expected revenue ignores public-utility producer signals and blends conservative entrant-share private sales with household demand and company-input demand proxies
   - projected first-month operating profit must be non-negative after payroll, input costs, facility costs, and projected loan service
 - Default affordability cap is tighter: `startup_max_payroll_to_revenue = 0.70`.
 - Funding stack:
@@ -189,19 +192,24 @@ Openings are distributed across existing offered job types weighted by each job'
 - Workers must now satisfy a minimum-tenure gate before switching: `min_tenure_months_before_switch` defaults to `6`.
 
 ## Distress and Bankruptcy (Monthly)
-- Distress is tracked by consecutive missed company loan payments.
+- Distress is tracked by consecutive missed company loan payments and by sustained inactive-loss states.
 - Escalation:
   - miss #1: 10% wage cut (employees + openings, floored to 70% catalog salary)
   - later misses/losses: deterministic layoffs are capped by `max_monthly_layoff_rate` (default `3%`)
   - loss-only correction starts after `loss_distress_month_threshold` months (default `2`)
   - default loss-trigger wage cut is `6%`
   - default loss-trigger layoff rate is `5%`
-  - bankruptcy requires deep sustained distress (missed-payment and loss duration gates), non-positive cash, and no additional loan capacity
+  - bankruptcy requires deep sustained distress for normal cases (missed-payment and loss duration gates, non-positive cash, and no additional loan capacity)
+  - private companies that become dormant zombies (no staff, no openings, no recent output/sales, and no extra loan capacity) are also removed after repeated loss months so they do not idle forever at zero, even when the broader unemployment brake is active
+  - private companies with sustained losses, no meaningful cash runway, and no extra loan capacity can also be resolved before they stall indefinitely as chronic negative-profit firms
+  - staffed private companies with repeated losses and no realized demand are resolved earlier once payroll runway is short, instead of remaining long-lived zero-revenue employers
+  - rent revenue counts as realized demand for housing landlords when evaluating distress and hiring behavior
   - before bankruptcy, private firms attempt distress IPO rescue
 - Countercyclical brake:
-  - when labor-force unemployment is high, layoffs and bankruptcy escalation are throttled
+  - when labor-force unemployment is high, layoffs are throttled, but insolvency itself is not frozen
   - government can spawn additional public employers as a stability backstop
 - Bankruptcy removes companies physically and renumbers IDs; person employment references are remapped.
+- When a bankrupt company is also a landlord, local renters are reassigned to a surviving housing landlord when possible, otherwise a public housing utility is used as the fallback landlord so renter records remain valid through company removal.
 
 ## Death Side Effects
 When a person dies:

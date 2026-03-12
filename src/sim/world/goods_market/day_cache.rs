@@ -7,8 +7,8 @@ use crate::sim::essentials::{
 
 /// Number of goods processed in the global round-robin (non-durable, id < SUPERFICIAL_GOOD_START_ID).
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_COUNT: usize = 9;
-const COMPETITIVE_QUOTE_BAND_BPS: i64 = 500;
-const MAX_COMPETITIVE_QUOTES: usize = 6;
+const COMPETITIVE_QUOTE_BAND_BPS: i64 = 2_000;
+const MAX_COMPETITIVE_QUOTES: usize = 12;
 
 /// Good IDs processed in the global round-robin, in slot order.
 pub(in crate::sim::world) const ESSENTIAL_ND_GOOD_IDS: [GoodId; ESSENTIAL_ND_GOOD_COUNT] =

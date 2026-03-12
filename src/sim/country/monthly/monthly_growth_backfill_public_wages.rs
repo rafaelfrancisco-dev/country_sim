@@ -31,12 +31,18 @@ impl Country {
                 .par_chunks_mut(COMPANY_CHUNK_SIZE)
                 .for_each(|chunk| {
                     for company in chunk {
+                        if company.is_public_utility {
+                            continue;
+                        }
                         company.open_positions_from_growth(&company_growth, month_seed);
                         company.ensure_baseline_openings(labor_demand, month_seed);
                     }
                 });
         } else {
             for company in &mut self.companies {
+                if company.is_public_utility {
+                    continue;
+                }
                 company.open_positions_from_growth(&company_growth, month_seed);
                 company.ensure_baseline_openings(labor_demand, month_seed);
             }
@@ -66,11 +72,18 @@ impl Country {
         if pressure <= f64::EPSILON && formation.labor_slack_startup_trigger > 0.0 {
             return;
         }
-        let dynamic_budget =
-            1_u16.saturating_add(((pressure * labor_force as f64) / 100.0).round() as u16);
+        let excess_unemployed = pressure * labor_force as f64;
+        let dynamic_budget = if formation.labor_slack_startup_trigger <= f64::EPSILON {
+            1_u16.saturating_add((excess_unemployed / 25.0).round() as u16)
+        } else {
+            (excess_unemployed / 50.0).floor() as u16
+        };
+        if dynamic_budget == 0 {
+            return;
+        }
         let mut startup_budget = dynamic_budget.min(limit);
         if unemployment >= formation.labor_slack_startup_trigger + 0.03 {
-            startup_budget = startup_budget.saturating_add(6).min(limit);
+            startup_budget = startup_budget.saturating_add(2).min(limit);
         }
         startup_budget = ((startup_budget as f64) * self.expansion_multiplier())
             .round()

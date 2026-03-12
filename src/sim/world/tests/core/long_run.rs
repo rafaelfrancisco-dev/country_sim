@@ -14,6 +14,195 @@ fn profitable_share(country: &Country) -> f64 {
     profitable as f64 / country.companies.len() as f64
 }
 
+fn profitable_private_share(country: &Country) -> f64 {
+    let private_total = country
+        .companies
+        .iter()
+        .filter(|company| !company.is_public_utility)
+        .count();
+    if private_total == 0 {
+        return 0.0;
+    }
+
+    let profitable_private = country
+        .companies
+        .iter()
+        .filter(|company| !company.is_public_utility && company.last_month_profit > 0.0)
+        .count();
+    profitable_private as f64 / private_total as f64
+}
+
+fn dormant_zero_activity_count(country: &Country) -> usize {
+    country
+        .companies
+        .iter()
+        .filter(|company| {
+            company.employee_count == 0
+                && company.open_positions.is_empty()
+                && company.last_month_sales <= 0.0
+                && company.last_month_units_produced == 0
+                && company.last_completed_month_units_produced == 0
+        })
+        .count()
+}
+
+fn public_utility_count(country: &Country) -> usize {
+    country
+        .companies
+        .iter()
+        .filter(|company| company.is_public_utility)
+        .count()
+}
+
+fn staffed_company_count(country: &Country) -> usize {
+    country
+        .companies
+        .iter()
+        .filter(|company| company.employee_count > 0)
+        .count()
+}
+
+fn selling_company_count(country: &Country) -> usize {
+    country
+        .companies
+        .iter()
+        .filter(|company| company.last_month_sales > 0.0)
+        .count()
+}
+
+fn selling_but_unprofitable_count(country: &Country) -> usize {
+    country
+        .companies
+        .iter()
+        .filter(|company| company.last_month_sales > 0.0 && company.last_month_profit <= 0.0)
+        .count()
+}
+
+fn mature_private_profitable_share(country: &Country) -> f64 {
+    let mature_private_total = country
+        .companies
+        .iter()
+        .filter(|company| !company.is_public_utility && company.age_months >= 12)
+        .count();
+    if mature_private_total == 0 {
+        return 0.0;
+    }
+
+    let profitable_mature_private = country
+        .companies
+        .iter()
+        .filter(|company| {
+            !company.is_public_utility
+                && company.age_months >= 12
+                && company.last_month_profit > 0.0
+        })
+        .count();
+    profitable_mature_private as f64 / mature_private_total as f64
+}
+
+#[derive(Debug, Copy, Clone)]
+struct ProfitabilityDiagnostics {
+    profitable_share: f64,
+    profitable_private_share: f64,
+    profitable_public_share: f64,
+    public_share: f64,
+    dormant_private_share: f64,
+    zero_revenue_share: f64,
+    staffed_zero_revenue_share: f64,
+    unstaffed_share: f64,
+    no_manufacturing_zero_revenue_share: f64,
+}
+
+fn profitability_diagnostics(country: &Country) -> ProfitabilityDiagnostics {
+    let total = country.companies.len();
+    if total == 0 {
+        return ProfitabilityDiagnostics {
+            profitable_share: 0.0,
+            profitable_private_share: 0.0,
+            profitable_public_share: 0.0,
+            public_share: 0.0,
+            dormant_private_share: 0.0,
+            zero_revenue_share: 0.0,
+            staffed_zero_revenue_share: 0.0,
+            unstaffed_share: 0.0,
+            no_manufacturing_zero_revenue_share: 0.0,
+        };
+    }
+
+    let profitable = country
+        .companies
+        .iter()
+        .filter(|company| company.last_month_profit > 0.0)
+        .count();
+    let private_total = country
+        .companies
+        .iter()
+        .filter(|company| !company.is_public_utility)
+        .count();
+    let private_profitable = country
+        .companies
+        .iter()
+        .filter(|company| !company.is_public_utility && company.last_month_profit > 0.0)
+        .count();
+    let public_total = total.saturating_sub(private_total);
+    let public_profitable = profitable.saturating_sub(private_profitable);
+    let dormant_private = country
+        .companies
+        .iter()
+        .filter(|company| {
+            !company.is_public_utility
+                && company.employee_count == 0
+                && company.open_positions.is_empty()
+                && company.last_month_sales <= 0.0
+                && company.last_month_units_produced == 0
+        })
+        .count();
+    let zero_revenue = country
+        .companies
+        .iter()
+        .filter(|company| company.last_month_sales <= 0.0)
+        .count();
+    let staffed_zero_revenue = country
+        .companies
+        .iter()
+        .filter(|company| company.employee_count > 0 && company.last_month_sales <= 0.0)
+        .count();
+    let unstaffed = country
+        .companies
+        .iter()
+        .filter(|company| company.employee_count == 0)
+        .count();
+    let no_manufacturing_zero_revenue = country
+        .companies
+        .iter()
+        .filter(|company| {
+            company.employee_count > 0
+                && company.manufacturing_employee_count == 0
+                && company.last_month_sales <= 0.0
+        })
+        .count();
+
+    ProfitabilityDiagnostics {
+        profitable_share: profitable as f64 / total as f64,
+        profitable_private_share: if private_total == 0 {
+            0.0
+        } else {
+            private_profitable as f64 / private_total as f64
+        },
+        profitable_public_share: if public_total == 0 {
+            0.0
+        } else {
+            public_profitable as f64 / public_total as f64
+        },
+        public_share: public_total as f64 / total as f64,
+        dormant_private_share: dormant_private as f64 / total as f64,
+        zero_revenue_share: zero_revenue as f64 / total as f64,
+        staffed_zero_revenue_share: staffed_zero_revenue as f64 / total as f64,
+        unstaffed_share: unstaffed as f64 / total as f64,
+        no_manufacturing_zero_revenue_share: no_manufacturing_zero_revenue as f64 / total as f64,
+    }
+}
+
 #[test]
 fn generated_world_2x1k_360_days_housing_market_is_sane() {
     let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 360, 2);
@@ -123,6 +312,33 @@ fn generated_world_2x2k_1095_days_keeps_profitable_share_above_floor() {
 }
 
 #[test]
+#[ignore = "long-run profitability diagnostics (730 days, 2 x 2k)"]
+fn generated_world_2x2k_730_days_reports_profitability_mix() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 2, 2_000, 730, 4);
+    let invariants = world.validate_invariants();
+    if !invariants.is_empty() {
+        println!("invariant_violations={invariants:?}");
+    }
+
+    for country in &world.countries {
+        println!(
+            "country={} companies={} public={} staffed={} selling={} selling_unprofitable={} profitable_share={:.2}% private_profitable_share={:.2}% mature_private_profitable_share={:.2}% dormant_zero_activity={} unemployment={:.2}%",
+            country.id,
+            country.companies.len(),
+            public_utility_count(country),
+            staffed_company_count(country),
+            selling_company_count(country),
+            selling_but_unprofitable_count(country),
+            profitable_share(country) * 100.0,
+            profitable_private_share(country) * 100.0,
+            mature_private_profitable_share(country) * 100.0,
+            dormant_zero_activity_count(country),
+            labor_force_unemployment(country) * 100.0,
+        );
+    }
+}
+
+#[test]
 #[ignore = "long-run stability scenario (730 days, 3 x 15k)"]
 fn generated_world_3x15k_730_days_meets_stability_floor() {
     let (world, companies_founded_total, growth_ipos_by_country) =
@@ -168,6 +384,32 @@ fn generated_world_3x15k_1095_days_keeps_country_unemployment_capped() {
             rate <= 0.20,
             "country {} unemployment exceeded 20%: {rate:.4}",
             country.id
+        );
+    }
+}
+
+#[test]
+#[ignore = "manual diagnostic: prints profitability mix after 730 days (2 x 1k)"]
+fn generated_world_2x1k_730_days_prints_profitability_mix() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 730, 4);
+    assert!(world.validate_invariants().is_empty());
+
+    for country in &world.countries {
+        let diagnostics = profitability_diagnostics(country);
+        println!(
+            "country={} companies={} unemployment={:.2}% profitable={:.2}% private_profitable={:.2}% public_profitable={:.2}% public_share={:.2}% dormant_private_share={:.2}% zero_revenue_share={:.2}% staffed_zero_revenue_share={:.2}% unstaffed_share={:.2}% no_manufacturing_zero_revenue_share={:.2}%",
+            country.id,
+            country.companies.len(),
+            labor_force_unemployment(country) * 100.0,
+            diagnostics.profitable_share * 100.0,
+            diagnostics.profitable_private_share * 100.0,
+            diagnostics.profitable_public_share * 100.0,
+            diagnostics.public_share * 100.0,
+            diagnostics.dormant_private_share * 100.0,
+            diagnostics.zero_revenue_share * 100.0,
+            diagnostics.staffed_zero_revenue_share * 100.0,
+            diagnostics.unstaffed_share * 100.0,
+            diagnostics.no_manufacturing_zero_revenue_share * 100.0,
         );
     }
 }

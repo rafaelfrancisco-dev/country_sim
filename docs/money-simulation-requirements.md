@@ -89,10 +89,12 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - founders keep a personal reserve (default `0.5` month of salary reference); low-cash unemployed founders can still participate when startup lending is enabled.
   - startups are selected by target good, then anchored on that good's designated production role.
   - founders are assigned directly into the productive role and count as the initial staffed team.
+  - immediate post-formation hiring is conservative: startups post at most one production-role opening until they have real sales history, so viability underwriting matches the initial staffing plan.
   - viability gate uses expected demand/revenue and a non-negative first-month operating-profit check:
     - startup pricing is clamped to a labor-aware minimum viable unit price, not just `base_unit_cost`
-    - expected revenue blends entrant-share observed sales with household demand and company-input demand proxies
-    - founder payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
+    - expected revenue is inferred only from private-company market activity; public-utility sales/profits do not make a sector look startup-friendly
+    - expected revenue blends conservative entrant-share observed private sales with household demand and company-input demand proxies
+    - planned startup payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
     - projected payroll, input spend, facility spend, and loan service must fit inside realizable first-month revenue
   - funding stack:
     - founder capital first
@@ -107,12 +109,22 @@ Model monthly money circulation while supporting daily demographic and labor dyn
     - starts after `loss_distress_month_threshold` months (default `2`)
     - default loss-trigger wage cut is `6%`
     - default loss-trigger layoff rate is `5%`, still capped by `max_monthly_layoff_rate`
-  - countercyclical brake: when labor-force unemployment is elevated, layoffs and bankruptcy escalation are throttled.
-  - bankruptcy is last resort and requires sustained distress (defaults: `>=36` missed-payment months and `>=18` loss months), non-positive cash, and no additional loan capacity.
+  - countercyclical brake: when labor-force unemployment is elevated, layoffs are throttled, but insolvency resolution still proceeds for firms that are genuinely out of runway.
+  - bankruptcy is last resort and usually requires sustained missed-payment distress (defaults: `>=36` missed-payment months and `>=18` loss months), non-positive cash, and no additional loan capacity.
+  - dormant private companies can also be liquidated without missed payments once they have no staff, no openings, no recent output/sales, no extra loan capacity, and have remained loss-making for multiple months. This dormant-zombie cleanup is not held open indefinitely by the countercyclical unemployment brake.
+  - chronically loss-making private companies with no cash runway and no extra loan capacity can also be resolved before they sit in long-run negative-profit limbo.
+  - staffed private companies with repeated losses, no realized demand, no extra loan capacity, and only short payroll runway are also resolved before they can remain payroll-burning zero-revenue shells for long periods.
+  - rent revenue counts as realized demand for housing landlords in distress and hiring checks; they are not treated as zero-demand firms just because goods sales are low.
   - before bankruptcy, private firms attempt IPO rescue.
 - **Bankruptcy handling**:
   - all workers are laid off, openings cleared, loans written off, and company cash reset.
   - bankrupt companies are removed and IDs are remapped; person employment references are remapped accordingly.
+  - if a bankrupt company is acting as a local landlord, renters are transferred to a surviving housing landlord when possible, otherwise a public housing utility is created as a fallback so renter records and rental-unit ownership do not go stale.
+  - after company-id compaction, local renter landlord references are remapped the same way employment references are.
+
+- **Private repricing guardrail**:
+  - during monthly close, private firms that are still selling but losing money no longer keep cutting price on low sell-through alone
+  - instead, they apply a bounded loss-recovery increase so the model does not trap active firms in self-reinforcing discount spirals
 
 ## IPO Mechanics
 - IPO attempts are unified under `attempt_ipo(company_idx, reason)` with reasons:
@@ -126,6 +138,7 @@ Model monthly money circulation while supporting daily demographic and labor dyn
 - IPO subscription funding uses existing household cash and bank reserves only.
 - IPO-time secondary payouts are pure transfers; no new money is created by the secondary leg.
 - **Founder share registration**: after IPO settlement, each founder's remaining (unsold) stake is registered in `person_portfolios` at the IPO price, and `free_float_shares` is expanded by that count. Founder shares then participate in daily trading like any other retail position.
+- **Listing identity**: stock listings use a stable listing id that can differ from the company's current compacted `company.id`, so bankruptcies and ID remaps do not corrupt share accounting.
 
 ## Country Revenue
 - Monthly payroll is paid only to employed people.

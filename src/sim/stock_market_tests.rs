@@ -42,6 +42,18 @@ fn insert_listing_preserve_index_assigns_distinct_ticker_symbols() {
 }
 
 #[test]
+fn next_listing_id_skips_existing_stable_listing_keys() {
+    let mut market = StockMarket::new();
+    market.insert_listing_preserve_index(
+        7,
+        ListedEquity::new(7, 3, Arc::from("OLD"), 10.0, 1_000, 500),
+    );
+
+    assert_eq!(market.next_listing_id(3), 3);
+    assert_eq!(market.next_listing_id(7), 8);
+}
+
+#[test]
 fn reset_mtd_trackers_preserves_last_completed_month_dividends() {
     let mut market = StockMarket::new();
     let portfolio = market.person_portfolio_mut(7);

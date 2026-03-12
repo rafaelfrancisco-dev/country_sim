@@ -230,10 +230,6 @@ impl Country {
         let mut shares_allocated = 0_u64;
         let mut raised = 0.0_f64;
         let mut subscriptions: Vec<(u32, u64, f64)> = Vec::new();
-        let security_id = crate::sim::stock_market::StockSecurityId {
-            country_id: self.id,
-            company_id,
-        };
 
         for person in &self.people {
             if shares_allocated >= float_shares {
@@ -277,6 +273,12 @@ impl Country {
         }
 
         // Apply subscriptions regardless of uptake — healthy company always lists.
+        let listing_id = self.stock_market.next_listing_id(company_id);
+        let security_id = crate::sim::stock_market::StockSecurityId {
+            country_id: self.id,
+            company_id: listing_id,
+        };
+
         for (person_id, alloc, cost) in &subscriptions {
             if let Some(person) = self.people.iter_mut().find(|p| p.id == *person_id) {
                 person.cash_balance = round_cents(person.cash_balance - cost);
@@ -297,7 +299,7 @@ impl Country {
         let total_shares = initial_shares + shares_allocated;
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
-            company_id,
+            listing_id,
             company_id,
             ticker.clone(),
             price_per_share,
@@ -306,7 +308,7 @@ impl Country {
         );
         let ticker = self
             .stock_market
-            .insert_listing_preserve_index(company_id, equity);
+            .insert_listing_preserve_index(listing_id, equity);
 
         // Proceeds flow into company treasury (primary offering).
         if let Some(company) = self.companies.get_mut(company_idx) {

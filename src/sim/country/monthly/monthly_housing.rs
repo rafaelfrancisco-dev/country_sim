@@ -7,6 +7,229 @@ use crate::sim::{
 const HOUSING_GOOD_ID: u8 = 2;
 
 impl Country {
+    fn is_local_housing_landlord(
+        &self,
+        landlord_company_id: u16,
+        removed_companies: Option<&[bool]>,
+    ) -> bool {
+        let landlord_idx = landlord_company_id as usize;
+        if removed_companies
+            .and_then(|removed| removed.get(landlord_idx))
+            .copied()
+            .unwrap_or(false)
+        {
+            return false;
+        }
+
+        self.companies
+            .get(landlord_idx)
+            .is_some_and(|company| company.produced_good_id == HOUSING_GOOD_ID)
+    }
+
+    fn preferred_housing_landlord(
+        &self,
+        removed_companies: Option<&[bool]>,
+    ) -> Option<u16> {
+        let mut best_idx = None::<usize>;
+
+        for (idx, company) in self.companies.iter().enumerate() {
+            if company.produced_good_id != HOUSING_GOOD_ID
+                || removed_companies
+                    .and_then(|removed| removed.get(idx))
+                    .copied()
+                    .unwrap_or(false)
+            {
+                continue;
+            }
+
+            let Some(current_best_idx) = best_idx else {
+                best_idx = Some(idx);
+                continue;
+            };
+            let current_best = &self.companies[current_best_idx];
+
+            let company_is_private = !company.is_public_utility;
+            let current_is_private = !current_best.is_public_utility;
+            if company_is_private != current_is_private {
+                if company_is_private {
+                    best_idx = Some(idx);
+                }
+                continue;
+            }
+
+            if company.rental_units_owned != current_best.rental_units_owned {
+                if company.rental_units_owned > current_best.rental_units_owned {
+                    best_idx = Some(idx);
+                }
+                continue;
+            }
+
+            let cash_cmp = company
+                .cash_balance
+                .partial_cmp(&current_best.cash_balance)
+                .unwrap_or(Ordering::Equal);
+            if cash_cmp == Ordering::Greater
+                || (cash_cmp == Ordering::Equal && idx < current_best_idx)
+            {
+                best_idx = Some(idx);
+            }
+        }
+
+        best_idx.map(|idx| idx as u16)
+    }
+
+    fn ensure_housing_landlord(&mut self, removed_companies: Option<&[bool]>) -> Option<u16> {
+        if let Some(landlord_id) = self.preferred_housing_landlord(removed_companies) {
+            return Some(landlord_id);
+        }
+
+        let created_from = self.companies.len();
+        self.create_public_essential_company(HOUSING_GOOD_ID, self.sim_params.government_backfill);
+        self.companies
+            .iter()
+            .enumerate()
+            .skip(created_from)
+            .find(|(_, company)| {
+                company.produced_good_id == HOUSING_GOOD_ID && company.is_public_utility
+            })
+            .map(|(idx, _)| idx as u16)
+    }
+
+    fn evict_renters(&mut self, renter_indices: &[usize]) {
+        for &person_idx in renter_indices {
+            let Some(person) = self.people.get_mut(person_idx) else {
+                continue;
+            };
+            if !matches!(person.housing, HousingStatus::Renter { .. }) {
+                continue;
+            }
+
+            person.housing = HousingStatus::Unhoused;
+            self.housing_stock_occupied_rented =
+                self.housing_stock_occupied_rented.saturating_sub(1);
+            self.housing_stock_vacant = self.housing_stock_vacant.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn transfer_bankrupt_landlord_tenancies(&mut self, removed_companies: &[bool]) {
+        let transferred_units = self
+            .companies
+            .iter()
+            .enumerate()
+            .filter(|(idx, company)| {
+                removed_companies.get(*idx).copied().unwrap_or(false) && company.rental_units_owned > 0
+            })
+            .map(|(_, company)| company.rental_units_owned)
+            .sum::<u32>();
+
+        let displaced_renters = self
+            .people
+            .iter()
+            .enumerate()
+            .filter_map(|(person_idx, person)| match person.housing {
+                HousingStatus::Renter {
+                    landlord_company_id,
+                    landlord_country_id,
+                } if landlord_country_id == self.id
+                    && removed_companies
+                        .get(landlord_company_id as usize)
+                        .copied()
+                        .unwrap_or(false) =>
+                {
+                    Some(person_idx)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        if displaced_renters.is_empty() && transferred_units == 0 {
+            return;
+        }
+
+        let Some(target_landlord_id) = self.ensure_housing_landlord(Some(removed_companies)) else {
+            if !displaced_renters.is_empty() {
+                self.evict_renters(&displaced_renters);
+            }
+            return;
+        };
+
+        for &person_idx in &displaced_renters {
+            if let Some(person) = self.people.get_mut(person_idx) {
+                person.housing = HousingStatus::Renter {
+                    landlord_company_id: target_landlord_id,
+                    landlord_country_id: self.id,
+                };
+            }
+        }
+
+        let units_to_transfer = transferred_units.max(displaced_renters.len() as u32);
+        if units_to_transfer > 0
+            && let Some(company) = self.companies.get_mut(target_landlord_id as usize)
+        {
+            company.rental_units_owned =
+                company.rental_units_owned.saturating_add(units_to_transfer);
+        }
+    }
+
+    pub(crate) fn repair_renter_landlord_links(&mut self) {
+        let mut assigned_renters = vec![0_u32; self.companies.len()];
+        let mut invalid_renters = Vec::new();
+
+        for (person_idx, person) in self.people.iter().enumerate() {
+            let HousingStatus::Renter {
+                landlord_company_id,
+                landlord_country_id,
+            } = person.housing
+            else {
+                continue;
+            };
+            if landlord_country_id != self.id {
+                continue;
+            }
+
+            if self.is_local_housing_landlord(landlord_company_id, None) {
+                if let Some(count) = assigned_renters.get_mut(landlord_company_id as usize) {
+                    *count = count.saturating_add(1);
+                }
+            } else {
+                invalid_renters.push(person_idx);
+            }
+        }
+
+        for (company_idx, assigned_count) in assigned_renters.iter().copied().enumerate() {
+            if assigned_count == 0 {
+                continue;
+            }
+
+            if let Some(company) = self.companies.get_mut(company_idx) {
+                company.rental_units_owned = company.rental_units_owned.max(assigned_count);
+            }
+        }
+
+        if invalid_renters.is_empty() {
+            return;
+        }
+
+        let Some(target_landlord_id) = self.ensure_housing_landlord(None) else {
+            self.evict_renters(&invalid_renters);
+            return;
+        };
+
+        for &person_idx in &invalid_renters {
+            if let Some(person) = self.people.get_mut(person_idx) {
+                person.housing = HousingStatus::Renter {
+                    landlord_company_id: target_landlord_id,
+                    landlord_country_id: self.id,
+                };
+            }
+        }
+
+        let reassigned_count = invalid_renters.len() as u32;
+        if let Some(company) = self.companies.get_mut(target_landlord_id as usize) {
+            company.rental_units_owned = company.rental_units_owned.saturating_add(reassigned_count);
+        }
+    }
+
     /// Drain housing company inventory into the housing stock pool.
     pub(super) fn process_housing_construction(&mut self) {
         let mut new_units: u32 = 0;
@@ -121,6 +344,8 @@ impl Country {
 
     /// Collect monthly rent from renters and credit landlord companies.
     pub(super) fn collect_rent(&mut self) {
+        self.repair_renter_landlord_links();
+
         let monthly_rent = self.monthly_rent;
         if monthly_rent <= 0.0 {
             return;
