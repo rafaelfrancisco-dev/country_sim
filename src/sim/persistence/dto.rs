@@ -570,6 +570,8 @@ pub struct CountryDto {
     pub id: u16,
     pub name: String,
     pub currency: CurrencySpecDto,
+    pub currency_idx: usize,
+    pub is_currency_issuer: bool,
     pub day: u64,
     pub month: u64,
     pub next_startup_serial: u32,

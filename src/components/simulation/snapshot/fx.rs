@@ -180,6 +180,7 @@ fn fx_rows(world: &World, selected_country_idx: usize) -> Vec<FxRowSnapshot> {
                 pressure: format!("{:.2}", country.fx_pressure()),
                 export_import_ratio: format_export_import_ratio(export_import_ratio),
                 is_selected: idx == selected_country_idx,
+                is_issuer: country.is_currency_issuer(),
             }
         })
         .collect::<Vec<_>>();

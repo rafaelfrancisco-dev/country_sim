@@ -1,7 +1,7 @@
 use super::{
     company::{Company, DEFAULT_COMPANIES_PER_COUNTRY},
     country::Country,
-    currency::generated_currency,
+    currency::{CurrencySpec, generated_currency},
     essentials::{
         STOCKABLE_ESSENTIAL_GOOD_IDS, estimated_country_monthly_requirement,
         estimated_country_stock_target_units, production_capacity_units_for_workers,
@@ -15,6 +15,12 @@ use super::{
     person::{EmploymentStatus, HabilitationLevel, HousingStatus, Person},
 };
 use rayon::prelude::*;
+
+#[derive(Debug, Clone)]
+pub struct CountryWithCurrencySpec {
+    pub country: Country,
+    pub currency_spec: CurrencySpec,
+}
 
 #[path = "generator/companies.rs"]
 mod companies;
@@ -181,6 +187,11 @@ fn build_job_selection_cache(
 }
 
 pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
+    let countries_with_specs = generate_countries_with_specs(config);
+    assign_currency_indices(countries_with_specs)
+}
+
+fn generate_countries_with_specs(config: &GenerationConfig) -> Vec<CountryWithCurrencySpec> {
     if config.country_count <= 1 {
         return (0..config.country_count)
             .map(|country_idx| generate_country(config, country_idx))
@@ -193,7 +204,37 @@ pub fn generate_countries(config: &GenerationConfig) -> Vec<Country> {
         .collect()
 }
 
-fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
+fn assign_currency_indices(countries_with_specs: Vec<CountryWithCurrencySpec>) -> Vec<Country> {
+    let mut currency_index_by_spec: std::collections::HashMap<CurrencySpec, usize> = std::collections::HashMap::new();
+    let mut issuer_by_currency_idx: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut currency_counter = 0usize;
+
+    let mut countries: Vec<Country> = Vec::with_capacity(countries_with_specs.len());
+
+    for country_with_spec in countries_with_specs {
+        let currency_idx = *currency_index_by_spec
+            .entry(country_with_spec.currency_spec.clone())
+            .or_insert_with(|| {
+                let idx = currency_counter;
+                currency_counter += 1;
+                idx
+            });
+
+        let is_currency_issuer_idx = issuer_by_currency_idx
+            .entry(currency_idx)
+            .or_insert_with(|| countries.len());
+
+        let mut country = country_with_spec.country;
+        country.currency_spec = country_with_spec.currency_spec;
+        country.currency_idx = currency_idx;
+        country.is_currency_issuer = *is_currency_issuer_idx == countries.len();
+        countries.push(country);
+    }
+
+    countries
+}
+
+fn generate_country(config: &GenerationConfig, country_idx: u16) -> CountryWithCurrencySpec {
     let c_seed = country_seed(config.seed, country_idx);
     let mut rng = DeterministicRng::new(c_seed);
     let country_name = country_name_from_seed(country_seed(config.seed ^ 0xfeed_f00d, country_idx));
@@ -265,7 +306,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
         total_supply,
         config.sim_params.clone(),
     );
-    country.currency = generated_currency(country_idx, config.seed);
+    let currency_spec = generated_currency(country_idx, config.seed);
     companies::seed_initial_essential_supply(&mut country);
     companies::fund_initial_bank_reserve(&mut country);
     companies::seed_initial_bank_openings(&mut country);
@@ -273,8 +314,12 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> Country {
     population::seed_initial_housing(&mut country);
     country.rebuild_households();
     country.seed_initial_ipos();
-    country
+    CountryWithCurrencySpec {
+        country,
+        currency_spec,
+    }
 }
+
 
 #[cfg(test)]
 #[path = "generator/tests.rs"]

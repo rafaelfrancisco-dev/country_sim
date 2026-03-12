@@ -23,7 +23,8 @@ pub use invariants::InvariantViolation;
 
 use std::collections::{BTreeMap, VecDeque};
 
-use super::{country::Country, event::SimEvent};
+use super::{country::Country, currency::Currency, currency::CurrencySpec, event::SimEvent};
+use std::collections::HashMap;
 
 pub const HISTORY_LIMIT: usize = 120;
 
@@ -103,6 +104,10 @@ pub struct World {
     /// Rebuilt in-place by `rebuild_tariff_matrix_in_place()` after tariff changes.
     pub(crate) import_tariff_rates_by_good: Vec<Vec<f64>>,
     goods_runtime: goods_market::GoodsMarketDayCache,
+    /// Canonical list of currencies in the world.
+    pub currencies: Vec<Currency>,
+    /// O(1) lookup from CurrencySpec to currency index.
+    currency_index_by_spec: HashMap<CurrencySpec, usize>,
 }
 
 #[cfg(test)]

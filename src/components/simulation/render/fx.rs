@@ -1,5 +1,4 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
@@ -8,15 +7,16 @@ use ratatui::{
         Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Table, Wrap,
     },
+    Frame,
 };
 
 use super::{
-    super::{Simulation, theme},
+    super::{theme, Simulation},
     fx_summary,
 };
 use crate::components::simulation::{
     hotkeys,
-    snapshot::{FxRowSnapshot, FxTabSnapshot, RunningSnapshot, compact_num},
+    snapshot::{compact_num, FxRowSnapshot, FxTabSnapshot, RunningSnapshot},
 };
 
 const FX_TOP_BASE_HEIGHT: u16 = 10;
@@ -275,6 +275,7 @@ impl Simulation {
             "Net Flow",
             "Pressure",
             "X/M",
+            "Issuer",
         ])
         .style(
             Style::default()
@@ -299,6 +300,7 @@ impl Simulation {
             Constraint::Length(12),
             Constraint::Length(9),
             Constraint::Length(7),
+            Constraint::Length(6),
         ];
 
         frame.render_widget(
@@ -352,6 +354,7 @@ impl Simulation {
             ratatui::text::Text::from(row.net_flow.clone()),
             ratatui::text::Text::from(row.pressure.clone()),
             ratatui::text::Text::from(row.export_import_ratio.clone()),
+            ratatui::text::Text::from(if row.is_issuer { "*" } else { "" }),
         ])
         .style(base_style)
     }
@@ -389,13 +392,11 @@ impl Simulation {
         let (y_min, y_max) = Self::fx_axis_bounds(min, max);
 
         frame.render_widget(
-            Chart::new(vec![
-                Dataset::default()
-                    .graph_type(GraphType::Line)
-                    .marker(symbols::Marker::Braille)
-                    .style(Style::default().fg(chart.color))
-                    .data(&points),
-            ])
+            Chart::new(vec![Dataset::default()
+                .graph_type(GraphType::Line)
+                .marker(symbols::Marker::Braille)
+                .style(Style::default().fg(chart.color))
+                .data(&points)])
             .x_axis(
                 Axis::default()
                     .title("Month")

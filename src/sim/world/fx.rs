@@ -29,10 +29,27 @@ pub struct FxSettlement {
 impl World {
     pub(crate) fn initialize_fx_state(&mut self) {
         let country_count = self.countries.len();
+
+        let mut issuer_rates: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
+        let mut currency_issuers: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::new();
+
+        for (country_idx, country) in self.countries.iter().enumerate() {
+            if country.is_currency_issuer {
+                let rate = 0.85 + (country_idx % 8) as f64 * 0.12;
+                let fx_rate = rate.clamp(MIN_FX_RATE_LOCAL_PER_BASE, MAX_FX_RATE_LOCAL_PER_BASE);
+                issuer_rates.insert(country.currency_idx, fx_rate);
+                currency_issuers.insert(country.currency_idx, country_idx);
+            }
+        }
+
         for (country_idx, country) in self.countries.iter_mut().enumerate() {
-            let rate = 0.85 + (country_idx % 8) as f64 * 0.12;
-            country.fx_rate_local_per_base =
-                rate.clamp(MIN_FX_RATE_LOCAL_PER_BASE, MAX_FX_RATE_LOCAL_PER_BASE);
+            country.fx_rate_local_per_base = issuer_rates
+                .get(&country.currency_idx)
+                .copied()
+                .unwrap_or(1.0);
+
             let supply_base = if country.fx_rate_local_per_base > 0.0 {
                 country.total_money_supply() / country.fx_rate_local_per_base
             } else {
@@ -95,6 +112,19 @@ impl World {
         amount_local: f64,
     ) -> FxSettlement {
         let payer_amount_local = round_cents(amount_local.max(0.0));
+
+        let from_currency_idx = self.countries.get(from_country_idx).map(|c| c.currency_idx);
+        let to_currency_idx = self.countries.get(to_country_idx).map(|c| c.currency_idx);
+
+        if from_currency_idx.is_some() && from_currency_idx == to_currency_idx {
+            return FxSettlement {
+                payer_amount_local,
+                payer_amount_base: payer_amount_local,
+                payee_amount_local: payer_amount_local,
+                fx_rate_payee_per_payer: 1.0,
+            };
+        }
+
         let payer_amount_base = self.base_amount_from_local(from_country_idx, payer_amount_local);
         let payee_amount_local = self.local_amount_from_base(to_country_idx, payer_amount_base);
         let fx_rate_payee_per_payer = if payer_amount_local > 0.0 {
@@ -123,7 +153,19 @@ impl World {
             payee_country_idx,
             payer_amount_local,
         );
-        if payer_country_idx == payee_country_idx {
+
+        let from_currency_idx = self
+            .countries
+            .get(payer_country_idx)
+            .map(|c| c.currency_idx);
+        let to_currency_idx = self
+            .countries
+            .get(payee_country_idx)
+            .map(|c| c.currency_idx);
+
+        if payer_country_idx == payee_country_idx
+            || (from_currency_idx.is_some() && from_currency_idx == to_currency_idx)
+        {
             return settlement;
         }
 
@@ -211,7 +253,15 @@ impl World {
     }
 
     pub(super) fn update_fx_rates(&mut self) {
+        // Pass 1: update issuer countries and record their new rates.
+        let mut issuer_rates: std::collections::HashMap<usize, f64> =
+            std::collections::HashMap::new();
+
         for country in &mut self.countries {
+            if !country.is_currency_issuer {
+                continue;
+            }
+
             let expected_reserves =
                 (country.expected_money_supply() / country.fx_rate_local_per_base).max(1.0) * 0.15;
             let reserve_gap = if expected_reserves > 0.0 {
@@ -237,11 +287,12 @@ impl World {
                     .clamp(MIN_FX_RATE_LOCAL_PER_BASE, MAX_FX_RATE_LOCAL_PER_BASE),
             );
             country.fx_rate_local_per_base = new_rate;
+            issuer_rates.insert(country.currency_idx, new_rate);
 
             if (new_rate - old_rate).abs() >= 0.01 {
                 country.push_pending_event(SimEvent::FxRateChanged {
                     country_name: country.name().into(),
-                    currency_code: country.currency.code.clone(),
+                    currency_code: country.currency_spec.code.clone(),
                     old_rate,
                     new_rate,
                     pressure: country.fx_pressure,
@@ -253,12 +304,23 @@ impl World {
             if reserve_gap > 0.35 {
                 country.push_pending_event(SimEvent::FxReservePressure {
                     country_name: country.name().into(),
-                    currency_code: country.currency.code.clone(),
+                    currency_code: country.currency_spec.code.clone(),
                     reserves_base: country.fx_reserves_base,
                     reserve_gap: reserve_gap.clamp(0.0, 5.0),
                     pressure: country.fx_pressure,
                     day: country.day(),
                 });
+            }
+        }
+
+        // Pass 2: non-issuer countries inherit the issuer's updated rate exactly.
+        for country in &mut self.countries {
+            if country.is_currency_issuer {
+                continue;
+            }
+            if let Some(&issuer_rate) = issuer_rates.get(&country.currency_idx) {
+                country.fx_rate_local_per_base = issuer_rate;
+                country.fx_pressure = 0.0;
             }
         }
     }

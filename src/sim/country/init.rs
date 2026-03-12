@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use super::Country;
 #[cfg(test)]
-use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
+use crate::sim::company::{build_default_companies, DEFAULT_COMPANIES_PER_COUNTRY};
 use crate::sim::{
     bank::{Bank, BankKind},
     company::Company,
     currency::generated_currency,
-    essentials::{Household, estimated_household_count},
+    essentials::{estimated_household_count, Household},
     good::GOODS_COUNT,
     money::round_cents,
     params::SimulationParams,
@@ -60,13 +60,15 @@ impl Country {
         import_tariffs_by_good.fill(sim_params.goods_market.tariff_rate.clamp(0.0, 1.0));
         let initial_policy_rate = sim_params.monetary.neutral_policy_rate;
         let name: Arc<str> = name.into();
-        let currency = generated_currency(id, 0);
+        let currency_spec = generated_currency(id, 0);
         let public_bank_name: Arc<str> = format!("{name} Public Bank").into();
 
         let mut country = Self {
             id,
             name,
-            currency,
+            currency_spec,
+            currency_idx: 0,
+            is_currency_issuer: true,
             people,
             companies,
             households: Vec::new(),

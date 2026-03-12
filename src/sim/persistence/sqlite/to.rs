@@ -102,7 +102,9 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
     CountryDto {
         id: country.id,
         name: country.name.to_string(),
-        currency: currency_spec_to_dto(&country.currency),
+        currency: currency_spec_to_dto(&country.currency_spec),
+        currency_idx: country.currency_idx,
+        is_currency_issuer: country.is_currency_issuer,
         day: country.day,
         month: country.month,
         next_startup_serial: country.next_startup_serial,

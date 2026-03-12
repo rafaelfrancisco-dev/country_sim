@@ -3,7 +3,7 @@ use crate::components::simulation::snapshot::{
 };
 use crate::components::simulation::ui_state::{RunningTab, UiState};
 use crate::sim::{
-    GamePhase, country::Country, person::Person, runtime::SimulationMode, world::World,
+    country::Country, person::Person, runtime::SimulationMode, world::World, GamePhase,
 };
 
 fn sample_world_two_countries() -> World {

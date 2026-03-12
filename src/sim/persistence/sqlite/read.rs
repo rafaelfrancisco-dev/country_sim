@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 
-use crate::sim::persistence::PersistenceError;
 use crate::sim::persistence::dto::{
     BankDto, BankHistoryEntryDto, BankJobOpeningDto, BankStockPositionDto, CompanyDto, CountryDto,
     CurrencySpecDto, DailyIndexPointDto, EmploymentStatusDto, ForeignDepositDto, FounderStakeDto,
     HouseholdDto, HousingStatusDto, JobOpeningDto, ListedEquityDto, LoanAccountDto,
     MortgageAccountDto, PersonDto, PortfolioDto, PositionDto, StockMarketDto, WorldDto,
 };
+use crate::sim::persistence::PersistenceError;
 
 use super::{
     event_row::load_events,
@@ -127,7 +127,8 @@ fn load_countries(conn: &Connection) -> Result<Vec<CountryDto>, PersistenceError
                 expected_money_supply, money_supply_gap, next_bank_id, next_bank_serial, public_bank_id,
                 housing_stock_total, housing_stock_occupied_owned, housing_stock_occupied_rented,
                 housing_stock_vacant, housing_price_index, monthly_rent, monthly_rent_collected,
-                monthly_mortgage_payments, monthly_home_purchases, monthly_foreclosures, monthly_housing_units_built
+                monthly_mortgage_payments, monthly_home_purchases, monthly_foreclosures, monthly_housing_units_built,
+                currency_idx, is_currency_issuer
          FROM countries ORDER BY country_index",
     )?;
     let mut countries = Vec::new();
@@ -142,6 +143,8 @@ fn load_countries(conn: &Connection) -> Result<Vec<CountryDto>, PersistenceError
                 name: row.get(4)?,
                 symbol: row.get(5)?,
             },
+            currency_idx: row.get::<_, i64>(104)? as usize,
+            is_currency_issuer: i64_to_bool(row.get(105)?),
             day: row.get::<_, i64>(6)? as u64,
             month: row.get::<_, i64>(7)? as u64,
             next_startup_serial: row.get::<_, i64>(8)? as u32,

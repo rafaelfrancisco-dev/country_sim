@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS countries (
     currency_code TEXT NOT NULL,
     currency_name TEXT NOT NULL,
     currency_symbol TEXT NOT NULL,
+    currency_idx INTEGER NOT NULL,
+    is_currency_issuer INTEGER NOT NULL,
     day INTEGER NOT NULL,
     month INTEGER NOT NULL,
     next_startup_serial INTEGER NOT NULL,

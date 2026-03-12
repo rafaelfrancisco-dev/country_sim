@@ -7,18 +7,18 @@ use crate::sim::{
     essentials::Household,
     good::GOODS_COUNT,
     person::{
-        ESSENTIAL_STOCK_SLOT_COUNT, EducationTrack, EmploymentStatus, ForeignDeposit,
-        HabilitationLevel, HousingStatus, Person, SUPERFICIAL_GOOD_SLOT_COUNT,
+        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
+        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
     },
     world::{BankMetricPoint, MetricPoint},
 };
 
 use super::super::{
-    PersistenceError,
     dto::{
         BankMetricPointDto, CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
         MetricPointDto, PersonDto,
     },
+    PersistenceError,
 };
 
 pub(super) fn metric_point_from_dto(p: MetricPointDto) -> MetricPoint {
@@ -127,11 +127,12 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         .map(sim_event_from_dto)
         .collect();
 
-    // Build Country using pub(crate) direct struct construction
     let mut country = Country {
         id: dto.id,
         name: Arc::from(dto.name.as_str()),
-        currency,
+        currency_spec: currency,
+        currency_idx: dto.currency_idx,
+        is_currency_issuer: dto.is_currency_issuer,
         people,
         companies,
         households,

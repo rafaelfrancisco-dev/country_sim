@@ -4,15 +4,23 @@ use super::Country;
 
 impl Country {
     pub fn currency_code(&self) -> &str {
-        &self.currency.code
+        &self.currency_spec.code
     }
 
     pub fn currency_name(&self) -> &str {
-        &self.currency.name
+        &self.currency_spec.name
     }
 
     pub fn currency_symbol(&self) -> &str {
-        &self.currency.symbol
+        &self.currency_spec.symbol
+    }
+
+    pub fn currency_idx(&self) -> usize {
+        self.currency_idx
+    }
+
+    pub fn is_currency_issuer(&self) -> bool {
+        self.is_currency_issuer
     }
 
     pub fn monthly_goods_import_spending_base(&self) -> f64 {

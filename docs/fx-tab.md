@@ -4,10 +4,24 @@
 The `FX` tab is a read-only foreign-exchange monitor in the running simulation UI.
 
 It is world-monitor first:
-- the center of gravity is the cross-country FX leaderboard
-- the selected country is still used for the summary, pair board, and per-country charts
+- the center of gravity is a cross-country FX leaderboard
+- the selected country is still used for summary, pair board, and per-country charts
 
 The tab sits between `Stocks` and `Disasters` in the running tab order.
+
+## Currency Unions
+
+The FX system supports currency unions where multiple countries share a single currency (e.g., Eurozone):
+
+### Key Features
+- Countries sharing a currency have a 1:1 exchange rate between them
+- One designated "issuer" country controls monetary policy for that currency
+- Only the issuer can mint new money for that currency
+- Non-issuer countries inherit the issuer's exchange rate
+- An `*` indicator in the leaderboard marks the currency issuer
+
+### Implementation Details
+See [Currency Unions](currency-unions.md) for complete documentation on currency unions.
 
 ## Controls
 - `Tab` / `Shift+Tab`: switch tabs

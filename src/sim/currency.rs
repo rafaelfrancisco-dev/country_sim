@@ -1,11 +1,20 @@
+use std::hash::Hash;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CurrencySpec {
     pub code: Arc<str>,
     pub name: Arc<str>,
     pub symbol: Arc<str>,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Currency {
+    pub spec: CurrencySpec,
+    pub issuer_country_idx: usize,
+}
+
+impl Eq for Currency {}
 
 impl CurrencySpec {
     pub fn new(code: &'static str, name: &'static str, symbol: &'static str) -> Self {

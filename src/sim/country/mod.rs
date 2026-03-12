@@ -38,7 +38,9 @@ const COMPANY_CHUNK_SIZE: usize = 16;
 pub struct Country {
     pub(crate) id: u16,
     pub(crate) name: Arc<str>,
-    pub(crate) currency: CurrencySpec,
+    pub(crate) currency_spec: CurrencySpec,
+    pub(crate) currency_idx: usize,
+    pub(crate) is_currency_issuer: bool,
     pub(crate) people: Vec<Person>,
     pub(crate) companies: Vec<Company>,
     pub(crate) households: Vec<Household>,

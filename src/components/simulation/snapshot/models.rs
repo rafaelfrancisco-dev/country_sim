@@ -262,6 +262,7 @@ pub(in crate::components::simulation) struct FxRowSnapshot {
     pub pressure: String,
     pub export_import_ratio: String,
     pub is_selected: bool,
+    pub is_issuer: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

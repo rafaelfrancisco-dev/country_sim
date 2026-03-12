@@ -2,6 +2,10 @@ use super::*;
 
 impl Country {
     pub(super) fn process_auto_money_minting(&mut self) {
+        if !self.is_currency_issuer {
+            return;
+        }
+
         let monetary = self.sim_params.monetary;
         let inflation_shortfall =
             (monetary.target_inflation_rate - self.monthly_inflation_rate).max(0.0);
