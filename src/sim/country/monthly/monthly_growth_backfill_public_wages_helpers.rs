@@ -423,7 +423,9 @@ impl Country {
             return 0.0;
         }
 
-        let market_best = self.market_best_opening_salary_for_job(job_id).max(catalog);
+        let market_best = self
+            .market_best_private_opening_salary_for_job(job_id)
+            .max(catalog);
         let switch_component = self
             .sim_params
             .labor_mobility
@@ -436,9 +438,10 @@ impl Country {
         round_cents(base_offer.min(cap))
     }
 
-    pub(super) fn market_best_opening_salary_for_job(&self, job_id: u8) -> f64 {
+    fn market_best_private_opening_salary_for_job(&self, job_id: u8) -> f64 {
         self.companies
             .iter()
+            .filter(|company| !company.is_public_utility)
             .flat_map(|company| company.open_positions.iter())
             .filter(|opening| opening.job_type_id == job_id)
             .map(|opening| opening.offered_monthly_salary)
@@ -465,7 +468,7 @@ impl Country {
                 }
 
                 let market_best = self
-                    .market_best_opening_salary_for_job(opening.job_type_id)
+                    .market_best_private_opening_salary_for_job(opening.job_type_id)
                     .max(catalog);
                 let switch_component = self
                     .sim_params

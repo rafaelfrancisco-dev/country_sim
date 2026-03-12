@@ -401,6 +401,11 @@ impl Company {
         if self.employee_count == 0 {
             return 0;
         }
+        let recently_profitable =
+            self.last_month_profit > 0.0 || self.average_profit_over_months(3) > 0.0;
+        if !recently_profitable {
+            return 0;
+        }
 
         let target_from_headcount = (self.employee_count as f64 * demand.replacement_opening_rate)
             .ceil()

@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use super::*;
+use crate::sim::job::salary_for_job;
 #[test]
 fn public_backfill_creation_clamps_price_to_dynamic_macro_cap() {
     let mut companies = build_default_companies("A", 1);
@@ -147,12 +148,17 @@ fn public_backfill_openings_start_above_switch_threshold_when_not_capped() {
         .iter()
         .find(|opening| opening.job_type_id == 5)
         .expect("manufacturing opening should exist");
-    let expected_switch_target = 5_000.0 * (1.0 + 0.10 + 0.05);
-    assert!(opening.offered_monthly_salary + 0.01 >= expected_switch_target);
+    let catalog = salary_for_job(5);
+    let expected_switch_target = 5_000.0_f64 * (1.0 + 0.10 + 0.05);
+    let expected_cap = catalog * country.sim_params.government_backfill.max_wage_multiplier;
+    assert!(
+        (opening.offered_monthly_salary - f64::min(expected_switch_target, expected_cap)).abs()
+            < 0.01
+    );
 }
 
 #[test]
-fn public_backfill_wage_escalation_increases_and_respects_1_8x_cap() {
+fn public_backfill_wage_escalation_increases_and_respects_1_35x_cap() {
     let mut company = build_default_companies("A", 1).remove(0);
     company.open_positions.clear();
     company.add_opening_with_salary(0, 1, 3_200.0);
@@ -184,7 +190,7 @@ fn public_backfill_wage_escalation_increases_and_respects_1_8x_cap() {
     let second_salary = country.companies[0].open_positions[0].offered_monthly_salary;
 
     assert!(second_salary + 0.01 >= first_salary);
-    assert!(second_salary <= 3_200.0 * 1.8 + 0.01);
+    assert!(second_salary <= 3_200.0 * 1.35 + 0.01);
 }
 
 #[test]
@@ -208,6 +214,7 @@ fn monthly_switch_can_move_worker_into_public_company_on_creation_month() {
     let mut params = SimulationParams::default();
     params.demographic.births_per_1000_per_year = 0.0;
     params.company_formation.max_startups_per_month = Some(0);
+    params.labor_mobility.min_tenure_months_before_switch = 0;
     params.government_backfill = GovernmentBackfillParams {
         enabled: true,
         essential_good_max_id_inclusive: 1,
@@ -294,13 +301,13 @@ fn annual_market_raise_updates_contracts_and_openings_on_year_boundary() {
 
     country.process_month_end();
 
-    assert!((country.people[0].monthly_salary() - 5_000.0).abs() < 0.01);
+    assert!((country.people[0].monthly_salary() - 3_392.0).abs() < 0.01);
     let raised_opening = country.companies[0]
         .open_positions
         .iter()
         .find(|opening| opening.job_type_id == 0)
         .expect("company should retain raised opening");
-    assert!((raised_opening.offered_monthly_salary - 5_000.0).abs() < 0.01);
+    assert!((raised_opening.offered_monthly_salary - 3_392.0).abs() < 0.01);
 }
 
 #[test]
@@ -462,5 +469,7 @@ fn annual_market_raise_requires_cash_runway() {
     assert!((country.people[0].monthly_salary() - 3_200.0).abs() < 0.01);
 }
 
+#[path = "pricing_wages_margin/profitability_stabilizers.rs"]
+mod profitability_stabilizers;
 #[path = "pricing_wages_margin_stock_tests.rs"]
 mod stock_tests;

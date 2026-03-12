@@ -106,9 +106,9 @@ impl Default for GovernmentBackfillParams {
             openings_total: 3,
             manufacturing_openings: 2,
             runway_months: 1.5,
-            base_wage_multiplier: 1.35,
-            vacancy_escalation_rate: 0.12,
-            max_wage_multiplier: 1.8,
+            base_wage_multiplier: 1.15,
+            vacancy_escalation_rate: 0.04,
+            max_wage_multiplier: 1.35,
             switch_incentive_buffer: 0.05,
             public_utility_price_cap_multiplier: 1.5,
         }

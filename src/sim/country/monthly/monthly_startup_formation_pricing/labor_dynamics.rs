@@ -45,12 +45,10 @@ impl Country {
     }
 
     fn process_job_switch_for_person(&mut self, person_idx: usize) {
-        let raise_threshold = self
-            .sim_params
-            .labor_mobility
-            .switch_raise_threshold
-            .max(0.0);
-        let (person_id, current_job_id, current_salary) = {
+        let mobility = self.sim_params.labor_mobility;
+        let raise_threshold = mobility.switch_raise_threshold.max(0.0);
+        let min_tenure_days = u64::from(mobility.min_tenure_months_before_switch) * 30;
+        let (person_id, current_job_id, current_salary, employment_start_day) = {
             let Some(person) = self.people.get(person_idx) else {
                 return;
             };
@@ -60,8 +58,19 @@ impl Country {
             let Some(job_id) = person.job_type_id() else {
                 return;
             };
-            (person.id, job_id, person.monthly_salary())
+            (
+                person.id,
+                job_id,
+                person.monthly_salary(),
+                person.employment_start_day,
+            )
         };
+        if min_tenure_days > 0
+            && employment_start_day
+                .is_some_and(|start_day| self.day.saturating_sub(start_day) < min_tenure_days)
+        {
+            return;
+        }
         let min_target_salary = current_salary * (1.0 + raise_threshold);
 
         if let Some(current_company_id) = self.people[person_idx].employer_company_id() {

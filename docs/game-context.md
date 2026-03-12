@@ -26,6 +26,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Economic state: `cash_balance`, optional `loan`, optional `deposit_bank_id`, monthly trackers.
 - Employment state: `EmploymentStatus` (`Unemployed` or `Employed { job_type_id, employer_company_id }`).
 - Employment tenure: `employment_start_day` (used to compute company-tenure months in UI worker rosters).
+- Voluntary job switching is tenure-gated via `LaborMobilityParams.min_tenure_months_before_switch` (default `6` months).
 - Contract state: `agreed_monthly_salary` (salary set at hire/switch and later adjusted by wage policy passes such as distress cuts and annual raises).
 - Demographics: `age_days`, `education_track`, `habilitation`.
 - Migration state: `birth_country_id`, `current_country_id`, `months_on_benefits`, `lifetime_migrations`, `last_migration_day`.
@@ -40,6 +41,7 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Tracks monthly profitability and profitable streaks.
 - Tracks trailing profit history for annual raise eligibility checks.
 - Can expand hiring only when profitability and reserve conditions are met.
+- Baseline vacancy creation is conservative and suppressed for recently unprofitable firms.
 - Tracks distress state (`consecutive_missed_loan_payments`, `missed_loan_payment_this_month`) and wage policy (`wage_offer_multiplier`).
 - Tracks optional `deposit_bank_id` for bank-side savings/run routing.
 

@@ -132,8 +132,8 @@ pub struct LaborDemandParams {
 impl Default for LaborDemandParams {
     fn default() -> Self {
         Self {
-            replacement_opening_rate: 0.03,
-            min_openings_per_active_company: 3,
+            replacement_opening_rate: 0.01,
+            min_openings_per_active_company: 0,
         }
     }
 }
@@ -191,15 +191,15 @@ impl Default for CompanyFormationParams {
             startup_runway_months: 2.0,
             initial_openings_total: 10,
             initial_openings_founder_profession: 7,
-            startup_openings_min: 6,
-            startup_openings_max: 24,
+            startup_openings_min: 3,
+            startup_openings_max: 8,
             startup_bank_loan_enabled: true,
             startup_bank_loan_max_fraction: 0.95,
-            startup_max_payroll_to_revenue: 1.00,
+            startup_max_payroll_to_revenue: 0.70,
             labor_slack_startup_trigger: 0.07,
             necessity_startup_sales_floor: 50_000.0,
             high_margin_threshold: 0.25,
-            max_startups_per_month: Some(36),
+            max_startups_per_month: Some(8),
         }
     }
 }
@@ -223,12 +223,12 @@ impl Default for CompanyDistressParams {
         Self {
             wage_cut_rate: 0.10,
             layoff_rate: 0.20,
-            max_monthly_layoff_rate: 0.01,
-            loss_distress_month_threshold: 3,
+            max_monthly_layoff_rate: 0.03,
+            loss_distress_month_threshold: 2,
             bankruptcy_min_loss_months: 18,
             countercyclical_layoff_unemployment_guard: 0.08,
-            loss_trigger_wage_cut_rate: 0.04,
-            loss_trigger_layoff_rate: 0.03,
+            loss_trigger_wage_cut_rate: 0.06,
+            loss_trigger_layoff_rate: 0.05,
             bankruptcy_missed_payment_threshold: 36,
             min_wage_floor_ratio_to_catalog: 0.70,
         }
@@ -241,8 +241,10 @@ pub enum SwitchCadence {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct LaborMobilityParams {
     pub switch_raise_threshold: f64,
+    pub min_tenure_months_before_switch: u16,
     pub switch_cadence: SwitchCadence,
 }
 
@@ -250,17 +252,21 @@ impl Default for LaborMobilityParams {
     fn default() -> Self {
         Self {
             switch_raise_threshold: 0.10,
+            min_tenure_months_before_switch: 6,
             switch_cadence: SwitchCadence::MonthlyOnce,
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct AnnualWageRaiseParams {
     pub enabled: bool,
     pub cadence_months: u8,
     pub min_history_months: u8,
     pub min_cash_runway_months: f64,
+    pub market_gap_convergence: f64,
+    pub min_profit_to_payroll_ratio: f64,
     pub max_raise_rate: Option<f64>,
 }
 
@@ -271,7 +277,9 @@ impl Default for AnnualWageRaiseParams {
             cadence_months: 12,
             min_history_months: 12,
             min_cash_runway_months: 2.0,
-            max_raise_rate: None,
+            market_gap_convergence: 0.35,
+            min_profit_to_payroll_ratio: 0.05,
+            max_raise_rate: Some(0.06),
         }
     }
 }

@@ -28,6 +28,7 @@ fn monthly_job_switch_moves_worker_only_for_raise_and_backfills_old_opening() {
         ..CompanyGrowthParams::default()
     };
     params.labor_mobility = LaborMobilityParams::default();
+    params.labor_mobility.min_tenure_months_before_switch = 0;
     params.government_backfill.enabled = false;
 
     let mut country =

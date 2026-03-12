@@ -41,7 +41,7 @@ impl Country {
         let mut contract_count = vec![vec![0_u32; job_count]; company_count];
         let mut opening_sum = vec![vec![0.0_f64; job_count]; company_count];
         let mut opening_slots = vec![vec![0_u32; job_count]; company_count];
-        let mut market_best = vec![vec![0.0_f64; job_count]; company_count];
+        let mut company_market_best = vec![vec![0.0_f64; job_count]; company_count];
 
         for person in &self.people {
             let Some(company_id) = person.employer_company_id() else {
@@ -62,7 +62,8 @@ impl Country {
             contract_sum[company_idx][job_idx] += salary;
             contract_count[company_idx][job_idx] =
                 contract_count[company_idx][job_idx].saturating_add(1);
-            market_best[company_idx][job_idx] = market_best[company_idx][job_idx].max(salary);
+            company_market_best[company_idx][job_idx] =
+                company_market_best[company_idx][job_idx].max(salary);
         }
 
         for (company_idx, company) in self.companies.iter().enumerate() {
@@ -80,28 +81,9 @@ impl Country {
                     opening.offered_monthly_salary.max(0.0) * f64::from(slots);
                 opening_slots[company_idx][job_idx] =
                     opening_slots[company_idx][job_idx].saturating_add(slots);
-                market_best[company_idx][job_idx] =
-                    market_best[company_idx][job_idx].max(opening.offered_monthly_salary.max(0.0));
-            }
-        }
-
-        let mut top_company = vec![usize::MAX; job_count];
-        let mut top_salary = vec![0.0_f64; job_count];
-        let mut second_salary = vec![0.0_f64; job_count];
-        for job_idx in 0..job_count {
-            for (company_idx, company_market_best) in market_best.iter().enumerate() {
-                let salary = company_market_best[job_idx];
-                if salary <= 0.0 {
-                    continue;
-                }
-
-                if salary > top_salary[job_idx] {
-                    second_salary[job_idx] = top_salary[job_idx];
-                    top_salary[job_idx] = salary;
-                    top_company[job_idx] = company_idx;
-                } else if company_idx != top_company[job_idx] && salary > second_salary[job_idx] {
-                    second_salary[job_idx] = salary;
-                }
+                company_market_best[company_idx][job_idx] = company_market_best[company_idx]
+                    [job_idx]
+                    .max(opening.offered_monthly_salary.max(0.0));
             }
         }
 
@@ -128,6 +110,11 @@ impl Country {
                 (recent_history_sum + company.last_month_profit) / min_history_months as f64,
             );
             if avg_profit <= 0.0 {
+                continue;
+            }
+            let profit_to_payroll_ratio =
+                avg_profit / company.monthly_payroll_budget.max(f64::EPSILON);
+            if profit_to_payroll_ratio + 0.000_001 < annual.min_profit_to_payroll_ratio.max(0.0) {
                 continue;
             }
 
@@ -157,17 +144,23 @@ impl Country {
                     continue;
                 }
 
-                let external_salary = if top_company[job_idx] == company_idx {
-                    second_salary[job_idx]
-                } else {
-                    top_salary[job_idx]
-                };
+                let current_is_public = company.is_public_utility;
+                let external_salary = company_market_best
+                    .iter()
+                    .enumerate()
+                    .filter(|(other_idx, _)| *other_idx != company_idx)
+                    .filter(|(other_idx, _)| {
+                        current_is_public || !self.companies[*other_idx].is_public_utility
+                    })
+                    .map(|(_, other_market_best)| other_market_best[job_idx])
+                    .fold(0.0_f64, f64::max);
 
                 if external_salary <= internal_salary + 0.01 {
                     continue;
                 }
 
-                let ratio = external_salary / internal_salary - 1.0;
+                let ratio =
+                    (external_salary / internal_salary - 1.0) * annual.market_gap_convergence;
                 if ratio.is_finite() {
                     raise_rate = raise_rate.max(ratio.max(0.0));
                 }

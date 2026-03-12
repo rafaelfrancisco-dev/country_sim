@@ -64,14 +64,16 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - enough profit history is available for the configured window (default 12 months)
   - trailing average profit is positive over that window
   - cash runway is sufficient: `cash_balance >= monthly_payroll_budget × min_cash_runway_months` (default `2.0`)
+  - profit margin is sufficient: `trailing_average_profit / monthly_payroll_budget >= min_profit_to_payroll_ratio` (default `5%`)
 - Raise pressure is market-following (no fixed base raise):
   - for each job, compute the company's internal pay reference:
     - average contract salary of employed workers in that job
     - fallback: average opening offer for that job when no incumbents exist
   - external benchmark for that job is the highest salary for the same job in other companies (using both contracts and openings)
-  - job-level pressure ratio: `external / internal - 1`
+  - private-company benchmarking ignores public-utility openings and contracts
+  - job-level pressure ratio: `(external / internal - 1) × market_gap_convergence` (default `35%`)
   - company raise rate is the maximum positive job-level pressure ratio
-  - optional cap can clamp this raise rate (`max_raise_rate`; default uncapped)
+  - optional cap can clamp this raise rate (`max_raise_rate`; default `6%`)
 - Applied effects:
   - employee contract salaries are multiplied by `(1 + raise_rate)`
   - open-position offered salaries are multiplied by `(1 + raise_rate)`
@@ -82,19 +84,23 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - founder pool includes employed workers and qualified unemployed adults.
   - founder team size is bounded (`min_founders..max_founders`, default `3..6`).
   - founders keep a personal reserve (default `0.5` month of salary reference); low-cash unemployed founders can still participate when startup lending is enabled.
-  - opening plan is dynamic (`startup_openings_min..startup_openings_max`, default `6..24`) and expands under labor slack.
+  - opening plan is dynamic (`startup_openings_min..startup_openings_max`, default `3..8`) and expands under labor slack.
   - viability gate uses expected demand/revenue and payroll affordability:
     - expected revenue blends observed good-level sales with a demand proxy
-    - monthly opening payroll must stay under `startup_max_payroll_to_revenue` (default `1.0`)
+    - monthly opening payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
   - funding stack:
     - founder capital first
     - optional startup loan up to `startup_bank_loan_max_fraction` (default `95%`)
   - each startup creates explicit `FounderStake` equity records (`person_id`, `shares_owned`, `cash_contributed`).
+  - startup creation is further capped by `max_startups_per_month` (default `8`).
 - **Distress escalation**:
   - missed-payment path:
     - first miss: wage cut (`10%`) with floor `0.70 ×` catalog salary
-    - further misses: layoffs are capped by `max_monthly_layoff_rate` (default `1%`)
+    - further misses: layoffs are capped by `max_monthly_layoff_rate` (default `3%`)
   - loss-only path (no missed payment): applies mild wage/layoff pressure after sustained losses.
+    - starts after `loss_distress_month_threshold` months (default `2`)
+    - default loss-trigger wage cut is `6%`
+    - default loss-trigger layoff rate is `5%`, still capped by `max_monthly_layoff_rate`
   - countercyclical brake: when labor-force unemployment is elevated, layoffs and bankruptcy escalation are throttled.
   - bankruptcy is last resort and requires sustained distress (defaults: `>=36` missed-payment months and `>=18` loss months), non-positive cash, and no additional loan capacity.
   - before bankruptcy, private firms attempt IPO rescue.
@@ -143,9 +149,11 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - are seeded with openings (default `3`, with manufacturing-heavy split)
   - use high-attraction wage offers:
     - `offer = min(cap, max(catalog*base_multiplier, market_best*(1 + switch_raise_threshold + incentive_buffer)))`
-    - default cap multiplier: `1.8×` catalog salary
+    - default base multiplier: `1.15×` catalog salary
+    - default cap multiplier: `1.35×` catalog salary
   - apply vacancy wage escalation monthly before switch matching:
     - `opening_salary *= (1 + vacancy_escalation_rate)` with cap clamp
+    - default `vacancy_escalation_rate`: `4%`
 - Funding for each public company:
   - required capital = `monthly_opening_payroll × runway_months`
   - treasury pays first

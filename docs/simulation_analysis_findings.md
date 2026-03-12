@@ -143,17 +143,15 @@ This may be intentional game design. Consider whether IPO rescue should have str
 **Location**: `src/sim/country/monthly/monthly_startup_formation_pricing/labor_dynamics.rs:47-164`
 
 **Description**:  
-Workers can switch jobs with no penalty for frequent switching. The simulation tracks `employment_start_day` but doesn't penalize short tenures.
+This finding is historical. The simulation now applies a minimum-tenure gate before voluntary job switches, using `employment_start_day` and `LaborMobilityParams.min_tenure_months_before_switch` (default 6 months).
 
 **Impact**:  
-- Workers may job-hop excessively to maximize salary
-- Unrealistic labor market dynamics
-- Companies face constant turnover without retention mechanics
+- Frequent job-hopping is reduced relative to the prior implementation
+- Remaining turnover pressure now comes primarily from wage differentials after the tenure gate is satisfied
 
 **Recommended Enhancement**:  
 Consider adding:
 - Cooldown period after job switches
-- Penalty for switching within N months
 - Tenure-based salary negotiation bonus
 
 ---

@@ -140,11 +140,13 @@ Openings are distributed across existing offered job types weighted by each job'
   - sufficient trailing profit history window (`min_history_months`, default 12)
   - positive average profit over that window
   - enough cash runway: `cash_balance >= monthly_payroll_budget × min_cash_runway_months` (default `2.0`)
+  - enough profit margin: `trailing_average_profit / monthly_payroll_budget >= min_profit_to_payroll_ratio` (default `5%`)
 - Raise size is market-following:
   - internal reference salary per job = average incumbent contract salary (fallback to average opening salary)
   - external benchmark salary per job = highest same-job salary among other companies (contracts and openings)
-  - company raise rate = maximum positive `(external / internal - 1)` across jobs
-  - optional cap via `max_raise_rate` (default no cap)
+  - private-company benchmarking excludes public-utility wages
+  - company raise rate = maximum positive `(external / internal - 1) × market_gap_convergence` across jobs
+  - optional cap via `max_raise_rate` (default `6%`)
 - Applied to all contracts and openings in that company (and updates `wage_offer_multiplier` accordingly).
 
 ## Startup Formation (Monthly)
@@ -159,16 +161,25 @@ Openings are distributed across existing offered job types weighted by each job'
 - Viability gate:
   - payroll for the opening plan must be affordable vs expected revenue for the target good
   - expected revenue blends observed sales with a demand proxy
+- Default opening-plan envelope is `3..8` and `max_startups_per_month` defaults to `8`.
+- Default affordability cap is tighter: `startup_max_payroll_to_revenue = 0.70`.
 - Funding stack:
   - founder capital
   - optional startup bank loan (capped fraction of required capital)
 - Founders leave prior employers, old employers receive replacement openings, founders join the startup, and founder equity stakes are recorded.
 
+## Job Switching
+- Voluntary job switching still requires beating the configured raise threshold (`switch_raise_threshold`, default `10%`).
+- Workers must now satisfy a minimum-tenure gate before switching: `min_tenure_months_before_switch` defaults to `6`.
+
 ## Distress and Bankruptcy (Monthly)
 - Distress is tracked by consecutive missed company loan payments.
 - Escalation:
   - miss #1: 10% wage cut (employees + openings, floored to 70% catalog salary)
-  - later misses/losses: deterministic layoffs are capped by `max_monthly_layoff_rate`
+  - later misses/losses: deterministic layoffs are capped by `max_monthly_layoff_rate` (default `3%`)
+  - loss-only correction starts after `loss_distress_month_threshold` months (default `2`)
+  - default loss-trigger wage cut is `6%`
+  - default loss-trigger layoff rate is `5%`
   - bankruptcy requires deep sustained distress (missed-payment and loss duration gates), non-positive cash, and no additional loan capacity
   - before bankruptcy, private firms attempt distress IPO rescue
 - Countercyclical brake:

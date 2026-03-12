@@ -386,7 +386,10 @@ CREATE TABLE IF NOT EXISTS country_sim_params (
     housing_renter_purchase_probability REAL NOT NULL,
     housing_initial_owner_rate REAL NOT NULL,
     housing_initial_renter_rate REAL NOT NULL,
-    housing_initial_price_index REAL NOT NULL
+    housing_initial_price_index REAL NOT NULL,
+    annual_wage_raise_market_gap_convergence REAL NOT NULL,
+    annual_wage_raise_min_profit_to_payroll_ratio REAL NOT NULL,
+    labor_mobility_min_tenure_months_before_switch INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS country_export_tariffs (
