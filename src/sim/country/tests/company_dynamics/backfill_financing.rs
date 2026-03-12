@@ -1,15 +1,17 @@
 use std::collections::VecDeque;
 
 use super::*;
+use crate::sim::{tickable::Tickable, world::World};
 #[test]
 fn startup_can_form_with_unemployed_founders_when_enabled() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].cash_balance = 500_000.0;
-    companies[0].produced_good_id = 0;
-    companies[0].last_month_sales = 500_000.0;
-    companies[0].last_month_profit = 200_000.0;
-    companies[0].sales_history = VecDeque::from(vec![450_000.0, 500_000.0, 520_000.0]);
+    companies[0].produced_good_id = 7;
+    companies[0].unit_price = 220.0;
+    companies[0].last_month_sales = 120_000.0;
+    companies[0].last_month_profit = 55_000.0;
+    companies[0].sales_history = VecDeque::from(vec![110_000.0, 120_000.0, 125_000.0]);
 
     let mut people = Vec::new();
     for idx in 0..3_u32 {
@@ -98,6 +100,79 @@ fn startup_viability_gate_blocks_non_viable_plans() {
             .iter()
             .any(|event| matches!(event, SimEvent::CompanyFounded { .. }))
     );
+}
+
+#[test]
+fn transport_startup_produces_output_in_first_operating_month() {
+    let mut companies = build_default_companies("A", 1);
+    companies[0].open_positions.clear();
+    companies[0].cash_balance = 500_000.0;
+    companies[0].produced_good_id = 7;
+    companies[0].unit_price = 220.0;
+    companies[0].inventory_units = 5_000;
+    companies[0].last_month_sales = 100_000.0;
+    companies[0].last_month_profit = 45_000.0;
+    companies[0].sales_history = VecDeque::from(vec![95_000.0, 100_000.0, 105_000.0]);
+
+    let mut people = Vec::new();
+    for idx in 0..3_u32 {
+        let mut founder = Person::new_with_profile(
+            idx + 1,
+            EmploymentStatus::Unemployed,
+            idx + 900,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::BasicOnly,
+        );
+        founder.cash_balance = 200_000.0;
+        people.push(founder);
+    }
+    for idx in 0..250_u32 {
+        let mut consumer = Person::new_with_profile(
+            idx + 10,
+            EmploymentStatus::Unemployed,
+            idx + 1_200,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::BasicOnly,
+        );
+        consumer.cash_balance = 50_000.0;
+        people.push(consumer);
+    }
+
+    let mut params = SimulationParams::default();
+    params.demographic.births_per_1000_per_year = 0.0;
+    params.company_growth = CompanyGrowthParams {
+        min_profitable_months: u8::MAX,
+        ..CompanyGrowthParams::default()
+    };
+    params.government_backfill.enabled = false;
+    params.company_formation.max_startups_per_month = Some(1);
+    params.company_formation.min_founders = 3;
+    params.company_formation.max_founders = 3;
+    params.company_formation.allow_unemployed_founders = true;
+    params.company_formation.labor_slack_startup_trigger = 0.0;
+    params.company_formation.startup_bank_loan_enabled = false;
+    params.labor_mobility.switch_raise_threshold = 10.0;
+
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
+    country.process_month();
+
+    assert_eq!(country.companies.len(), 2);
+    assert_eq!(country.companies[1].produced_good_id, 7);
+    assert!(
+        country.people.iter().take(3).all(|person| {
+            person.employer_company_id() == Some(1) && person.job_type_id() == Some(3)
+        })
+    );
+
+    let mut world = World::new(vec![country]);
+    world.countries[0].sim_params.company_formation.max_startups_per_month = Some(0);
+    for _ in 0..30 {
+        world.tick_day();
+    }
+
+    let startup = &world.countries[0].companies[1];
+    assert!(startup.last_completed_month_units_produced > 0);
 }
 
 #[test]

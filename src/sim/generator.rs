@@ -313,6 +313,7 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> CountryWithC
     );
     let currency_spec = generated_currency(country_idx, config.seed);
     companies::seed_initial_essential_supply(&mut country);
+    companies::seed_initial_company_openings(&mut country);
     companies::fund_initial_bank_reserve(&mut country);
     companies::seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);

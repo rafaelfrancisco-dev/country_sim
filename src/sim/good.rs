@@ -330,6 +330,34 @@ pub fn industry_job_types_for_good(good_id: GoodId) -> &'static [JobTypeId] {
     }
 }
 
+pub fn production_job_for_good(good_id: GoodId) -> Option<JobTypeId> {
+    match good_id {
+        WATER_GOOD_ID
+        | FOOD_GOOD_ID
+        | ELECTRICITY_GOOD_ID
+        | CLOTHING_GOOD_ID
+        | HYGIENE_PRODUCTS_GOOD_ID
+        | HOUSEHOLD_GOODS_GOOD_ID
+        | ELECTRONICS_GOOD_ID
+        | APPLIANCES_GOOD_ID
+        | CARS_GOOD_ID
+        | RAW_METALS_GOOD_ID
+        | TIMBER_GOOD_ID
+        | FUEL_GOOD_ID => Some(MANUFACTURING_OPERATOR_JOB_ID),
+        HOUSING_GOOD_ID => Some(CONSTRUCTION_WORKER_JOB_ID),
+        MEDICINE_GOOD_ID => Some(REGISTERED_NURSE_JOB_ID),
+        EDUCATION_SERVICES_GOOD_ID => Some(TEACHER_JOB_ID),
+        INTERNET_GOOD_ID => Some(SOFTWARE_DEVELOPER_JOB_ID),
+        TRANSPORT_GOOD_ID => Some(DRIVER_JOB_ID),
+        ENTERTAINMENT_GOOD_ID => Some(OFFICE_CLERK_JOB_ID),
+        _ => None,
+    }
+}
+
+pub fn is_production_job_for_good(good_id: GoodId, job_id: JobTypeId) -> bool {
+    production_job_for_good(good_id) == Some(job_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,6 +438,25 @@ mod tests {
         assert_eq!(
             industry_job_types_for_good(INTERNET_GOOD_ID),
             &[SOFTWARE_DEVELOPER_JOB_ID, OFFICE_CLERK_JOB_ID]
+        );
+    }
+
+    #[test]
+    fn production_job_mapping_matches_sector_output_roles() {
+        assert_eq!(production_job_for_good(HOUSING_GOOD_ID), Some(CONSTRUCTION_WORKER_JOB_ID));
+        assert_eq!(production_job_for_good(MEDICINE_GOOD_ID), Some(REGISTERED_NURSE_JOB_ID));
+        assert_eq!(
+            production_job_for_good(EDUCATION_SERVICES_GOOD_ID),
+            Some(TEACHER_JOB_ID)
+        );
+        assert_eq!(
+            production_job_for_good(INTERNET_GOOD_ID),
+            Some(SOFTWARE_DEVELOPER_JOB_ID)
+        );
+        assert_eq!(production_job_for_good(TRANSPORT_GOOD_ID), Some(DRIVER_JOB_ID));
+        assert_eq!(
+            production_job_for_good(ENTERTAINMENT_GOOD_ID),
+            Some(OFFICE_CLERK_JOB_ID)
         );
     }
 }

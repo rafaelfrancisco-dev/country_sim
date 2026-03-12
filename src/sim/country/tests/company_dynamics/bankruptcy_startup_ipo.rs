@@ -71,22 +71,24 @@ fn startup_formation_creates_company_and_moves_founders() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].cash_balance = 1_000_000.0;
-    companies[0].produced_good_id = 0;
-    companies[0].last_month_sales = 100_000.0;
+    companies[0].produced_good_id = 7;
+    companies[0].unit_price = 220.0;
+    companies[0].last_month_sales = 120_000.0;
+    companies[0].last_month_profit = 55_000.0;
 
     let mut people = Vec::new();
     for idx in 0..5_u32 {
         let mut person = Person::new_with_profile(
             idx,
             EmploymentStatus::Employed {
-                job_type_id: 5,
+                job_type_id: 3,
                 employer_company_id: 0,
             },
             idx + 100,
             30 * DAYS_PER_YEAR,
             EducationTrack::HighSchool,
         );
-        person.set_employment_with_salary(0, 5, 3_900.0, 0);
+        person.set_employment_with_salary(0, 3, 3_700.0, 0);
         person.cash_balance = 100_000.0;
         people.push(person);
     }
@@ -110,17 +112,12 @@ fn startup_formation_creates_company_and_moves_founders() {
         country
             .people
             .iter()
-            .all(|person| person.employer_company_id() == Some(startup_id))
+            .all(|person| {
+                person.employer_company_id() == Some(startup_id)
+                    && person.job_type_id() == Some(3)
+            })
     );
-    let startup_openings: u16 = country.companies[startup_id as usize]
-        .open_positions
-        .iter()
-        .map(|opening| opening.slots)
-        .sum();
-    assert!(
-        startup_openings >= country.sim_params.company_formation.startup_openings_min
-            && startup_openings <= country.sim_params.company_formation.startup_openings_max
-    );
+    assert!(country.companies[startup_id as usize].open_positions.is_empty());
     assert!(
         !country.companies[startup_id as usize]
             .founder_stakes

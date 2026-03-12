@@ -80,8 +80,11 @@ impl Country {
             return;
         }
 
-        let jobs = common_job_types();
-        if jobs.is_empty() {
+        let candidate_goods = self.startup_candidate_goods(
+            formation.high_margin_threshold,
+            formation.necessity_startup_sales_floor,
+        );
+        if candidate_goods.is_empty() {
             return;
         }
 
@@ -92,25 +95,28 @@ impl Country {
         let debt_to_income_cap = self.effective_debt_to_income_cap(DEFAULT_MAX_DEBT_TO_INCOME);
 
         let mut startups_created = 0_u16;
-        let mut job_cursor = (self.month as usize) % jobs.len();
         let mut failed_attempts = 0_usize;
         let max_attempts = (startup_budget as usize)
-            .saturating_mul(jobs.len())
-            .max(jobs.len());
+            .saturating_mul(candidate_goods.len())
+            .max(candidate_goods.len());
 
         while startups_created < startup_budget && failed_attempts < max_attempts {
-            let job = jobs[job_cursor % jobs.len()];
-            if self.try_form_startup_for_job_with_cache(
-                job.id,
-                startup_loan_fraction,
-                debt_to_income_cap,
-            ) {
-                startups_created = startups_created.saturating_add(1);
-                failed_attempts = 0;
-            } else {
+            let mut formed = false;
+            for &good_id in &candidate_goods {
+                if self.try_form_startup_for_good_with_cache(
+                    good_id,
+                    startup_loan_fraction,
+                    debt_to_income_cap,
+                ) {
+                    startups_created = startups_created.saturating_add(1);
+                    failed_attempts = 0;
+                    formed = true;
+                    break;
+                }
+            }
+            if !formed {
                 failed_attempts = failed_attempts.saturating_add(1);
             }
-            job_cursor = job_cursor.saturating_add(1);
         }
     }
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::sim::good::industry_job_types_for_good;
+use crate::sim::good::{industry_job_types_for_good, production_job_for_good};
 
 pub(super) fn derive_initial_company_count(
     population_per_country: u32,
@@ -137,14 +137,10 @@ pub(super) fn rebalance_essential_sector_workforce(
     companies: &[Company],
     sim_params: &SimulationParams,
 ) {
-    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
-
     let mut employed_candidates = Vec::new();
     let mut unemployed_candidates = Vec::new();
     for (person_idx, person) in people.iter().enumerate() {
-        if person.employer_bank_id().is_some()
-            || !job_is_eligible_for_habilitation(MANUFACTURING_OPERATOR_JOB_ID, person.habilitation)
-        {
+        if person.employer_bank_id().is_some() {
             continue;
         }
 
@@ -170,6 +166,9 @@ pub(super) fn rebalance_essential_sector_workforce(
         let Some(good) = good_by_id(good_id) else {
             continue;
         };
+        let Some(production_job_id) = production_job_for_good(good_id) else {
+            continue;
+        };
         let target_units =
             estimated_country_monthly_requirement(&sim_params.essentials, good_id, people.len())
                 .max(estimated_country_stock_target_units(
@@ -188,19 +187,47 @@ pub(super) fn rebalance_essential_sector_workforce(
         }
 
         for worker_offset in 0..target_workers {
-            let Some(&person_idx) = employed_candidates.get(candidate_cursor) else {
+            let mut selected_person_idx = None;
+            while let Some(&person_idx) = employed_candidates.get(candidate_cursor) {
+                candidate_cursor = candidate_cursor.saturating_add(1);
+                if people
+                    .get(person_idx)
+                    .is_some_and(|person| {
+                        job_is_eligible_for_habilitation(production_job_id, person.habilitation)
+                    })
+                {
+                    selected_person_idx = Some(person_idx);
+                    break;
+                }
+            }
+            let Some(person_idx) = selected_person_idx else {
                 return;
             };
-            candidate_cursor = candidate_cursor.saturating_add(1);
             let company_id = company_ids[worker_offset % company_ids.len()];
-            people[person_idx].set_employment(company_id, MANUFACTURING_OPERATOR_JOB_ID, 0);
+            people[person_idx].set_employment(company_id, production_job_id, 0);
+        }
+    }
+}
+
+pub(super) fn seed_initial_company_openings(country: &mut Country) {
+    for company in country.companies_mut() {
+        if company.employee_count > 0 || !company.open_positions.is_empty() {
+            continue;
+        }
+        let job_types = industry_job_types_for_good(company.produced_good_id);
+        if job_types.is_empty() {
+            continue;
+        }
+        let target_openings = 2_u16;
+        for (idx, &job_id) in job_types.iter().enumerate() {
+            let slots = if idx == 0 { target_openings } else { 1 };
+            let salary = salary_for_job(job_id);
+            company.add_opening_with_salary(job_id, slots, salary);
         }
     }
 }
 
 pub(super) fn seed_initial_essential_supply(country: &mut Country) {
-    const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
-
     let essentials = country.sim_params().essentials;
     let worker_effort = country.sim_params().goods_market.worker_effort_per_month;
 
@@ -217,6 +244,9 @@ pub(super) fn seed_initial_essential_supply(country: &mut Country) {
         }
 
         let Some(good) = good_by_id(good_id) else {
+            continue;
+        };
+        let Some(production_job_id) = production_job_for_good(good_id) else {
             continue;
         };
 
@@ -244,9 +274,9 @@ pub(super) fn seed_initial_essential_supply(country: &mut Country) {
                 if per_company_target_workers > current_workers {
                     let missing_workers = per_company_target_workers - current_workers;
                     company.add_opening_with_salary(
-                        MANUFACTURING_OPERATOR_JOB_ID,
+                        production_job_id,
                         missing_workers.min(u16::MAX as usize) as u16,
-                        salary_for_job(MANUFACTURING_OPERATOR_JOB_ID),
+                        salary_for_job(production_job_id),
                     );
                 }
             }

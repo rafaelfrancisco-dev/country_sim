@@ -1,12 +1,14 @@
 use super::*;
-use crate::sim::{good::industry_job_types_for_good, job::job_by_id};
+use crate::sim::good::{
+    industry_job_types_for_good, production_job_for_good, recipe_for_good,
+};
 
 mod labor_dynamics;
 
 impl Country {
-    pub(super) fn try_form_startup_for_job_with_cache(
+    pub(super) fn try_form_startup_for_good_with_cache(
         &mut self,
-        founder_job_id: u8,
+        target_good_id: u8,
         startup_loan_fraction: f64,
         debt_to_income_cap: f64,
     ) -> bool {
@@ -15,17 +17,15 @@ impl Country {
             return false;
         }
 
-        let Some(high_margin_good_id) = self.pick_startup_target_good(
-            formation.high_margin_threshold,
-            formation.necessity_startup_sales_floor,
-        ) else {
+        let Some(founder_job_id) = production_job_for_good(target_good_id) else {
             return false;
         };
-        let allowed_job_types = industry_job_types_for_good(high_margin_good_id);
+        let allowed_job_types = industry_job_types_for_good(target_good_id);
         if !allowed_job_types.contains(&founder_job_id) {
             return false;
         }
 
+        let founder_salary = salary_for_job(founder_job_id);
         let mut founder_pool = self
             .people
             .iter()
@@ -42,7 +42,7 @@ impl Country {
                     return None;
                 }
 
-                let reserve_salary = person.monthly_salary().max(salary_for_job(founder_job_id));
+                let reserve_salary = person.monthly_salary().max(founder_salary);
                 let reserve_cash = reserve_salary * formation.founder_personal_reserve_months;
                 let mut investable = round_cents((person.cash_balance - reserve_cash).max(0.0));
                 if investable <= 0.0 {
@@ -76,91 +76,17 @@ impl Country {
             return false;
         }
 
-        let labor_slack =
-            (self.labor_force_unemployment_rate() - formation.labor_slack_startup_trigger).max(0.0);
-        let dynamic_openings = formation
-            .startup_openings_min
-            .saturating_add((labor_slack * 20.0).round() as u16);
-        let max_openings = formation
-            .startup_openings_max
-            .max(formation.startup_openings_min);
-        let target_openings = dynamic_openings.clamp(formation.startup_openings_min, max_openings);
-
-        let mut selected_opening_plan: Option<Vec<(u8, u16, f64)>> = None;
-        let mut selected_required_capital = 0.0_f64;
-        let mut selected_expected_revenue = 0.0_f64;
-
-        for openings_total in (formation.startup_openings_min..=target_openings).rev() {
-            let founder_openings = formation
-                .initial_openings_founder_profession
-                .max(1)
-                .min(openings_total);
-            let mixed_openings = openings_total.saturating_sub(founder_openings);
-            let founder_salary = salary_for_job(founder_job_id);
-            let mut opening_plan = Vec::with_capacity(openings_total as usize);
-            opening_plan.push((founder_job_id, founder_openings, founder_salary));
-
-            let mixed_weighted_jobs = allowed_job_types
-                .iter()
-                .copied()
-                .filter(|job_id| *job_id != founder_job_id)
-                .filter_map(|job_id| job_by_id(job_id).map(|job| (job.id, job.assignment_weight)))
-                .collect::<Vec<_>>();
-            for idx in 0..mixed_openings {
-                let seed = hash64(
-                    (u64::from(self.id) << 48)
-                        ^ (self.month << 24)
-                        ^ (u64::from(self.next_startup_serial) << 8)
-                        ^ u64::from(idx),
-                );
-                let Some(job_id) = pick_weighted_job(seed, &mixed_weighted_jobs) else {
-                    continue;
-                };
-                opening_plan.push((job_id, 1, salary_for_job(job_id)));
-            }
-
-            let monthly_opening_payroll = round_cents(
-                opening_plan
-                    .iter()
-                    .map(|(_, slots, salary)| f64::from(*slots) * *salary)
-                    .sum(),
-            );
-            if monthly_opening_payroll <= 0.0 {
-                continue;
-            }
-            let expected_revenue = self.expected_revenue_for_good(high_margin_good_id);
-            if expected_revenue <= 0.0 {
-                continue;
-            }
-            if monthly_opening_payroll
-                > round_cents(expected_revenue * formation.startup_max_payroll_to_revenue.max(0.0))
-            {
-                continue;
-            }
-
-            let required_capital =
-                round_cents(monthly_opening_payroll * formation.startup_runway_months);
-            let max_loan = if formation.startup_bank_loan_enabled {
-                round_cents(required_capital * startup_loan_fraction)
-            } else {
-                0.0
-            };
-            if total_investable + max_loan + 0.01 < required_capital {
-                continue;
-            }
-
-            selected_opening_plan = Some(opening_plan);
-            selected_required_capital = required_capital;
-            selected_expected_revenue = expected_revenue;
-            break;
-        }
-
-        let Some(opening_plan) = selected_opening_plan else {
+        let founders_count = founder_pool.len() as u16;
+        let founder_payroll = round_cents(f64::from(founders_count) * founder_salary);
+        let expected_revenue = self.expected_revenue_for_good(target_good_id);
+        if expected_revenue <= 0.0 {
             return false;
-        };
-        let founder_salary = salary_for_job(founder_job_id);
-        let required_capital = selected_required_capital;
-        let expected_revenue = selected_expected_revenue;
+        }
+        if founder_payroll
+            > round_cents(expected_revenue * formation.startup_max_payroll_to_revenue.max(0.0))
+        {
+            return false;
+        }
 
         let company_id = self.companies.len() as u16;
         let company_name = format!("{} Startup {}", self.name, self.next_startup_serial);
@@ -170,52 +96,99 @@ impl Country {
             company_id,
             company_name.clone(),
             allowed_job_types.to_vec(),
-            high_margin_good_id,
+            target_good_id,
         );
         startup.deposit_bank_id = self
             .preferred_private_bank_id()
             .or(self.public_bank_id_or_first());
 
-        let avg_price = self.average_price_for_good(high_margin_good_id);
-        let margin_floor = good_by_id(high_margin_good_id)
+        let avg_price = self.average_price_for_good(target_good_id);
+        let margin_floor = good_by_id(target_good_id)
             .map(|good| good.base_unit_cost * (1.0 + self.sim_params.goods_market.min_margin_rate))
             .unwrap_or(0.0);
         startup.unit_price = round_cents((avg_price * 0.95).max(margin_floor));
 
-        for (job_id, slots, salary) in &opening_plan {
-            startup.add_opening_with_salary(*job_id, *slots, *salary);
+        let projected_input_cost = self.estimate_startup_monthly_input_cost(
+            target_good_id,
+            founders_count.into(),
+            startup.unit_price,
+            expected_revenue,
+        );
+        let projected_facility_cost =
+            self.estimate_startup_monthly_facility_cost(founders_count.into());
+        let projected_operating_cost =
+            round_cents(founder_payroll + projected_input_cost + projected_facility_cost);
+        if projected_operating_cost <= 0.0 {
+            return false;
         }
 
-        let mut startup_loan = 0.0_f64;
+        let required_capital =
+            round_cents(projected_operating_cost * formation.startup_runway_months.max(0.0));
         let founder_required = round_cents(required_capital.min(total_investable));
+
+        let lender_id = self
+            .preferred_lender_bank_id()
+            .unwrap_or(self.primary_bank().id);
+        let loan_rate = self.bank_loan_rate_for(lender_id);
+        let mut desired_loan = 0.0_f64;
+        let mut projected_loan_payment = 0.0_f64;
         if founder_required + 0.01 < required_capital && formation.startup_bank_loan_enabled {
             let shortfall = round_cents(required_capital - founder_required);
             let max_loan = round_cents(required_capital * startup_loan_fraction);
-            let desired_loan = shortfall.min(max_loan);
+            let monthly_income_cap = round_cents(expected_revenue * debt_to_income_cap.max(0.0));
+            let principal_capacity = max_principal_for_payment(
+                monthly_income_cap,
+                loan_rate,
+                DEFAULT_LOAN_TERM_MONTHS,
+            );
+            desired_loan = round_cents(shortfall.min(max_loan).min(principal_capacity));
             if desired_loan > 0.0 {
-                let lender_id = self
-                    .preferred_lender_bank_id()
-                    .unwrap_or(self.primary_bank().id);
-                let loan_rate = self.bank_loan_rate_for(lender_id);
-                let use_public_bank = self.primary_bank().id == lender_id;
-                let private_bank_idx = if use_public_bank {
-                    None
-                } else {
-                    self.banks.iter().position(|b| b.id == lender_id)
-                };
-                let bank = match private_bank_idx {
-                    Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
-                    _ => self.primary_bank_mut(),
-                };
-                startup_loan = bank.originate_loan(
-                    desired_loan,
-                    expected_revenue,
-                    debt_to_income_cap,
-                    loan_rate,
-                    &mut startup.loan,
-                );
+                projected_loan_payment =
+                    round_cents(payment_for(desired_loan, loan_rate, DEFAULT_LOAN_TERM_MONTHS));
             }
         }
+        if total_investable + desired_loan + 0.01 < required_capital {
+            return false;
+        }
+
+        let projected_profit = self.estimate_startup_monthly_profit(
+            target_good_id,
+            founders_count.into(),
+            startup.unit_price,
+            expected_revenue,
+            founder_payroll,
+            projected_input_cost,
+            projected_facility_cost,
+            projected_loan_payment,
+        );
+        if projected_profit < 0.0 {
+            return false;
+        }
+
+        if desired_loan > 0.0 {
+            let use_public_bank = self.primary_bank().id == lender_id;
+            let private_bank_idx = if use_public_bank {
+                None
+            } else {
+                self.banks.iter().position(|b| b.id == lender_id)
+            };
+            let bank = match private_bank_idx {
+                Some(bank_idx) if !use_public_bank => &mut self.banks[bank_idx],
+                _ => self.primary_bank_mut(),
+            };
+            let startup_loan = bank.originate_loan(
+                desired_loan,
+                expected_revenue,
+                debt_to_income_cap,
+                loan_rate,
+                &mut startup.loan,
+            );
+            if startup_loan + 0.01 < desired_loan {
+                return false;
+            }
+        }
+
+        let startup_loan = startup.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
         let founder_capital_needed = round_cents((required_capital - startup_loan).max(0.0));
         if founder_capital_needed > total_investable + 0.01 {
             return false;
@@ -264,9 +237,9 @@ impl Country {
                 cash_contributed: contribution,
             });
         }
+
         self.companies.push(startup);
 
-        let founders_count = founder_pool.len() as u16;
         for (person_idx, _, _) in founder_pool {
             let Some(person) = self.people.get_mut(person_idx) else {
                 continue;
@@ -290,18 +263,18 @@ impl Country {
             company_name: company_name.into(),
             founders: founders_count,
             job_type_id: founder_job_id,
-            produced_good_id: high_margin_good_id,
+            produced_good_id: target_good_id,
             day: self.day,
         });
 
         true
     }
 
-    pub(super) fn pick_startup_target_good(
+    pub(super) fn startup_candidate_goods(
         &self,
         margin_threshold: f64,
         necessity_sales_floor: f64,
-    ) -> Option<u8> {
+    ) -> Vec<u8> {
         let mut sales_by_good = [0.0_f64; GOODS_COUNT];
         let mut producer_count = [0_u32; GOODS_COUNT];
         let mut profit_by_good = [0.0_f64; GOODS_COUNT];
@@ -317,8 +290,12 @@ impl Country {
             producer_count[good_idx] = producer_count[good_idx].saturating_add(1);
         }
 
+        let mut ranked = Vec::new();
         let mut best_necessity: Option<(u8, f64)> = None;
         for good_id in 0..=4_u8 {
+            if production_job_for_good(good_id).is_none() {
+                continue;
+            }
             let sales = sales_by_good[good_id as usize];
             if sales < necessity_sales_floor {
                 continue;
@@ -334,10 +311,31 @@ impl Country {
             }
         }
         if let Some((good_id, _)) = best_necessity {
-            return Some(good_id);
+            ranked.push(good_id);
         }
 
-        self.pick_high_margin_good(margin_threshold)
+        let mut high_margin = Vec::new();
+        for good_id in 0..GOODS_COUNT as u8 {
+            if ranked.contains(&good_id) || production_job_for_good(good_id).is_none() {
+                continue;
+            }
+            let sales = sales_by_good[good_id as usize];
+            if sales <= 0.0 {
+                continue;
+            }
+            let margin = profit_by_good[good_id as usize] / sales;
+            if margin < margin_threshold {
+                continue;
+            }
+            high_margin.push((good_id, margin));
+        }
+        high_margin.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        ranked.extend(high_margin.into_iter().map(|(good_id, _)| good_id));
+        ranked
     }
 
     pub(super) fn expected_revenue_for_good(&self, good_id: u8) -> f64 {
@@ -381,6 +379,74 @@ impl Country {
         round_cents(observed_avg.max(demand_proxy).max(company_demand_proxy))
     }
 
+    fn estimate_startup_monthly_output_units(&self, good_id: u8, staffed_workers: u32) -> f64 {
+        let Some(good) = good_by_id(good_id) else {
+            return 0.0;
+        };
+        if staffed_workers == 0 || good.effort_per_unit <= 0.0 {
+            return 0.0;
+        }
+
+        (f64::from(staffed_workers) * self.sim_params.goods_market.worker_effort_per_month
+            / good.effort_per_unit)
+            .max(0.0)
+    }
+
+    fn estimate_startup_monthly_input_cost(
+        &self,
+        good_id: u8,
+        staffed_workers: u32,
+        unit_price: f64,
+        expected_revenue: f64,
+    ) -> f64 {
+        if unit_price <= 0.0 {
+            return 0.0;
+        }
+
+        let sellable_units = self
+            .estimate_startup_monthly_output_units(good_id, staffed_workers)
+            .min(expected_revenue / unit_price);
+        round_cents(
+            recipe_for_good(good_id)
+                .inputs()
+                .map(|(input_good_id, required_per_unit)| {
+                    let unit_cost = self
+                        .average_price_for_good(input_good_id)
+                        .max(good_by_id(input_good_id).map_or(0.0, |good| good.base_unit_cost));
+                    sellable_units * f64::from(required_per_unit) * unit_cost
+                })
+                .sum(),
+        )
+    }
+
+    fn estimate_startup_monthly_facility_cost(&self, staffed_headcount: u32) -> f64 {
+        if staffed_headcount == 0 || self.monthly_rent <= 0.0 {
+            return 0.0;
+        }
+
+        round_cents(self.monthly_rent * f64::from(staffed_headcount.div_ceil(12).max(1)))
+    }
+
+    fn estimate_startup_monthly_profit(
+        &self,
+        good_id: u8,
+        staffed_workers: u32,
+        unit_price: f64,
+        expected_revenue: f64,
+        payroll: f64,
+        input_cost: f64,
+        facility_cost: f64,
+        projected_loan_payment: f64,
+    ) -> f64 {
+        let capacity_revenue = round_cents(
+            self.estimate_startup_monthly_output_units(good_id, staffed_workers) * unit_price,
+        );
+        let realizable_revenue = round_cents(expected_revenue.min(capacity_revenue));
+        round_cents(
+            realizable_revenue - payroll - input_cost - facility_cost - projected_loan_payment,
+        )
+    }
+
     fn company_input_demand_proxy_value(&self, input_good_id: u8, market_price: f64) -> f64 {
         let total_required_units = self
             .companies
@@ -403,47 +469,6 @@ impl Country {
             .sum::<f64>();
 
         round_cents(total_required_units * market_price)
-    }
-
-    pub(super) fn pick_high_margin_good(&self, threshold: f64) -> Option<u8> {
-        let mut total_sales = [0.0_f64; GOODS_COUNT];
-        let mut total_profit = [0.0_f64; GOODS_COUNT];
-
-        for company in &self.companies {
-            let good_idx = company.produced_good_id as usize;
-            if good_idx >= GOODS_COUNT {
-                continue;
-            }
-            total_sales[good_idx] = round_cents(total_sales[good_idx] + company.last_month_sales);
-            total_profit[good_idx] =
-                round_cents(total_profit[good_idx] + company.last_month_profit);
-        }
-
-        let mut best: Option<(u8, f64)> = None;
-        for good_id in 0..GOODS_COUNT as u8 {
-            let sales = total_sales[good_id as usize];
-            if sales <= 0.0 {
-                continue;
-            }
-            let margin = total_profit[good_id as usize] / sales;
-            if margin < threshold {
-                continue;
-            }
-
-            match best {
-                None => best = Some((good_id, margin)),
-                Some((current_good_id, current_margin)) => {
-                    if margin > current_margin
-                        || ((margin - current_margin).abs() < f64::EPSILON
-                            && good_id < current_good_id)
-                    {
-                        best = Some((good_id, margin));
-                    }
-                }
-            }
-        }
-
-        best.map(|(good_id, _)| good_id)
     }
 
     pub(super) fn average_price_for_good(&self, good_id: u8) -> f64 {

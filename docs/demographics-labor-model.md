@@ -169,11 +169,15 @@ Openings are distributed across existing offered job types weighted by each job'
 - Product gate:
   - prefer essential goods with strong observed sales
   - fallback to high-margin goods (`>= 25%`)
-  - founder profession must be allowed for the chosen sector
+  - the chosen good must expose a designated production role
+- Founder role:
+  - founders are selected for the chosen good's production role
+  - founders are assigned directly into that productive role on company creation
+  - founders count as the initial staffed team rather than leaving duplicate founder-role vacancies behind
 - Viability gate:
-  - payroll for the opening plan must be affordable vs expected revenue for the target good
+  - founder payroll must fit under `startup_max_payroll_to_revenue`
   - expected revenue blends observed sales with household demand and company-input demand proxies
-- Default opening-plan envelope is `3..8` and `max_startups_per_month` defaults to `8`.
+  - projected first-month operating profit must be non-negative after payroll, input costs, facility costs, and projected loan service
 - Default affordability cap is tighter: `startup_max_payroll_to_revenue = 0.70`.
 - Funding stack:
   - founder capital

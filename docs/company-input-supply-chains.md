@@ -91,8 +91,21 @@ Company hiring is now industry-specific instead of drawing from the full global 
 Practical consequence:
 
 - generator-created companies only advertise jobs that fit their sector
-- startup formation only succeeds when the founder profession is allowed for the selected output good
+- startup formation is anchored on the selected good's designated production role rather than an arbitrary founder profession
 - public backfill companies also inherit sector-appropriate catalogs
+
+### Production roles
+The simulation now distinguishes a sector's full job catalog from the single role that actually contributes output effort:
+
+- Water, Food, Electricity, upstream extraction, and consumer/industrial manufacturing use `Manufacturing Operator`
+- Housing uses `Construction Worker`
+- Medicine uses `Registered Nurse`
+- Education Services uses `Teacher`
+- Internet uses `Software Developer`
+- Transport uses `Driver`
+- Entertainment uses `Office Clerk`
+
+The persisted field name is still `manufacturing_employee_count` for compatibility, but at runtime it now means "productive employees for this company's designated production role."
 
 ## Company State
 Companies now track additional state beyond output inventory:
@@ -119,7 +132,7 @@ The daily goods sequence is now:
 ### Company purchasing
 Before production, each company estimates same-day potential output from:
 
-- manufacturing headcount
+- production-role headcount
 - accumulated production effort
 - per-good `effort_per_unit`
 
@@ -153,7 +166,7 @@ Sell-through and excess-inventory throttling still apply, so a firm can be block
 
 - too much finished-goods inventory
 - missing recipe inputs
-- insufficient manufacturing labor
+- insufficient production labor
 
 ## Company Facility Housing
 Company facility demand is modeled outside the person housing round-robin.

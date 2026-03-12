@@ -4,7 +4,10 @@ use crate::sim::essentials::{
     ESSENTIAL_GOOD_IDS, is_stockable_essential_good, production_capacity_units_for_workers,
     target_manufacturing_headcount_for_units,
 };
-use crate::sim::{good::industry_job_types_for_good, job::job_by_id};
+use crate::sim::{
+    good::{industry_job_types_for_good, production_job_for_good},
+    job::job_by_id,
+};
 
 impl Country {
     pub(crate) fn private_bank_capacity_target(&self) -> usize {
@@ -238,7 +241,9 @@ impl Country {
             company.unit_price = round_cents(candidate_price.max(0.0));
         }
 
-        const MANUFACTURING_OPERATOR_JOB_ID: u8 = 5;
+        let Some(production_job_id) = production_job_for_good(good_id) else {
+            return;
+        };
         let essentials = self.sim_params.essentials;
         let manufacturing_openings = if target_manufacturing_openings > 0 {
             target_manufacturing_openings
@@ -275,12 +280,8 @@ impl Country {
         let mixed_openings = support_openings.max(baseline_support);
 
         if manufacturing_openings > 0 {
-            let offer = self.public_opening_offer(MANUFACTURING_OPERATOR_JOB_ID, backfill);
-            company.add_opening_with_salary(
-                MANUFACTURING_OPERATOR_JOB_ID,
-                manufacturing_openings,
-                offer,
-            );
+            let offer = self.public_opening_offer(production_job_id, backfill);
+            company.add_opening_with_salary(production_job_id, manufacturing_openings, offer);
         }
         if is_stockable_essential_good(good_id) {
             let Some(good) = good_by_id(good_id) else {
@@ -299,7 +300,7 @@ impl Country {
             .industry_job_types()
             .iter()
             .copied()
-            .filter(|job_id| *job_id != MANUFACTURING_OPERATOR_JOB_ID)
+            .filter(|job_id| *job_id != production_job_id)
             .filter_map(|job_id| job_by_id(job_id).map(|job| (job.id, job.assignment_weight)))
             .collect::<Vec<_>>();
         for idx in 0..mixed_openings {

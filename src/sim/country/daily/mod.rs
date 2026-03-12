@@ -1,5 +1,5 @@
 use super::*;
-use crate::sim::{money::to_cents, person::ClearedEmployment};
+use crate::sim::{good::is_production_job_for_good, money::to_cents, person::ClearedEmployment};
 use rand::{Rng, RngCore};
 use rand_distr::{Distribution, Poisson};
 use std::cell::RefCell;
@@ -15,8 +15,6 @@ thread_local! {
 }
 
 impl Country {
-    const MANUFACTURING_OPERATOR_JOB_ID: JobTypeId = 5;
-
     pub(super) fn run_daily_lifecycle(&mut self) {
         self.with_country_daily_scratch(Self::run_daily_lifecycle_with_scratch);
     }
@@ -344,7 +342,7 @@ impl Country {
         };
         if delta >= 0 {
             company.employee_count = company.employee_count.saturating_add(delta as u32);
-            if job_type_id == Self::MANUFACTURING_OPERATOR_JOB_ID {
+            if is_production_job_for_good(company.produced_good_id, job_type_id) {
                 company.manufacturing_employee_count = company
                     .manufacturing_employee_count
                     .saturating_add(delta as u32);
@@ -354,7 +352,7 @@ impl Country {
 
         let decrement = (-delta) as u32;
         company.employee_count = company.employee_count.saturating_sub(decrement);
-        if job_type_id == Self::MANUFACTURING_OPERATOR_JOB_ID {
+        if is_production_job_for_good(company.produced_good_id, job_type_id) {
             company.manufacturing_employee_count = company
                 .manufacturing_employee_count
                 .saturating_sub(decrement);
@@ -391,7 +389,15 @@ impl Country {
                         let company_idx = company_id as usize;
                         if let Some((headcount, manufacturing)) = local.get_mut(company_idx) {
                             *headcount = headcount.saturating_add(1);
-                            if person.job_type_id() == Some(Self::MANUFACTURING_OPERATOR_JOB_ID) {
+                            let Some(company) = self.companies.get(company_idx) else {
+                                continue;
+                            };
+                            if person
+                                .job_type_id()
+                                .is_some_and(|job_id| {
+                                    is_production_job_for_good(company.produced_good_id, job_id)
+                                })
+                            {
                                 *manufacturing = manufacturing.saturating_add(1);
                             }
                         }
@@ -417,7 +423,12 @@ impl Country {
                 let company_idx = company_id as usize;
                 if let Some(company) = self.companies.get_mut(company_idx) {
                     company.employee_count = company.employee_count.saturating_add(1);
-                    if person.job_type_id() == Some(Self::MANUFACTURING_OPERATOR_JOB_ID) {
+                    if person
+                        .job_type_id()
+                        .is_some_and(|job_id| {
+                            is_production_job_for_good(company.produced_good_id, job_id)
+                        })
+                    {
                         company.manufacturing_employee_count =
                             company.manufacturing_employee_count.saturating_add(1);
                     }

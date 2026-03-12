@@ -84,10 +84,12 @@ Model monthly money circulation while supporting daily demographic and labor dyn
   - founder pool includes employed workers and qualified unemployed adults.
   - founder team size is bounded (`min_founders..max_founders`, default `3..6`).
   - founders keep a personal reserve (default `0.5` month of salary reference); low-cash unemployed founders can still participate when startup lending is enabled.
-  - opening plan is dynamic (`startup_openings_min..startup_openings_max`, default `3..8`) and expands under labor slack.
-  - viability gate uses expected demand/revenue and payroll affordability:
+  - startups are selected by target good, then anchored on that good's designated production role.
+  - founders are assigned directly into the productive role and count as the initial staffed team.
+  - viability gate uses expected demand/revenue and a non-negative first-month operating-profit check:
     - expected revenue blends observed good-level sales with a demand proxy
-    - monthly opening payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
+    - founder payroll must stay under `startup_max_payroll_to_revenue` (default `0.70`)
+    - projected payroll, input spend, facility spend, and loan service must fit inside realizable first-month revenue
   - funding stack:
     - founder capital first
     - optional startup loan up to `startup_bank_loan_max_fraction` (default `95%`)

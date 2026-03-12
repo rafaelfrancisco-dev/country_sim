@@ -4,6 +4,7 @@ use super::{
 };
 use crate::sim::{
     country::Country,
+    good::is_production_job_for_good,
     money::round_cents,
     person::{ClearedEmployment, EmploymentStatus, HabilitationLevel, HousingStatus, Person},
 };
@@ -301,7 +302,7 @@ pub(super) fn refresh_country_after_migration(country: &mut Country) {
                     .find(|company| company.id == employer_company_id)
                 {
                     company.employee_count = company.employee_count.saturating_add(1);
-                    if job_type_id == 5 {
+                    if is_production_job_for_good(company.produced_good_id, job_type_id) {
                         company.manufacturing_employee_count =
                             company.manufacturing_employee_count.saturating_add(1);
                     }
