@@ -398,7 +398,25 @@ fn insert_banks(
     banks: &[BankDto],
 ) -> Result<(), PersistenceError> {
     for (bank_index, bank) in banks.iter().enumerate() {
-        conn.execute("INSERT INTO banks (country_id, bank_index, bank_id, name, kind, reserve_balance, created_money_outstanding, total_originated, total_principal_repaid, deposit_liabilities, foreign_deposit_liabilities, equity_capital, run_intensity, is_in_resolution, months_in_resolution, resolution_distress_streak, resolution_stable_streak, employee_count, monthly_payroll_budget, last_month_payroll_paid, wage_offer_multiplier, last_month_interest_income, last_month_deposit_interest_expense, last_month_credit_losses, last_month_profit) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)", params![i64::from(country_id), bank_index as i64, i64::from(bank.id), bank.name, i64::from(bank.kind), bank.reserve_balance, bank.created_money_outstanding, bank.total_originated, bank.total_principal_repaid, bank.deposit_liabilities, bank.foreign_deposit_liabilities, bank.equity_capital, bank.run_intensity, bool_to_i64(bank.is_in_resolution), i64::from(bank.months_in_resolution), i64::from(bank.resolution_distress_streak), i64::from(bank.resolution_stable_streak), i64::from(bank.employee_count), bank.monthly_payroll_budget, bank.last_month_payroll_paid, bank.wage_offer_multiplier, bank.last_month_interest_income, bank.last_month_deposit_interest_expense, bank.last_month_credit_losses, bank.last_month_profit])?;
+        conn.execute("INSERT INTO banks (country_id, bank_index, bank_id, name, kind, reserve_balance, fx_reserve_assets_base, central_bank_liquidity_liabilities_local, created_money_outstanding, total_originated, total_principal_repaid, deposit_liabilities, foreign_deposit_liabilities, equity_capital, run_intensity, is_in_resolution, months_in_resolution, resolution_distress_streak, resolution_stable_streak, employee_count, monthly_payroll_budget, last_month_payroll_paid, wage_offer_multiplier, last_month_interest_income, last_month_deposit_interest_expense, last_month_credit_losses, last_month_profit) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)", params![i64::from(country_id), bank_index as i64, i64::from(bank.id), bank.name, i64::from(bank.kind), bank.reserve_balance, bank.fx_reserve_assets_base, bank.central_bank_liquidity_liabilities_local, bank.created_money_outstanding, bank.total_originated, bank.total_principal_repaid, bank.deposit_liabilities, bank.foreign_deposit_liabilities, bank.equity_capital, bank.run_intensity, bool_to_i64(bank.is_in_resolution), i64::from(bank.months_in_resolution), i64::from(bank.resolution_distress_streak), i64::from(bank.resolution_stable_streak), i64::from(bank.employee_count), bank.monthly_payroll_budget, bank.last_month_payroll_paid, bank.wage_offer_multiplier, bank.last_month_interest_income, bank.last_month_deposit_interest_expense, bank.last_month_credit_losses, bank.last_month_profit])?;
+        insert_small_rows(
+            conn,
+            "bank_fx_reserve_sources",
+            country_id,
+            bank.id,
+            bank.fx_reserve_assets_by_source
+                .iter()
+                .filter_map(|(country_idx, amount)| {
+                    country_idx.parse::<i64>().ok().map(|country_idx| {
+                        vec![
+                            v(country_id),
+                            v(bank.id),
+                            Value::from(country_idx),
+                            Value::from(*amount),
+                        ]
+                    })
+                }),
+        )?;
         insert_small_rows(
             conn,
             "bank_open_positions",
@@ -889,6 +907,9 @@ fn insert_small_rows(
         }
         "bank_stock_positions" => {
             "INSERT INTO bank_stock_positions (country_id, bank_id, position_index, security_country_id, security_company_id, shares, avg_cost) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        }
+        "bank_fx_reserve_sources" => {
+            "INSERT INTO bank_fx_reserve_sources (country_id, bank_id, source_country_idx, amount_base) VALUES (?1, ?2, ?3, ?4)"
         }
         _ => return Ok(()),
     };

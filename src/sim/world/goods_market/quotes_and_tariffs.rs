@@ -94,6 +94,9 @@ impl World {
                 quote.seller_country_idx,
                 from_cents(quote.base_price_cents),
             );
+            if settlement.payee_amount_local <= 0.0 {
+                return;
+            }
             let (left, right) = self.countries.split_at_mut(quote.seller_country_idx);
             let buyer_country = &mut left[buyer_country_idx];
             let seller_country = &mut right[0];
@@ -118,6 +121,9 @@ impl World {
                 quote.seller_country_idx,
                 from_cents(quote.base_price_cents),
             );
+            if settlement.payee_amount_local <= 0.0 {
+                return;
+            }
             let (left, right) = self.countries.split_at_mut(buyer_country_idx);
             let seller_country = &mut left[quote.seller_country_idx];
             let buyer_country = &mut right[0];

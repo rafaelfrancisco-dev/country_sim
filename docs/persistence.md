@@ -83,13 +83,15 @@ The schema stores the same snapshot content as before, but as typed rows and col
 - `SimulationParams`: flattened typed row in `country_sim_params`
 - `Person[]` per country: employment, cash, debt, housing, stock, education, migration history
 - `Company[]` per country: financials, ring-buffer histories, open positions, founder stakes
-- `Bank[]` per country: reserve, deposits, equity, run/resolution state, stock positions
+- `Bank[]` per country: domestic reserve cash, managed-FX reserve assets and source buckets, central-bank FX counterpart liabilities, deposits, equity, run/resolution state, stock positions
 - `Household[]` per country: membership and shelter state
 - `StockMarket` per country: portfolios, listings, equity histories, daily index history
 - `world_history` / `country_history`: rolling 120-month metric snapshots
 - `bank_history`: per-bank reserve/deposit/equity time series
 - `country_fx_source_history`: per-source FX reserve history
 - `events`: both world event log and country pending events, stored as typed rows with nullable variant columns
+
+The country-level FX reserve fields remain in persistence as compatibility metrics for snapshots/history, but the owned source of truth is stored on the public bank records plus their FX source breakdowns. See [managed-fx.md](./managed-fx.md).
 
 ---
 

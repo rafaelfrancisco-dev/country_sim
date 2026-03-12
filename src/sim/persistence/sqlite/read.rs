@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
+use crate::sim::persistence::PersistenceError;
 use crate::sim::persistence::dto::{
     BankDto, BankHistoryEntryDto, BankJobOpeningDto, BankStockPositionDto, CompanyDto, CountryDto,
     CurrencySpecDto, DailyIndexPointDto, EmploymentStatusDto, ForeignDepositDto, FounderStakeDto,
     HouseholdDto, HousingStatusDto, JobOpeningDto, ListedEquityDto, LoanAccountDto,
     MortgageAccountDto, PersonDto, PortfolioDto, PositionDto, StockMarketDto, WorldDto,
 };
-use crate::sim::persistence::PersistenceError;
 
 use super::{
     event_row::load_events,
@@ -92,6 +92,18 @@ pub(super) fn load_snapshot(conn: &Connection) -> Result<WorldDto, PersistenceEr
         bank_history,
         event_log,
     })
+}
+
+fn load_key_value_real_map(
+    conn: &Connection,
+    query: &str,
+    params: impl rusqlite::Params,
+) -> Result<HashMap<String, f64>, rusqlite::Error> {
+    let mut stmt = conn.prepare(query)?;
+    let rows = stmt.query_map(params, |row| {
+        Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, f64>(1)?))
+    })?;
+    rows.collect::<Result<HashMap<_, _>, _>>()
 }
 
 fn load_countries(conn: &Connection) -> Result<Vec<CountryDto>, PersistenceError> {
@@ -575,13 +587,14 @@ fn load_companies(conn: &Connection, country_id: u16) -> Result<Vec<CompanyDto>,
 
 fn load_banks(conn: &Connection, country_id: u16) -> Result<Vec<BankDto>, PersistenceError> {
     let mut stmt = conn.prepare(
-        "SELECT bank_id, name, kind, reserve_balance, created_money_outstanding, total_originated,
-                total_principal_repaid, deposit_liabilities, foreign_deposit_liabilities,
-                equity_capital, run_intensity, is_in_resolution, months_in_resolution,
-                resolution_distress_streak, resolution_stable_streak, employee_count,
-                monthly_payroll_budget, last_month_payroll_paid, wage_offer_multiplier,
-                last_month_interest_income, last_month_deposit_interest_expense,
-                last_month_credit_losses, last_month_profit
+        "SELECT bank_id, name, kind, reserve_balance, fx_reserve_assets_base,
+                central_bank_liquidity_liabilities_local, created_money_outstanding,
+                total_originated, total_principal_repaid, deposit_liabilities,
+                foreign_deposit_liabilities, equity_capital, run_intensity, is_in_resolution,
+                months_in_resolution, resolution_distress_streak, resolution_stable_streak,
+                employee_count, monthly_payroll_budget, last_month_payroll_paid,
+                wage_offer_multiplier, last_month_interest_income,
+                last_month_deposit_interest_expense, last_month_credit_losses, last_month_profit
          FROM banks WHERE country_id=?1 ORDER BY bank_index",
     )?;
     let rows = stmt.query_map([i64::from(country_id)], |row| {
@@ -591,30 +604,37 @@ fn load_banks(conn: &Connection, country_id: u16) -> Result<Vec<BankDto>, Persis
             name: row.get(1)?,
             kind: row.get(2)?,
             reserve_balance: row.get(3)?,
-            created_money_outstanding: row.get(4)?,
-            total_originated: row.get(5)?,
-            total_principal_repaid: row.get(6)?,
-            deposit_liabilities: row.get(7)?,
-            foreign_deposit_liabilities: row.get(8)?,
-            equity_capital: row.get(9)?,
-            run_intensity: row.get(10)?,
-            is_in_resolution: i64_to_bool(row.get(11)?),
-            months_in_resolution: row.get(12)?,
-            resolution_distress_streak: row.get(13)?,
-            resolution_stable_streak: row.get(14)?,
+            fx_reserve_assets_base: row.get(4)?,
+            fx_reserve_assets_by_source: load_key_value_real_map(
+                conn,
+                "SELECT source_country_idx, amount_base FROM bank_fx_reserve_sources WHERE country_id=?1 AND bank_id=?2 ORDER BY source_country_idx",
+                params![i64::from(country_id), i64::from(bank_id)],
+            )?,
+            central_bank_liquidity_liabilities_local: row.get(5)?,
+            created_money_outstanding: row.get(6)?,
+            total_originated: row.get(7)?,
+            total_principal_repaid: row.get(8)?,
+            deposit_liabilities: row.get(9)?,
+            foreign_deposit_liabilities: row.get(10)?,
+            equity_capital: row.get(11)?,
+            run_intensity: row.get(12)?,
+            is_in_resolution: i64_to_bool(row.get(13)?),
+            months_in_resolution: row.get(14)?,
+            resolution_distress_streak: row.get(15)?,
+            resolution_stable_streak: row.get(16)?,
             open_positions: {
                 let mut stmt = conn.prepare("SELECT job_type_id, slots, offered_monthly_salary FROM bank_open_positions WHERE country_id=?1 AND bank_id=?2 ORDER BY position_index")?;
                 let rows = stmt.query_map(params![i64::from(country_id), i64::from(bank_id)], |r| Ok(BankJobOpeningDto { job_type_id: r.get(0)?, slots: r.get(1)?, offered_monthly_salary: r.get(2)? }))?;
                 rows.collect::<Result<Vec<_>, _>>()?
             },
-            employee_count: row.get::<_, i64>(15)? as u32,
-            monthly_payroll_budget: row.get(16)?,
-            last_month_payroll_paid: row.get(17)?,
-            wage_offer_multiplier: row.get(18)?,
-            last_month_interest_income: row.get(19)?,
-            last_month_deposit_interest_expense: row.get(20)?,
-            last_month_credit_losses: row.get(21)?,
-            last_month_profit: row.get(22)?,
+            employee_count: row.get::<_, i64>(17)? as u32,
+            monthly_payroll_budget: row.get(18)?,
+            last_month_payroll_paid: row.get(19)?,
+            wage_offer_multiplier: row.get(20)?,
+            last_month_interest_income: row.get(21)?,
+            last_month_deposit_interest_expense: row.get(22)?,
+            last_month_credit_losses: row.get(23)?,
+            last_month_profit: row.get(24)?,
             stock_positions: {
                 let mut stmt = conn.prepare("SELECT security_country_id, security_company_id, shares, avg_cost FROM bank_stock_positions WHERE country_id=?1 AND bank_id=?2 ORDER BY position_index")?;
                 let rows = stmt.query_map(params![i64::from(country_id), i64::from(bank_id)], |r| Ok(BankStockPositionDto { security_country_id: r.get(0)?, security_company_id: r.get(1)?, shares: r.get::<_, i64>(2)? as u64, avg_cost: r.get(3)? }))?;

@@ -80,7 +80,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
     use std::collections::HashMap;
 
     let fx_reserves_by_source: HashMap<String, f64> = country
-        .fx_reserves_by_source
+        .fx_reserves_by_source()
         .iter()
         .map(|(k, v)| (k.to_string(), *v))
         .collect();
@@ -182,7 +182,7 @@ pub(super) fn country_to_dto(country: &Country) -> CountryDto {
         last_completed_month_money_minted: country.last_completed_month_money_minted,
         policy_rate: country.policy_rate,
         fx_rate_local_per_base: country.fx_rate_local_per_base,
-        fx_reserves_base: country.fx_reserves_base,
+        fx_reserves_base: country.fx_reserves_base(),
         fx_reserves_by_source,
         fx_pressure: country.fx_pressure,
         cpi_index: country.cpi_index,

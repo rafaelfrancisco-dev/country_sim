@@ -48,11 +48,20 @@ impl Country {
     }
 
     pub fn fx_reserves_base(&self) -> f64 {
-        self.fx_reserves_base
+        self.public_bank()
+            .map(|bank| bank.fx_reserve_assets_base)
+            .unwrap_or(0.0)
     }
 
     pub fn fx_reserves_by_source(&self) -> &HashMap<usize, f64> {
-        &self.fx_reserves_by_source
+        self.public_bank()
+            .map(|bank| &bank.fx_reserve_assets_by_source)
+            .unwrap_or_else(|| {
+                self.banks
+                    .first()
+                    .map(|bank| &bank.fx_reserve_assets_by_source)
+                    .expect("country should always have at least one bank")
+            })
     }
 
     pub fn fx_pressure(&self) -> f64 {

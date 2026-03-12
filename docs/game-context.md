@@ -70,11 +70,13 @@ Country Sim is a terminal-based simulation game where one engine tick equals one
 - Daily stock trading is world-level:
   - residents and the market bank in any country can trade any listed security across countries
   - each security still belongs to its home-country listing and updates that market's price/history/export rows
-  - cross-border cash settlement uses the world FX layer and country FX reserve state
+  - cross-border cash settlement uses the world FX layer and the public bank's managed-FX reserve balance sheet
 - Monthly world passes include:
   - cross-country labor migration
   - cross-market stock dividends and stale-position cleanup for foreign holders
   - cross-country deposits
+
+See [managed-fx.md](./managed-fx.md) for the reserve-ownership and settlement model.
 
 ### UI State
 - Navigation state (`selected rows/pages`, `details mode`, active running tab) is held in `UiState` on the UI side.

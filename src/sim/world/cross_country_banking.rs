@@ -110,6 +110,9 @@ impl World {
                     op.home_c_idx,
                     op.interest,
                 );
+                if settlement.payee_amount_local <= 0.0 {
+                    continue;
+                }
                 {
                     let foreign = &mut self.countries[op.foreign_c_idx];
                     let Some(bank) = foreign.bank_by_id_mut(op.foreign_bank_id) else {
@@ -151,6 +154,9 @@ impl World {
                     op.home_c_idx,
                     returned_foreign,
                 );
+                if settlement.payee_amount_local <= 0.0 {
+                    continue;
+                }
 
                 {
                     let foreign = &mut self.countries[op.foreign_c_idx];
@@ -264,6 +270,9 @@ impl World {
                 op.foreign_c_idx,
                 op.amount,
             );
+            if settlement.payee_amount_local <= 0.0 {
+                continue;
+            }
             let (person_id, home_country_name, day) = {
                 let home = &mut self.countries[op.home_c_idx];
                 let Some(person) = home.people.get_mut(op.person_idx) else {

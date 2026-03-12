@@ -1,4 +1,5 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
@@ -7,16 +8,15 @@ use ratatui::{
         Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Table, Wrap,
     },
-    Frame,
 };
 
 use super::{
-    super::{theme, Simulation},
+    super::{Simulation, theme},
     fx_summary,
 };
 use crate::components::simulation::{
     hotkeys,
-    snapshot::{compact_num, FxRowSnapshot, FxTabSnapshot, RunningSnapshot},
+    snapshot::{FxRowSnapshot, FxTabSnapshot, RunningSnapshot, compact_num},
 };
 
 const FX_TOP_BASE_HEIGHT: u16 = 10;
@@ -392,11 +392,13 @@ impl Simulation {
         let (y_min, y_max) = Self::fx_axis_bounds(min, max);
 
         frame.render_widget(
-            Chart::new(vec![Dataset::default()
-                .graph_type(GraphType::Line)
-                .marker(symbols::Marker::Braille)
-                .style(Style::default().fg(chart.color))
-                .data(&points)])
+            Chart::new(vec![
+                Dataset::default()
+                    .graph_type(GraphType::Line)
+                    .marker(symbols::Marker::Braille)
+                    .style(Style::default().fg(chart.color))
+                    .data(&points),
+            ])
             .x_axis(
                 Axis::default()
                     .title("Month")

@@ -1,14 +1,14 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{
         Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Table, Wrap,
     },
-    Frame,
 };
 
-use super::super::{theme, Simulation};
+use super::super::{Simulation, theme};
 use crate::components::simulation::snapshot::{GoodsTabSnapshot, RunningSnapshot};
 use crate::components::simulation::ui_state::SelectionFocus;
 

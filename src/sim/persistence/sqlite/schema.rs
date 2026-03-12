@@ -21,6 +21,7 @@ const TABLES_TO_CLEAR: &[&str] = &[
     "stock_market_person_portfolios",
     "country_stock_markets",
     "bank_stock_positions",
+    "bank_fx_reserve_sources",
     "bank_open_positions",
     "banks",
     "company_loans",

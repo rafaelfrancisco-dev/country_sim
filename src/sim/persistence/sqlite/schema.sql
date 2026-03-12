@@ -721,6 +721,8 @@ CREATE TABLE IF NOT EXISTS banks (
     name TEXT NOT NULL,
     kind INTEGER NOT NULL,
     reserve_balance REAL NOT NULL,
+    fx_reserve_assets_base REAL NOT NULL DEFAULT 0,
+    central_bank_liquidity_liabilities_local REAL NOT NULL DEFAULT 0,
     created_money_outstanding REAL NOT NULL,
     total_originated REAL NOT NULL,
     total_principal_repaid REAL NOT NULL,
@@ -741,6 +743,14 @@ CREATE TABLE IF NOT EXISTS banks (
     last_month_credit_losses REAL NOT NULL,
     last_month_profit REAL NOT NULL,
     PRIMARY KEY (country_id, bank_id)
+);
+
+CREATE TABLE IF NOT EXISTS bank_fx_reserve_sources (
+    country_id INTEGER NOT NULL REFERENCES countries(country_id) ON DELETE CASCADE,
+    bank_id INTEGER NOT NULL,
+    source_country_idx INTEGER NOT NULL,
+    amount_base REAL NOT NULL,
+    PRIMARY KEY (country_id, bank_id, source_country_idx)
 );
 
 CREATE TABLE IF NOT EXISTS bank_open_positions (

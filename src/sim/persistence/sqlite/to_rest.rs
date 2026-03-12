@@ -39,11 +39,20 @@ pub(super) fn bank_to_dto(b: &Bank) -> BankDto {
         })
         .collect();
 
+    let fx_reserve_assets_by_source = b
+        .fx_reserve_assets_by_source
+        .iter()
+        .map(|(country_idx, amount)| (country_idx.to_string(), *amount))
+        .collect();
+
     BankDto {
         id: b.id,
         name: b.name.to_string(),
         kind,
         reserve_balance: b.reserve_balance,
+        fx_reserve_assets_base: b.fx_reserve_assets_base,
+        fx_reserve_assets_by_source,
+        central_bank_liquidity_liabilities_local: b.central_bank_liquidity_liabilities_local,
         created_money_outstanding: b.created_money_outstanding,
         total_originated: b.total_originated,
         total_principal_repaid: b.total_principal_repaid,

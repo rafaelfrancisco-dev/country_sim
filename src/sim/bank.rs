@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use super::{
     job::{JobTypeId, salary_for_job},
@@ -114,6 +114,12 @@ pub struct Bank {
     pub name: Arc<str>,
     pub kind: BankKind,
     pub reserve_balance: f64,
+    /// Foreign-currency reserve assets owned by the public bank/central bank, in base units.
+    pub fx_reserve_assets_base: f64,
+    /// Source composition for `fx_reserve_assets_base`, keyed by source country index.
+    pub fx_reserve_assets_by_source: HashMap<usize, f64>,
+    /// Domestic liquidity liabilities issued/absorbed by the central bank during managed FX.
+    pub central_bank_liquidity_liabilities_local: f64,
     pub created_money_outstanding: f64,
     pub total_originated: f64,
     pub total_principal_repaid: f64,
@@ -171,6 +177,9 @@ impl Bank {
             name,
             kind,
             reserve_balance: 0.0,
+            fx_reserve_assets_base: 0.0,
+            fx_reserve_assets_by_source: HashMap::new(),
+            central_bank_liquidity_liabilities_local: 0.0,
             created_money_outstanding: 0.0,
             total_originated: 0.0,
             total_principal_repaid: 0.0,
@@ -450,6 +459,34 @@ impl Bank {
         self.reserve_balance = round_cents(self.reserve_balance - paid);
         self.deposit_liabilities = round_cents((self.deposit_liabilities - paid).max(0.0));
         paid
+    }
+
+    pub fn set_fx_reserve_assets(
+        &mut self,
+        total_base: f64,
+        by_source: HashMap<usize, f64>,
+        counterpart_local: f64,
+    ) {
+        self.fx_reserve_assets_base = round_cents(total_base.max(0.0));
+        self.fx_reserve_assets_by_source = by_source
+            .into_iter()
+            .filter_map(|(source_idx, amount)| {
+                let rounded = round_cents(amount.max(0.0));
+                (rounded > 0.0).then_some((source_idx, rounded))
+            })
+            .collect();
+        self.central_bank_liquidity_liabilities_local = round_cents(counterpart_local.max(0.0));
+    }
+
+    pub fn absorb_managed_fx_liquidity(&mut self, amount_local: f64) {
+        self.central_bank_liquidity_liabilities_local = round_cents(
+            (self.central_bank_liquidity_liabilities_local - amount_local.max(0.0)).max(0.0),
+        );
+    }
+
+    pub fn issue_managed_fx_liquidity(&mut self, amount_local: f64) {
+        self.central_bank_liquidity_liabilities_local =
+            round_cents(self.central_bank_liquidity_liabilities_local + amount_local.max(0.0));
     }
 }
 

@@ -1,5 +1,6 @@
 use super::World;
 use crate::sim::{
+    bank::Bank,
     event::SimEvent,
     money::{from_cents, round_cents, to_cents},
 };
@@ -7,6 +8,7 @@ use crate::sim::{
 const MIN_FX_RATE_LOCAL_PER_BASE: f64 = 0.25;
 const MAX_FX_RATE_LOCAL_PER_BASE: f64 = 4.0;
 const MAX_MONTHLY_FX_MOVE: f64 = 0.08;
+const MIN_INITIAL_FX_RESERVES_BASE: f64 = 10_000.0;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CrossBorderFlowKind {
@@ -60,19 +62,18 @@ impl World {
             } else {
                 0.0
             };
-            country.fx_reserves_base = round_cents((supply_base * 0.20).max(5_000.0));
-            country.fx_reserves_by_source.clear();
+            let fx_reserve_assets_base =
+                round_cents((supply_base * 0.20).max(MIN_INITIAL_FX_RESERVES_BASE));
+            let mut fx_reserve_assets_by_source = std::collections::HashMap::new();
             // Only hold reserves for countries that use a genuinely different currency.
             // Holding reserves in your own shared currency is meaningless.
             let own_currency_idx = country.currency_idx;
             let foreign_currency_sources: Vec<usize> = (0..country_count)
-                .filter(|&src| {
-                    src != country_idx && currency_idx_by_pos[src] != own_currency_idx
-                })
+                .filter(|&src| src != country_idx && currency_idx_by_pos[src] != own_currency_idx)
                 .collect();
             let foreign_currency_count = foreign_currency_sources.len();
             if foreign_currency_count > 0 {
-                let total_reserve_cents = to_cents(country.fx_reserves_base);
+                let total_reserve_cents = to_cents(fx_reserve_assets_base);
                 let share_cents = total_reserve_cents / foreign_currency_count as i64;
                 let mut remainder_cents = total_reserve_cents % foreign_currency_count as i64;
 
@@ -84,12 +85,17 @@ impl World {
                     }
 
                     if amount_cents > 0 {
-                        country
-                            .fx_reserves_by_source
-                            .insert(source_idx, from_cents(amount_cents));
+                        fx_reserve_assets_by_source.insert(source_idx, from_cents(amount_cents));
                     }
                 }
             }
+            let counterpart_local =
+                round_cents(fx_reserve_assets_base * country.fx_rate_local_per_base);
+            country.set_public_bank_fx_reserves(
+                fx_reserve_assets_base,
+                fx_reserve_assets_by_source,
+                counterpart_local,
+            );
             country.fx_pressure = 0.0;
         }
     }
@@ -178,44 +184,39 @@ impl World {
             return settlement;
         }
 
+        let payer_available_base = self.countries[payer_country_idx]
+            .public_bank()
+            .map(|bank| bank.fx_reserve_assets_base)
+            .unwrap_or(0.0);
+        if payer_available_base + 0.01 < settlement.payer_amount_base {
+            let payer = &mut self.countries[payer_country_idx];
+            payer.push_pending_event(SimEvent::FxReservePressure {
+                country_name: payer.name().into(),
+                currency_code: payer.currency_code().to_string().into(),
+                reserves_base: payer.fx_reserves_base(),
+                reserve_gap: if settlement.payer_amount_base > 0.0 {
+                    ((settlement.payer_amount_base - payer_available_base)
+                        / settlement.payer_amount_base)
+                        .clamp(0.0, 5.0)
+                } else {
+                    0.0
+                },
+                pressure: payer.fx_pressure(),
+                day: payer.day(),
+            });
+            return FxSettlement {
+                payer_amount_local: 0.0,
+                payer_amount_base: 0.0,
+                payee_amount_local: 0.0,
+                fx_rate_payee_per_payer: settlement.fx_rate_payee_per_payer,
+            };
+        }
+
         {
             let payer = &mut self.countries[payer_country_idx];
-            let old_total = payer.fx_reserves_base;
-            payer.fx_reserves_base =
-                round_cents((old_total - settlement.payer_amount_base).max(0.0));
-            let actual_spent = old_total - payer.fx_reserves_base;
-
-            // Spend from the payee's specific currency bucket first (targeted spending),
-            // then fall back proportionally to the remaining pool.
-            if actual_spent > 0.0 {
-                let target_held = payer
-                    .fx_reserves_by_source
-                    .get(&payee_country_idx)
-                    .copied()
-                    .unwrap_or(0.0);
-                let from_target = actual_spent.min(target_held);
-                if from_target > 0.0 {
-                    let entry = payer
-                        .fx_reserves_by_source
-                        .entry(payee_country_idx)
-                        .or_insert(0.0);
-                    *entry = round_cents(*entry - from_target);
-                }
-
-                let leftover = actual_spent - from_target;
-                if leftover > 0.0 {
-                    // Remaining pool = everything except what we already took from target.
-                    let remaining_pool = old_total - from_target;
-                    if remaining_pool > 0.0 {
-                        let fraction = (remaining_pool - leftover) / remaining_pool;
-                        for (&source_idx, v) in payer.fx_reserves_by_source.iter_mut() {
-                            if source_idx != payee_country_idx {
-                                *v = round_cents(*v * fraction);
-                            }
-                        }
-                    }
-                }
-            }
+            let bank = payer.primary_bank_mut();
+            spend_fx_reserves(bank, payee_country_idx, settlement.payer_amount_base);
+            bank.absorb_managed_fx_liquidity(settlement.payer_amount_local);
             match kind {
                 CrossBorderFlowKind::GoodsImport => {
                     payer.monthly_goods_import_spending_base = round_cents(
@@ -234,14 +235,15 @@ impl World {
 
         {
             let payee = &mut self.countries[payee_country_idx];
-            payee.fx_reserves_base =
-                round_cents(payee.fx_reserves_base + settlement.payer_amount_base);
-            // Credit the inflow to the payer's source bucket.
-            let entry = payee
-                .fx_reserves_by_source
+            let bank = payee.primary_bank_mut();
+            bank.fx_reserve_assets_base =
+                round_cents(bank.fx_reserve_assets_base + settlement.payer_amount_base);
+            let entry = bank
+                .fx_reserve_assets_by_source
                 .entry(payer_country_idx)
                 .or_insert(0.0);
             *entry = round_cents(*entry + settlement.payer_amount_base);
+            bank.issue_managed_fx_liquidity(settlement.payee_amount_local);
             match kind {
                 CrossBorderFlowKind::GoodsImport => {
                     payee.monthly_goods_export_revenue_base = round_cents(
@@ -274,7 +276,7 @@ impl World {
             let expected_reserves =
                 (country.expected_money_supply() / country.fx_rate_local_per_base).max(1.0) * 0.15;
             let reserve_gap = if expected_reserves > 0.0 {
-                (expected_reserves - country.fx_reserves_base) / expected_reserves
+                (expected_reserves - country.fx_reserves_base()) / expected_reserves
             } else {
                 0.0
             };
@@ -305,7 +307,7 @@ impl World {
                     old_rate,
                     new_rate,
                     pressure: country.fx_pressure,
-                    reserves_base: country.fx_reserves_base,
+                    reserves_base: country.fx_reserves_base(),
                     day: country.day(),
                 });
             }
@@ -314,7 +316,7 @@ impl World {
                 country.push_pending_event(SimEvent::FxReservePressure {
                     country_name: country.name().into(),
                     currency_code: country.currency_spec.code.clone(),
-                    reserves_base: country.fx_reserves_base,
+                    reserves_base: country.fx_reserves_base(),
                     reserve_gap: reserve_gap.clamp(0.0, 5.0),
                     pressure: country.fx_pressure,
                     day: country.day(),
@@ -333,4 +335,42 @@ impl World {
             }
         }
     }
+}
+
+fn spend_fx_reserves(bank: &mut Bank, target_country_idx: usize, amount_base: f64) {
+    let old_total = bank.fx_reserve_assets_base;
+    bank.fx_reserve_assets_base = round_cents((old_total - amount_base).max(0.0));
+    let actual_spent = old_total - bank.fx_reserve_assets_base;
+    if actual_spent <= 0.0 {
+        return;
+    }
+
+    let target_held = bank
+        .fx_reserve_assets_by_source
+        .get(&target_country_idx)
+        .copied()
+        .unwrap_or(0.0);
+    let from_target = actual_spent.min(target_held);
+    if from_target > 0.0 {
+        let entry = bank
+            .fx_reserve_assets_by_source
+            .entry(target_country_idx)
+            .or_insert(0.0);
+        *entry = round_cents(*entry - from_target);
+    }
+
+    let leftover = actual_spent - from_target;
+    if leftover > 0.0 {
+        let remaining_pool = old_total - from_target;
+        if remaining_pool > 0.0 {
+            let fraction = (remaining_pool - leftover) / remaining_pool;
+            for (&source_idx, value) in &mut bank.fx_reserve_assets_by_source {
+                if source_idx != target_country_idx {
+                    *value = round_cents(*value * fraction);
+                }
+            }
+        }
+    }
+    bank.fx_reserve_assets_by_source
+        .retain(|_, amount| amount.abs() >= 0.01);
 }

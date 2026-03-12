@@ -415,6 +415,29 @@ fn settle_fills(
         }
 
         if buyer_country_idx != listing_country_idx {
+            let buyer_settlement =
+                world.convert_between_countries(buyer_country_idx, listing_country_idx, buyer_cost);
+            let buyer_fx_available = world.countries[buyer_country_idx]
+                .public_bank()
+                .map(|bank| bank.fx_reserve_assets_base)
+                .unwrap_or(0.0);
+            if buyer_fx_available + 0.01 < buyer_settlement.payer_amount_base {
+                continue;
+            }
+        }
+        if seller_country_idx != listing_country_idx {
+            let seller_settlement =
+                world.convert_between_countries(listing_country_idx, seller_country_idx, cost);
+            let seller_fx_available = world.countries[listing_country_idx]
+                .public_bank()
+                .map(|bank| bank.fx_reserve_assets_base)
+                .unwrap_or(0.0);
+            if seller_fx_available + 0.01 < seller_settlement.payer_amount_base {
+                continue;
+            }
+        }
+
+        if buyer_country_idx != listing_country_idx {
             world.settle_cross_border_cash(
                 CrossBorderFlowKind::StockTrade,
                 buyer_country_idx,

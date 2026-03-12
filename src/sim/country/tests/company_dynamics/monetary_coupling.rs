@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use super::*;
 use crate::sim::bank::{
-    max_principal_for_payment, DEFAULT_LOAN_TERM_MONTHS, DEFAULT_MAX_DEBT_TO_INCOME,
+    DEFAULT_LOAN_TERM_MONTHS, DEFAULT_MAX_DEBT_TO_INCOME, max_principal_for_payment,
 };
 
 fn make_employed_person(id: u32, company_id: u16, salary: f64, cash_balance: f64) -> Person {
@@ -270,10 +270,12 @@ fn auto_money_minting_skips_when_no_positive_inflation_or_unemployment_gap() {
     assert_eq!(country.monthly_money_minted, 0.0);
     assert_eq!(country.cumulative_money_minted, 0.0);
     assert!((country.expected_money_supply - expected_before).abs() <= 0.01);
-    assert!(!country
-        .pending_events
-        .iter()
-        .any(|event| matches!(event, SimEvent::MoneyMinted { .. })));
+    assert!(
+        !country
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, SimEvent::MoneyMinted { .. }))
+    );
 }
 
 #[test]
@@ -296,8 +298,8 @@ fn unemployment_minting_is_blocked_when_inflation_exceeds_cap() {
     params.monetary.deposit_spread = 1.0;
     params.monetary.target_inflation_rate = 0.02;
     params.monetary.mint_unemployment_inflation_cap_multiplier = 1.5; // cap at 3%
-                                                                      // Disable bank recapitalization so it doesn't create spurious bank-created money
-                                                                      // that would inflate expected_money_supply independently of minting.
+    // Disable bank recapitalization so it doesn't create spurious bank-created money
+    // that would inflate expected_money_supply independently of minting.
     params.banking.public_bank_recapitalize_amount = f64::MAX;
 
     // 1 employed + 1 unemployed → 50% unemployment → large unemployment gap

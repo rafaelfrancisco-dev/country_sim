@@ -223,6 +223,9 @@ pub struct BankDto {
     pub name: String,
     pub kind: u8, // 0=Public, 1=Private
     pub reserve_balance: f64,
+    pub fx_reserve_assets_base: f64,
+    pub fx_reserve_assets_by_source: HashMap<String, f64>,
+    pub central_bank_liquidity_liabilities_local: f64,
     pub created_money_outstanding: f64,
     pub total_originated: f64,
     pub total_principal_repaid: f64,

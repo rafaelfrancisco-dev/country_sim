@@ -125,12 +125,15 @@ impl World {
 
                 // Cross-border FX settlement (no-op for same-country).
                 if investor_idx != listing_idx {
-                    self.settle_cross_border_cash(
+                    let settlement = self.settle_cross_border_cash(
                         CrossBorderFlowKind::StockTrade,
                         investor_idx,
                         listing_idx,
                         cost_local,
                     );
+                    if settlement.payee_amount_local <= 0.0 {
+                        continue;
+                    }
                 }
 
                 // Deduct from bank reserve.

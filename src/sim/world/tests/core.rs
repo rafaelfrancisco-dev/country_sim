@@ -184,8 +184,7 @@ fn initial_fx_reserves_are_split_across_foreign_currencies_only() {
         let own_currency_idx = world.country(country_idx).unwrap().currency_idx();
         let expected_foreign_count = (0..world.country_count())
             .filter(|&src| {
-                src != country_idx
-                    && world.country(src).unwrap().currency_idx() != own_currency_idx
+                src != country_idx && world.country(src).unwrap().currency_idx() != own_currency_idx
             })
             .count();
 

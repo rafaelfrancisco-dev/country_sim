@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use super::{
-    BankMetricPoint, Country, Currency, CurrencySpec, MetricPoint, MonthlyExportData, SimEvent,
-    World, HISTORY_LIMIT,
+    BankMetricPoint, Country, Currency, CurrencySpec, HISTORY_LIMIT, MetricPoint,
+    MonthlyExportData, SimEvent, World,
 };
 
 impl World {

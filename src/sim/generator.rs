@@ -205,8 +205,10 @@ fn generate_countries_with_specs(config: &GenerationConfig) -> Vec<CountryWithCu
 }
 
 fn assign_currency_indices(countries_with_specs: Vec<CountryWithCurrencySpec>) -> Vec<Country> {
-    let mut currency_index_by_spec: std::collections::HashMap<CurrencySpec, usize> = std::collections::HashMap::new();
-    let mut issuer_by_currency_idx: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut currency_index_by_spec: std::collections::HashMap<CurrencySpec, usize> =
+        std::collections::HashMap::new();
+    let mut issuer_by_currency_idx: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
     let mut currency_counter = 0usize;
 
     let mut countries: Vec<Country> = Vec::with_capacity(countries_with_specs.len());
@@ -319,7 +321,6 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> CountryWithC
         currency_spec,
     }
 }
-
 
 #[cfg(test)]
 #[path = "generator/tests.rs"]

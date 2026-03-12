@@ -7,18 +7,18 @@ use crate::sim::{
     essentials::Household,
     good::GOODS_COUNT,
     person::{
-        EducationTrack, EmploymentStatus, ForeignDeposit, HabilitationLevel, HousingStatus, Person,
-        ESSENTIAL_STOCK_SLOT_COUNT, SUPERFICIAL_GOOD_SLOT_COUNT,
+        ESSENTIAL_STOCK_SLOT_COUNT, EducationTrack, EmploymentStatus, ForeignDeposit,
+        HabilitationLevel, HousingStatus, Person, SUPERFICIAL_GOOD_SLOT_COUNT,
     },
     world::{BankMetricPoint, MetricPoint},
 };
 
 use super::super::{
+    PersistenceError,
     dto::{
         BankMetricPointDto, CountryDto, EmploymentStatusDto, HousingStatusDto, LoanAccountDto,
         MetricPointDto, PersonDto,
     },
-    PersistenceError,
 };
 
 pub(super) fn metric_point_from_dto(p: MetricPointDto) -> MetricPoint {
@@ -88,7 +88,6 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         bank_from_dto, company_from_dto, household_from_dto, sim_event_from_dto,
         stock_market_from_dto,
     };
-    use std::collections::HashMap;
 
     let currency = CurrencySpec {
         code: Arc::from(dto.currency.code.as_str()),
@@ -101,12 +100,6 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
     let banks = dto.banks.into_iter().map(bank_from_dto).collect();
     let households: Vec<Household> = dto.households.into_iter().map(household_from_dto).collect();
     let stock_market = stock_market_from_dto(dto.stock_market);
-
-    let fx_reserves_by_source: HashMap<usize, f64> = dto
-        .fx_reserves_by_source
-        .into_iter()
-        .filter_map(|(k, v)| k.parse::<usize>().ok().map(|ki| (ki, v)))
-        .collect();
 
     let mut export_tariffs_by_good = [0.0_f64; GOODS_COUNT];
     for (i, v) in dto.export_tariffs_by_good.into_iter().enumerate() {
@@ -213,8 +206,6 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
         last_completed_month_money_minted: dto.last_completed_month_money_minted,
         policy_rate: dto.policy_rate,
         fx_rate_local_per_base: dto.fx_rate_local_per_base,
-        fx_reserves_base: dto.fx_reserves_base,
-        fx_reserves_by_source,
         fx_pressure: dto.fx_pressure,
         cpi_index: dto.cpi_index,
         last_month_cpi_index: dto.last_month_cpi_index,
@@ -251,6 +242,14 @@ pub(super) fn country_from_dto(dto: CountryDto) -> Result<Country, PersistenceEr
 
     // Rebuild runtime indices from people
     country.rebuild_person_runtime();
+    country.set_public_bank_fx_reserves(
+        dto.fx_reserves_base,
+        dto.fx_reserves_by_source
+            .into_iter()
+            .filter_map(|(k, v)| k.parse::<usize>().ok().map(|ki| (ki, v)))
+            .collect(),
+        country.fx_reserves_base() * country.fx_rate_local_per_base(),
+    );
 
     Ok(country)
 }

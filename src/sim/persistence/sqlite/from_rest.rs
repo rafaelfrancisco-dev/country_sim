@@ -130,11 +130,25 @@ pub(super) fn bank_from_dto(dto: BankDto) -> Bank {
         })
         .collect();
 
+    let fx_reserve_assets_by_source = dto
+        .fx_reserve_assets_by_source
+        .into_iter()
+        .filter_map(|(country_idx, amount)| {
+            country_idx
+                .parse::<usize>()
+                .ok()
+                .map(|country_idx| (country_idx, amount))
+        })
+        .collect();
+
     Bank {
         id: dto.id,
         name: Arc::from(dto.name.as_str()),
         kind,
         reserve_balance: dto.reserve_balance,
+        fx_reserve_assets_base: dto.fx_reserve_assets_base,
+        fx_reserve_assets_by_source,
+        central_bank_liquidity_liabilities_local: dto.central_bank_liquidity_liabilities_local,
         created_money_outstanding: dto.created_money_outstanding,
         total_originated: dto.total_originated,
         total_principal_repaid: dto.total_principal_repaid,

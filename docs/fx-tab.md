@@ -61,10 +61,15 @@ The summary panel shows:
 - FX reserves broken down by foreign currency held (e.g. `50M€ + 37M¥`); startup reserves are evenly split across all foreign currencies, excluding the country's own
 
 ## Foreign Currency Reserves
-Each country tracks which foreign currencies make up its reserve pool:
+Each country tracks which foreign currencies make up its reserve pool, but the owned source of truth is the public bank's managed-FX balance sheet:
 - initial reserves (seeded at startup) are split evenly across every other country's currency, excluding the country's own
 - reserves are attributed to the source country when cross-border payments are received (goods exports, deposit interest, stock dividends, etc.)
 - when spending reserves, the simulation uses the target country's currency first, then falls back proportionally to the remaining pool
+- if the public bank does not have enough FX reserve assets, the cross-border settlement is blocked instead of borrowing from a shadow country pool
+
+`fx_reserves_base` shown in the FX UI is therefore a derived country-level view over the public bank's `fx_reserve_assets_base`, not an independent mutable country field.
+
+See [managed-fx.md](./managed-fx.md) for the balance-sheet details.
 
 ## Leaderboard Columns
 The main table is sorted by the country's underlying FX rate (strongest first) and shows:

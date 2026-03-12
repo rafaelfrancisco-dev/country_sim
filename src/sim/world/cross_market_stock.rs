@@ -156,13 +156,16 @@ impl World {
                             let net_local = if country_idx == listing_country_idx {
                                 net
                             } else {
-                                self.settle_cross_border_cash(
+                                let settlement = self.settle_cross_border_cash(
                                     CrossBorderFlowKind::StockDividend,
                                     listing_country_idx,
                                     country_idx,
                                     net,
-                                )
-                                .payee_amount_local
+                                );
+                                if settlement.payee_amount_local <= 0.0 {
+                                    continue;
+                                }
+                                settlement.payee_amount_local
                             };
                             if let Some(person_idx) = self.countries[country_idx]
                                 .people
@@ -193,13 +196,16 @@ impl World {
                             let gross_local = if country_idx == listing_country_idx {
                                 gross
                             } else {
-                                self.settle_cross_border_cash(
+                                let settlement = self.settle_cross_border_cash(
                                     CrossBorderFlowKind::StockDividend,
                                     listing_country_idx,
                                     country_idx,
                                     gross,
-                                )
-                                .payee_amount_local
+                                );
+                                if settlement.payee_amount_local <= 0.0 {
+                                    continue;
+                                }
+                                settlement.payee_amount_local
                             };
                             let stock_bank_id = self.countries[country_idx]
                                 .stock_market_bank_id()

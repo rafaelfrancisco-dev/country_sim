@@ -3,8 +3,9 @@ use crate::components::simulation::snapshot::{
 };
 use crate::components::simulation::ui_state::{RunningTab, UiState};
 use crate::sim::{
-    country::Country, person::Person, runtime::SimulationMode, world::World, GamePhase,
+    GamePhase, country::Country, person::Person, runtime::SimulationMode, world::World,
 };
+use std::collections::HashMap;
 
 fn sample_world_two_countries() -> World {
     World::new(vec![
@@ -39,7 +40,7 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
     country.monthly_fx_financial_outflows_base = 40.0;
     country.monthly_fx_net_flow_base = 35.0;
     country.fx_pressure = 0.22;
-    country.fx_reserves_base = 999.0;
+    country.set_public_bank_fx_reserves(999.0, HashMap::new(), 999.0);
 
     let snapshot = snapshot_from_world_with_ui(
         world,
@@ -62,11 +63,11 @@ fn fx_snapshot_populates_selected_summary_from_country_fields() {
 #[test]
 fn fx_snapshot_uses_reserve_header_when_breakdown_exists() {
     let mut world = sample_world_two_countries();
-    world
-        .country_mut(0)
-        .unwrap()
-        .fx_reserves_by_source
-        .insert(1, 42.0);
+    world.country_mut(0).unwrap().set_public_bank_fx_reserves(
+        42.0,
+        HashMap::from([(1, 42.0)]),
+        42.0,
+    );
     world.country_mut(1).unwrap().fx_rate_local_per_base = 1.5;
 
     let snapshot = snapshot_from_world_with_ui(
@@ -151,8 +152,10 @@ fn fx_snapshot_sorts_rows_and_formats_missing_history_and_ratio() {
 #[test]
 fn fx_snapshot_includes_zero_value_foreign_lines() {
     let mut world = sample_world_two_countries();
-    world.country_mut(0).unwrap().fx_reserves_base = 120.0;
-    world.country_mut(0).unwrap().fx_reserves_by_source.clear();
+    world
+        .country_mut(0)
+        .unwrap()
+        .set_public_bank_fx_reserves(120.0, HashMap::new(), 120.0);
 
     let snapshot = snapshot_from_world_with_ui(
         world,

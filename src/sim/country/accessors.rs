@@ -260,6 +260,16 @@ impl Country {
             .expect("country should always have a resolvable primary bank")
     }
 
+    pub(crate) fn set_public_bank_fx_reserves(
+        &mut self,
+        total_base: f64,
+        by_source: std::collections::HashMap<usize, f64>,
+        counterpart_local: f64,
+    ) {
+        self.primary_bank_mut()
+            .set_fx_reserve_assets(total_base, by_source, counterpart_local);
+    }
+
     pub fn private_banks(&self) -> impl Iterator<Item = &Bank> {
         self.banks
             .iter()
