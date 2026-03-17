@@ -14,6 +14,7 @@ use std::collections::HashMap;
 mod deposit_and_trace;
 mod history_parallel;
 mod long_run;
+mod profitability_probe;
 
 fn labor_force_unemployment(country: &Country) -> f64 {
     let mut labor_force = 0_usize;

@@ -33,7 +33,8 @@ pub(super) fn insert_country_sim_params(
             monetary_target_inflation_rate, monetary_neutral_policy_rate, monetary_inflation_coefficient, monetary_unemployment_coefficient, monetary_natural_unemployment_rate, monetary_rate_floor, monetary_rate_ceiling, monetary_credit_spread, monetary_sovereign_spread, monetary_bond_issuance_treasury_threshold, monetary_bank_primary_dealer_fraction, monetary_bond_maturity_months, monetary_bond_retail_top_n, monetary_rate_change_event_threshold, monetary_policy_rate_step, monetary_deposit_spread, monetary_savings_min_balance, monetary_rate_response_band, monetary_loan_appetite_strength, monetary_loan_appetite_min, monetary_loan_appetite_max, monetary_discretionary_spend_strength, monetary_discretionary_spend_min, monetary_discretionary_spend_max, monetary_expansion_strength, monetary_expansion_min, monetary_expansion_max, monetary_price_pressure_strength, monetary_price_pressure_min, monetary_price_pressure_max, monetary_sell_through_shift_max, monetary_sell_through_shift_strength, monetary_inflation_ema_alpha, monetary_mint_inflation_gap_weight, monetary_mint_unemployment_gap_weight, monetary_mint_max_fraction_expected_supply, monetary_mint_unemployment_inflation_cap_multiplier, monetary_mint_unemployment_inflation_floor_fraction, monetary_cpi_monthly_change_ema_alpha,
             banking_deposit_target_ratio, banking_wallet_buffer_months_person, banking_wallet_buffer_months_company, banking_deposit_insurance_cap, banking_uninsured_haircut_rate, banking_run_health_threshold, banking_run_withdraw_fraction, banking_run_switch_fraction, banking_public_bank_stability_bonus, banking_private_bank_failure_sensitivity, banking_run_min_uninsured_share_trigger, banking_resolution_liquidity_floor, banking_resolution_entry_consecutive_months, banking_resolution_exit_consecutive_months, banking_run_intensity_decay_monthly, banking_terminal_resolution_months, banking_min_private_bank_founders, banking_min_founder_cash_after_contribution, banking_min_private_bank_seed_capital, banking_min_private_seed_to_deposits_ratio, banking_target_people_per_private_bank, banking_max_new_banks_per_month, banking_public_bank_recapitalize_amount, banking_public_health_floor, banking_public_health_liquidity_weight, banking_public_health_capital_weight, banking_public_health_sovereign_support_weight, banking_cross_country_deposit_min_balance, banking_cross_country_deposit_rate_premium, banking_cross_country_deposit_fraction, banking_cross_country_deposit_distress_threshold, banking_bank_employee_job_type_0, banking_bank_employee_job_type_1, banking_bank_employees_per_deposit_unit, banking_bank_min_employees, banking_bank_max_employees, banking_bank_wage_multiplier, banking_initial_private_banks, banking_private_bank_deposit_rate_bonus,
             housing_mortgage_term_months, housing_mortgage_down_payment_rate, housing_mortgage_max_dti, housing_mortgage_spread_over_policy, housing_foreclosure_missed_months, housing_rent_as_fraction_of_price, housing_target_vacancy_rate, housing_max_monthly_price_change, housing_renter_purchase_probability, housing_initial_owner_rate, housing_initial_renter_rate, housing_initial_price_index,
-            annual_wage_raise_market_gap_convergence, annual_wage_raise_min_profit_to_payroll_ratio, labor_mobility_min_tenure_months_before_switch
+            annual_wage_raise_market_gap_convergence, annual_wage_raise_min_profit_to_payroll_ratio, labor_mobility_min_tenure_months_before_switch,
+            goods_market_overhead_lean_threshold, goods_market_overhead_rate_per_employee, goods_market_overhead_efficiency_floor
         ) VALUES (
             ?1,
             ?2, ?3, ?4, ?5, ?6,
@@ -55,7 +56,8 @@ pub(super) fn insert_country_sim_params(
             ?162, ?163, ?164, ?165, ?166, ?167, ?168, ?169, ?170, ?171, ?172, ?173, ?174, ?175, ?176, ?177, ?178, ?179, ?180, ?181, ?182, ?183, ?184, ?185, ?186, ?187, ?188, ?189, ?190, ?191, ?192, ?193, ?194, ?195, ?196, ?197, ?198, ?199,
             ?200, ?201, ?202, ?203, ?204, ?205, ?206, ?207, ?208, ?209, ?210, ?211, ?212, ?213, ?214, ?215, ?216, ?217, ?218, ?219, ?220, ?221, ?222, ?223, ?224, ?225, ?226, ?227, ?228, ?229, ?230, ?231, ?232, ?233, ?234, ?235, ?236, ?237, ?238,
             ?239, ?240, ?241, ?242, ?243, ?244, ?245, ?246, ?247, ?248, ?249, ?250, ?251,
-            ?252, ?253, ?254
+            ?252, ?253, ?254,
+            ?255, ?256, ?257
         )",
         params![
             i64::from(country_id),
@@ -80,6 +82,7 @@ pub(super) fn insert_country_sim_params(
             params_value.banking.deposit_target_ratio, params_value.banking.wallet_buffer_months_person, params_value.banking.wallet_buffer_months_company, params_value.banking.deposit_insurance_cap, params_value.banking.uninsured_haircut_rate, params_value.banking.run_health_threshold, params_value.banking.run_withdraw_fraction, params_value.banking.run_switch_fraction, params_value.banking.public_bank_stability_bonus, params_value.banking.private_bank_failure_sensitivity, params_value.banking.run_min_uninsured_share_trigger, params_value.banking.resolution_liquidity_floor, i64::from(params_value.banking.resolution_entry_consecutive_months), i64::from(params_value.banking.resolution_exit_consecutive_months), params_value.banking.run_intensity_decay_monthly, i64::from(params_value.banking.terminal_resolution_months), params_value.banking.min_private_bank_founders as i64, params_value.banking.min_founder_cash_after_contribution, params_value.banking.min_private_bank_seed_capital, params_value.banking.min_private_seed_to_deposits_ratio, params_value.banking.target_people_per_private_bank as i64, i64::from(params_value.banking.max_new_banks_per_month), params_value.banking.public_bank_recapitalize_amount, params_value.banking.public_health_floor, params_value.banking.public_health_liquidity_weight, params_value.banking.public_health_capital_weight, params_value.banking.public_health_sovereign_support_weight, params_value.banking.cross_country_deposit_min_balance, params_value.banking.cross_country_deposit_rate_premium, params_value.banking.cross_country_deposit_fraction, params_value.banking.cross_country_deposit_distress_threshold, i64::from(params_value.banking.bank_employee_job_types[0]), i64::from(params_value.banking.bank_employee_job_types[1]), params_value.banking.bank_employees_per_deposit_unit, i64::from(params_value.banking.bank_min_employees), i64::from(params_value.banking.bank_max_employees), params_value.banking.bank_wage_multiplier, i64::from(params_value.banking.initial_private_banks), params_value.banking.private_bank_deposit_rate_bonus,
             i64::from(params_value.housing.mortgage_term_months), params_value.housing.mortgage_down_payment_rate, params_value.housing.mortgage_max_dti, params_value.housing.mortgage_spread_over_policy, i64::from(params_value.housing.foreclosure_missed_months), params_value.housing.rent_as_fraction_of_price, params_value.housing.target_vacancy_rate, params_value.housing.max_monthly_price_change, params_value.housing.renter_purchase_probability, params_value.housing.initial_owner_rate, params_value.housing.initial_renter_rate, params_value.housing.initial_price_index,
             params_value.annual_wage_raise.market_gap_convergence, params_value.annual_wage_raise.min_profit_to_payroll_ratio, i64::from(params_value.labor_mobility.min_tenure_months_before_switch),
+            i64::from(params_value.goods_market.overhead_lean_threshold), params_value.goods_market.overhead_rate_per_employee, params_value.goods_market.overhead_efficiency_floor,
         ],
     )?;
     Ok(())
@@ -269,6 +272,15 @@ pub(super) fn load_country_sim_params(
                         .get("goods_market_sell_through_cut_threshold")?,
                     excess_inventory_months: row.get("goods_market_excess_inventory_months")?,
                     excess_inventory_cut_rate: row.get("goods_market_excess_inventory_cut_rate")?,
+                    overhead_lean_threshold: row
+                        .get::<_, i64>("goods_market_overhead_lean_threshold")
+                        .unwrap_or(10) as u32,
+                    overhead_rate_per_employee: row
+                        .get("goods_market_overhead_rate_per_employee")
+                        .unwrap_or(0.01),
+                    overhead_efficiency_floor: row
+                        .get("goods_market_overhead_efficiency_floor")
+                        .unwrap_or(0.50),
                 },
                 tax: crate::sim::params::TaxPolicyParams {
                     bracket_1_max: row.get("tax_bracket_1_max")?,

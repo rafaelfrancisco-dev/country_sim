@@ -29,7 +29,16 @@ pub fn minimum_viable_unit_price(
         .filter(|_| worker_effort_per_month > 0.0 && good.effort_per_unit > 0.0)
         .map(|job_id| salary_for_job(job_id) * (good.effort_per_unit / worker_effort_per_month))
         .unwrap_or(0.0);
-    let baseline_cost = good.base_unit_cost.max(0.0)
+
+    let input_recipe_cost: f64 = recipe_for_good(good_id)
+        .inputs()
+        .map(|(input_id, qty)| {
+            minimum_viable_unit_price(input_id, worker_effort_per_month, min_margin_rate)
+                * f64::from(qty)
+        })
+        .sum();
+
+    let baseline_cost = good.base_unit_cost.max(input_recipe_cost)
         + direct_labor_cost.max(0.0) * DIRECT_LABOR_OVERHEAD_MULTIPLIER;
 
     round_cents(baseline_cost * (1.0 + min_margin_rate.max(0.0)))

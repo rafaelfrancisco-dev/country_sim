@@ -200,7 +200,11 @@ impl Country {
                 .map(|(input_good_id, required_per_unit)| {
                     let unit_cost = self
                         .average_price_for_good(input_good_id)
-                        .max(good_by_id(input_good_id).map_or(0.0, |good| good.base_unit_cost));
+                        .max(minimum_viable_unit_price(
+                            input_good_id,
+                            self.sim_params.goods_market.worker_effort_per_month,
+                            self.sim_params.goods_market.min_margin_rate,
+                        ));
                     sellable_units * f64::from(required_per_unit) * unit_cost
                 })
                 .sum(),

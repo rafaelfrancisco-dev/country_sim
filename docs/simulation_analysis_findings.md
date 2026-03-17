@@ -11,6 +11,28 @@ This document catalogs potential issues discovered during analysis of the countr
 
 ---
 
+## Resolved Issues
+
+### R1. Recipe-Sector Minimum Price Bug *(fixed 2026-03-17)*
+
+**Severity**: High (now resolved)
+**Location**: `src/sim/company.rs` — `minimum_viable_unit_price()`
+
+**Description**:
+`minimum_viable_unit_price()` used `good.base_unit_cost` as a proxy for material input costs. For five recipe-driven sectors, `base_unit_cost` was 4–9× lower than the actual market cost of the required recipe inputs, so those companies always priced below their cost of production.
+
+**Affected sectors**: Clothing, Hygiene Products, Household Goods, Electronics, Appliances.
+
+**Fix**:
+The function now recursively computes actual recipe input cost via `recipe_for_good()` and uses `max(base_unit_cost, input_recipe_cost)` as the material baseline. No infinite recursion — all input goods (Raw Metals, Timber, Fuel) have `MATERIAL_FREE_RECIPE`.
+
+`estimate_startup_monthly_input_cost()` in `viability.rs` was also updated to use `minimum_viable_unit_price()` as the floor (instead of raw `base_unit_cost`) so startup viability checks are consistent.
+
+**Verification**:
+Observed market prices after a 2-year run confirm the new floors hold in-market (Clothing $709–$883, HH Goods $565, Appliances $1,039–$1,269). See `docs/company-input-supply-chains.md` for the full price table.
+
+---
+
 ## High Priority Issues
 
 ### 1. Housing Company Profitability Bug
@@ -273,17 +295,18 @@ Consider adding exchange rate risk mechanics for foreign deposits.
 
 ## Summary Table
 
-| # | Issue | Severity | File |
-|---|-------|----------|------|
-| 1 | Housing Company Profitability Bug | High | `company.rs:334-346` |
-| 2 | Money Minting Counter-Cyclical Logic | Medium | `monthly_money_minting.rs:4-48` |
-| 3 | CPI Annualization Volatility | Medium | `monthly_cpi_bonds.rs:46-51` |
-| 4 | IPO Rescue Moral Hazard | Low | `monthly_company_distress_bankruptcy.rs:97-109` |
-| 5 | Job Switching No Costs | Low | `monthly_startup_formation_pricing/labor_dynamics.rs:47-164` |
-| 6 | Arbitrary Housing Price Multiplier | Low | `monthly_housing.rs:45` |
-| 7 | Unemployment Benefit Edge Case | Low | `monthly_government_spending_initial_listings.rs:101-124` |
-| 8 | Bank Health Score Discrepancy | Low | `accessors.rs:370-386` |
-| 9 | Cross-Country Deposits No FX Risk | Low | `params/monetary_banking.rs:175-183` |
+| # | Issue | Severity | File | Status |
+|---|-------|----------|------|--------|
+| R1 | Recipe-Sector Minimum Price Bug | High | `company.rs` — `minimum_viable_unit_price()` | **Resolved 2026-03-17** |
+| 1 | Housing Company Profitability Bug | High | `company.rs:334-346` | Open |
+| 2 | Money Minting Counter-Cyclical Logic | Medium | `monthly_money_minting.rs:4-48` | Open |
+| 3 | CPI Annualization Volatility | Medium | `monthly_cpi_bonds.rs:46-51` | Open |
+| 4 | IPO Rescue Moral Hazard | Low | `monthly_company_distress_bankruptcy.rs:97-109` | Open |
+| 5 | Job Switching No Costs | Low | `monthly_startup_formation_pricing/labor_dynamics.rs:47-164` | Open |
+| 6 | Arbitrary Housing Price Multiplier | Low | `monthly_housing.rs:45` | Open |
+| 7 | Unemployment Benefit Edge Case | Low | `monthly_government_spending_initial_listings.rs:101-124` | Open |
+| 8 | Bank Health Score Discrepancy | Low | `accessors.rs:370-386` | Open |
+| 9 | Cross-Country Deposits No FX Risk | Low | `params/monetary_banking.rs:175-183` | Open |
 
 ---
 

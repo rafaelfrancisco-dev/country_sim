@@ -30,8 +30,9 @@ impl World {
                     continue;
                 }
 
+                let efficiency = company_production_efficiency(company.employee_count, market);
                 company.production_effort_carry +=
-                    company.manufacturing_employee_count as f64 * daily_effort_per_worker;
+                    company.manufacturing_employee_count as f64 * daily_effort_per_worker * efficiency;
                 let target_units = (company.production_effort_carry / good.effort_per_unit)
                     .floor()
                     .max(0.0) as u32;
@@ -69,12 +70,13 @@ impl World {
             let company_count = self.countries[buyer_country_idx].companies.len();
 
             for company_idx in 0..company_count {
-                let (produced_good_id, manufacturing_employee_count, effort_carry) = {
+                let (produced_good_id, manufacturing_employee_count, effort_carry, employee_count) = {
                     let company = &self.countries[buyer_country_idx].companies[company_idx];
                     (
                         company.produced_good_id,
                         company.manufacturing_employee_count,
                         company.production_effort_carry,
+                        company.employee_count,
                     )
                 };
 
@@ -90,8 +92,9 @@ impl World {
                     continue;
                 }
 
+                let efficiency = company_production_efficiency(employee_count, market);
                 let target_units = ((effort_carry
-                    + manufacturing_employee_count as f64 * daily_effort_per_worker)
+                    + manufacturing_employee_count as f64 * daily_effort_per_worker * efficiency)
                     / good.effort_per_unit)
                     .floor()
                     .max(0.0) as u32;
@@ -499,6 +502,16 @@ impl World {
                     .unwrap_or(0.0);
             }
         }
+    }
+}
+
+fn company_production_efficiency(employee_count: u32, market: GoodsMarketParams) -> f64 {
+    if employee_count <= market.overhead_lean_threshold {
+        1.0
+    } else {
+        let excess = (employee_count - market.overhead_lean_threshold) as f64;
+        (1.0 / (1.0 + market.overhead_rate_per_employee * excess))
+            .max(market.overhead_efficiency_floor)
     }
 }
 

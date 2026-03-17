@@ -167,7 +167,7 @@ fn higher_policy_rates_reduce_price_pressure_and_inflation() {
     let mut companies = build_default_companies("A", 1);
     companies[0].open_positions.clear();
     companies[0].produced_good_id = 0;
-    companies[0].unit_price = 20.0;
+    companies[0].unit_price = 120.0;
     companies[0].inventory_units = 100;
     companies[0].last_month_units_sold = 1_000;
     companies[0].last_month_sales = 20_000.0;
@@ -187,11 +187,13 @@ fn higher_policy_rates_reduce_price_pressure_and_inflation() {
         params.clone(),
     );
     low_rate_country.policy_rate = 0.01;
+    low_rate_country.cpi_index = 1.0;
     low_rate_country.process_month();
 
     let mut high_rate_country =
         Country::with_economy_and_params(1, "A".to_string(), vec![person], companies, 0.0, params);
     high_rate_country.policy_rate = 0.15;
+    high_rate_country.cpi_index = 1.0;
     high_rate_country.process_month();
 
     assert!(low_rate_country.companies[0].unit_price > high_rate_country.companies[0].unit_price);

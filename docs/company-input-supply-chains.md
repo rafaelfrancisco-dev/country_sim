@@ -225,6 +225,54 @@ This makes upstream goods like `Raw Metals`, `Timber`, and `Fuel` startable even
 
 Generator seeding also ensures the initial economy includes producers for the new upstream goods so downstream sectors do not deadlock immediately.
 
+## Minimum Viable Unit Price
+
+Every good has a floor price below which no company should operate: `minimum_viable_unit_price(good_id, worker_effort_per_month, min_margin_rate)` in `src/sim/company.rs`.
+
+### Formula
+
+```
+input_recipe_cost = Σ minimum_viable_unit_price(input_good_id) × qty_required
+baseline_cost     = max(good.base_unit_cost, input_recipe_cost)
+                  + direct_labor_cost × DIRECT_LABOR_OVERHEAD_MULTIPLIER (2.5×)
+floor_price       = baseline_cost × (1 + min_margin_rate)
+```
+
+### Why `max(base_unit_cost, input_recipe_cost)` not `+`
+
+`base_unit_cost` was designed as a catch-all material cost for goods that lacked explicit recipes, and it already captures full input cost for goods like Housing ($520 ≥ Timber+RawMetal at $344). Adding recipe cost on top would double-count. Using `max` means:
+
+- Recipe-free goods (Water, Food, Electricity, Raw Metals, Timber, Fuel, …): recipe cost is 0, so `base_unit_cost` wins.
+- Goods where `base_unit_cost` understates actual recipe cost: recipe cost wins. This was the root cause of the structural pricing bug below.
+- Goods where `base_unit_cost` is already generous (Housing, Cars): `base_unit_cost` wins, no double-count.
+
+No infinite recursion: all input goods (Raw Metals, Timber, Fuel) have `MATERIAL_FREE_RECIPE`, so the recursive call bottoms out immediately.
+
+### Structural pricing bug — root cause and fix (2026-03-17)
+
+For five recipe-driven sectors, `base_unit_cost` badly understated the actual cost of the required inputs at market prices:
+
+| Good            | base_unit_cost | actual recipe cost at min-viable inputs | old floor | new floor |
+|-----------------|---------------:|-----------------------------------------:|----------:|----------:|
+| Clothing        |            $38 |                          $159 (×1 Timber) |      $193 |      ~$333 |
+| Hygiene Products|            $22 |                          $176 (×1 Fuel)   |      $149 |      ~$326 |
+| Household Goods |            $58 |              $335 (×1 Timber + ×1 Fuel)  |      ~$220 |      ~$565 |
+| Electronics     |           $180 |             $361 (×1 RawMetal + ×1 Fuel) |      $562 |      ~$771 |
+| Appliances      |           $240 |            $546 (×2 RawMetal + ×1 Fuel)  |      $687 |     ~$1,040 |
+
+Before the fix, companies in these sectors set their initial price at the (too-low) floor, then immediately operated below their actual cost of materials. Dynamic loss-recovery pricing (`close_month`) can eventually self-correct (up to 25%/month), but many companies exhausted their starting cash before reaching a viable price.
+
+The fix makes `minimum_viable_unit_price()` recursively compute actual recipe input cost, so the floor already reflects true material cost at model launch. Observed market prices after a 2-year run confirm the new floors hold:
+
+| Good            | Observed avg price (2yr) |
+|-----------------|-------------------------:|
+| Clothing        |                  $709–$883 |
+| Hygiene Products|                  $594–$836 |
+| Household Goods |                       $565 |
+| Appliances      |               $1,039–$1,269 |
+
+The same corrected floor is used in `estimate_startup_monthly_input_cost()` so startup viability checks reflect true input costs even when market prices have not yet propagated.
+
 ## Limits of This Pass
 This is deliberately a first pass, not a full industrial IO model.
 

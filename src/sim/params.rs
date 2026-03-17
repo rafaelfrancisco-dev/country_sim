@@ -360,6 +360,9 @@ pub struct GoodsMarketParams {
     pub sell_through_cut_threshold: f64,
     pub excess_inventory_months: f64,
     pub excess_inventory_cut_rate: f64,
+    pub overhead_lean_threshold: u32,
+    pub overhead_rate_per_employee: f64,
+    pub overhead_efficiency_floor: f64,
 }
 
 impl Default for GoodsMarketParams {
@@ -374,6 +377,9 @@ impl Default for GoodsMarketParams {
             sell_through_cut_threshold: 0.70,
             excess_inventory_months: 2.0,
             excess_inventory_cut_rate: 0.05,
+            overhead_lean_threshold: 10,
+            overhead_rate_per_employee: 0.01,
+            overhead_efficiency_floor: 0.50,
         }
     }
 }

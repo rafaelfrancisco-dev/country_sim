@@ -193,6 +193,7 @@ fn discretionary_superficial_purchase_obeys_affordability_gate_and_depletes_stoc
 
     let country = Country::with_economy(0, "A".to_string(), vec![person], companies, 1_000.0);
     let mut world = World::new(vec![country]);
+    world.countries[0].sim_params.company_distress.loss_distress_month_threshold = u8::MAX;
     for _ in 0..180 {
         world.tick_day();
     }
