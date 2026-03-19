@@ -7,6 +7,7 @@ use crate::sim::{
 use rayon::prelude::*;
 
 mod day_cache;
+mod day_cache_runtime;
 mod demand_sampling;
 mod entrypoints;
 mod quotes_and_tariffs;

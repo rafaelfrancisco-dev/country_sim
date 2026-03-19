@@ -21,6 +21,7 @@ mod monthly_essential_needs;
 mod monthly_government_spending_initial_listings;
 mod monthly_growth_backfill_public_wages;
 mod monthly_housing;
+mod monthly_housing_lending;
 mod monthly_ipo_rescue_collateral_seizure;
 mod monthly_labor_churn_separations;
 mod monthly_money_minting;
