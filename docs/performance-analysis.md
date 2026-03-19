@@ -30,6 +30,8 @@ Rayon threads plan in parallel, then all purchases are applied serially per good
 
 ## LOW
 
+*(Issues #21–#23 have been fixed — see commit history.)*
+
 **17. Rayon dispatch decision re-evaluated every tick** (`world/tick.rs:76–88`)
 `dispatch_countries()` checks `countries.len()` at runtime every call. Fix: compute once on `World` creation, store as `bool`.
 
@@ -41,6 +43,15 @@ If trader counts stay small, `Vec + dedup` is faster. Profile to decide.
 
 **20. `format!()` / `.to_string()` on event label strings at construction time**
 Constant labels like disaster types allocated as `String` at event creation. Fix: `&'static str` or a `u8` discriminant, converting to string only in the UI.
+
+**21. Per-chunk rayon allocation in payroll liquidity pass** (`country/monthly/monthly_orchestration_payroll_loans.rs`)
+`ensure_company_payroll_liquidity()` allocated `vec![0_i64; company_count]` once per rayon chunk — at 1M people / 2048 chunk size that is ~488 allocations per month. Fixed: replaced `map().collect()` + manual reduce loop with rayon `fold()/reduce()`, which allocates once per worker thread (~8). Status: **Done**.
+
+**22. Per-chunk rayon allocation in headcount recompute** (`country/daily/mod.rs`)
+`recompute_company_headcounts()` had the same per-chunk `vec![(0_u32, 0_u32); company_count]` allocation pattern. Fixed with the same `fold()/reduce()` approach; also removed a borrow conflict by snapshotting `produced_good_ids: Vec<u8>` before the parallel section. Status: **Done**.
+
+**23. Second O(N) sequential scan for birthday membership refresh** (`country/daily/mod.rs`)
+`age_people_one_day()` performed the first pass (parallel aging) and then a second full sequential scan over all people to find `age_days % 365 == 0`. At 1M people × 448 bytes/person that is an unnecessary 448 MB of sequential reads per day. Fixed: birthday indices are collected inside the first pass (both parallel and serial paths) into a reusable `CountryDailyScratch::birthday_indices` buffer; the second pass now only visits ~2740 birthday people per day. Status: **Done**.
 
 ---
 
@@ -70,4 +81,7 @@ Month-close export and history now use cached country aggregates plus cached ban
 | 7 | HashMap → Vec for bank positions (High #7) | 1–2% | Done |
 | 8 | `SimulationParams` no-clone (High #8) | 2–3% | Done |
 | 9 | Sequential goods apply phase (High #9) | 2–4% | Deferred |
-| 10 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Open |
+| 10 | `refresh_habilitation_from_age` gating (Medium #14) | 2–5% | Done (gated in `increment_age_one_day`) |
+| 11 | Per-chunk rayon alloc in payroll pass (#21) | 1–3% | Done |
+| 12 | Per-chunk rayon alloc in headcount recompute (#22) | 1–3% | Done |
+| 13 | Second O(N) birthday scan (#23) | 2–5% | Done |

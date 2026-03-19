@@ -49,7 +49,7 @@ impl Country {
     }
 
     fn run_daily_lifecycle_with_scratch(&mut self, scratch: &mut CountryDailyScratch) {
-        self.age_people_one_day();
+        self.age_people_one_day(scratch);
         self.apply_daily_deaths(scratch);
         self.create_daily_births();
         self.process_daily_job_market(scratch);
@@ -63,7 +63,7 @@ impl Country {
         trace: &mut crate::sim::trace::CountryDailyTrace,
     ) {
         let started = Instant::now();
-        self.age_people_one_day();
+        self.age_people_one_day(scratch);
         trace.age_ms = crate::sim::trace::duration_ms(started.elapsed());
 
         let started = Instant::now();
@@ -82,25 +82,44 @@ impl Country {
         self.process_daily_job_switches();
     }
 
-    fn age_people_one_day(&mut self) {
+    fn age_people_one_day(&mut self, scratch: &mut CountryDailyScratch) {
+        scratch.birthday_indices.clear();
+
         if self.use_inner_parallelism {
-            self.people
+            // Parallel increment: each chunk returns the local indices of people whose birthday
+            // just ticked over (age_days % 365 == 0 after the increment).  We collect these into
+            // `scratch.birthday_indices` so we can call the country-level runtime refresh without
+            // a second O(N) scan.
+            let chunk_birthdays: Vec<Vec<usize>> = self
+                .people
                 .par_chunks_mut(PEOPLE_CHUNK_SIZE)
-                .for_each(|chunk| {
-                    for person in chunk {
+                .enumerate()
+                .map(|(chunk_idx, chunk)| {
+                    let base = chunk_idx * PEOPLE_CHUNK_SIZE;
+                    let mut local: Vec<usize> = Vec::new();
+                    for (i, person) in chunk.iter_mut().enumerate() {
                         person.increment_age_one_day();
+                        if person.age_days % 365 == 0 {
+                            local.push(base + i);
+                        }
                     }
-                });
+                    local
+                })
+                .collect();
+            for chunk in chunk_birthdays {
+                scratch.birthday_indices.extend(chunk);
+            }
         } else {
-            for person in &mut self.people {
+            for (idx, person) in self.people.iter_mut().enumerate() {
                 person.increment_age_one_day();
+                if person.age_days % 365 == 0 {
+                    scratch.birthday_indices.push(idx);
+                }
             }
         }
 
-        for person_idx in 0..self.people.len() {
-            if self.people[person_idx].age_days % 365 == 0 {
-                self.refresh_person_runtime_membership(person_idx);
-            }
+        for &person_idx in &scratch.birthday_indices {
+            self.refresh_person_runtime_membership(person_idx);
         }
     }
 
@@ -377,39 +396,50 @@ impl Country {
         }
         if self.use_inner_parallelism {
             let company_count = self.companies.len();
-            let counts_by_chunk = self
+            // Snapshot produced_good_id for each company (avoids borrow conflict inside closure).
+            let produced_good_ids: Vec<u8> =
+                self.companies.iter().map(|c| c.produced_good_id).collect();
+            let totals = self
                 .people
                 .par_chunks(PEOPLE_CHUNK_SIZE)
-                .map(|chunk| {
-                    let mut local = vec![(0_u32, 0_u32); company_count];
-                    for person in chunk {
-                        let Some(company_id) = person.employer_company_id() else {
-                            continue;
-                        };
-                        let company_idx = company_id as usize;
-                        if let Some((headcount, manufacturing)) = local.get_mut(company_idx) {
-                            *headcount = headcount.saturating_add(1);
-                            let Some(company) = self.companies.get(company_idx) else {
+                .fold(
+                    || vec![(0_u32, 0_u32); company_count],
+                    |mut local, chunk| {
+                        for person in chunk {
+                            let Some(company_id) = person.employer_company_id() else {
                                 continue;
                             };
-                            if person.job_type_id().is_some_and(|job_id| {
-                                is_production_job_for_good(company.produced_good_id, job_id)
-                            }) {
-                                *manufacturing = manufacturing.saturating_add(1);
+                            let company_idx = company_id as usize;
+                            if let Some((headcount, manufacturing)) = local.get_mut(company_idx) {
+                                *headcount = headcount.saturating_add(1);
+                                if let Some(&good_id) = produced_good_ids.get(company_idx) {
+                                    if person.job_type_id().is_some_and(|job_id| {
+                                        is_production_job_for_good(good_id, job_id)
+                                    }) {
+                                        *manufacturing = manufacturing.saturating_add(1);
+                                    }
+                                }
                             }
                         }
-                    }
-                    local
-                })
-                .collect::<Vec<_>>();
-            for local_counts in counts_by_chunk {
-                for (company_idx, (count, manufacturing)) in local_counts.into_iter().enumerate() {
-                    if let Some(company) = self.companies.get_mut(company_idx) {
-                        company.employee_count = company.employee_count.saturating_add(count);
-                        company.manufacturing_employee_count = company
-                            .manufacturing_employee_count
-                            .saturating_add(manufacturing);
-                    }
+                        local
+                    },
+                )
+                .reduce(
+                    || vec![(0_u32, 0_u32); company_count],
+                    |mut a, b| {
+                        for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                            ai.0 = ai.0.saturating_add(bi.0);
+                            ai.1 = ai.1.saturating_add(bi.1);
+                        }
+                        a
+                    },
+                );
+            for (company_idx, (count, manufacturing)) in totals.into_iter().enumerate() {
+                if let Some(company) = self.companies.get_mut(company_idx) {
+                    company.employee_count = company.employee_count.saturating_add(count);
+                    company.manufacturing_employee_count = company
+                        .manufacturing_employee_count
+                        .saturating_add(manufacturing);
                 }
             }
         } else {

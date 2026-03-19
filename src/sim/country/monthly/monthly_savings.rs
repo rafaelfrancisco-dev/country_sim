@@ -17,7 +17,7 @@ impl Country {
             }
             let monthly_rate = deposit_rate / 12.0;
 
-            let mut people_interest = Vec::new();
+            let mut people_interest = Vec::with_capacity(self.people.len() / 10);
             for (idx, person) in self.people.iter().enumerate() {
                 if person.deposit_bank_id != Some(bank_id) || person.cash_balance <= min_balance {
                     continue;
@@ -28,7 +28,7 @@ impl Country {
                 }
             }
 
-            let mut company_interest = Vec::new();
+            let mut company_interest = Vec::with_capacity(self.companies.len() / 4 + 1);
             for (idx, company) in self.companies.iter().enumerate() {
                 if company.deposit_bank_id != Some(bank_id) || company.cash_balance <= min_balance {
                     continue;
@@ -119,7 +119,7 @@ impl Country {
         let target_rate = self.deposit_rate_for(target_bank_id);
         let min_balance = self.sim_params.monetary.savings_min_balance.max(0.0);
 
-        let mut person_moves: Vec<usize> = Vec::new();
+        let mut person_moves: Vec<usize> = Vec::with_capacity(self.people.len() / 50 + 1);
         for (idx, person) in self.people.iter().enumerate() {
             let Some(source_bank_id) = person.deposit_bank_id else {
                 continue;
@@ -151,7 +151,7 @@ impl Country {
             }
         }
 
-        let mut company_moves: Vec<usize> = Vec::new();
+        let mut company_moves: Vec<usize> = Vec::with_capacity(self.companies.len() / 10 + 1);
         for (idx, company) in self.companies.iter().enumerate() {
             let Some(source_bank_id) = company.deposit_bank_id else {
                 continue;

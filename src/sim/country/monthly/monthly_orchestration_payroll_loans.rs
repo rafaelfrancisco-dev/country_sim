@@ -228,32 +228,31 @@ impl Country {
     pub(super) fn ensure_company_payroll_liquidity(&mut self) {
         let company_count = self.companies.len();
         let payroll_requirements_cents = if self.use_inner_parallelism {
-            let payroll_by_chunk_cents = self
-                .people
+            self.people
                 .par_chunks(PEOPLE_CHUNK_SIZE)
-                .map(|chunk| {
-                    let mut local = vec![0_i64; company_count];
-                    for person in chunk {
-                        let Some(company_id) = person.employer_company_id() else {
-                            continue;
-                        };
-                        let company_idx = company_id as usize;
-                        if let Some(total) = local.get_mut(company_idx) {
-                            *total = total.saturating_add(to_cents(person.monthly_salary()));
+                .fold(
+                    || vec![0_i64; company_count],
+                    |mut local, chunk| {
+                        for person in chunk {
+                            let Some(company_id) = person.employer_company_id() else {
+                                continue;
+                            };
+                            if let Some(total) = local.get_mut(company_id as usize) {
+                                *total = total.saturating_add(to_cents(person.monthly_salary()));
+                            }
                         }
-                    }
-                    local
-                })
-                .collect::<Vec<_>>();
-            let mut totals = vec![0_i64; company_count];
-            for chunk_totals in payroll_by_chunk_cents {
-                for (company_idx, cents) in chunk_totals.into_iter().enumerate() {
-                    if let Some(total) = totals.get_mut(company_idx) {
-                        *total = total.saturating_add(cents);
-                    }
-                }
-            }
-            totals
+                        local
+                    },
+                )
+                .reduce(
+                    || vec![0_i64; company_count],
+                    |mut a, b| {
+                        for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                            *ai = ai.saturating_add(*bi);
+                        }
+                        a
+                    },
+                )
         } else {
             let mut totals = vec![0_i64; company_count];
             for person in &self.people {

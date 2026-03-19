@@ -49,6 +49,9 @@ struct LaborMarketIndex {
 #[derive(Debug, Default)]
 pub(super) struct CountryDailyScratch {
     pub(super) death_flags: Vec<u8>,
+    /// Birthday indices collected during `age_people_one_day` — reused each day to avoid
+    /// a second O(N) scan over people just for the runtime-membership refresh.
+    pub(super) birthday_indices: Vec<usize>,
     labor_market: LaborMarketIndex,
     intents_by_chunk: Vec<Vec<JobSeekIntent>>,
 }
