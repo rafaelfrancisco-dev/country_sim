@@ -300,7 +300,6 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> CountryWithC
     let household_supply = round_cents(total_supply * 0.5);
     let company_supply = round_cents(total_supply - household_supply);
 
-    population::seed_balances_to_people(&mut people, household_supply);
     population::seed_balances_to_companies(&mut companies, company_supply);
 
     let mut country = Country::with_economy_and_params(
@@ -317,7 +316,8 @@ fn generate_country(config: &GenerationConfig, country_idx: u16) -> CountryWithC
     companies::fund_initial_bank_reserve(&mut country);
     companies::seed_initial_bank_openings(&mut country);
     super::generator_banks::seed_initial_private_banks(&mut country);
-    population::seed_initial_housing(&mut country);
+    // Single parallel pass: cash balances + housing (replaces two separate sequential O(P) loops)
+    population::seed_balances_and_housing(&mut country, household_supply);
     country.rebuild_households();
     country.seed_initial_ipos();
     CountryWithCurrencySpec {

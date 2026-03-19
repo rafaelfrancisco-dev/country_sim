@@ -140,19 +140,29 @@ pub(super) fn rebalance_essential_sector_workforce(
     companies: &[Company],
     sim_params: &SimulationParams,
 ) {
-    let mut employed_candidates = Vec::new();
-    let mut unemployed_candidates = Vec::new();
-    for (person_idx, person) in people.iter().enumerate() {
-        if person.employer_bank_id().is_some() {
-            continue;
-        }
-
-        if person.is_employed() {
-            employed_candidates.push(person_idx);
-        } else {
-            unemployed_candidates.push(person_idx);
-        }
-    }
+    // Parallel: collect employed candidates first, then unemployed (maintains priority order)
+    let mut employed_candidates: Vec<usize> = people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(idx, p)| {
+            if p.employer_bank_id().is_none() && p.is_employed() {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .collect();
+    let unemployed_candidates: Vec<usize> = people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(idx, p)| {
+            if p.employer_bank_id().is_none() && !p.is_employed() {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .collect();
     employed_candidates.extend(unemployed_candidates);
 
     let mut candidate_cursor = 0usize;

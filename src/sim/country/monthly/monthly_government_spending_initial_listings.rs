@@ -279,9 +279,11 @@ impl Country {
             company_id: listing_id,
         };
 
+        // Use O(1) runtime index to avoid an O(P) linear scan per subscriber.
         for (person_id, alloc, cost) in &subscriptions {
-            if let Some(person) = self.people.iter_mut().find(|p| p.id == *person_id) {
-                person.cash_balance = round_cents(person.cash_balance - cost);
+            if let Some(person_idx) = self.runtime.person_idx(*person_id) {
+                self.people[person_idx].cash_balance =
+                    round_cents(self.people[person_idx].cash_balance - cost);
                 self.stock_market
                     .person_portfolio_mut(*person_id)
                     .add_shares(security_id, *alloc, price_per_share);

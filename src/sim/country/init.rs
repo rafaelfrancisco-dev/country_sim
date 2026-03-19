@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use rayon::prelude::*;
+
 use super::Country;
 #[cfg(test)]
 use crate::sim::company::{DEFAULT_COMPANIES_PER_COUNTRY, build_default_companies};
@@ -208,16 +210,22 @@ impl Country {
             return;
         }
 
-        let housed_adults = self
+        // Pass 1 (parallel): collect housed-adult indices; order is preserved by par_iter enumerate
+        let housed_adults: Vec<usize> = self
             .people
-            .iter()
+            .par_iter()
             .enumerate()
-            .filter(|(_, person)| {
-                person.age_years() >= 18
+            .filter_map(|(idx, person)| {
+                if person.age_years() >= 18
                     && !matches!(person.housing, crate::sim::person::HousingStatus::Unhoused)
+                {
+                    Some(idx)
+                } else {
+                    None
+                }
             })
-            .map(|(idx, _)| idx)
-            .collect::<Vec<_>>();
+            .collect();
+
         let desired_count = estimated_household_count(&self.sim_params.essentials, population);
         let household_count = if housed_adults.is_empty() {
             desired_count.min(population)
@@ -226,16 +234,20 @@ impl Country {
         };
 
         let mut member_counts = vec![0_u16; household_count];
-        for person in &mut self.people {
-            person.household_id = u32::MAX;
-        }
 
+        // Pass 2 (parallel): reset all household_ids to sentinel
+        self.people
+            .par_iter_mut()
+            .for_each(|person| person.household_id = u32::MAX);
+
+        // Pass 3 (sequential, O(housed_adults)): assign housed adults round-robin
         for (offset, person_idx) in housed_adults.iter().copied().enumerate() {
             let household_idx = offset % household_count;
             self.people[person_idx].household_id = household_idx as u32;
             member_counts[household_idx] = member_counts[household_idx].saturating_add(1);
         }
 
+        // Pass 4 (sequential, O(remaining)): assign children + unhoused sequentially
         let mut next_household_idx = 0usize;
         for person in &mut self.people {
             if person.household_id != u32::MAX {
@@ -247,14 +259,29 @@ impl Country {
             next_household_idx = next_household_idx.saturating_add(1);
         }
 
+        // Pass 5 (parallel): compute sheltered flag per household
         let mut sheltered = vec![false; household_count];
-        for person in &self.people {
-            let household_idx = person.household_id as usize;
-            if household_idx < household_count
-                && !matches!(person.housing, crate::sim::person::HousingStatus::Unhoused)
-            {
-                sheltered[household_idx] = true;
-            }
+        // Collect (household_idx, is_sheltered) pairs in parallel, then apply sequentially.
+        // The fold+reduce approach avoids per-element heap allocation while staying parallel.
+        let sheltered_flags: Vec<usize> = self
+            .people
+            .par_iter()
+            .filter_map(|person| {
+                let household_idx = person.household_id as usize;
+                if household_idx < household_count
+                    && !matches!(
+                        person.housing,
+                        crate::sim::person::HousingStatus::Unhoused
+                    )
+                {
+                    Some(household_idx)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for idx in sheltered_flags {
+            sheltered[idx] = true;
         }
 
         self.households = (0..household_count)

@@ -99,8 +99,9 @@ impl Country {
             }
 
             for (person_id, alloc, cost) in &subscriptions {
-                if let Some(person) = self.people.iter_mut().find(|p| p.id == *person_id) {
-                    person.cash_balance = round_cents((person.cash_balance - cost).max(0.0));
+                if let Some(person_idx) = self.runtime.person_idx(*person_id) {
+                    self.people[person_idx].cash_balance =
+                        round_cents((self.people[person_idx].cash_balance - cost).max(0.0));
                     self.stock_market
                         .person_portfolio_mut(*person_id)
                         .add_shares(security_id, *alloc, offer_price);

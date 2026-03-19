@@ -14,9 +14,10 @@ impl Country {
             .collect();
 
         for (person_id, monthly_payment) in people_with_loans {
-            let Some(person) = self.people.iter_mut().find(|p| p.id == person_id) else {
+            let Some(person_idx) = self.runtime.person_idx(person_id) else {
                 continue;
             };
+            let person = &mut self.people[person_idx];
 
             if let Some(portfolio) = self.stock_market.person_portfolios.get_mut(&person_id) {
                 portfolio.pledge_all();
@@ -84,8 +85,9 @@ impl Country {
                 proceeds = round_cents(proceeds + sale_proceeds);
                 total_liquidated_shares = total_liquidated_shares.saturating_add(shares_to_sell);
 
-                if let Some(p) = self.people.iter_mut().find(|p| p.id == person_id) {
-                    p.cash_balance = round_cents(p.cash_balance + sale_proceeds);
+                if let Some(person_idx) = self.runtime.person_idx(person_id) {
+                    self.people[person_idx].cash_balance =
+                        round_cents(self.people[person_idx].cash_balance + sale_proceeds);
                 }
                 self.stock_market.bank_portfolio.add_shares(
                     crate::sim::stock_market::StockSecurityId {
