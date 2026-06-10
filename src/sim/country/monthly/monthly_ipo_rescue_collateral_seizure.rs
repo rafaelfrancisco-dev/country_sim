@@ -262,6 +262,10 @@ impl Country {
         let primary_raised = round_cents(primary_shares_sold as f64 * price_per_share);
         let secondary_raised = round_cents(secondary_shares_sold as f64 * price_per_share);
         let total_raised = round_cents(primary_raised + secondary_raised);
+        // Unsold pre-IPO shares model untracked insider ownership: they stay in
+        // `shares_outstanding` so the valuation denominator is the same at IPO
+        // pricing and in daily value-gap pricing (their dividend slice is simply
+        // retained by the company, like treasury shares).
         let shares_outstanding = pre_ipo_shares.saturating_add(primary_shares_sold);
 
         let mut founder_payout_total = 0.0_f64;

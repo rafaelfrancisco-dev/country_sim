@@ -2,7 +2,6 @@ mod accessors;
 mod bank_history;
 mod cross_country_banking;
 mod cross_country_migration;
-mod cross_country_stock_investing;
 mod cross_market_stock;
 mod export;
 mod fx;

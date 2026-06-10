@@ -119,8 +119,9 @@ impl Country {
                 equity.free_float_shares =
                     equity.free_float_shares.saturating_add(shares_allocated);
             }
+            self.stock_market.rebase_index_for_share_change(company_id);
 
-            if let Some(company) = self.companies.get_mut(company_id as usize) {
+            if let Some(company) = self.companies.get_mut(current_company_id as usize) {
                 company.cash_balance = round_cents(company.cash_balance + raised);
             }
 

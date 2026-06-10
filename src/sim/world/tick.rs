@@ -40,7 +40,6 @@ impl World {
             self.process_cross_market_stock_dividends();
             self.cleanup_stale_cross_market_positions();
             self.process_cross_country_deposits();
-            self.process_cross_country_bank_stock_investing();
             hooks.run_monthly_tariff_adjust(self);
             self.update_fx_rates();
             hooks.run_monthly_rate_update(self);

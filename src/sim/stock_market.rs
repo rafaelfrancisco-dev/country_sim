@@ -353,6 +353,21 @@ impl StockMarket {
         assigned_ticker
     }
 
+    /// Recompute one listing's market cap after a share-count change and scale
+    /// `index_base` by the cap ratio so that issuing shares at market price does
+    /// not move the index (standard cap-weighted divisor adjustment).
+    pub fn rebase_index_for_share_change(&mut self, listing_id: u16) {
+        let before_cap = self.total_market_cap();
+        let Some(equity) = self.listed.get_mut(&listing_id) else {
+            return;
+        };
+        equity.market_cap = equity.last_price * equity.shares_outstanding as f64;
+        let after_cap = self.total_market_cap();
+        if self.index_base > 0.0 && before_cap > 0.0 && after_cap > 0.0 {
+            self.index_base *= after_cap / before_cap;
+        }
+    }
+
     pub fn next_listing_id(&self, preferred_company_id: u16) -> u16 {
         let mut candidate = preferred_company_id;
         while self.listed.contains_key(&candidate) {
@@ -369,19 +384,10 @@ impl StockMarket {
         }) else {
             return 0;
         };
-        let before_cap = self.total_market_cap();
-        let removed_cap = self
-            .listed
-            .remove(&security_id)
-            .map_or(0.0, |equity| equity.market_cap.max(0.0));
-        let after_cap = self.total_market_cap();
-        if self.index_base > 0.0 && before_cap > 0.0 && removed_cap > 0.0 {
-            if after_cap > 0.0 {
-                self.index_base *= after_cap / before_cap;
-            } else {
-                self.index_base = 0.0;
-            }
-        }
+        // No divisor adjustment on bankruptcy: holders are wiped, so the index
+        // must register the lost market cap as a decline (a delisting at value
+        // zero), unlike orderly additions which rescale `index_base`.
+        self.listed.remove(&security_id);
         let mut total_wiped = 0_u64;
         for portfolio in self.person_portfolios.values_mut() {
             total_wiped = total_wiped.saturating_add(portfolio.wipe_security(StockSecurityId {

@@ -297,7 +297,9 @@ impl Country {
                 .add_shares(security_id, bank_alloc, price_per_share);
         }
 
-        // Register listing: founder shares + float sold.
+        // Register listing: founder/insider shares + float sold. Unsold insider
+        // shares stay in the outstanding count so IPO pricing and daily value-gap
+        // pricing use the same per-share denominator.
         let total_shares = initial_shares + shares_allocated;
         let ticker = StockMarket::generate_ticker(company_id, &company_name);
         let equity = ListedEquity::new(
