@@ -200,10 +200,19 @@ fn apply_population_loss(country: &mut Country, intensity_pct: u8) -> usize {
                 });
             }
         }
-        country
-            .stock_market_mut()
-            .person_portfolios
-            .remove(&person.id);
+        // Estate transfer (same policy as natural deaths): the bank takes custody
+        // of the casualty's shares. Dropping the portfolio outright would destroy
+        // held shares and break the share-conservation invariant.
+        let market = country.stock_market_mut();
+        if let Some(portfolio) = market.person_portfolios.remove(&person.id) {
+            for position in portfolio.positions {
+                market.bank_portfolio.add_shares(
+                    position.security_id,
+                    position.shares,
+                    position.avg_cost,
+                );
+            }
+        }
     }
 
     count

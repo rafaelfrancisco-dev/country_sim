@@ -208,6 +208,19 @@ impl Country {
                 });
             }
 
+            // Estate: the bank takes custody of a deceased holder's stocks so the
+            // shares stay tradeable (maker asks recycle excess inventory) and
+            // dividends keep a living recipient; cash escheats to the treasury above.
+            if let Some(portfolio) = self.stock_market.person_portfolios.remove(&person_id) {
+                for position in portfolio.positions {
+                    self.stock_market.bank_portfolio.add_shares(
+                        position.security_id,
+                        position.shares,
+                        position.avg_cost,
+                    );
+                }
+            }
+
             use crate::sim::person::HousingStatus;
             match &people[read_idx].housing {
                 HousingStatus::Owner => {

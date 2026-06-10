@@ -151,6 +151,16 @@ impl World {
                             country_idx,
                             person_id,
                         } => {
+                            // Resolve the holder before any cash moves: a ghost
+                            // holder (estate handling should prevent these) must
+                            // not absorb the company's payout into the void.
+                            let Some(person_idx) = self.countries[country_idx]
+                                .people
+                                .iter()
+                                .position(|person| person.id == person_id)
+                            else {
+                                continue;
+                            };
                             let tax = round_cents(gross * 0.15);
                             let net = round_cents(gross - tax);
                             let net_local = if country_idx == listing_country_idx {
@@ -167,12 +177,8 @@ impl World {
                                 }
                                 settlement.payee_amount_local
                             };
-                            if let Some(person_idx) = self.countries[country_idx]
-                                .people
-                                .iter()
-                                .position(|person| person.id == person_id)
-                                && let Some(person) =
-                                    self.countries[country_idx].people.get_mut(person_idx)
+                            if let Some(person) =
+                                self.countries[country_idx].people.get_mut(person_idx)
                             {
                                 person.cash_balance = round_cents(person.cash_balance + net_local);
                             }

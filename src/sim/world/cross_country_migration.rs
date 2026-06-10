@@ -307,11 +307,17 @@ impl World {
         };
 
         let to_country_name = self.countries[dest_idx].name().to_string();
-        let (from_country_name, current_day, mut person, source_bank_transfer) = {
+        let (from_country_name, current_day, mut person, source_bank_transfer, migrating_portfolio) = {
             let source_country = &mut self.countries[source_idx];
             let from_country_name = source_country.name().to_string();
             let current_day = source_country.day();
             let mut person = source_country.people.remove(person_idx);
+            // The portfolio travels with the migrant; positions are world-scoped
+            // (security ids carry the listing country), so they stay valid abroad.
+            let migrating_portfolio = source_country
+                .stock_market
+                .person_portfolios
+                .remove(&person.id);
             let source_bank_transfer = transfer_person_loan_out(source_country, &mut person);
             unwind_housing_departure(source_country, &person);
             let previous_salary = person.monthly_salary();
@@ -333,13 +339,33 @@ impl World {
             person.deposit_bank_id = None;
             person.foreign_deposit = None;
             person.housing = HousingStatus::Unhoused;
-            (from_country_name, current_day, person, source_bank_transfer)
+            (
+                from_country_name,
+                current_day,
+                person,
+                source_bank_transfer,
+                migrating_portfolio,
+            )
         };
 
         {
             let destination_country = &mut self.countries[dest_idx];
             transfer_person_loan_in(destination_country, &mut person, source_bank_transfer);
             let migrated_person_id = assign_destination_person_id(destination_country, &mut person);
+            if let Some(portfolio) = migrating_portfolio {
+                // Merge under the (possibly reassigned) id rather than insert, in
+                // case a stale portfolio already exists under that key.
+                let destination_portfolio = destination_country
+                    .stock_market
+                    .person_portfolio_mut(migrated_person_id);
+                for position in portfolio.positions {
+                    destination_portfolio.add_shares(
+                        position.security_id,
+                        position.shares,
+                        position.avg_cost,
+                    );
+                }
+            }
             person.current_country_id = destination_country.id();
             person.deposit_bank_id = destination_country.public_bank_id_or_first();
             person.record_migration(destination_country.id(), current_day);
