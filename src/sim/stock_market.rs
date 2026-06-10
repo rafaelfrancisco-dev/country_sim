@@ -168,6 +168,9 @@ pub struct StockMarket {
     pub day_active_traders_count: usize,
     pub day_buy_orders_count: u64,
     pub day_sell_orders_count: u64,
+    /// World-priced value of `bank_portfolio` (incl. foreign listings), refreshed
+    /// at every market day close. Transient runtime cache — not persisted.
+    pub last_bank_equity_exposure: f64,
 }
 
 impl Default for StockMarket {
@@ -187,6 +190,7 @@ impl Default for StockMarket {
             day_active_traders_count: 0,
             day_buy_orders_count: 0,
             day_sell_orders_count: 0,
+            last_bank_equity_exposure: 0.0,
         }
     }
 }
@@ -206,10 +210,6 @@ impl StockMarket {
 
     pub fn listed_count(&self) -> usize {
         self.listed.len()
-    }
-
-    pub fn bank_equity_exposure(&self) -> f64 {
-        self.bank_portfolio.total_equity_value(self)
     }
 
     pub fn security_id(&self, country_id: u16, company_id: u16) -> Option<StockSecurityId> {

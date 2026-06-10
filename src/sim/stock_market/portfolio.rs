@@ -108,19 +108,6 @@ impl Portfolio {
         shares
     }
 
-    pub fn total_equity_value(&self, market: &super::StockMarket) -> f64 {
-        self.positions
-            .iter()
-            .map(|position| {
-                let price = market
-                    .listed
-                    .get(&position.security_id.company_id)
-                    .map_or(0.0, |equity| equity.last_price);
-                position.shares as f64 * price
-            })
-            .sum()
-    }
-
     pub fn pledge_all(&mut self) {
         for position in &mut self.positions {
             position.pledged_shares = position.shares;

@@ -230,6 +230,7 @@ pub(super) fn stock_market_from_dto(dto: StockMarketDto) -> StockMarket {
         day_active_traders_count: 0,
         day_buy_orders_count: 0,
         day_sell_orders_count: 0,
+        last_bank_equity_exposure: 0.0,
     }
 }
 

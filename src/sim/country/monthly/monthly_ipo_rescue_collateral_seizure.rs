@@ -90,6 +90,12 @@ impl Country {
         if !params.enabled || params.ipo_initial_shares == 0 {
             return false;
         }
+        // Listing cap applies to every IPO path, including distress rescues.
+        if params.max_total_listings > 0
+            && self.stock_market.listed.len() >= params.max_total_listings
+        {
+            return false;
+        }
         let Some(company) = self.companies.get(company_idx) else {
             return false;
         };
@@ -200,7 +206,7 @@ impl Country {
         }
 
         let bank_reserve = self.primary_bank().reserve_balance;
-        let bank_equity_exposure = self.stock_market.bank_equity_exposure();
+        let bank_equity_exposure = self.stock_market.last_bank_equity_exposure;
         let bank_headroom = round_cents(
             (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure)
                 .max(0.0),

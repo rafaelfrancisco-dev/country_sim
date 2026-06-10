@@ -339,9 +339,13 @@ impl Country {
             let mut principal_written_off = 0.0;
             let primary_bank_id = self.primary_bank().id;
             let mut loan_slot = None;
+            let mut recovered_cash_cents = 0_i64;
             if let Some(company) = self.companies.get_mut(company_idx) {
                 company.open_positions.clear();
                 loan_slot = company.loan.take();
+                if company.cash_balance > 0.0 {
+                    recovered_cash_cents = to_cents(company.cash_balance);
+                }
                 company.cash_balance = 0.0;
                 self.housing_stock_company_facility = self
                     .housing_stock_company_facility
@@ -356,6 +360,12 @@ impl Country {
             }
             if let Some(company) = self.companies.get_mut(company_idx) {
                 company.loan = loan_slot;
+            }
+            // Liquidation recovery: remaining cash escheats to the treasury instead of
+            // vanishing (mirrors the cash escheat on person death).
+            if recovered_cash_cents > 0 {
+                self.adjust_company_cash_total_cents(-recovered_cash_cents);
+                self.adjust_treasury_balance_cents(recovered_cash_cents);
             }
 
             // Delist stock before emitting bankruptcy event

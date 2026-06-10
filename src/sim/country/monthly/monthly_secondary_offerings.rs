@@ -19,26 +19,23 @@ impl Country {
                 country_id: self.id,
                 company_id,
             };
-            let Some(company) = self.companies.get(company_id as usize) else {
+            // The listing key is a stable security id; the company vec index lives in
+            // `current_company_id` (they diverge after bankruptcy compaction).
+            let Some((current_company_id, last_price, shares_outstanding)) = self
+                .stock_market
+                .listed
+                .get(&company_id)
+                .map(|e| (e.current_company_id, e.last_price, e.shares_outstanding))
+            else {
+                continue;
+            };
+            let Some(company) = self.companies.get(current_company_id as usize) else {
                 continue;
             };
             if company.consecutive_missed_loan_payments < trigger {
                 continue;
             }
-            let last_price = self
-                .stock_market
-                .listed
-                .get(&company_id)
-                .map_or(0.0, |e| e.last_price);
-            if last_price <= 0.0 {
-                continue;
-            }
-            let shares_outstanding = self
-                .stock_market
-                .listed
-                .get(&company_id)
-                .map_or(0, |e| e.shares_outstanding);
-            if shares_outstanding == 0 {
+            if last_price <= 0.0 || shares_outstanding == 0 {
                 continue;
             }
 
@@ -75,7 +72,7 @@ impl Country {
                 raised = round_cents(raised + cost);
             }
 
-            let bank_equity_exposure = self.stock_market.bank_equity_exposure();
+            let bank_equity_exposure = self.stock_market.last_bank_equity_exposure;
             let bank_headroom = round_cents(
                 (self.primary_bank().reserve_balance * params.bank_max_equity_reserve_fraction
                     - bank_equity_exposure)

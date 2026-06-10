@@ -13,6 +13,17 @@ impl Country {
             .filter_map(|p| p.loan.as_ref().map(|loan| (p.id, loan.monthly_payment)))
             .collect();
 
+        // Pledges are recomputed from scratch every month: release everything first so
+        // holdings unlock once a loan is repaid, then re-pledge for current borrowers.
+        for portfolio in self.stock_market.person_portfolios.values_mut() {
+            for position in &mut portfolio.positions {
+                position.pledged_shares = 0;
+            }
+        }
+
+        // The bank pays cash for seized shares; it can only buy what its reserves cover.
+        let mut bank_reserve_remaining = self.primary_bank().reserve_balance.max(0.0);
+
         for (person_id, monthly_payment) in people_with_loans {
             let Some(person_idx) = self.runtime.person_idx(person_id) else {
                 continue;
@@ -69,7 +80,14 @@ impl Country {
                 };
                 let remaining_need = round_cents(shortfall - proceeds);
                 let shares_needed = ((remaining_need / sale_price).ceil() as u64).max(1);
-                let shares_to_sell = shares_needed.min(pos.pledged_shares);
+                let bank_affordable_shares = if sale_price > 0.0 {
+                    (bank_reserve_remaining / sale_price).floor() as u64
+                } else {
+                    0
+                };
+                let shares_to_sell = shares_needed
+                    .min(pos.pledged_shares)
+                    .min(bank_affordable_shares);
                 if shares_to_sell == 0 {
                     continue;
                 }
@@ -97,6 +115,8 @@ impl Country {
                     shares_to_sell,
                     sale_price,
                 );
+                bank_reserve_remaining =
+                    round_cents((bank_reserve_remaining - sale_proceeds).max(0.0));
                 let primary_bank = self.primary_bank_mut();
                 primary_bank.reserve_balance =
                     round_cents(primary_bank.reserve_balance - sale_proceeds).max(0.0);

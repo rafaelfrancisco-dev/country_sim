@@ -254,7 +254,7 @@ impl Country {
 
         // Bank fills residual up to its equity headroom.
         let bank_reserve = self.primary_bank().reserve_balance;
-        let bank_equity_exposure = self.stock_market.bank_equity_exposure();
+        let bank_equity_exposure = self.stock_market.last_bank_equity_exposure;
         let bank_headroom = round_cents(
             (bank_reserve * params.bank_max_equity_reserve_fraction - bank_equity_exposure)
                 .max(0.0),
