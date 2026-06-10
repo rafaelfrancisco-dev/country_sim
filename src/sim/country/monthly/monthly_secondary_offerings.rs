@@ -1,7 +1,7 @@
 use super::*;
 
 impl Country {
-    pub(super) fn process_listed_company_secondary_offerings(&mut self) {
+    pub(crate) fn process_listed_company_secondary_offerings(&mut self) {
         let params = self.sim_params.stock_market;
         if !params.enabled {
             return;

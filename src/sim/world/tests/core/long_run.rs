@@ -389,6 +389,58 @@ fn generated_world_3x15k_1095_days_keeps_country_unemployment_capped() {
 }
 
 #[test]
+fn generated_world_2x1k_360_days_stock_market_is_two_sided() {
+    let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 360, 2);
+    assert!(
+        world.validate_invariants().is_empty(),
+        "invariant violations: {:?}",
+        world.validate_invariants()
+    );
+
+    let mut ups = 0_u64;
+    let mut downs = 0_u64;
+    for country in &world.countries {
+        let market = country.stock_market();
+        assert!(
+            market.index_value().is_finite() && market.index_value() >= 0.0,
+            "country {}: index_value {} not finite/non-negative",
+            country.id,
+            market.index_value()
+        );
+        for equity in market.listed.values() {
+            assert!(
+                equity.last_price.is_finite() && equity.last_price > 0.0,
+                "country {} {}: last_price {} invalid",
+                country.id,
+                equity.ticker,
+                equity.last_price
+            );
+            let closes: Vec<f64> = equity.price_history.iter().copied().collect();
+            for pair in closes.windows(2) {
+                if pair[0] <= 0.0 {
+                    continue;
+                }
+                let change = (pair[1] - pair[0]) / pair[0];
+                if change > 1e-9 {
+                    ups += 1;
+                } else if change < -1e-9 {
+                    downs += 1;
+                }
+            }
+        }
+    }
+
+    assert!(downs > 0, "expected some down closes, got {downs}");
+    // Regression guard for the one-way price ratchet: buy limits used to be
+    // capped below the maker ask, making up-closes ~0.6% of all moves. Healthy
+    // two-sided pricing keeps up-moves at least a meaningful share of downs.
+    assert!(
+        ups * 20 >= downs && ups > 0,
+        "up-closes {ups} vs down-closes {downs}: market is a one-way ratchet again"
+    );
+}
+
+#[test]
 #[ignore = "manual diagnostic: prints profitability mix after 730 days (2 x 1k)"]
 fn generated_world_2x1k_730_days_prints_profitability_mix() {
     let world = run_generated_world_in_pool(0x5eed_c0de, 2, 1_000, 730, 4);

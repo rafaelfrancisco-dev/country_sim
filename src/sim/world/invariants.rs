@@ -55,6 +55,24 @@ impl super::World {
                 }
             }
 
+            for portfolio in country.stock_market.person_portfolios.values() {
+                for position in &portfolio.positions {
+                    if position.pledged_shares > position.shares {
+                        violations.push(InvariantViolation {
+                            code: "stock_pledge_exceeds_holding",
+                            message: format!(
+                                "country {} security ({}, {}): pledged {} > held {}",
+                                country.id(),
+                                position.security_id.country_id,
+                                position.security_id.company_id,
+                                position.pledged_shares,
+                                position.shares
+                            ),
+                        });
+                    }
+                }
+            }
+
             for violation in country.validate_money_invariants() {
                 violations.push(InvariantViolation {
                     code: violation.code,

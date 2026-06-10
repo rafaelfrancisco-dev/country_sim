@@ -459,3 +459,64 @@ fn distress_ipo_keeps_secondary_zero() {
     assert!(matches!(ipo.0, IpoReason::Distress));
     assert_eq!(ipo.1, 0);
 }
+
+#[test]
+fn secondary_offering_targets_current_company_after_compaction() {
+    let mut companies = build_default_companies("A", 2);
+    companies[0].open_positions.clear();
+    companies[1].open_positions.clear();
+    // Company 0 is bankrupt fodder; company 1 is listed and missing loan payments.
+    companies[1].cash_balance = 5_000.0;
+    companies[1].consecutive_missed_loan_payments = 1;
+
+    let mut people = Vec::new();
+    for idx in 0..20_u32 {
+        let mut investor = Person::new_with_profile(
+            idx + 1,
+            EmploymentStatus::Unemployed,
+            idx + 101,
+            30 * DAYS_PER_YEAR,
+            EducationTrack::HighSchool,
+        );
+        investor.cash_balance = 50_000.0;
+        people.push(investor);
+    }
+
+    let params = SimulationParams::default();
+    let mut country =
+        Country::with_economy_and_params(1, "A".to_string(), people, companies, 0.0, params);
+
+    let equity = crate::sim::stock_market::ListedEquity::new(
+        1,
+        1,
+        std::sync::Arc::from("TST"),
+        10.0,
+        1_000_000,
+        0,
+    );
+    country.stock_market.insert_listing_preserve_index(1, equity);
+
+    // Bankrupting company 0 compacts the vec: company 1 moves to index 0 and the
+    // listing's current_company_id is remapped while the listing key stays 1.
+    country.resolve_company_bankruptcies(vec![0]);
+    assert_eq!(country.companies.len(), 1);
+    let listed = country.stock_market.listed.get(&1).expect("listing survives");
+    assert_eq!(listed.current_company_id, 0);
+
+    let cash_before = country.companies[0].cash_balance;
+    country.process_listed_company_secondary_offerings();
+
+    let raised = country
+        .pending_events
+        .iter()
+        .find_map(|event| match event {
+            SimEvent::StockSecondaryOffering { total_raised, .. } => Some(*total_raised),
+            _ => None,
+        })
+        .expect("expected a secondary offering for the distressed survivor");
+    assert!(raised > 0.0);
+    assert!(
+        (country.companies[0].cash_balance - cash_before - raised).abs() < 0.01,
+        "offering proceeds must be credited to the surviving company"
+    );
+}
