@@ -169,15 +169,15 @@ fn build_symbol_contexts(world: &World, day: u64) -> Vec<SymbolContext> {
                 .get(equity.current_company_id as usize)
                 .map(|company| {
                     let debt = company.loan.as_ref().map_or(0.0, |loan| loan.debt_balance);
-                    let anchor = StockMarket::ipo_valuation_anchor(
+                    // The P/S anchor already capitalizes the earnings dividends are paid
+                    // from; adding capitalized dividends on top would double count.
+                    let fundamental = StockMarket::ipo_valuation_anchor(
                         company.average_monthly_revenue(),
                         company.last_month_profit,
                         company.cash_balance,
                         debt,
                         equity.shares_outstanding,
                     );
-                    let div_value = equity.trailing_annual_dps() / 0.08;
-                    let fundamental = anchor + div_value;
                     if last_price > 0.0 {
                         (fundamental - last_price) / last_price
                     } else {
@@ -244,6 +244,10 @@ fn append_retail_orders_for_person(
     let person_id = person.id;
     let person_cash = person.cash_balance;
     let portfolio = country.stock_market().person_portfolios.get(&person_id);
+    // One wallet across all symbols: deduct each placed buy order's budget so a
+    // person cannot commit the same cash to every listing simultaneously.
+    let mut remaining_investable =
+        round_cents((person_cash - person_cash * reserve_ratio).max(0.0));
 
     for (symbol_idx, context) in symbol_contexts.iter().enumerate() {
         if !context.retail_enabled {
@@ -316,9 +320,19 @@ fn append_retail_orders_for_person(
                         unit_interval(hash64(order_seed ^ 0x3333)) * 0.02,
                     )
                 } else {
+                    // Discount scales with bearish conviction; random/weak-signal
+                    // sells post near the market instead of dumping at a deep cut.
+                    let sell_conviction = (-directional).max(0.0);
+                    let max_disc = if context.last_price > 0.0 {
+                        (1.0 - context.min_price / context.last_price).max(0.0)
+                    } else {
+                        0.0
+                    };
                     (
                         unit_interval(hash64(order_seed ^ 0x2222)) * 0.45 + 0.10,
-                        unit_interval(hash64(order_seed ^ 0x3333)) * 0.03,
+                        (unit_interval(hash64(order_seed ^ 0x3333)) * 0.005
+                            + sell_conviction * 0.5)
+                            .min(max_disc),
                     )
                 };
                 let shares = ((free_shares as f64 * sell_frac).ceil() as u64)
@@ -348,20 +362,32 @@ fn append_retail_orders_for_person(
             continue;
         }
 
-        let investable = round_cents((person_cash - person_cash * reserve_ratio).max(0.0));
-        if investable < context.last_price {
+        if remaining_investable < context.last_price {
+            continue;
+        }
+        // Bid premium scales with bullish conviction so buyers can actually lift
+        // the market toward fundamentals (capped at the daily price band).
+        let conviction = (directional - buy_threshold).max(0.0);
+        let max_prem = if context.last_price > 0.0 {
+            (context.max_price / context.last_price - 1.0).max(0.0)
+        } else {
+            0.0
+        };
+        let prem = (unit_interval(hash64(order_seed ^ 0x5555)) * 0.002 + conviction * 0.5)
+            .min(max_prem);
+        let limit_price = round_cents(context.last_price * (1.0 + prem));
+        if limit_price <= 0.0 {
             continue;
         }
         let buy_frac = unit_interval(hash64(order_seed ^ 0x4444)) * 0.45 + 0.08;
-        let budget = round_cents(investable * buy_frac);
-        let shares = (budget / context.last_price) as u64;
+        let budget = round_cents(remaining_investable * buy_frac);
+        let shares = (budget / limit_price) as u64;
         let shares = shares.min(context.max_order_by_float).max(1);
-        if shares == 0 {
+        let cash_budget = round_cents(shares as f64 * limit_price);
+        if cash_budget > remaining_investable {
             continue;
         }
-        let prem = unit_interval(hash64(order_seed ^ 0x5555)) * 0.001;
-        let limit_price = round_cents(context.last_price * (1.0 + prem));
-        let cash_budget = round_cents(shares as f64 * limit_price);
+        remaining_investable = round_cents(remaining_investable - cash_budget);
         scratch.push_buy(
             symbol_idx,
             LimitOrder {

@@ -181,24 +181,40 @@ fn append_bank_market_maker_orders(
     let spread_frac = params.maker_spread_bps as f64 / 10_000.0;
     let bank_equity_exposure = world.market_bank_portfolio_value(country_id);
     let bank_equity_budget = params.bank_max_equity_reserve_fraction * bank.reserve_balance;
-    let bank_equity_headroom = (bank_equity_budget - bank_equity_exposure).max(0.0);
+    // Each bid placed consumes headroom so the bank cannot commit its full
+    // equity budget to every symbol at once; remaining headroom is re-divided
+    // across the symbols not yet quoted to spread bids fairly.
+    let mut bank_equity_headroom = (bank_equity_budget - bank_equity_exposure).max(0.0);
+    let mut open_symbols_remaining = symbol_contexts
+        .iter()
+        .filter(|context| context.market_open)
+        .count() as u64;
 
     for (symbol_idx, context) in symbol_contexts.iter().copied().enumerate() {
         if !context.market_open {
             continue;
         }
+        let bid_budget_this_symbol = bank_equity_headroom / open_symbols_remaining.max(1) as f64;
+        open_symbols_remaining = open_symbols_remaining.saturating_sub(1);
 
+        // Quote around a fundamental-blended mid (instead of pure last price) so
+        // the maker gradually pulls quotes toward value in both directions.
+        let anchor_shift = 0.05 * context.value_gap.clamp(-0.5, 0.5);
+        let quote_mid = (context.last_price * (1.0 + anchor_shift))
+            .clamp(context.min_price, context.max_price);
         let half_spread = spread_frac / 2.0;
-        let bid_price = round_cents((context.last_price * (1.0 - half_spread)).max(0.01));
-        let ask_price = round_cents(context.last_price * (1.0 + half_spread));
+        let bid_price = round_cents((quote_mid * (1.0 - half_spread)).max(0.01));
+        let ask_price = round_cents(quote_mid * (1.0 + half_spread));
 
         let bid_shares_by_headroom = if bid_price > 0.0 {
-            (bank_equity_headroom / bid_price).floor() as u64
+            (bid_budget_this_symbol / bid_price).floor() as u64
         } else {
             0
         };
         let bid_shares = bid_shares_by_headroom.min(context.max_order_by_float);
         if bid_shares > 0 {
+            let bid_commitment = round_cents(bid_shares as f64 * bid_price);
+            bank_equity_headroom = (bank_equity_headroom - bid_commitment).max(0.0);
             scratch.push_buy(
                 symbol_idx,
                 LimitOrder {
@@ -210,7 +226,7 @@ fn append_bank_market_maker_orders(
                     side: OrderSide::Buy,
                     limit_price: bid_price,
                     remaining_shares: bid_shares,
-                    remaining_cash_budget: round_cents(bid_shares as f64 * bid_price),
+                    remaining_cash_budget: bid_commitment,
                 },
             );
         }

@@ -103,7 +103,7 @@ impl Default for StockMarketParams {
             ipo_retry_cooldown_months: 2,
             retail_distress_sell_cash_threshold: 500.0,
             retail_take_profit_gain_threshold: 0.40,
-            retail_random_sell_prob: 0.22,
+            retail_random_sell_prob: 0.06,
             secondary_offering_missed_payment_trigger: 1,
             secondary_offering_discount: 0.10,
             secondary_offering_max_dilution: 0.15,
