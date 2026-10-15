@@ -1,8 +1,27 @@
 # country_sim
 
-[![CI](https://github.com//country_sim/workflows/CI/badge.svg)](https://github.com//country_sim/actions)
+An agent-based economic simulation of a world of countries, played in the terminal. Every in-game day, each citizen ages, looks for work, earns, spends, borrows and saves. Companies buy inputs, hire, produce and go bankrupt, and banks hold reserves and make loans. Each country taxes, makes transfers and manages its currency. Monthly cycles settle wages, loans, housing and foreign exchange, and you can watch the macro picture emerge or hit a country with disasters to see how it recovers.
 
-A toy app...
+Written in Rust (2024 edition) with [ratatui](https://ratatui.rs). The simulation core is parallelised with rayon, and world state persists to SQLite.
+
+## Highlights
+
+- **Bottom-up economy** — individual people, companies and banks, not aggregate equations. Covers demographics and labor, migration between countries, input supply chains, a housing market with rent and mortgages, and a stock market with IPOs.
+- **Money and FX** — commercial banks with reserves and loan books, tax brackets and fiscal transfers, currency unions, managed exchange rates and FX reserves.
+- **Scenario shocks** — bankruptcy waves, stock crashes, bank runs, loan defaults, treasury and demand shocks, each at selectable intensity.
+- **Instrumented** — eight live dashboard tabs (Main, Goods, Banks, Stocks, FX, Disasters, Charts, Events), CSV export of monthly metrics, a world benchmark harness with thread sweeps and opt-in runtime invariant checks.
+- **Seeded** — world generation is reproducible from `--seed`.
+
+## Quick start
+
+```sh
+cargo run --release                       # interactive setup screen, then the simulation
+cargo run --release -- --seed demo        # reproducible run
+cargo run --release -- --export-csv out/  # also write monthly metrics as CSV
+cargo run --release -- --help             # tick rate, frame rate, sim mode, ...
+```
+
+`Tab` / `Shift+Tab` switches tabs, `w/s` moves, `a/d` changes focus, `,/.` cycles countries and `Shift+S` saves.
 
 ## Save / Load
 

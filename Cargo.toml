@@ -2,7 +2,7 @@
 name = "country-sim"
 version = "0.1.0"
 edition = "2024"
-description = "A toy app..."
+description = "Agent-based economic simulation of a world of countries, played in the terminal"
 authors = ["Rafael Francisco <rafaelfrancisco6@gmail.com>"]
 build = "build.rs"
 
